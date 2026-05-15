@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#3b82f6"/>
-  <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle"
+  <rect width="64" height="64" rx="14" fill="#0a0a0a"/>
+  <rect x="14" y="14" width="36" height="36" rx="6" fill="#c6f432"/>
+  <text x="50%" y="56%" text-anchor="middle" dominant-baseline="middle"
         font-family="ui-sans-serif, system-ui, Segoe UI, Roboto, sans-serif"
-        font-weight="800" font-size="22" fill="#ffffff" letter-spacing="0.5">BP</text>
+        font-weight="900" font-size="22" fill="#0a0a0a">B</text>
 </svg>

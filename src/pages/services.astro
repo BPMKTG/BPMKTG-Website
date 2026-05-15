@@ -3,24 +3,25 @@ import Layout from '../layouts/Layout.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 
 const services = [
-  { title: 'Brand & Positioning', body: 'Narrative, naming, visual identity, and messaging frameworks.' },
-  { title: 'Paid Media', body: 'Meta, Google, TikTok, and programmatic — built for ROAS and payback.' },
-  { title: 'SEO & Content', body: 'Topical authority, technical SEO, and editorial pipelines.' },
-  { title: 'Lifecycle Marketing', body: 'Email, SMS, push, and onboarding flows that drive retention.' },
+  { title: 'Brand & Positioning', body: 'Narrative, naming, visual identity, and messaging frameworks built to last.' },
+  { title: 'Paid Media',          body: 'Meta, Google, TikTok, and programmatic — tuned for ROAS and payback.' },
+  { title: 'SEO & Local',         body: 'Topical authority, technical SEO, and Google Business that drives walk-ins.' },
+  { title: 'Lifecycle',           body: 'Email, SMS, push, and onboarding flows engineered for retention.' },
   { title: 'Creative Production', body: 'Static, motion, and short-form video at iteration speed.' },
-  { title: 'Analytics & Attribution', body: 'Server-side tracking, MMM, and clean dashboards.' },
+  { title: 'Analytics',           body: 'Server-side tracking, attribution, and dashboards executives actually read.' },
 ];
 ---
-<Layout title="Services — BPMKTG">
+<Layout title="Services — Blueprint Marketing">
   <section class="section">
     <div class="container">
       <p class="eyebrow">Services</p>
       <h1>What we do.</h1>
-      <p style="max-width: 60ch;">
-        Placeholder service descriptions. Replace these cards with the offers you
-        actually sell — or fold them into packages and pricing tiers.
-      </p>
+      <p class="lede">A full marketing department, on tap. Pick what you need or hire the whole stack.</p>
     </div>
   </section>
   <FeatureGrid features={services} />
 </Layout>
+
+<style>
+  .lede { color: #4a4a4a; font-size: 1.1rem; max-width: 60ch; margin-top: 1rem; }
+</style>

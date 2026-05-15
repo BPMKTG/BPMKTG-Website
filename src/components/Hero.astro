@@ -1,31 +1,197 @@
 ---
-interface Props {
-  eyebrow?: string;
-  title: string;
-  subtitle?: string;
-  primaryCta?: { href: string; label: string };
-  secondaryCta?: { href: string; label: string };
-}
+const tiles = [
+  { hue: 220, label: 'Tech' },
+  { hue: 290, label: 'D2C' },
+  { hue: 12,  label: 'Hospitality' },
+  { hue: 48,  label: 'Finance' },
+  { hue: 160, label: 'SaaS' },
+  { hue: 200, label: 'Retail' },
+  { hue: 340, label: 'Wellness' },
+  { hue: 95,  label: 'Local' },
+];
 
-const { eyebrow, title, subtitle, primaryCta, secondaryCta } = Astro.props;
+const brands = ['NORTHWIND', 'LATTICE', 'AERIS', 'KILN & CO.', 'MERIDIAN'];
 ---
-<section class="hero section">
-  <div class="container hero-inner">
-    {eyebrow && <p class="eyebrow">{eyebrow}</p>}
-    <h1>{title}</h1>
-    {subtitle && <p class="subtitle">{subtitle}</p>}
-    {(primaryCta || secondaryCta) && (
-      <div class="cta-row">
-        {primaryCta && <a class="button" href={primaryCta.href}>{primaryCta.label}</a>}
-        {secondaryCta && <a class="button secondary" href={secondaryCta.href}>{secondaryCta.label}</a>}
+<section class="hero-section">
+  <div class="container hero-grid">
+
+    <article class="hero-card">
+      <div class="hero-card-inner">
+        <h1>
+          Build your brand
+          <br />
+          <span class="highlight">the right way.</span>
+        </h1>
+        <p class="hero-sub">
+          Turning local businesses into recognized brands since 2018.
+          You run the business. We'll handle the marketing.
+        </p>
+
+        <a href="/contact" class="button">
+          Get started
+          <span class="arrow" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </a>
       </div>
-    )}
+
+      <div class="hero-card-bg" aria-hidden="true"></div>
+    </article>
+
+    <article class="showcase-card">
+      <div class="tile-grid" role="presentation">
+        {tiles.map(t => (
+          <div class="tile" style={`background: radial-gradient(120% 120% at 30% 20%, hsl(${t.hue} 70% 55% / 0.85), hsl(${t.hue} 70% 22%) 60%, #0a0a0a 100%);`}>
+            <span class="tile-label">{t.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div class="trusted-overlay">
+        <p class="trusted-title">Proudly trusted by:</p>
+        <ul class="brand-row">
+          {brands.map(b => (
+            <li>
+              <span class="brand-chip">{b}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </article>
+
   </div>
 </section>
 
 <style>
-  .hero { padding-top: 6rem; padding-bottom: 4rem; }
-  .hero-inner { max-width: 780px; }
-  .subtitle { font-size: 1.15rem; color: var(--color-muted); max-width: 60ch; }
-  .cta-row { display: flex; gap: 0.75rem; margin-top: 1.75rem; flex-wrap: wrap; }
+  .hero-section { padding: 1.5rem 0 2rem; }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: 1.25rem;
+  }
+
+  .hero-card,
+  .showcase-card {
+    position: relative;
+    background: var(--color-card);
+    color: var(--color-text);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    min-height: 580px;
+  }
+
+  .hero-card-inner {
+    position: relative;
+    z-index: 2;
+    padding: 3rem 3rem 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    height: 100%;
+  }
+  .hero-card-inner h1 { color: #fff; max-width: 14ch; }
+  .hero-sub {
+    color: var(--color-muted);
+    font-size: 1.05rem;
+    max-width: 40ch;
+    margin-top: auto;
+  }
+  .hero-card-inner .button { align-self: flex-start; }
+
+  .hero-card-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+      radial-gradient(60% 50% at 90% 10%, rgba(198, 244, 50, 0.18), transparent 60%),
+      radial-gradient(40% 40% at 10% 100%, rgba(198, 244, 50, 0.10), transparent 60%);
+    pointer-events: none;
+  }
+
+  .showcase-card { padding: 1rem; }
+  .tile-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 0.65rem;
+    height: 100%;
+    min-height: 560px;
+  }
+  .tile {
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    padding: 0.85rem;
+    isolation: isolate;
+  }
+  .tile::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0) 55%);
+    z-index: 1;
+  }
+  .tile-label {
+    position: relative;
+    z-index: 2;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .trusted-overlay {
+    position: absolute;
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    background: rgba(10, 10, 10, 0.78);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 18px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .trusted-title {
+    color: #fff;
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin: 0;
+    white-space: nowrap;
+  }
+  .brand-row {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    flex: 1;
+    justify-content: space-around;
+  }
+  .brand-chip {
+    color: rgba(255, 255, 255, 0.78);
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 0.95rem;
+    letter-spacing: 0.05em;
+  }
+
+  @media (max-width: 980px) {
+    .hero-grid { grid-template-columns: 1fr; }
+    .hero-card, .showcase-card { min-height: 0; }
+    .hero-card-inner { padding: 2.25rem; }
+    .tile-grid { min-height: 420px; }
+  }
+  @media (max-width: 560px) {
+    .tile-grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(4, 1fr); }
+  }
 </style>

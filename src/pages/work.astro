@@ -1,0 +1,53 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const cases = [
+  { client: 'Northwind Coffee', tag: 'Hospitality', result: '3.2× foot traffic in 90 days', hue: 18 },
+  { client: 'Lattice Studio',   tag: 'SaaS',         result: '$0 → $40k MRR in 6 months',  hue: 220 },
+  { client: 'Aeris Wellness',   tag: 'D2C',          result: 'ROAS 4.8 on cold traffic',   hue: 290 },
+  { client: 'Kiln & Co.',       tag: 'Retail',       result: '12k followers in 60 days',   hue: 45 },
+];
+---
+<Layout title="Our Work — Blueprint Marketing">
+  <section class="section">
+    <div class="container">
+      <header class="page-header">
+        <p class="eyebrow">Our Work</p>
+        <h1>Receipts.</h1>
+      </header>
+      <div class="case-grid">
+        {cases.map(c => (
+          <article class="case" style={`background: linear-gradient(160deg, hsl(${c.hue} 70% 18%), #0a0a0a 85%);`}>
+            <span class="tag">{c.tag}</span>
+            <h3>{c.client}</h3>
+            <p>{c.result}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .page-header { margin-bottom: 2rem; }
+  .case-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+  .case {
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    min-height: 220px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .tag {
+    align-self: flex-start;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    font-weight: 700;
+  }
+  .case h3 { font-family: var(--font-display); font-size: 1.75rem; text-transform: uppercase; margin-top: auto; }
+  .case p { color: rgba(255,255,255,0.78); font-size: 1rem; }
+</style>

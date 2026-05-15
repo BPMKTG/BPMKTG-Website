@@ -1,25 +1,29 @@
 ---
 import Layout from '../layouts/Layout.astro';
 ---
-<Layout title="About — BPMKTG">
+<Layout title="About — Blueprint Marketing">
   <section class="section">
     <div class="container narrow">
       <p class="eyebrow">About</p>
       <h1>We build growth systems, not campaigns.</h1>
-      <p>
-        This is placeholder copy. Tell your origin story here — why BPMKTG exists,
-        who you serve, and the wedge that makes you different. Two or three
-        paragraphs is usually plenty.
+      <p class="lede">
+        Blueprint Marketing is a placeholder bio — swap this with your real
+        origin story. Why does Blueprint exist? Who do you serve? What's the
+        wedge that makes you different from every other agency?
       </p>
-      <p>
-        Mention the team, your principles, and a sentence on the kinds of clients
-        you do your best work with. End with a clear call to action.
+      <p class="lede">
+        Two or three paragraphs is plenty. Mention the team, your principles,
+        and the kind of clients you do your best work with. End with a clear
+        call to action.
       </p>
-      <a class="button" href="/contact">Work with us</a>
+      <a class="button" href="/contact">Work with us
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
     </div>
   </section>
 </Layout>
 
 <style>
-  .narrow { max-width: 720px; }
+  .narrow { max-width: 760px; }
+  .lede { color: #4a4a4a; font-size: 1.1rem; margin: 1rem 0; }
 </style>

@@ -1,15 +1,15 @@
 ---
 import Layout from '../layouts/Layout.astro';
 ---
-<Layout title="Contact — BPMKTG">
+<Layout title="Contact — Blueprint Marketing">
   <section class="section">
     <div class="container narrow">
       <p class="eyebrow">Contact</p>
       <h1>Let's talk.</h1>
-      <p>
-        Drop us a note and we'll get back within one business day. Replace this
-        form action with your preferred handler (Formspree, Web3Forms, Cloudflare
-        Workers, etc.) before going live.
+      <p class="lede">
+        Drop us a note and we'll get back within one business day. Replace the
+        form action with your handler (Formspree, Web3Forms, Cloudflare Workers)
+        before going live.
       </p>
 
       <form class="contact-form" action="https://formspree.io/f/your-id" method="POST">
@@ -25,7 +25,10 @@ import Layout from '../layouts/Layout.astro';
           <span>How can we help?</span>
           <textarea name="message" rows="5" required></textarea>
         </label>
-        <button class="button" type="submit">Send message</button>
+        <button class="button" type="submit">
+          Send message
+          <span class="arrow" aria-hidden="true">→</span>
+        </button>
       </form>
     </div>
   </section>
@@ -33,22 +36,24 @@ import Layout from '../layouts/Layout.astro';
 
 <style>
   .narrow { max-width: 640px; }
-  .contact-form { display: grid; gap: 1rem; margin-top: 2rem; }
-  .contact-form label { display: grid; gap: 0.35rem; font-size: 0.9rem; color: var(--color-muted); }
+  .lede { color: #4a4a4a; font-size: 1.1rem; margin: 1rem 0 2rem; }
+  .contact-form { display: grid; gap: 1rem; }
+  .contact-form label { display: grid; gap: 0.35rem; font-size: 0.85rem; color: #4a4a4a; font-weight: 600; }
   .contact-form input,
   .contact-form textarea {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    color: var(--color-text);
-    padding: 0.7rem 0.85rem;
+    background: #fff;
+    border: 1px solid #d9d9d6;
+    border-radius: 12px;
+    color: var(--color-ink);
+    padding: 0.85rem 1rem;
     font: inherit;
     width: 100%;
   }
   .contact-form input:focus,
   .contact-form textarea:focus {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 1px;
+    outline: none;
+    border-color: var(--color-ink);
+    box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.45);
   }
-  .contact-form button { justify-self: start; border: none; cursor: pointer; }
+  .contact-form button { justify-self: start; }
 </style>

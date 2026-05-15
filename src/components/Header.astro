@@ -1,8 +1,10 @@
 ---
 const navItems = [
-  { href: '/', label: 'Home' },
-  { href: '/about', label: 'About' },
-  { href: '/services', label: 'Services' },
+  { href: '/services', label: 'Our Services' },
+  { href: '/offers', label: 'Offers' },
+  { href: '/work', label: 'Our Work' },
+  { href: '/about', label: 'About Us' },
+  { href: '/blog', label: 'Blog' },
   { href: '/contact', label: 'Contact' },
 ];
 
@@ -10,8 +12,12 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 ---
 <header class="site-header">
   <div class="container header-inner">
-    <a href="/" class="brand">BPMKTG</a>
-    <nav>
+    <a href="/" class="brand" aria-label="Blueprint Marketing home">
+      <span class="brand-mark">BLUEPRINT</span>
+      <span class="brand-sub">MKTG</span>
+    </a>
+
+    <nav class="nav-pill" aria-label="Primary">
       <ul>
         {navItems.map(item => (
           <li>
@@ -20,44 +26,89 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
         ))}
       </ul>
     </nav>
+
+    <a href="/contact" class="cta-link" aria-label="Get started">
+      <span class="dot" aria-hidden="true"></span>
+      Get in touch
+    </a>
   </div>
 </header>
 
 <style>
   .site-header {
-    border-bottom: 1px solid var(--color-border);
-    background: rgba(11, 13, 18, 0.85);
-    backdrop-filter: blur(8px);
     position: sticky;
     top: 0;
     z-index: 50;
+    background: var(--color-bg);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
   .header-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.25rem;
+    gap: 1.5rem;
+    padding: 1.1rem 1.5rem;
   }
   .brand {
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    color: var(--color-text);
-    font-size: 1.05rem;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-family: var(--font-display);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    font-size: 1.35rem;
+    color: var(--color-ink);
   }
-  nav ul {
+  .brand-sub {
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    color: var(--color-ink);
+    background: var(--color-accent);
+    padding: 0.15rem 0.45rem;
+    border-radius: 6px;
+    font-weight: 800;
+  }
+  .nav-pill {
+    background: var(--color-card);
+    border-radius: 999px;
+    padding: 0.4rem 0.55rem;
+  }
+  .nav-pill ul {
     list-style: none;
     display: flex;
-    gap: 1.5rem;
+    align-items: center;
+    gap: 0.15rem;
     margin: 0;
     padding: 0;
   }
-  nav a {
-    color: var(--color-muted);
+  .nav-pill a {
+    display: inline-block;
+    padding: 0.55rem 0.95rem;
+    color: #d8d8d8;
+    font-size: 0.9rem;
     font-weight: 500;
-    font-size: 0.95rem;
+    border-radius: 999px;
+    transition: background 0.15s ease, color 0.15s ease;
   }
-  nav a:hover, nav a.active { color: var(--color-text); }
-  @media (max-width: 560px) {
-    nav ul { gap: 1rem; }
+  .nav-pill a:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+  .nav-pill a.active { color: var(--color-ink); background: var(--color-accent); font-weight: 700; }
+  .cta-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--color-ink);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--color-accent);
+    box-shadow: 0 0 0 4px rgba(198, 244, 50, 0.25);
+  }
+  @media (max-width: 960px) {
+    .nav-pill { display: none; }
+  }
+  @media (max-width: 520px) {
+    .cta-link { display: none; }
   }
 </style>
