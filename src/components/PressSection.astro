@@ -1,0 +1,82 @@
+---
+const press = [
+  { outlet: 'Forbes',         headline: 'Inside Blueprint\'s Playbook: How to Scale a Local Brand', date: '13.03.2025' },
+  { outlet: 'Fast Company',   headline: 'Blueprint Marketing: The Powerhouse Behind Local Wins', date: '01.09.2025' },
+  { outlet: 'Inc.',           headline: 'Shaping the Next Decade of Brand Building',             date: '5.12.2025' },
+  { outlet: 'Adweek',         headline: 'It Takes a Team to Win the Market',                     date: '19.06.2025' },
+  { outlet: 'Entrepreneur',   headline: 'Why Independent Operators Hire Blueprint',              date: '2.10.2026' },
+];
+---
+<section class="press">
+  <div class="container">
+    <h2 class="press-hero">
+      <span>In the Press</span>
+      <span class="ghost">Press</span>
+      <span class="ghost-2">Press</span>
+    </h2>
+
+    <div class="press-grid">
+      {press.map(p => (
+        <article class="press-card">
+          <p class="outlet">{p.outlet}</p>
+          <p class="headline">{p.headline}</p>
+          <p class="date">{p.date}</p>
+        </article>
+      ))}
+    </div>
+
+    <div class="dots" aria-hidden="true">
+      <span class="dot active"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+  </div>
+</section>
+
+<style>
+  .press {
+    background: #0c1226;
+    color: #fff;
+    padding: 5rem 0 4rem;
+  }
+  .press-hero {
+    text-align: center;
+    color: #5b6cf2;
+    font-size: clamp(2.5rem, 5vw, 4.25rem);
+    text-transform: uppercase;
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin-bottom: 3rem;
+  }
+  .press-hero span { display: block; }
+  .press-hero .ghost { color: rgba(91, 108, 242, 0.55); }
+  .press-hero .ghost-2 { color: rgba(91, 108, 242, 0.25); }
+
+  .press-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 2rem 0;
+  }
+  .press-card { text-align: center; display: flex; flex-direction: column; gap: 0.65rem; align-items: center; }
+  .outlet {
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: #fff;
+  }
+  .headline { font-size: 0.85rem; color: rgba(255,255,255,0.72); max-width: 28ch; }
+  .date { font-size: 0.75rem; color: rgba(255,255,255,0.45); letter-spacing: 0.08em; }
+
+  .dots { display: flex; justify-content: center; gap: 0.5rem; margin-top: 2rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.25); }
+  .dot.active { background: #fff; }
+
+  @media (max-width: 920px) { .press-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .press-grid { grid-template-columns: 1fr; } }
+</style>

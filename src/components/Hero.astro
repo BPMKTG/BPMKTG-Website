@@ -1,13 +1,13 @@
 ---
 const tiles = [
-  { hue: 220, label: 'Tech' },
-  { hue: 290, label: 'D2C' },
-  { hue: 12,  label: 'Hospitality' },
-  { hue: 48,  label: 'Finance' },
-  { hue: 160, label: 'SaaS' },
+  { hue: 215, label: 'Hospitality' },
+  { hue: 195, label: 'D2C' },
+  { hue: 230, label: 'SaaS' },
+  { hue: 205, label: 'Local' },
+  { hue: 220, label: 'Wellness' },
   { hue: 200, label: 'Retail' },
-  { hue: 340, label: 'Wellness' },
-  { hue: 95,  label: 'Local' },
+  { hue: 210, label: 'Finance' },
+  { hue: 225, label: 'Tech' },
 ];
 
 const brands = ['NORTHWIND', 'LATTICE', 'AERIS', 'KILN & CO.', 'MERIDIAN'];
@@ -18,15 +18,13 @@ const brands = ['NORTHWIND', 'LATTICE', 'AERIS', 'KILN & CO.', 'MERIDIAN'];
     <article class="hero-card">
       <div class="hero-card-inner">
         <h1>
-          Build your brand
-          <br />
+          Build your<br />brand<br />
           <span class="highlight">the right way.</span>
         </h1>
         <p class="hero-sub">
           Turning local businesses into recognized brands since 2018.
           You run the business. We'll handle the marketing.
         </p>
-
         <a href="/contact" class="button">
           Get started
           <span class="arrow" aria-hidden="true">
@@ -36,14 +34,12 @@ const brands = ['NORTHWIND', 'LATTICE', 'AERIS', 'KILN & CO.', 'MERIDIAN'];
           </span>
         </a>
       </div>
-
-      <div class="hero-card-bg" aria-hidden="true"></div>
     </article>
 
     <article class="showcase-card">
-      <div class="tile-grid" role="presentation">
+      <div class="tile-grid">
         {tiles.map(t => (
-          <div class="tile" style={`background: radial-gradient(120% 120% at 30% 20%, hsl(${t.hue} 70% 55% / 0.85), hsl(${t.hue} 70% 22%) 60%, #0a0a0a 100%);`}>
+          <div class="tile" style={`background: radial-gradient(120% 120% at 30% 20%, hsl(${t.hue} 70% 60%) 0%, hsl(${t.hue} 70% 30%) 60%, #0c1f44 100%);`}>
             <span class="tile-label">{t.label}</span>
           </div>
         ))}
@@ -52,11 +48,7 @@ const brands = ['NORTHWIND', 'LATTICE', 'AERIS', 'KILN & CO.', 'MERIDIAN'];
       <div class="trusted-overlay">
         <p class="trusted-title">Proudly trusted by:</p>
         <ul class="brand-row">
-          {brands.map(b => (
-            <li>
-              <span class="brand-chip">{b}</span>
-            </li>
-          ))}
+          {brands.map(b => (<li><span class="brand-chip">{b}</span></li>))}
         </ul>
       </div>
     </article>
@@ -68,92 +60,85 @@ const brands = ['NORTHWIND', 'LATTICE', 'AERIS', 'KILN & CO.', 'MERIDIAN'];
   .hero-section { padding: 1.5rem 0 2rem; }
   .hero-grid {
     display: grid;
-    grid-template-columns: 1fr 1.15fr;
+    grid-template-columns: 1fr 1.25fr;
     gap: 1.25rem;
   }
-
-  .hero-card,
-  .showcase-card {
+  .hero-card, .showcase-card {
     position: relative;
-    background: var(--color-card);
-    color: var(--color-text);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    min-height: 580px;
+    min-height: 480px;
   }
-
+  .hero-card {
+    background:
+      radial-gradient(80% 90% at 100% 0%, rgba(98, 166, 219, 0.5), transparent 60%),
+      linear-gradient(135deg, #1d3f85 0%, #264fa0 50%, #1a3878 100%);
+    color: #fff;
+  }
+  .hero-card::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 36px 36px;
+    mask-image: radial-gradient(80% 80% at 50% 50%, #000 40%, transparent 100%);
+    pointer-events: none;
+  }
   .hero-card-inner {
     position: relative;
-    z-index: 2;
     padding: 3rem 3rem 2.5rem;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
     height: 100%;
   }
-  .hero-card-inner h1 { color: #fff; max-width: 14ch; }
-  .hero-sub {
-    color: var(--color-muted);
-    font-size: 1.05rem;
-    max-width: 40ch;
-    margin-top: auto;
-  }
+  .hero-card-inner h1 { color: #fff; max-width: 14ch; line-height: 0.98; }
+  .hero-sub { color: rgba(255,255,255,0.78); font-size: 1.05rem; max-width: 38ch; margin-top: auto; }
   .hero-card-inner .button { align-self: flex-start; }
 
-  .hero-card-bg {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background:
-      radial-gradient(60% 50% at 90% 10%, rgba(198, 244, 50, 0.18), transparent 60%),
-      radial-gradient(40% 40% at 10% 100%, rgba(198, 244, 50, 0.10), transparent 60%);
-    pointer-events: none;
+  .showcase-card {
+    background: var(--bp-deep);
+    padding: 1rem;
   }
-
-  .showcase-card { padding: 1rem; }
   .tile-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     grid-template-rows: repeat(2, 1fr);
-    gap: 0.65rem;
+    gap: 0.6rem;
     height: 100%;
-    min-height: 560px;
+    min-height: 460px;
   }
   .tile {
-    border-radius: 16px;
+    border-radius: 14px;
     position: relative;
     overflow: hidden;
     display: flex;
     align-items: flex-end;
-    padding: 0.85rem;
+    padding: 0.7rem;
     isolation: isolate;
   }
   .tile::after {
     content: "";
     position: absolute; inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0) 55%);
-    z-index: 1;
+    background: linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0) 55%);
   }
   .tile-label {
-    position: relative;
-    z-index: 2;
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 0.78rem;
-    font-weight: 600;
+    position: relative; z-index: 2;
+    color: rgba(255,255,255,0.92);
+    font-size: 0.72rem;
+    font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
-
   .trusted-overlay {
     position: absolute;
-    left: 1rem;
-    right: 1rem;
-    bottom: 1rem;
-    background: rgba(10, 10, 10, 0.78);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    left: 1rem; right: 1rem; bottom: 1rem;
+    background: rgba(12, 31, 68, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 18px;
-    padding: 1rem 1.25rem;
+    padding: 0.9rem 1.25rem;
     display: flex;
     align-items: center;
     gap: 1.25rem;
@@ -161,35 +146,19 @@ const brands = ['NORTHWIND', 'LATTICE', 'AERIS', 'KILN & CO.', 'MERIDIAN'];
   }
   .trusted-title {
     color: #fff;
-    font-size: 0.78rem;
-    letter-spacing: 0.18em;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
     font-weight: 700;
-    margin: 0;
     white-space: nowrap;
   }
-  .brand-row {
-    list-style: none;
-    margin: 0; padding: 0;
-    display: flex;
-    gap: 1.25rem;
-    flex-wrap: wrap;
-    flex: 1;
-    justify-content: space-around;
-  }
-  .brand-chip {
-    color: rgba(255, 255, 255, 0.78);
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 0.95rem;
-    letter-spacing: 0.05em;
-  }
+  .brand-row { list-style: none; margin: 0; padding: 0; display: flex; gap: 1.25rem; flex: 1; flex-wrap: wrap; justify-content: space-around; }
+  .brand-chip { color: rgba(255,255,255,0.85); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.04em; }
 
   @media (max-width: 980px) {
     .hero-grid { grid-template-columns: 1fr; }
     .hero-card, .showcase-card { min-height: 0; }
-    .hero-card-inner { padding: 2.25rem; }
-    .tile-grid { min-height: 420px; }
+    .hero-card-inner { padding: 2rem; }
   }
   @media (max-width: 560px) {
     .tile-grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(4, 1fr); }

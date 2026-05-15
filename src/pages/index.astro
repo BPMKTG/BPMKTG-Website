@@ -1,24 +1,23 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Hero from '../components/Hero.astro';
-import ClientStrip from '../components/ClientStrip.astro';
-import FeatureGrid from '../components/FeatureGrid.astro';
-
-const services = [
-  { title: 'Brand Identity',     body: 'Naming, logo systems, and the visual language that makes you instantly recognizable.' },
-  { title: 'Paid Acquisition',   body: 'Meta, Google, and TikTok campaigns built around ROAS and payback — not vanity metrics.' },
-  { title: 'Content & Social',   body: 'Short-form video, photography, and editorial calendars your audience actually shows up for.' },
-  { title: 'Web & Funnels',      body: 'Fast, conversion-tuned websites and landing pages — built on modern frameworks.' },
-  { title: 'SEO & Local',        body: 'Topical authority, Google Business, and the local-SEO plumbing that drives walk-in revenue.' },
-  { title: 'Email & Retention',  body: 'Lifecycle flows, broadcasts, and SMS that lift LTV without nagging your customers.' },
-];
+import ArchRow from '../components/ArchRow.astro';
+import FocusBlock from '../components/FocusBlock.astro';
+import ServicesGrid from '../components/ServicesGrid.astro';
+import PowerBanner from '../components/PowerBanner.astro';
+import ProcessSteps from '../components/ProcessSteps.astro';
+import PowerhouseQuote from '../components/PowerhouseQuote.astro';
+import PressSection from '../components/PressSection.astro';
+import GetSeenCTA from '../components/GetSeenCTA.astro';
 ---
 <Layout title="Blueprint Marketing — Build your brand the right way.">
   <Hero />
-  <ClientStrip />
-  <FeatureGrid
-    eyebrow="What we do"
-    heading="A full marketing department, on tap."
-    features={services}
-  />
+  <ArchRow />
+  <FocusBlock />
+  <ServicesGrid />
+  <PowerBanner />
+  <ProcessSteps />
+  <PowerhouseQuote />
+  <PressSection />
+  <GetSeenCTA />
 </Layout>

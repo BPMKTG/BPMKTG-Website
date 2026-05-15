@@ -1,0 +1,101 @@
+---
+const services = [
+  { title: 'Brand Identity',       blurb: 'Logo systems, typography, and visual language.', hueA: 215, hueB: 200 },
+  { title: 'Paid Advertising',     blurb: 'Meta, Google, and TikTok tuned for ROAS.',       hueA: 18,  hueB: 30 },
+  { title: 'Website & Funnels',    blurb: 'Conversion-tuned sites on modern frameworks.',   hueA: 220, hueB: 240 },
+  { title: 'SEO & Local',          blurb: 'Authority, Google Business, walk-in revenue.',   hueA: 195, hueB: 210 },
+  { title: 'Social Media',         blurb: 'Editorial calendars and platform-native content.', hueA: 285, hueB: 230 },
+  { title: 'Content Production',   blurb: 'Photo, short-form video, and creative at speed.',  hueA: 30,  hueB: 15 },
+  { title: 'Email & Lifecycle',    blurb: 'Flows, broadcasts, and SMS that lift LTV.',       hueA: 200, hueB: 180 },
+  { title: 'Analytics & Reporting',blurb: 'Tracking, attribution, dashboards that ship.',    hueA: 230, hueB: 210 },
+];
+---
+<section class="services">
+  <div class="container">
+    <header class="services-header">
+      <h2>Our Services</h2>
+      <p>
+        For founders and operators who demand more than a campaign-of-the-week,
+        we offer unparalleled expertise across the full marketing stack — from
+        positioning to performance.
+      </p>
+    </header>
+
+    <div class="grid">
+      {services.map(s => (
+        <article class="card">
+          <div class="card-art" style={`background: linear-gradient(135deg, hsl(${s.hueA} 70% 55%), hsl(${s.hueB} 70% 35%));`}>
+            <div class="card-art-overlay"></div>
+          </div>
+          <div class="card-body">
+            <h3>{s.title}</h3>
+            <p>{s.blurb}</p>
+            <a class="card-link" href="/services">
+              Get More Info
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+          </div>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .services { padding: 3.5rem 0 5rem; }
+  .services-header { text-align: center; max-width: 60ch; margin: 0 auto 2.5rem; }
+  .services-header h2 { margin-bottom: 1rem; }
+  .services-header p { color: var(--bp-muted); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+  .card {
+    background: var(--bp-card);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px -8px rgba(38, 79, 160, 0.18);
+    border: 1px solid rgba(38, 79, 160, 0.06);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px -16px rgba(38, 79, 160, 0.3); }
+  .card-art {
+    aspect-ratio: 1.4;
+    position: relative;
+  }
+  .card-art-overlay {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+    mask-image: radial-gradient(70% 70% at 50% 50%, #000 30%, transparent 100%);
+  }
+  .card-body { padding: 1.1rem 1.25rem 1.25rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .card-body h3 { color: var(--bp-ink); font-weight: 900; }
+  .card-body p { color: var(--bp-muted); font-size: 0.9rem; }
+  .card-link {
+    margin-top: 0.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.85rem;
+    border: 1px solid rgba(38, 79, 160, 0.18);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--bp-deep);
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  .card-link:hover { background: var(--bp-deep); color: #fff; border-color: var(--bp-deep); }
+
+  @media (max-width: 1040px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 760px)  { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 460px)  { .grid { grid-template-columns: 1fr; } }
+</style>

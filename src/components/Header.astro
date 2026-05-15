@@ -13,11 +13,10 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 <header class="site-header">
   <div class="container header-inner">
     <a href="/" class="brand" aria-label="Blueprint Marketing home">
-      <span class="brand-mark">BLUEPRINT</span>
-      <span class="brand-sub">MKTG</span>
+      <img src="/brand/logo-full.svg" alt="Blueprint Marketing" />
     </a>
 
-    <nav class="nav-pill" aria-label="Primary">
+    <nav aria-label="Primary">
       <ul>
         {navItems.map(item => (
           <li>
@@ -26,89 +25,44 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
         ))}
       </ul>
     </nav>
-
-    <a href="/contact" class="cta-link" aria-label="Get started">
-      <span class="dot" aria-hidden="true"></span>
-      Get in touch
-    </a>
   </div>
 </header>
 
 <style>
   .site-header {
+    background: var(--bp-bg);
+    border-bottom: 1px solid rgba(38, 79, 160, 0.08);
     position: sticky;
     top: 0;
     z-index: 50;
-    background: var(--color-bg);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    backdrop-filter: blur(8px);
   }
   .header-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1.5rem;
-    padding: 1.1rem 1.5rem;
+    padding: 0.85rem 1.5rem;
   }
-  .brand {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.35rem;
-    font-family: var(--font-display);
-    font-weight: 900;
-    letter-spacing: -0.02em;
-    font-size: 1.35rem;
-    color: var(--color-ink);
-  }
-  .brand-sub {
-    font-size: 0.75rem;
-    letter-spacing: 0.18em;
-    color: var(--color-ink);
-    background: var(--color-accent);
-    padding: 0.15rem 0.45rem;
-    border-radius: 6px;
-    font-weight: 800;
-  }
-  .nav-pill {
-    background: var(--color-card);
-    border-radius: 999px;
-    padding: 0.4rem 0.55rem;
-  }
-  .nav-pill ul {
+  .brand img { height: 38px; width: auto; }
+
+  nav ul {
     list-style: none;
     display: flex;
-    align-items: center;
-    gap: 0.15rem;
+    gap: 2rem;
     margin: 0;
     padding: 0;
   }
-  .nav-pill a {
-    display: inline-block;
-    padding: 0.55rem 0.95rem;
-    color: #d8d8d8;
-    font-size: 0.9rem;
+  nav a {
+    color: var(--bp-ink);
+    font-size: 0.92rem;
     font-weight: 500;
-    border-radius: 999px;
-    transition: background 0.15s ease, color 0.15s ease;
+    padding: 0.4rem 0;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
   }
-  .nav-pill a:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
-  .nav-pill a.active { color: var(--color-ink); background: var(--color-accent); font-weight: 700; }
-  .cta-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--color-ink);
-  }
-  .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--color-accent);
-    box-shadow: 0 0 0 4px rgba(198, 244, 50, 0.25);
-  }
-  @media (max-width: 960px) {
-    .nav-pill { display: none; }
-  }
-  @media (max-width: 520px) {
-    .cta-link { display: none; }
-  }
+  nav a:hover { color: var(--bp-deep); }
+  nav a.active { color: var(--bp-deep); border-bottom-color: var(--bp-orange); }
+
+  @media (max-width: 900px) { nav { display: none; } }
 </style>

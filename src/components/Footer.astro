@@ -1,71 +1,102 @@
 ---
 const year = new Date().getFullYear();
+
+const cols = [
+  {
+    heading: 'Marketing',
+    links: ['Brand Identity', 'Paid Advertising', 'Website & Funnels', 'SEO & Local'],
+  },
+  {
+    heading: 'Growth',
+    links: ['Social Media', 'Content Production', 'Email & Lifecycle', 'Analytics'],
+  },
+  {
+    heading: 'Useful Links',
+    links: [
+      { label: 'All Offers', href: '/offers' },
+      { label: 'Our Work', href: '/work' },
+      { label: 'About', href: '/about' },
+      { label: 'Blog', href: '/blog' },
+    ],
+  },
+];
 ---
 <footer class="site-footer">
-  <div class="container footer-inner">
-    <div class="footer-brand">
-      <span class="brand-mark">BLUEPRINT</span>
-      <span class="brand-sub">MKTG</span>
+  <div class="container footer-grid">
+    <div class="brand-col">
+      <img src="/brand/logo-white.svg" alt="Blueprint Marketing" class="brand-logo" />
+      <ul class="socials">
+        <li><a href="#" aria-label="Instagram">Instagram</a></li>
+        <li><a href="#" aria-label="Facebook">Facebook</a></li>
+        <li><a href="#" aria-label="X / Twitter">X / Twitter</a></li>
+        <li><a href="#" aria-label="YouTube">YouTube</a></li>
+      </ul>
     </div>
 
-    <ul class="links">
-      <li><a href="/services">Services</a></li>
-      <li><a href="/work">Our Work</a></li>
-      <li><a href="/about">About</a></li>
-      <li><a href="/blog">Blog</a></li>
-      <li><a href="/contact">Contact</a></li>
-    </ul>
+    {cols.map(col => (
+      <div class="col">
+        <h4>{col.heading}</h4>
+        <ul>
+          {col.links.map((link: any) => (
+            <li>
+              {typeof link === 'string'
+                ? <a href="/services">{link}</a>
+                : <a href={link.href}>{link.label}</a>}
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </div>
 
-    <p class="copy">© {year} Blueprint Marketing. All rights reserved.</p>
+  <div class="container footer-foot">
+    <p>© {year} Blueprint Marketing · Amplifying and elevating your story.</p>
+    <p class="legal"><a href="/about">About</a> · <a href="/contact">Contact</a></p>
   </div>
 </footer>
 
 <style>
   .site-footer {
-    background: var(--color-card);
-    color: #d8d8d8;
-    margin-top: 3rem;
-    padding: 3rem 0 2.5rem;
-    border-radius: 28px 28px 0 0;
+    background: #0c1226;
+    color: #c8d1e6;
+    padding: 4rem 0 2rem;
   }
-  .footer-inner {
+  .footer-grid {
     display: grid;
-    gap: 1.5rem;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr;
+    gap: 2rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
   }
-  .footer-brand {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.4rem;
-    font-family: var(--font-display);
-    font-weight: 900;
+  .brand-logo { width: 200px; max-width: 80%; margin-bottom: 1.25rem; }
+  .socials, .col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+  .socials a, .col a { color: #c8d1e6; font-size: 0.92rem; }
+  .socials a:hover, .col a:hover { color: var(--bp-orange); }
+  .col h4 {
     color: #fff;
-    font-size: 1.25rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    font-weight: 700;
   }
-  .footer-brand .brand-sub {
-    font-size: 0.7rem;
-    letter-spacing: 0.18em;
-    color: var(--color-ink);
-    background: var(--color-accent);
-    padding: 0.15rem 0.4rem;
-    border-radius: 6px;
-    font-weight: 800;
-  }
-  .links {
-    list-style: none;
-    margin: 0; padding: 0;
+  .footer-foot {
     display: flex;
-    gap: 1.5rem;
-    justify-content: center;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1.5rem;
+    font-size: 0.82rem;
+    color: rgba(200, 209, 230, 0.55);
     flex-wrap: wrap;
+    gap: 0.75rem;
   }
-  .links a { color: #d8d8d8; font-size: 0.95rem; }
-  .links a:hover { color: #fff; }
-  .copy { margin: 0; font-size: 0.85rem; color: #8a8a8a; text-align: right; }
+  .footer-foot a { color: rgba(200, 209, 230, 0.85); }
+  .footer-foot a:hover { color: #fff; }
 
-  @media (max-width: 720px) {
-    .footer-inner { grid-template-columns: 1fr; text-align: center; }
-    .copy { text-align: center; }
+  @media (max-width: 880px) {
+    .footer-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) {
+    .footer-grid { grid-template-columns: 1fr; }
   }
 </style>

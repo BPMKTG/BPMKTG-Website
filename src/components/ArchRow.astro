@@ -1,0 +1,66 @@
+---
+const arches = [
+  { name: 'Northwind Coffee', tag: 'Hospitality',   hue: 18 },
+  { name: 'Lattice',          tag: 'SaaS',          hue: 220 },
+  { name: 'Aeris Wellness',   tag: 'D2C',           hue: 290 },
+  { name: 'Kiln & Co.',       tag: 'Retail',        hue: 45 },
+  { name: 'Meridian',         tag: 'Finance',       hue: 200 },
+];
+---
+<section class="arch-row">
+  <div class="container">
+    <div class="arches">
+      {arches.map(a => (
+        <figure class="arch">
+          <div class="arch-bg" style={`background: radial-gradient(120% 90% at 50% 30%, hsl(${a.hue} 65% 60%) 0%, hsl(${a.hue} 65% 25%) 70%, #0c1f44 100%);`}>
+            <span class="arch-tag">{a.tag}</span>
+          </div>
+          <figcaption>{a.name}</figcaption>
+        </figure>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .arch-row { padding: 2.5rem 0 1rem; }
+  .arches {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.25rem;
+  }
+  .arch { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+  .arch-bg {
+    width: 100%;
+    aspect-ratio: 0.8 / 1;
+    border-top-left-radius: 999px;
+    border-top-right-radius: 999px;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: 1rem;
+    box-shadow: inset 0 -60px 80px -40px rgba(0,0,0,0.4);
+  }
+  .arch-tag {
+    color: rgba(255,255,255,0.92);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  figcaption {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--bp-ink);
+  }
+  @media (max-width: 880px) {
+    .arches { grid-template-columns: repeat(3, 1fr); }
+    .arch:nth-child(n+4) { display: none; }
+  }
+  @media (max-width: 520px) {
+    .arches { grid-template-columns: repeat(2, 1fr); }
+    .arch:nth-child(n+3) { display: none; }
+  }
+</style>

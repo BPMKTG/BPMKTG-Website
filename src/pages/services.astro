@@ -1,27 +1,21 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import FeatureGrid from '../components/FeatureGrid.astro';
-
-const services = [
-  { title: 'Brand & Positioning', body: 'Narrative, naming, visual identity, and messaging frameworks built to last.' },
-  { title: 'Paid Media',          body: 'Meta, Google, TikTok, and programmatic — tuned for ROAS and payback.' },
-  { title: 'SEO & Local',         body: 'Topical authority, technical SEO, and Google Business that drives walk-ins.' },
-  { title: 'Lifecycle',           body: 'Email, SMS, push, and onboarding flows engineered for retention.' },
-  { title: 'Creative Production', body: 'Static, motion, and short-form video at iteration speed.' },
-  { title: 'Analytics',           body: 'Server-side tracking, attribution, and dashboards executives actually read.' },
-];
+import ServicesGrid from '../components/ServicesGrid.astro';
+import GetSeenCTA from '../components/GetSeenCTA.astro';
 ---
 <Layout title="Services — Blueprint Marketing">
-  <section class="section">
+  <section class="section page-intro">
     <div class="container">
       <p class="eyebrow">Services</p>
       <h1>What we do.</h1>
       <p class="lede">A full marketing department, on tap. Pick what you need or hire the whole stack.</p>
     </div>
   </section>
-  <FeatureGrid features={services} />
+  <ServicesGrid />
+  <GetSeenCTA />
 </Layout>
 
 <style>
-  .lede { color: #4a4a4a; font-size: 1.1rem; max-width: 60ch; margin-top: 1rem; }
+  .page-intro { padding-top: 3rem; padding-bottom: 1rem; }
+  .lede { color: var(--bp-muted); font-size: 1.1rem; max-width: 60ch; margin-top: 1rem; }
 </style>
