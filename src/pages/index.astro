@@ -1,0 +1,22 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Hero from '../components/Hero.astro';
+import FeatureGrid from '../components/FeatureGrid.astro';
+
+const features = [
+  { title: 'Brand Strategy', body: 'Position, message, and visual systems that make your offer impossible to ignore.' },
+  { title: 'Performance Marketing', body: 'Paid acquisition tuned to revenue, not vanity metrics. We measure what compounds.' },
+  { title: 'Content Engines', body: 'Editorial and video pipelines that turn one idea into a month of compounding distribution.' },
+  { title: 'Lifecycle & CRM', body: 'Email, SMS, and onboarding flows that lift LTV without nagging your customers.' },
+];
+---
+<Layout title="BPMKTG — Marketing that compounds.">
+  <Hero
+    eyebrow="Placeholder content"
+    title="Marketing that compounds."
+    subtitle="BPMKTG is a placeholder for your future homepage. Swap this copy for your real positioning, drop in a hero image, and you're in business."
+    primaryCta={{ href: '/contact', label: 'Start a project' }}
+    secondaryCta={{ href: '/services', label: 'See services' }}
+  />
+  <FeatureGrid features={features} />
+</Layout>

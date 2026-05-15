@@ -1,0 +1,54 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout title="Contact — BPMKTG">
+  <section class="section">
+    <div class="container narrow">
+      <p class="eyebrow">Contact</p>
+      <h1>Let's talk.</h1>
+      <p>
+        Drop us a note and we'll get back within one business day. Replace this
+        form action with your preferred handler (Formspree, Web3Forms, Cloudflare
+        Workers, etc.) before going live.
+      </p>
+
+      <form class="contact-form" action="https://formspree.io/f/your-id" method="POST">
+        <label>
+          <span>Name</span>
+          <input type="text" name="name" required />
+        </label>
+        <label>
+          <span>Email</span>
+          <input type="email" name="email" required />
+        </label>
+        <label>
+          <span>How can we help?</span>
+          <textarea name="message" rows="5" required></textarea>
+        </label>
+        <button class="button" type="submit">Send message</button>
+      </form>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .narrow { max-width: 640px; }
+  .contact-form { display: grid; gap: 1rem; margin-top: 2rem; }
+  .contact-form label { display: grid; gap: 0.35rem; font-size: 0.9rem; color: var(--color-muted); }
+  .contact-form input,
+  .contact-form textarea {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    color: var(--color-text);
+    padding: 0.7rem 0.85rem;
+    font: inherit;
+    width: 100%;
+  }
+  .contact-form input:focus,
+  .contact-form textarea:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+  .contact-form button { justify-self: start; border: none; cursor: pointer; }
+</style>

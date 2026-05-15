@@ -1,0 +1,38 @@
+---
+const year = new Date().getFullYear();
+---
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <p class="copy">© {year} BPMKTG. All rights reserved.</p>
+    <ul class="links">
+      <li><a href="/about">About</a></li>
+      <li><a href="/services">Services</a></li>
+      <li><a href="/contact">Contact</a></li>
+    </ul>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid var(--color-border);
+    margin-top: 4rem;
+    padding: 2rem 0;
+    background: var(--color-surface);
+  }
+  .footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .copy { margin: 0; font-size: 0.9rem; }
+  .links {
+    list-style: none;
+    display: flex;
+    gap: 1.25rem;
+    margin: 0;
+    padding: 0;
+    font-size: 0.9rem;
+  }
+</style>
