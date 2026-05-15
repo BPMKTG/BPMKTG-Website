@@ -2,47 +2,44 @@
 const year = new Date().getFullYear();
 
 const cols = [
-  {
-    heading: 'Marketing',
-    links: ['Brand Identity', 'Paid Advertising', 'Website & Funnels', 'SEO & Local'],
-  },
-  {
-    heading: 'Growth',
-    links: ['Social Media', 'Content Production', 'Email & Lifecycle', 'Analytics'],
-  },
-  {
-    heading: 'Useful Links',
-    links: [
-      { label: 'All Offers', href: '/offers' },
-      { label: 'Our Work', href: '/work' },
-      { label: 'About', href: '/about' },
-      { label: 'Blog', href: '/blog' },
-    ],
-  },
+  { heading: 'Site', links: [
+    { label: 'How It Works', href: '/#process' },
+    { label: 'Offers',       href: '/#offers' },
+    { label: 'Why Blueprint',href: '/#why' },
+    { label: 'Guarantee',    href: '/#guarantee' },
+    { label: 'Blog',         href: '/blog' },
+  ]},
+  { heading: 'Tiers', links: [
+    { label: 'Growth Blueprint Session',     href: '/#offers' },
+    { label: 'Content Engine Starter',       href: '/#offers' },
+    { label: 'Fan Growth Engine',            href: '/#offers' },
+    { label: 'Artist Growth Infrastructure', href: '/#offers' },
+  ]},
+  { heading: 'Connect', links: [
+    { label: 'Instagram', href: '#' },
+    { label: 'TikTok',    href: '#' },
+    { label: 'YouTube',   href: '#' },
+    { label: 'X / Twitter', href: '#' },
+    { label: 'Email',     href: 'mailto:hello@blueprintmkt.com' },
+  ]},
 ];
 ---
 <footer class="site-footer">
   <div class="container footer-grid">
     <div class="brand-col">
       <img src="/brand/logo-white.svg" alt="Blueprint Marketing" class="brand-logo" />
-      <ul class="socials">
-        <li><a href="#" aria-label="Instagram">Instagram</a></li>
-        <li><a href="#" aria-label="Facebook">Facebook</a></li>
-        <li><a href="#" aria-label="X / Twitter">X / Twitter</a></li>
-        <li><a href="#" aria-label="YouTube">YouTube</a></li>
-      </ul>
+      <p class="tagline">Amplifying and elevating your story.</p>
+      <a href="#book" class="button">Book a strategy call
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
     </div>
 
     {cols.map(col => (
       <div class="col">
         <h4>{col.heading}</h4>
         <ul>
-          {col.links.map((link: any) => (
-            <li>
-              {typeof link === 'string'
-                ? <a href="/services">{link}</a>
-                : <a href={link.href}>{link.label}</a>}
-            </li>
+          {col.links.map(link => (
+            <li><a href={link.href}>{link.label}</a></li>
           ))}
         </ul>
       </div>
@@ -50,53 +47,50 @@ const cols = [
   </div>
 
   <div class="container footer-foot">
-    <p>© {year} Blueprint Marketing · Amplifying and elevating your story.</p>
-    <p class="legal"><a href="/about">About</a> · <a href="/contact">Contact</a></p>
+    <p>© {year} Blueprint Marketing. All rights reserved.</p>
+    <p class="legal">The growth system behind EDM artists.</p>
   </div>
 </footer>
 
 <style>
   .site-footer {
-    background: #0c1226;
-    color: #c8d1e6;
-    padding: 4rem 0 2rem;
+    background: var(--bg-2);
+    border-top: 1px solid var(--line);
+    padding: 5rem 0 2rem;
   }
   .footer-grid {
     display: grid;
-    grid-template-columns: 1.4fr 1fr 1fr 1fr;
+    grid-template-columns: 1.6fr 1fr 1fr 1fr;
     gap: 2rem;
     padding-bottom: 3rem;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid var(--line);
   }
-  .brand-logo { width: 200px; max-width: 80%; margin-bottom: 1.25rem; }
-  .socials, .col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-  .socials a, .col a { color: #c8d1e6; font-size: 0.92rem; }
-  .socials a:hover, .col a:hover { color: var(--bp-orange); }
+  .brand-logo { width: 220px; max-width: 80%; margin-bottom: 1rem; }
+  .tagline { color: var(--muted); margin-bottom: 1.5rem; max-width: 30ch; font-size: 0.95rem; }
   .col h4 {
-    color: #fff;
-    font-size: 0.85rem;
-    letter-spacing: 0.16em;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     margin-bottom: 1rem;
     font-weight: 700;
   }
+  .col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+  .col a { color: var(--ink); opacity: 0.72; font-size: 0.9rem; transition: color 0.15s, opacity 0.15s; }
+  .col a:hover { color: var(--bp-light); opacity: 1; }
+
   .footer-foot {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding-top: 1.5rem;
     font-size: 0.82rem;
-    color: rgba(200, 209, 230, 0.55);
+    color: var(--dim);
     flex-wrap: wrap;
     gap: 0.75rem;
   }
-  .footer-foot a { color: rgba(200, 209, 230, 0.85); }
-  .footer-foot a:hover { color: #fff; }
 
-  @media (max-width: 880px) {
-    .footer-grid { grid-template-columns: 1fr 1fr; }
-  }
-  @media (max-width: 480px) {
-    .footer-grid { grid-template-columns: 1fr; }
-  }
+  @media (max-width: 880px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px) { .footer-grid { grid-template-columns: 1fr; } }
 </style>

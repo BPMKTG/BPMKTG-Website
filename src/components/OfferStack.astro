@@ -1,0 +1,230 @@
+---
+const tiers = [
+  {
+    tag: 'Tier 01 · Entry',
+    name: 'Growth Blueprint Session',
+    price: '$1,000',
+    cadence: 'one-time',
+    positioning: "Let's get your content actually working first.",
+    buying: 'Immediate traction. Prove the system works without a big commitment.',
+    deliverables: [
+      'Content Audit + Growth Breakdown',
+      'Performance Review (what\'s working vs not)',
+      'EDM-specific content direction + formats',
+      '5–15 short-form clips from existing footage',
+      'Bio, profile + positioning optimization',
+      '2–4 week posting plan',
+    ],
+    accent: '--bp-blue',
+    featured: false,
+  },
+  {
+    tag: 'Tier 02 · Consistency',
+    name: 'Content Engine Starter',
+    price: '$1,000',
+    cadence: '/month · 3-mo',
+    positioning: 'A plug-and-play content system that drives consistent visibility.',
+    buying: 'Consistency without thinking. Your output finally matches your level.',
+    deliverables: [
+      '8–12 short-form videos / month',
+      'Editing + formatting for TikTok / Reels',
+      'Monthly EDM-focused content direction',
+      'Posting structure + cadence guidance',
+      '1 strategy call / month',
+      'Light show / footage repurposing',
+    ],
+    accent: '--bp-light',
+    featured: false,
+  },
+  {
+    tag: 'Tier 03 · Most Picked',
+    name: 'Fan Growth Engine',
+    price: '$2–3K',
+    cadence: '/month · 6-mo',
+    positioning: 'We turn your content into a system that actually grows your fanbase.',
+    buying: 'Growth + direction + consistency, fully managed.',
+    deliverables: [
+      '15–25 short-form videos / month',
+      'Show footage repurposing (1 → many)',
+      'Caption + hook writing + optimization',
+      'EDM trend alignment + show-based mapping',
+      'Release-based content planning',
+      'Proven format deployment, no guessing',
+      'Performance tracking + monthly growth report',
+      'Monthly growth strategy call',
+    ],
+    accent: '--bp-orange',
+    featured: true,
+  },
+  {
+    tag: 'Tier 04 · Infrastructure',
+    name: 'Artist Growth Infrastructure',
+    price: '$5–10K',
+    cadence: '/month · 6-mo',
+    positioning: 'Not just marketing — your entire growth infrastructure, managed.',
+    buying: 'A complete growth machine: content → conversion → revenue.',
+    deliverables: [
+      'Everything in Tier 03',
+      '20–40+ short-form videos / month',
+      'Show-day capture (or via creator network)',
+      'Multi-platform distribution (Reels, TikTok, Shorts)',
+      'Link-in-bio funnel + email + SMS capture',
+      'Release + show + merch campaigns',
+      'Paid amplification + retargeting',
+      'Vetted photographer / videographer network',
+    ],
+    accent: '--bp-deep',
+    featured: false,
+  },
+];
+---
+<section class="offers" id="offers">
+  <div class="container">
+    <header class="offers-head">
+      <p class="label">The Offer Stack</p>
+      <h2>Four ways to plug in.</h2>
+      <p class="lede">
+        Start with a single session or roll into full-funnel infrastructure.
+        Every tier ships a clear system you keep — not a campaign that ends.
+      </p>
+    </header>
+
+    <div class="tiers">
+      {tiers.map(t => (
+        <article class={`tier ${t.featured ? 'featured' : ''}`} style={`--accent: var(${t.accent});`}>
+          {t.featured && <span class="ribbon">Most picked</span>}
+          <p class="tag">{t.tag}</p>
+          <h3>{t.name}</h3>
+          <p class="positioning">"{t.positioning}"</p>
+
+          <div class="price">
+            <span class="price-num">{t.price}</span>
+            <span class="price-cadence">{t.cadence}</span>
+          </div>
+
+          <p class="buying">{t.buying}</p>
+
+          <ul class="deliverables">
+            {t.deliverables.map(d => (<li>{d}</li>))}
+          </ul>
+
+          <a href="#book" class={`tier-cta ${t.featured ? 'button' : 'button ghost'}`}>
+            {t.featured ? 'Book a strategy call' : 'Get details'}
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .offers { padding: 5rem 0; }
+  .offers-head { max-width: 60ch; margin-bottom: 3rem; }
+  .offers-head h2 { margin: 1rem 0; }
+  .lede { color: var(--ink); opacity: 0.72; font-size: 1.05rem; }
+
+  .tiers {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    align-items: stretch;
+  }
+  .tier {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    position: relative;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .tier:hover { border-color: rgba(255,255,255,0.18); transform: translateY(-3px); }
+  .tier.featured {
+    background:
+      radial-gradient(80% 70% at 50% 0%, rgba(227, 112, 59, 0.18), transparent 60%),
+      var(--card-elev);
+    border-color: rgba(227, 112, 59, 0.45);
+    box-shadow: 0 24px 60px -30px rgba(227, 112, 59, 0.5);
+  }
+  .ribbon {
+    position: absolute;
+    top: -0.7rem;
+    left: 1.5rem;
+    background: var(--bp-orange);
+    color: #fff;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 800;
+    font-family: var(--font-display);
+  }
+  .tag {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .tier h3 {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    text-transform: uppercase;
+    line-height: 1.05;
+  }
+  .positioning {
+    color: var(--bp-light);
+    opacity: 0.85;
+    font-size: 0.88rem;
+    font-style: italic;
+    line-height: 1.35;
+  }
+  .price {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+  }
+  .price-num {
+    font-family: var(--font-display);
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .price-cadence { color: var(--muted); font-size: 0.82rem; }
+  .buying {
+    color: var(--ink);
+    opacity: 0.78;
+    font-size: 0.9rem;
+    border-top: 1px solid var(--line);
+    padding-top: 0.8rem;
+  }
+  .deliverables { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.45rem; flex: 1; }
+  .deliverables li {
+    color: var(--ink);
+    opacity: 0.82;
+    font-size: 0.85rem;
+    padding-left: 1.1rem;
+    position: relative;
+    line-height: 1.4;
+  }
+  .deliverables li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0.5rem;
+    width: 6px; height: 6px;
+    border-radius: 2px;
+    background: var(--accent);
+    transform: rotate(45deg);
+  }
+  .tier-cta { margin-top: 0.5rem; align-self: flex-start; }
+
+  @media (max-width: 1080px) { .tiers { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 540px)  { .tiers { grid-template-columns: 1fr; } }
+</style>

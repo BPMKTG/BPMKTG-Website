@@ -1,0 +1,126 @@
+---
+const steps = [
+  {
+    title: 'Growth Audit & Opportunity Mapping',
+    outcome: 'Clear understanding of what\'s limiting your growth — and exactly what needs to change.',
+    items: ['Content + social audit', 'Audience + engagement breakdown', 'Show + release momentum gaps', 'Growth opportunity mapping'],
+  },
+  {
+    title: 'Artist Growth System Deployment',
+    outcome: 'A repeatable system that drives consistent visibility and momentum — no more guessing.',
+    items: ['Show-based content mapping', 'Proven content format selection', 'Posting cadence system', 'Brand positioning alignment'],
+  },
+  {
+    title: 'Content Engine Activation',
+    outcome: 'Consistent, high-quality content that actually reflects your energy and brand.',
+    items: ['Show capture (or footage intake)', 'Repurposing 1 → 10+ assets', 'Short-form optimization', 'Platform-specific formatting'],
+  },
+  {
+    title: 'Distribution & Reach Expansion',
+    outcome: 'Content that consistently reaches new people and builds real traction.',
+    items: ['Posting + scheduling', 'Hook + caption optimization', 'EDM-specific trend alignment', 'Audience growth strategy'],
+  },
+  {
+    title: 'Growth Optimization & Infrastructure Scaling',
+    outcome: 'Sustainable growth that compounds — not temporary spikes.',
+    items: ['Performance tracking + reporting', 'Winning pattern identification', 'Growth optimization loops', 'Fan capture + monetization foundations'],
+  },
+];
+---
+<section class="roadmap" id="process">
+  <div class="container">
+    <header class="roadmap-head">
+      <p class="label">How It Works</p>
+      <h2>The 5-Step Blueprint.</h2>
+      <p class="lede">
+        From audit to infrastructure — the exact path we run with every artist
+        we work with. No campaigns. No one-offs. A system that compounds.
+      </p>
+    </header>
+
+    <ol class="steps">
+      {steps.map((s, i) => (
+        <li class="step">
+          <div class="step-head">
+            <span class="step-num">{String(i + 1).padStart(2, '0')}</span>
+            <h3>{s.title}</h3>
+          </div>
+          <ul class="step-items">
+            {s.items.map(item => (<li>{item}</li>))}
+          </ul>
+          <p class="step-outcome"><span class="arrow">→</span> {s.outcome}</p>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
+
+<style>
+  .roadmap { padding: 5rem 0; }
+  .roadmap-head { max-width: 60ch; margin-bottom: 3rem; }
+  .roadmap-head h2 { margin: 1rem 0; }
+  .lede { color: var(--ink); opacity: 0.72; font-size: 1.05rem; }
+
+  .steps {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: grid;
+    gap: 0.65rem;
+  }
+  .step {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 1.5rem 1.75rem;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .step:hover { border-color: rgba(98, 166, 219, 0.4); background: var(--card-elev); }
+  .step-head { display: flex; align-items: baseline; gap: 1rem; }
+  .step-num {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--bp-blue);
+    letter-spacing: -0.02em;
+  }
+  .step-head h3 {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+  }
+  .step-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .step-items li {
+    color: var(--ink);
+    opacity: 0.78;
+    font-size: 0.9rem;
+    padding-left: 1rem;
+    position: relative;
+  }
+  .step-items li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0.55rem;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--bp-blue);
+  }
+  .step-outcome {
+    color: var(--bp-light);
+    font-size: 0.92rem;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+  .step-outcome .arrow { color: var(--bp-orange); font-weight: 800; }
+
+  @media (max-width: 900px) {
+    .step { grid-template-columns: 1fr; gap: 0.85rem; }
+  }
+</style>

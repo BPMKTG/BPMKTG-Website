@@ -1,0 +1,85 @@
+---
+const stats = [
+  { value: '$12.9B',   label: 'Electronic music sector in 2025',        sub: '17% rebound from pre-pandemic.' },
+  { value: '73%',      label: 'Of Gen Z + Millennials discover artists on social', sub: 'TikTok, YouTube, Instagram — the trio that books shows.' },
+  { value: '74%',      label: 'Higher share rate on TikTok music content', sub: '60% more likely to buy tickets.' },
+  { value: '120K',     label: 'New tracks uploaded daily to streaming',  sub: 'Distribution alone is no longer a strategy.' },
+  { value: '1.7%',     label: 'Artists earning $10K+ per year from streaming', sub: 'Streaming isn\'t a business model. A system is.' },
+  { value: '2.4×',     label: 'Higher fanbase growth from daily short-form', sub: 'Consistency, structurally engineered, wins.' },
+];
+---
+<section class="stats-section">
+  <div class="container">
+    <header class="stats-head">
+      <p class="label">Market Context</p>
+      <h2>The window is open.<br/><span class="glow-blue">Most artists are missing it.</span></h2>
+    </header>
+
+    <div class="stat-grid">
+      {stats.map(s => (
+        <article class="stat">
+          <span class="stat-value">{s.value}</span>
+          <p class="stat-label">{s.label}</p>
+          <p class="stat-sub">{s.sub}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .stats-section { padding: 5rem 0; }
+  .stats-head { margin-bottom: 3rem; max-width: 60ch; }
+  .stats-head h2 { margin-top: 1rem; }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .stat {
+    padding: 2rem 1.75rem;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: var(--card);
+    position: relative;
+    overflow: hidden;
+  }
+  .stat::after {
+    content: "";
+    position: absolute;
+    inset: auto -1px -1px -1px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--bp-orange) 50%, transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .stat:hover::after { opacity: 0.7; }
+  .stat:nth-child(3n) { border-right: none; }
+  .stat:nth-child(n+4) { border-bottom: none; }
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3.5vw, 2.85rem);
+    font-weight: 800;
+    color: var(--bp-blue);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .stat-label { color: var(--ink); font-weight: 500; font-size: 0.98rem; }
+  .stat-sub { color: var(--muted); font-size: 0.85rem; }
+
+  @media (max-width: 880px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .stat { border-right: 1px solid var(--line) !important; border-bottom: 1px solid var(--line) !important; }
+    .stat:nth-child(2n) { border-right: none !important; }
+  }
+  @media (max-width: 520px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .stat { border-right: none !important; }
+  }
+</style>

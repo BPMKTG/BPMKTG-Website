@@ -2,19 +2,54 @@
 import Layout from '../layouts/Layout.astro';
 ---
 <Layout title="Blog — Blueprint Marketing">
-  <section class="section">
+  <section class="section page-intro">
     <div class="container narrow">
-      <p class="eyebrow">Blog</p>
-      <h1>Field notes.</h1>
+      <p class="label">Blog</p>
+      <h1>Field notes from the scene.</h1>
       <p class="lede">
-        Long-form on positioning, paid media playbooks, and what's actually
-        working in 2026. First posts ship soon.
+        EDM growth playbooks, short-form tactics that actually work in 2026,
+        and breakdowns of what's currently moving fans. First drops ship soon.
       </p>
+
+      <form class="signup">
+        <label>
+          <span>Get growth drops in your inbox</span>
+          <input type="email" name="email" placeholder="you@artist.com" required />
+        </label>
+        <button class="button" type="submit">
+          Subscribe
+          <span class="arrow" aria-hidden="true">→</span>
+        </button>
+      </form>
     </div>
   </section>
 </Layout>
 
 <style>
+  .page-intro { padding-top: 4rem; padding-bottom: 5rem; }
   .narrow { max-width: 720px; }
-  .lede { color: var(--bp-muted); font-size: 1.1rem; margin-top: 1rem; }
+  .lede { color: var(--ink); opacity: 0.78; font-size: 1.1rem; margin-top: 1rem; max-width: 56ch; }
+
+  .signup {
+    margin-top: 2.5rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: end;
+    flex-wrap: wrap;
+    padding: 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--card);
+  }
+  .signup label { flex: 1; min-width: 240px; display: grid; gap: 0.4rem; font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em; }
+  .signup input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    padding: 0.5rem 0;
+    font: inherit;
+    font-size: 1rem;
+  }
+  .signup input:focus { outline: none; border-bottom-color: var(--bp-blue); }
 </style>

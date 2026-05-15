@@ -1,166 +1,120 @@
 ---
-const tiles = [
-  { hue: 215, label: 'Hospitality' },
-  { hue: 195, label: 'D2C' },
-  { hue: 230, label: 'SaaS' },
-  { hue: 205, label: 'Local' },
-  { hue: 220, label: 'Wellness' },
-  { hue: 200, label: 'Retail' },
-  { hue: 210, label: 'Finance' },
-  { hue: 225, label: 'Tech' },
+const stats = [
+  { value: '$12.9B', label: 'EDM industry 2025' },
+  { value: '2.4×',   label: 'Growth from daily short-form' },
+  { value: '73%',    label: 'Discover artists on social' },
 ];
-
-const brands = ['NORTHWIND', 'LATTICE', 'AERIS', 'KILN & CO.', 'MERIDIAN'];
 ---
-<section class="hero-section">
-  <div class="container hero-grid">
+<section class="hero">
+  <div class="hero-bg" aria-hidden="true">
+    <div class="grid-layer"></div>
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+    <div class="glow glow-c"></div>
+  </div>
 
-    <article class="hero-card">
-      <div class="hero-card-inner">
-        <h1>
-          Build your<br />brand<br />
-          <span class="highlight">the right way.</span>
-        </h1>
-        <p class="hero-sub">
-          Turning local businesses into recognized brands since 2018.
-          You run the business. We'll handle the marketing.
-        </p>
-        <a href="/contact" class="button">
-          Get started
-          <span class="arrow" aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-        </a>
-      </div>
-    </article>
+  <div class="container hero-inner">
+    <p class="label">For touring EDM artists</p>
 
-    <article class="showcase-card">
-      <div class="tile-grid">
-        {tiles.map(t => (
-          <div class="tile" style={`background: radial-gradient(120% 120% at 30% 20%, hsl(${t.hue} 70% 60%) 0%, hsl(${t.hue} 70% 30%) 60%, #0c1f44 100%);`}>
-            <span class="tile-label">{t.label}</span>
-          </div>
-        ))}
-      </div>
+    <h1>
+      Turn every show, release,<br />
+      and moment into a<br />
+      <span class="highlight">growth system.</span>
+    </h1>
 
-      <div class="trusted-overlay">
-        <p class="trusted-title">Proudly trusted by:</p>
-        <ul class="brand-row">
-          {brands.map(b => (<li><span class="brand-chip">{b}</span></li>))}
-        </ul>
-      </div>
-    </article>
+    <p class="hero-sub">
+      Blueprint Marketing builds growth infrastructure for EDM artists —
+      turning content, shows, and releases into real fans and real revenue.
+    </p>
 
+    <div class="cta-row">
+      <a href="#book" class="button">
+        Book a Free Strategy Call
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+      <a href="#process" class="button ghost">See how it works</a>
+    </div>
+
+    <div class="stats">
+      {stats.map(s => (
+        <div class="stat">
+          <span class="stat-value">{s.value}</span>
+          <span class="stat-label">{s.label}</span>
+        </div>
+      ))}
+    </div>
   </div>
 </section>
 
 <style>
-  .hero-section { padding: 1.5rem 0 2rem; }
-  .hero-grid {
-    display: grid;
-    grid-template-columns: 1fr 1.25fr;
-    gap: 1.25rem;
-  }
-  .hero-card, .showcase-card {
+  .hero {
     position: relative;
-    border-radius: var(--radius-lg);
     overflow: hidden;
-    min-height: 480px;
+    padding: 6rem 0 5rem;
   }
-  .hero-card {
-    background:
-      radial-gradient(80% 90% at 100% 0%, rgba(98, 166, 219, 0.5), transparent 60%),
-      linear-gradient(135deg, #1d3f85 0%, #264fa0 50%, #1a3878 100%);
-    color: #fff;
-  }
-  .hero-card::before {
-    content: "";
+  .hero-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+  .grid-layer {
     position: absolute; inset: 0;
     background-image:
-      linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
-    background-size: 36px 36px;
-    mask-image: radial-gradient(80% 80% at 50% 50%, #000 40%, transparent 100%);
-    pointer-events: none;
+      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(70% 70% at 50% 30%, #000 30%, transparent 100%);
   }
-  .hero-card-inner {
+  .glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.55;
+  }
+  .glow-a { width: 540px; height: 540px; top: -180px; left: -180px; background: radial-gradient(circle, var(--bp-deep), transparent 70%); }
+  .glow-b { width: 620px; height: 620px; top: -120px; right: -180px; background: radial-gradient(circle, var(--bp-blue), transparent 70%); opacity: 0.35; }
+  .glow-c { width: 380px; height: 380px; bottom: -180px; left: 40%; background: radial-gradient(circle, var(--bp-orange), transparent 70%); opacity: 0.2; }
+
+  .hero-inner {
     position: relative;
-    padding: 3rem 3rem 2.5rem;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-    height: 100%;
+    align-items: flex-start;
   }
-  .hero-card-inner h1 { color: #fff; max-width: 14ch; line-height: 0.98; }
-  .hero-sub { color: rgba(255,255,255,0.78); font-size: 1.05rem; max-width: 38ch; margin-top: auto; }
-  .hero-card-inner .button { align-self: flex-start; }
+  .hero h1 { max-width: 18ch; }
+  .hero-sub {
+    color: var(--ink);
+    opacity: 0.75;
+    font-size: 1.15rem;
+    max-width: 60ch;
+  }
+  .cta-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; }
 
-  .showcase-card {
-    background: var(--bp-deep);
-    padding: 1rem;
-  }
-  .tile-grid {
+  .stats {
+    margin-top: 3rem;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(2, 1fr);
-    gap: 0.6rem;
-    height: 100%;
-    min-height: 460px;
+    grid-template-columns: repeat(3, auto);
+    gap: 2.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--line);
+    width: 100%;
+    max-width: 720px;
   }
-  .tile {
-    border-radius: 14px;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    align-items: flex-end;
-    padding: 0.7rem;
-    isolation: isolate;
+  .stat { display: flex; flex-direction: column; gap: 0.2rem; }
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
+    font-weight: 800;
+    color: var(--bp-blue);
+    letter-spacing: -0.02em;
   }
-  .tile::after {
-    content: "";
-    position: absolute; inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0) 55%);
-  }
-  .tile-label {
-    position: relative; z-index: 2;
-    color: rgba(255,255,255,0.92);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
+  .stat-label {
+    font-size: 0.78rem;
+    color: var(--muted);
     text-transform: uppercase;
+    letter-spacing: 0.12em;
   }
-  .trusted-overlay {
-    position: absolute;
-    left: 1rem; right: 1rem; bottom: 1rem;
-    background: rgba(12, 31, 68, 0.85);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 18px;
-    padding: 0.9rem 1.25rem;
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    flex-wrap: wrap;
-  }
-  .trusted-title {
-    color: #fff;
-    font-size: 0.72rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-  .brand-row { list-style: none; margin: 0; padding: 0; display: flex; gap: 1.25rem; flex: 1; flex-wrap: wrap; justify-content: space-around; }
-  .brand-chip { color: rgba(255,255,255,0.85); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.04em; }
 
-  @media (max-width: 980px) {
-    .hero-grid { grid-template-columns: 1fr; }
-    .hero-card, .showcase-card { min-height: 0; }
-    .hero-card-inner { padding: 2rem; }
-  }
-  @media (max-width: 560px) {
-    .tile-grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(4, 1fr); }
+  @media (max-width: 600px) {
+    .stats { grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    .stat:nth-child(3) { grid-column: 1 / -1; }
   }
 </style>

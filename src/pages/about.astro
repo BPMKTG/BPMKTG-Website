@@ -1,29 +1,42 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import BookCall from '../components/BookCall.astro';
 ---
 <Layout title="About — Blueprint Marketing">
-  <section class="section">
+  <section class="section page-intro">
     <div class="container narrow">
-      <p class="eyebrow">About</p>
-      <h1>We build growth systems, not campaigns.</h1>
-      <p class="lede">
-        Blueprint Marketing is a placeholder bio — swap this with your real
-        origin story. Why does Blueprint exist? Who do you serve? What's the
-        wedge that makes you different from every other agency?
-      </p>
-      <p class="lede">
-        Two or three paragraphs is plenty. Mention the team, your principles,
-        and the kind of clients you do your best work with. End with a clear
-        call to action.
-      </p>
-      <a class="button" href="/contact">Work with us
-        <span class="arrow" aria-hidden="true">→</span>
-      </a>
+      <p class="label">About</p>
+      <h1>The growth system<br/>behind the artist.</h1>
+
+      <div class="body">
+        <p>
+          Blueprint Marketing exists because the EDM industry doesn't need more
+          campaigns, more playlist pitches, or more agencies selling the same
+          three deliverables in different colors. It needs <span class="hl">infrastructure</span> —
+          the boring, compounding kind that turns one show into weeks of
+          growth and one release into months of momentum.
+        </p>
+        <p>
+          We're EDM-native. We tour, we mosh, we know which producer just dropped
+          a track that's going to dominate festival season. That cultural fluency
+          is what makes the system work — it's not a generic content playbook
+          retro-fitted to dance music. It's built from inside the scene.
+        </p>
+        <p>
+          Our promise is simple: <span class="hl">we don't manage your content,
+          we build the machine behind your growth.</span> Content. Distribution.
+          Fan capture. Monetization. One system. Compounds while you tour.
+        </p>
+      </div>
     </div>
   </section>
+  <BookCall />
 </Layout>
 
 <style>
+  .page-intro { padding-top: 4rem; padding-bottom: 2rem; }
   .narrow { max-width: 760px; }
-  .lede { color: var(--bp-muted); font-size: 1.1rem; margin: 1rem 0; }
+  .body { margin-top: 2rem; display: flex; flex-direction: column; gap: 1.25rem; }
+  .body p { color: var(--ink); opacity: 0.78; font-size: 1.08rem; }
+  .hl { color: var(--bp-light); font-weight: 500; }
 </style>

@@ -1,0 +1,88 @@
+---
+---
+<section class="book" id="book">
+  <div class="container">
+    <div class="bg" aria-hidden="true">
+      <div class="grid-layer"></div>
+      <div class="glow glow-a"></div>
+      <div class="glow glow-b"></div>
+    </div>
+
+    <div class="content">
+      <p class="label">Book a Call</p>
+      <h2>Let's build your <span class="highlight">Blueprint.</span></h2>
+      <p class="lede">
+        Book a free strategy call and find out exactly how we'd grow your fanbase
+        and turn your content into a system that compounds.
+      </p>
+
+      <div class="cta-row">
+        <a href="https://calendly.com/blueprintmarketing" class="button" target="_blank" rel="noopener">
+          Book your strategy call
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+        <a href="mailto:hello@blueprintmkt.com" class="button ghost">
+          hello@blueprintmkt.com
+        </a>
+      </div>
+
+      <ul class="trust">
+        <li>Free · 30 minutes</li>
+        <li>No-pressure intro</li>
+        <li>Walk away with a growth plan</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  .book { padding: 6rem 0 7rem; position: relative; overflow: hidden; }
+  .bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+  .grid-layer {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(70% 70% at 50% 50%, #000 30%, transparent 100%);
+  }
+  .glow { position: absolute; border-radius: 50%; filter: blur(80px); }
+  .glow-a { width: 480px; height: 480px; top: -120px; left: 20%; background: radial-gradient(circle, var(--bp-deep), transparent 70%); opacity: 0.6; }
+  .glow-b { width: 420px; height: 420px; bottom: -160px; right: 10%; background: radial-gradient(circle, var(--bp-orange), transparent 70%); opacity: 0.35; }
+
+  .content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+  }
+  .content h2 { font-size: clamp(2.5rem, 5vw, 4.25rem); margin-top: 0.5rem; }
+  .lede { color: var(--ink); opacity: 0.78; font-size: 1.1rem; max-width: 56ch; }
+  .cta-row { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin-top: 0.75rem; }
+  .trust {
+    list-style: none;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    display: flex;
+    gap: 1.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .trust li { display: flex; align-items: center; gap: 0.5rem; }
+  .trust li::before {
+    content: "";
+    width: 6px; height: 6px;
+    background: var(--bp-blue);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--bp-blue);
+  }
+</style>

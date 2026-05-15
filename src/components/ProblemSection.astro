@@ -1,0 +1,79 @@
+---
+const pains = [
+  { quote: "I'm posting but nothing's really happening.",     gap: 'Fan growth, streams, and booking opportunities — left on the table every week.' },
+  { quote: "I have a ton of footage but don't know what to do with it.", gap: 'Viral moments, brand elevation, audience growth — all wasted on a hard drive.' },
+  { quote: "I don't have time for content AND music.",        gap: 'Inconsistent posting kills momentum. Growth stalls.' },
+  { quote: "I don't know what actually works.",               gap: 'Guessing wastes the only thing more limited than money: time.' },
+  { quote: "My content doesn't match my level as an artist.", gap: 'You look smaller than you are. Bigger lineups pass you by.' },
+  { quote: "I'm not growing between shows.",                  gap: "A show should be weeks of growth. For most artists it's a one-night spike." },
+  { quote: "I feel like I'm behind other artists.",           gap: 'Visibility decides bookings. Inconsistency compounds backwards.' },
+];
+---
+<section class="problem" id="problem">
+  <div class="container">
+    <p class="label">The Gap</p>
+    <h2>
+      You're creating.<br />
+      <span class="glow-blue">But it's not converting.</span>
+    </h2>
+    <p class="lede">
+      The problem isn't your music. It's the missing system between
+      what you create and the fanbase you're trying to build.
+    </p>
+
+    <div class="pain-grid">
+      {pains.map((p, i) => (
+        <article class="pain">
+          <span class="pain-num">0{i + 1}</span>
+          <p class="pain-quote">"{p.quote}"</p>
+          <p class="pain-gap">{p.gap}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .problem { padding: 5rem 0 6rem; }
+  .lede {
+    margin: 1rem 0 2.5rem;
+    max-width: 60ch;
+    color: var(--ink);
+    opacity: 0.7;
+    font-size: 1.05rem;
+  }
+  .pain-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  .pain {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  }
+  .pain:hover { border-color: rgba(98, 166, 219, 0.35); transform: translateY(-2px); background: var(--card-elev); }
+  .pain-num {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    color: var(--bp-orange);
+    letter-spacing: 0.16em;
+    font-weight: 700;
+  }
+  .pain-quote { color: var(--ink); font-weight: 500; font-size: 1.05rem; line-height: 1.35; }
+  .pain-gap { color: var(--muted); font-size: 0.9rem; }
+  .pain:nth-child(7) { grid-column: 1 / -1; max-width: calc(33.33% - 0.66rem); }
+
+  @media (max-width: 980px) {
+    .pain-grid { grid-template-columns: repeat(2, 1fr); }
+    .pain:nth-child(7) { grid-column: auto; max-width: none; }
+  }
+  @media (max-width: 600px) {
+    .pain-grid { grid-template-columns: 1fr; }
+  }
+</style>
