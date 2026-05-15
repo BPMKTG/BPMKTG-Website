@@ -1,6 +1,8 @@
 # BPMKTG Website
 
-Marketing site built with [Astro](https://astro.build) and deployed to [Cloudflare Pages](https://pages.cloudflare.com).
+Blueprint Marketing's site — built with [Astro](https://astro.build) and deployed to [Cloudflare Pages](https://pages.cloudflare.com).
+
+> **For collaborators (human or AI):** read [`docs/CONTENT_BRIEF.md`](docs/CONTENT_BRIEF.md) (positioning, copy, offers, brand) and [`docs/SESSION_LOG.md`](docs/SESSION_LOG.md) (what's been built, decisions, known TODOs) **before** making changes. The brief overrides any drift in the live components.
 
 ## Develop
 
