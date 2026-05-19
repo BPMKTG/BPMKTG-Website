@@ -1,15 +1,31 @@
 ---
+import { Image } from 'astro:assets';
+import bg from '../assets/images/backgrounds/bg-2-perrywayne-purple-dft.jpeg';
+
 const stats = [
   { value: '$12.9B',   label: 'Electronic music sector in 2025',        sub: '17% rebound from pre-pandemic.' },
   { value: '73%',      label: 'Of Gen Z + Millennials discover artists on social', sub: 'TikTok, YouTube, Instagram — the trio that books shows.' },
   { value: '74%',      label: 'Higher share rate on TikTok music content', sub: '60% more likely to buy tickets.' },
   { value: '120K',     label: 'New tracks uploaded daily to streaming',  sub: 'Distribution alone is no longer a strategy.' },
-  { value: '1.7%',     label: 'Artists earning $10K+ per year from streaming', sub: 'Streaming isn\'t a business model. A system is.' },
+  { value: '1.7%',     label: 'Artists earning $10K+ per year from streaming', sub: "Streaming isn't a business model. A system is." },
   { value: '2.4×',     label: 'Higher fanbase growth from daily short-form', sub: 'Consistency, structurally engineered, wins.' },
 ];
 ---
 <section class="stats-section">
-  <div class="container">
+  <div class="bg" aria-hidden="true">
+    <Image
+      src={bg}
+      alt=""
+      width={1920}
+      height={1280}
+      format="webp"
+      quality={75}
+      loading="lazy"
+    />
+    <div class="bg-overlay"></div>
+  </div>
+
+  <div class="container content">
     <header class="stats-head">
       <p class="label">Market Context</p>
       <h2>The window is open.<br/><span class="glow-blue">Most artists are missing it.</span></h2>
@@ -28,7 +44,25 @@ const stats = [
 </section>
 
 <style>
-  .stats-section { padding: 5rem 0; }
+  .stats-section {
+    position: relative;
+    padding: 6rem 0;
+    overflow: hidden;
+  }
+  .bg { position: absolute; inset: 0; z-index: 0; }
+  .bg :global(img) {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+  .bg-overlay {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(10,10,15,0.94) 0%, rgba(10,10,15,0.78) 40%, rgba(10,10,15,0.94) 100%),
+      radial-gradient(40% 60% at 50% 50%, rgba(38, 79, 160, 0.18), transparent 70%);
+  }
+  .content { position: relative; z-index: 2; }
+
   .stats-head { margin-bottom: 3rem; max-width: 60ch; }
   .stats-head h2 { margin-top: 1rem; }
   .stat-grid {
@@ -38,6 +72,8 @@ const stats = [
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);
     overflow: hidden;
+    background: rgba(10, 10, 15, 0.55);
+    backdrop-filter: blur(10px);
   }
   .stat {
     padding: 2rem 1.75rem;
@@ -46,7 +82,6 @@ const stats = [
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    background: var(--card);
     position: relative;
     overflow: hidden;
   }

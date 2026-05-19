@@ -1,4 +1,15 @@
 ---
+import { Image } from 'astro:assets';
+import hero1 from '../assets/images/hero/hero-1-excision-magenta-713.jpeg';
+import hero2 from '../assets/images/hero/hero-2-alienpark-green-silo.jpeg';
+import hero3 from '../assets/images/hero/hero-3-grimefest-crowd-lightsaber.jpeg';
+
+const slides = [
+  { src: hero1, alt: 'Excision performing at 713 Music Hall, Houston', eager: true  },
+  { src: hero2, alt: 'Alien Park live at Silo Dallas',                  eager: false },
+  { src: hero3, alt: 'Grimefest crowd, lightsaber glow',                eager: false },
+];
+
 const stats = [
   { value: '$12.9B', label: 'EDM industry 2025' },
   { value: '2.4×',   label: 'Growth from daily short-form' },
@@ -6,11 +17,22 @@ const stats = [
 ];
 ---
 <section class="hero">
-  <div class="hero-bg" aria-hidden="true">
+  <div class="slides" aria-hidden="true">
+    {slides.map((s, i) => (
+      <div class={`slide slide-${i}`}>
+        <Image
+          src={s.src}
+          alt={s.alt}
+          width={1920}
+          height={1280}
+          format="webp"
+          quality={82}
+          loading={s.eager ? 'eager' : 'lazy'}
+        />
+      </div>
+    ))}
+    <div class="overlay"></div>
     <div class="grid-layer"></div>
-    <div class="glow glow-a"></div>
-    <div class="glow glow-b"></div>
-    <div class="glow glow-c"></div>
   </div>
 
   <div class="container hero-inner">
@@ -51,25 +73,52 @@ const stats = [
     position: relative;
     overflow: hidden;
     padding: 6rem 0 5rem;
+    min-height: clamp(620px, 85vh, 900px);
+    display: flex;
+    align-items: center;
   }
-  .hero-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-  .grid-layer {
+
+  .slides { position: absolute; inset: 0; z-index: 0; }
+  .slide {
     position: absolute; inset: 0;
+    opacity: 0;
+    animation: heroFade 21s infinite;
+  }
+  .slide :global(img) {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center 35%;
+  }
+  .slide-0 { animation-delay:  0s; }
+  .slide-1 { animation-delay:  7s; }
+  .slide-2 { animation-delay: 14s; }
+
+  @keyframes heroFade {
+     0%  { opacity: 0; transform: scale(1.04); }
+     5%  { opacity: 1; }
+    33%  { opacity: 1; transform: scale(1.00); }
+    38%  { opacity: 0; }
+   100%  { opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .slide { animation: none; }
+    .slide-0 { opacity: 1; }
+  }
+
+  .overlay {
+    position: absolute; inset: 0; z-index: 1;
+    background:
+      linear-gradient(180deg, rgba(10,10,15,0.45) 0%, rgba(10,10,15,0.65) 50%, rgba(10,10,15,0.95) 100%),
+      radial-gradient(60% 60% at 80% 20%, rgba(38, 79, 160, 0.18), transparent 70%);
+  }
+  .grid-layer {
+    position: absolute; inset: 0; z-index: 1;
     background-image:
-      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
     background-size: 40px 40px;
     mask-image: radial-gradient(70% 70% at 50% 30%, #000 30%, transparent 100%);
   }
-  .glow {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.55;
-  }
-  .glow-a { width: 540px; height: 540px; top: -180px; left: -180px; background: radial-gradient(circle, var(--bp-deep), transparent 70%); }
-  .glow-b { width: 620px; height: 620px; top: -120px; right: -180px; background: radial-gradient(circle, var(--bp-blue), transparent 70%); opacity: 0.35; }
-  .glow-c { width: 380px; height: 380px; bottom: -180px; left: 40%; background: radial-gradient(circle, var(--bp-orange), transparent 70%); opacity: 0.2; }
 
   .hero-inner {
     position: relative;
@@ -79,12 +128,13 @@ const stats = [
     gap: 1.5rem;
     align-items: flex-start;
   }
-  .hero h1 { max-width: 18ch; }
+  .hero h1 { max-width: 18ch; text-shadow: 0 4px 30px rgba(0,0,0,0.6); }
   .hero-sub {
     color: var(--ink);
-    opacity: 0.75;
+    opacity: 0.85;
     font-size: 1.15rem;
     max-width: 60ch;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
   }
   .cta-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; }
 
@@ -94,7 +144,7 @@ const stats = [
     grid-template-columns: repeat(3, auto);
     gap: 2.5rem;
     padding-top: 2rem;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid rgba(255,255,255,0.14);
     width: 100%;
     max-width: 720px;
   }
@@ -108,7 +158,8 @@ const stats = [
   }
   .stat-label {
     font-size: 0.78rem;
-    color: var(--muted);
+    color: var(--ink);
+    opacity: 0.78;
     text-transform: uppercase;
     letter-spacing: 0.12em;
   }

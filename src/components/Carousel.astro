@@ -1,0 +1,211 @@
+---
+import { Image } from 'astro:assets';
+
+import fireworks    from '../assets/images/carousel/carousel-fireworks-dft.jpeg';
+import fluxDoctorP  from '../assets/images/carousel/carousel-flux-doctorp-rv.jpeg';
+import sanpachoSelfie from '../assets/images/carousel/carousel-sanpacho-selfie.jpeg';
+import wooliAP      from '../assets/images/carousel/carousel-wooli-alienpark-backstage.jpeg';
+import atliens      from '../assets/images/carousel/carousel-atliens-sidestage.jpeg';
+import subtronicsRed from '../assets/images/carousel/carousel-subtronics-red.jpeg';
+import subLevelUp   from '../assets/images/carousel/carousel-subtronics-levelup.jpeg';
+import allTheReason from '../assets/images/carousel/carousel-allthereason-graffiti.jpeg';
+import sanpachoYR   from '../assets/images/carousel/carousel-sanpacho-yellowred.jpeg';
+import sanpachoRL   from '../assets/images/carousel/carousel-sanpacho-redlasers.jpeg';
+import ahee         from '../assets/images/carousel/carousel-ahee-crowd.jpeg';
+import levelUpWide  from '../assets/images/carousel/carousel-levelup-wide.jpeg';
+import yookie       from '../assets/images/carousel/carousel-yookie-grimefest.jpeg';
+import martinGarrix from '../assets/images/carousel/carousel-martingarrix-freakyducky.jpeg';
+import wooliees     from '../assets/images/carousel/carousel-wooliees-silo.jpeg';
+
+const shots = [
+  { src: fluxDoctorP,    caption: 'Flux Pavilion + Doctor P',  venue: 'Backstage',           orient: 'v' },
+  { src: wooliAP,        caption: 'Wooli + Alien Park',         venue: 'Backstage · Silo Dallas', orient: 'v' },
+  { src: atliens,        caption: 'ATLiens',                    venue: 'Sidestage · Dancefestopia', orient: 'v' },
+  { src: subtronicsRed,  caption: 'Subtronics',                 venue: 'Dancefestopia',       orient: 'v' },
+  { src: martinGarrix,   caption: 'Martin Garrix',              venue: 'Freaky Deaky',        orient: 'h' },
+  { src: sanpachoSelfie, caption: 'San Pacho',                  venue: 'Silo Dallas',         orient: 'v' },
+  { src: fireworks,      caption: 'Dancefestopia \'25',         venue: 'Festival',            orient: 'v' },
+  { src: yookie,         caption: 'Yookie',                     venue: 'Grimefest',           orient: 'h' },
+  { src: subLevelUp,     caption: 'Subtronics + Level Up',      venue: 'Sidestage · Dancefestopia', orient: 'v' },
+  { src: ahee,           caption: 'AHEE',                       venue: 'Dancefestopia',       orient: 'h' },
+  { src: sanpachoRL,     caption: 'San Pacho',                  venue: 'Silo Dallas',         orient: 'v' },
+  { src: levelUpWide,    caption: 'Level Up',                   venue: 'Dancefestopia',       orient: 'h' },
+  { src: allTheReason,   caption: 'All The Reason',             venue: 'Grimefest',           orient: 'v' },
+  { src: sanpachoYR,     caption: 'San Pacho',                  venue: 'Silo Dallas',         orient: 'v' },
+  { src: wooliees,       caption: 'Wooli',                      venue: 'Silo Dallas',         orient: 'h' },
+];
+---
+<section class="field-section" id="field">
+  <div class="container head">
+    <div class="head-text">
+      <p class="label">In The Field</p>
+      <h2>We don't just market EDM —<br/><span class="glow-blue">we live it.</span></h2>
+    </div>
+    <a href="/portfolio" class="see-all">
+      See full portfolio
+      <span class="arrow" aria-hidden="true">→</span>
+    </a>
+  </div>
+
+  <div class="rail-wrap">
+    <button class="nav prev" type="button" aria-label="Scroll left" data-rail-prev>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+
+    <div class="rail" data-rail>
+      {shots.map(shot => (
+        <figure class={`card ${shot.orient === 'v' ? 'v' : 'h'}`}>
+          <div class="img-wrap">
+            <Image
+              src={shot.src}
+              alt={`${shot.caption} — ${shot.venue}`}
+              width={shot.orient === 'v' ? 720 : 1280}
+              height={shot.orient === 'v' ? 1080 : 720}
+              format="webp"
+              quality={80}
+              loading="lazy"
+            />
+          </div>
+          <figcaption>
+            <strong>{shot.caption}</strong>
+            <span>{shot.venue}</span>
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+
+    <button class="nav next" type="button" aria-label="Scroll right" data-rail-next>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll('[data-rail]').forEach(rail => {
+    const wrap = rail.parentElement!;
+    const step = () => Math.round(rail.clientWidth * 0.85);
+    wrap.querySelector('[data-rail-prev]')?.addEventListener('click', () => {
+      rail.scrollBy({ left: -step(), behavior: 'smooth' });
+    });
+    wrap.querySelector('[data-rail-next]')?.addEventListener('click', () => {
+      rail.scrollBy({ left:  step(), behavior: 'smooth' });
+    });
+  });
+</script>
+
+<style>
+  .field-section { padding: 5rem 0 6rem; }
+  .head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+  }
+  .head-text h2 { margin-top: 1rem; }
+  .see-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--bp-light);
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.85rem;
+    padding: 0.7rem 1.1rem;
+    border: 1px solid rgba(98, 166, 219, 0.35);
+    border-radius: 999px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .see-all:hover { background: rgba(98, 166, 219, 0.12); color: #fff; border-color: var(--bp-blue); }
+
+  .rail-wrap {
+    position: relative;
+  }
+  .rail {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 280px;
+    gap: 1rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    padding: 0.5rem 1.5rem 1rem;
+    scroll-padding-left: 1.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+  }
+  .rail::-webkit-scrollbar { height: 8px; }
+  .rail::-webkit-scrollbar-track { background: transparent; }
+  .rail::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 999px; }
+
+  .card {
+    margin: 0;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .card.h { grid-column: span 2; }
+  .img-wrap {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    overflow: hidden;
+    border-radius: 14px;
+    background: var(--card);
+    position: relative;
+    isolation: isolate;
+  }
+  .card.h .img-wrap { aspect-ratio: 16 / 9; }
+  .img-wrap :global(img) {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+  }
+  .card:hover .img-wrap :global(img) { transform: scale(1.04); }
+  .img-wrap::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.4), transparent 50%);
+    pointer-events: none;
+  }
+  figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0 0.25rem;
+  }
+  figcaption strong {
+    color: var(--ink);
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.92rem;
+  }
+  figcaption span { color: var(--muted); font-size: 0.82rem; }
+
+  .nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 3;
+    background: rgba(10, 10, 15, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: var(--ink);
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .nav:hover { background: rgba(38, 79, 160, 0.5); border-color: var(--bp-blue); }
+  .nav.prev { left: 0.5rem; }
+  .nav.next { right: 0.5rem; }
+
+  @media (max-width: 700px) {
+    .rail { grid-auto-columns: 220px; }
+    .nav { display: none; }
+  }
+</style>
