@@ -98,4 +98,43 @@ src/
 
 ---
 
+## Session 2 — 2026-05-19 — Brief upgraded to v3.0 (photo guide added)
+
+### What changed
+
+- User pasted the v3.0 brief — adds **Section 15: Media Assets / Photo Placement Guide** and renumbers Visual Direction → Section 16.
+- [`CONTENT_BRIEF.md`](./CONTENT_BRIEF.md) overwritten with v3.0 verbatim. Site code untouched in this session.
+- The README was updated separately by the user to point collaborators at this log and the brief — that pointer is now real.
+
+### What Section 15 introduces (queued work)
+
+The new section is a complete photo placement plan from a curation session. Not yet implemented in code. Summary:
+
+1. **"In The Field" framing.** Photos are press/media access, **not** client work. Never use "client" language when introducing the gallery.
+2. **Hero crossfade** of 3 horizontals: Excision (713 Music Hall), Alien Park (Silo Dallas), Grimefest crowd. Excision is primary / first-load.
+3. **Section backgrounds:** Svdden Death (red, Wicked Oaks) behind the Problem section; Perry Wayne (purple/blue DFT) behind the Stats/Authority section. Heavy dark overlay required.
+4. **Homepage carousel:** 15 named shots, mix of vertical + horizontal. Filenames + captions already enumerated in the brief.
+5. **New `/portfolio` page:** vertical hero (The Resistance — Grimefest) + masonry gallery of the full ~40-shot set, lead with backstage access (Flux + Doctor P, Wooli + Alien Park, ATLiens sidestage).
+6. **Storage:** `src/assets/images/` (NOT `/public/`) so Astro's image pipeline auto-handles WebP, multi-breakpoint resizing, and CDN-friendly compression. Use `<Image>` from `astro:assets`, eager on hero, lazy elsewhere.
+
+### Implications for the build when photos arrive
+
+- `Hero.astro` becomes a 3-slide crossfade (CSS keyframes or JS-based fader). Current CSS glow stays as fallback / layered backdrop.
+- `ProblemSection.astro` + `MarketStats.astro` need a layered `<Image>` + dark gradient overlay treatment to keep text readable.
+- New `Carousel.astro` component for the 15-shot gallery on the homepage. Likely Swiper or a CSS scroll-snap implementation.
+- New `pages/portfolio.astro` route + `Gallery.astro` masonry component.
+- Add `portfolio` to the header nav (currently: How It Works / Offers / Why Blueprint / Guarantee / Blog).
+
+### Blockers / what's needed from the user
+
+- **The actual 40-photo set.** Filenames in the brief are the target — they have to be exported with those exact names into `src/assets/images/<bucket>/`. Without the files, this work can't start.
+- Export spec from the brief: max 2400px wide, JPG @ 85%, target ≤600KB each.
+
+### Decisions
+
+- **Brief is v3.0; SESSION_LOG also picks up where session 1 left off.** When in doubt about copy, the brief wins (existing rule, still applies).
+- **Photo work is one cohesive PR-worth of changes** — wire the pipeline + hero + backgrounds + carousel + portfolio together rather than dripping it section by section. Less churn that way.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
