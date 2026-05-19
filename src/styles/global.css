@@ -105,7 +105,7 @@ p { margin: 0; color: var(--muted); }
   gap: 0.55rem;
   padding: 0.95rem 1.5rem;
   border-radius: 999px;
-  background: var(--bp-orange);
+  background: var(--bp-deep);
   color: #fff;
   font-weight: 700;
   text-transform: uppercase;
@@ -114,9 +114,9 @@ p { margin: 0; color: var(--muted); }
   border: none;
   cursor: pointer;
   transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
-  box-shadow: 0 0 0 1px rgba(227, 112, 59, 0.35), 0 12px 30px -12px rgba(227, 112, 59, 0.6);
+  box-shadow: 0 0 0 1px rgba(98, 166, 219, 0.35), 0 12px 30px -12px rgba(38, 79, 160, 0.55);
 }
-.button:hover { transform: translateY(-1px); background: #ee7e48; box-shadow: 0 0 0 1px rgba(227, 112, 59, 0.55), 0 16px 36px -14px rgba(227, 112, 59, 0.75); }
+.button:hover { transform: translateY(-1px); background: #2c5cb8; box-shadow: 0 0 0 1px rgba(98, 166, 219, 0.55), 0 16px 36px -14px rgba(38, 79, 160, 0.75); }
 .button .arrow { display: inline-flex; transform: rotate(-45deg); }
 
 .button.ghost {
@@ -127,11 +127,13 @@ p { margin: 0; color: var(--muted); }
 }
 .button.ghost:hover { background: rgba(255,255,255,0.06); }
 
-.button.blue {
-  background: var(--bp-deep);
-  box-shadow: 0 0 0 1px rgba(98, 166, 219, 0.35), 0 12px 30px -12px rgba(98, 166, 219, 0.55);
+/* Hot-accent variant — reserve for the featured tier and the rare moment
+   that needs to pop louder than the primary blue CTA. */
+.button.accent {
+  background: var(--bp-orange);
+  box-shadow: 0 0 0 1px rgba(227, 112, 59, 0.35), 0 12px 30px -12px rgba(227, 112, 59, 0.6);
 }
-.button.blue:hover { background: #2c5cb8; }
+.button.accent:hover { background: #ee7e48; box-shadow: 0 0 0 1px rgba(227, 112, 59, 0.55), 0 16px 36px -14px rgba(227, 112, 59, 0.75); }
 
 .surface {
   background: var(--card);
