@@ -90,10 +90,16 @@ const tiers = [
     </header>
 
     <div class="tiers" data-reveal-group>
-      {tiers.map(t => (
+      {tiers.map(t => {
+        const [tierNum, ...rest] = t.tag.split(' · ');
+        const tierKind = rest.join(' · ');
+        return (
         <article class={`tier ${t.featured ? 'featured' : ''}`} style={`--accent: var(${t.accent});`} data-reveal>
           {t.featured && <span class="ribbon">Most picked</span>}
-          <p class="tag">{t.tag}</p>
+          <p class="tag">
+            <span class="tag-num">{tierNum} ·</span>
+            <span class="tag-kind">{tierKind}</span>
+          </p>
           <h3>{t.name}</h3>
           <p class="positioning">"{t.positioning}"</p>
 
@@ -113,7 +119,8 @@ const tiers = [
             <span class="arrow" aria-hidden="true">→</span>
           </a>
         </article>
-      ))}
+      );
+      })}
     </div>
   </div>
 </section>
@@ -170,7 +177,13 @@ const tiers = [
     color: var(--accent);
     text-transform: uppercase;
     font-weight: 700;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    line-height: 1.2;
   }
+  .tag .tag-num { opacity: 0.85; }
+  .tag .tag-kind { color: var(--accent); }
   .tier h3 {
     color: var(--ink);
     font-family: var(--font-display);
@@ -190,16 +203,23 @@ const tiers = [
   .price {
     margin-top: 0.5rem;
     display: flex;
-    align-items: baseline;
-    gap: 0.4rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
   }
   .price-num {
     font-family: var(--font-display);
     font-size: 1.85rem;
     font-weight: 800;
     color: var(--ink);
+    line-height: 1.05;
   }
-  .price-cadence { color: var(--muted); font-size: 0.82rem; }
+  .price-cadence {
+    color: var(--muted);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
   .buying {
     color: var(--ink);
     opacity: 0.78;
