@@ -267,4 +267,70 @@ The caption map lives in [`pages/portfolio.astro:42`](src/pages/portfolio.astro)
 
 ---
 
+## Session 6 — 2026-05-20 — Cinematic motion pass (commit `36e544a`)
+
+Site-wide motion overhaul implementing the user's "make everything feel alive" brief. Built around two new files plus data-attribute hooks on every component.
+
+### Architecture
+
+- **`src/scripts/motion.client.ts`** — single master script, ~280 LOC. One shared IntersectionObserver per effect type. Loaded once from Layout via `<script>import '../scripts/motion.client.ts';</script>`. Re-inits on `astro:page-load` for view-transition navigation.
+- **Motion CSS** appended to `src/styles/global.css` — all reveals, glows, neon, glitch, conic-gradient borders, light-leak overlays, custom cursor, CTA particles, Ken Burns.
+- **Components opt into effects** via `data-*` attributes: `data-reveal`, `data-reveal="left|scale"`, `data-reveal-group` (stagger via nth-child), `data-counter="…"`, `data-typewriter`, `data-glitch`, `data-tilt`.
+
+### What shipped (in user's list order)
+
+**Hero** — Glitch + typewriter + particles + logo glow + counter stats. The `"growth system."` highlight gets a 2-pulse RGB glitch on entry. Subhead types out at ~12-18ms/char. Logo fades in with a blue drop-shadow that decays. A canvas particle system (~48 dots, mouse-repel + Voronoi-style connecting lines) sits behind the hero — paused via IntersectionObserver when hero leaves the viewport, halted when tab hidden. Stat values count up from 0.
+
+**Scroll system (site-wide)** — Every section's label, heading, lede, and card grid uses `data-reveal` with stagger. One shared observer. Effects only fire when scrolled into view; each fires once then unobserves. `prefers-reduced-motion` short-circuits everything.
+
+**Problem** — Pain cards reveal sequentially with stagger. Each has a warm orange-tinted glow + border on hover. Background image has a 28s Ken Burns alternate-loop.
+
+**Roadmap** — Connecting line is a 2px blue gradient bar with scaleY transform driven by IO. Steps reveal sequentially via the same `data-reveal-group` stagger. Step numbers pulse with a one-shot blue text-shadow animation on reveal.
+
+**Offers** — Cards stagger in. Featured tier has an animated conic-gradient border (uses `@property --tier-angle` for smooth interpolation; degrades to nothing on older browsers).
+
+**Carousel** — `AUTO_MS` dropped 4200 → 3000ms. Existing autoplay + drag + touch swipe + hover-pause + reduced-motion handling stays. Caption fade happens automatically via the existing scroll-snap landing.
+
+**Stats** — Each value has `data-counter="$12.9B"` etc. Counter parses prefix/value/suffix from any format. After landing, a 48px blue underline draws below with a 0.9s ease.
+
+**Guarantee** — Card has a `guardPulse` animation: glowing border breathes between 0.3 and 0.6 box-shadow opacity over 4.5s. Section also gets a `.bp-texture` overlay (faint blueprint grid).
+
+**Book a Call** — `<span class="text-neon">Blueprint.</span>` pulses with text-shadow. Button has a sweep shimmer via `::after` skewed gradient. 18 absolutely-positioned `<span>` particles float upward from the section bottom with random x, duration (10-20s), and drift. No canvas; pure CSS.
+
+**Footer** — Animated 1px gradient line sweeps across the top continuously (7s loop). Logo gets a `drop-shadow` glow on hover. Social links translate-X 3px on hover.
+
+**Portfolio** — Masonry tiles reveal staggered. Access cards have `data-tilt` for cursor-tracking 3D tilt (max 8°) plus a radial light-leak overlay following the pointer. Lightbox already opened with scale + blur backdrop from session 4; now also supports `←/→` arrow keys.
+
+**Global** — Custom cursor (28px outline circle + 3px dot) replaces native cursor on desktop with `(pointer: fine)` AND no reduced-motion. Hover state on `a, button, [data-lightbox-open]` swaps the dot to a filled blue circle and scales the outline. Auto-disabled on touch / coarse pointers. Cursor uses `mix-blend-mode: difference` so it's visible on any background.
+
+**View transitions** — Astro 4's `<ViewTransitions />` enabled. Cross-fade between Home and Portfolio at 320ms. Motion script re-inits on each page swap via `astro:page-load`.
+
+### Explicitly skipped, with reasons
+
+- **Inertia smooth scroll (Lenis-style)** — high jank risk, accessibility cost (interferes with native scrollbars, screen-readers, scroll-anchoring), and modern Apple/Windows precision trackpads already feel weighted. Browser native scroll is the right baseline.
+
+### Performance notes
+
+- All IntersectionObservers are `{ threshold }` with `unobserve` on first hit. No element is observed forever.
+- Hero canvas pauses when `entry.isIntersecting === false` and on `visibilitychange === hidden`.
+- Custom cursor uses one rAF loop only when a pointermove has occurred recently.
+- 3D tilt rAF loop only runs while pointer is over the element; cancels on leave.
+- Counters fire only when scrolled to (50% threshold) and freeze after completion.
+- CSS `prefers-reduced-motion` blanket-kills all animation-duration / transition-duration / iteration-count, plus hides particles + glitch overlays.
+- Carousel + view-transition init are idempotent (won't re-bind to elements already wired).
+
+### Known small things
+
+- **Astro version pinned to 4.16.19** by lockfile despite `package.json` declaring `^6.3.3`. Used `ViewTransitions` (Astro 4 API) accordingly. When you bump to Astro 5+, rename to `ClientRouter` in `Layout.astro`.
+- **Conic-gradient `@property` border** on featured offer requires Chrome 85+/Safari 16.4+. Older browsers see a static featured card (still has orange box-shadow halo).
+- **Custom cursor + view transitions:** the cursor element gets removed during page swap because it's appended to `<body>`. `astro:page-load` re-creates it. Brief flash possible during transition.
+
+### Queued (carryover from session 5)
+
+- Calendly URL / email / socials still placeholders.
+- Portfolio filter chips (artist / event).
+- Custom view-transition styles per route (right now everything is the default cross-fade).
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
