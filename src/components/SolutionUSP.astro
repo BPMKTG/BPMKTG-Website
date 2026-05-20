@@ -31,9 +31,11 @@ const pillars = [
 
 <style>
   .solution { padding: 5rem 0; }
-  .solution-head { max-width: 64ch; }
+  /* Wide enough that the H2's longest sentence ("NOT A MARKETING AGENCY.")
+     fits on a single line in Orbitron uppercase at the H2 clamp size. */
+  .solution-head { max-width: 880px; }
   .solution-head h2 { margin-bottom: 1rem; }
-  .lede { margin-top: 1rem; color: var(--ink); opacity: 0.72; font-size: 1.05rem; }
+  .lede { margin-top: 1rem; color: var(--ink); opacity: 0.72; font-size: 1.05rem; max-width: 64ch; }
 
   .pillars {
     margin-top: 3rem;
