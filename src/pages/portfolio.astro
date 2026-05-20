@@ -108,13 +108,25 @@ const orientationOf = (src: ImageMetadata) => (src.width >= src.height ? 'h' : '
 const featuredLB = await Promise.all(
   featured.map(async f => ({ ...f, full: await lightboxOf(f.src) }))
 );
-const tilesLB = await Promise.all(
+const tilesLBRaw = await Promise.all(
   allTiles.map(async t => ({
     ...t,
     full: await lightboxOf(t.src),
     orient: orientationOf(t.src),
   }))
 );
+
+// Interleave horizontals + verticals so the masonry grid alternates
+// orientation column-to-column and row-to-row instead of clumping
+// the same shape together.
+const horizontals = tilesLBRaw.filter(t => t.orient === 'h');
+const verticals   = tilesLBRaw.filter(t => t.orient === 'v');
+const tilesLB: typeof tilesLBRaw = [];
+const interleaveMax = Math.max(horizontals.length, verticals.length);
+for (let i = 0; i < interleaveMax; i++) {
+  if (i < horizontals.length) tilesLB.push(horizontals[i]);
+  if (i < verticals.length)   tilesLB.push(verticals[i]);
+}
 ---
 <Layout
   title="Portfolio — Blueprint Marketing"
