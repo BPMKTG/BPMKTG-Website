@@ -267,23 +267,34 @@ p { margin: 0; color: var(--muted); }
 .bp-cursor::after {
   content: "";
   position: absolute;
-  background: var(--bp-blue);
   border-radius: 1px;
   transition: background 0.22s, height 0.22s, width 0.22s, margin 0.22s;
 }
-/* Horizontal bar */
+/* Horizontal bar — gradient creates a hollow center */
 .bp-cursor::before {
   top: 50%;
   left: 0; right: 0;
   height: 1.5px;
   margin-top: -0.75px;
+  background: linear-gradient(
+    to right,
+    var(--bp-blue) 0% 40%,
+    transparent 40% 60%,
+    var(--bp-blue) 60% 100%
+  );
 }
-/* Vertical bar */
+/* Vertical bar — same hollow trick on the y axis */
 .bp-cursor::after {
   left: 50%;
   top: 0; bottom: 0;
   width: 1.5px;
   margin-left: -0.75px;
+  background: linear-gradient(
+    to bottom,
+    var(--bp-blue) 0% 40%,
+    transparent 40% 60%,
+    var(--bp-blue) 60% 100%
+  );
 }
 /* Hover state: grow the cross + thicken + warm color */
 .bp-cursor.is-hover {
@@ -294,12 +305,22 @@ p { margin: 0; color: var(--muted); }
 .bp-cursor.is-hover::before {
   height: 2px;
   margin-top: -1px;
-  background: var(--bp-orange);
+  background: linear-gradient(
+    to right,
+    var(--bp-orange) 0% 40%,
+    transparent 40% 60%,
+    var(--bp-orange) 60% 100%
+  );
 }
 .bp-cursor.is-hover::after {
   width: 2px;
   margin-left: -1px;
-  background: var(--bp-orange);
+  background: linear-gradient(
+    to bottom,
+    var(--bp-orange) 0% 40%,
+    transparent 40% 60%,
+    var(--bp-orange) 60% 100%
+  );
 }
 /* Click pulse */
 .bp-cursor.is-click {
@@ -357,13 +378,53 @@ p { margin: 0; color: var(--muted); }
   .roadmap-line { display: none; }
 }
 
-/* Step number pulse on reveal */
-.step[data-reveal].is-in .step-num {
-  animation: numPulse 2.2s ease-in-out 0.35s 1;
+/* Refined step entrance:
+   1. Number settles in from below + fades, then a soft glow remains
+   2. A thin blue accent line draws under the step title
+   3. The whole reveal uses a long, smooth cubic-bezier — feels designed, not animated */
+
+.step[data-reveal] {
+  transition:
+    opacity 0.95s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s),
+    transform 0.95s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s);
 }
-@keyframes numPulse {
-  0%, 100% { text-shadow: 0 0 0 transparent; }
-  50% { text-shadow: 0 0 28px rgba(98,166,219,0.95), 0 0 6px rgba(98,166,219,0.7); }
+.step[data-reveal] .step-num {
+  display: inline-block;
+  transform: translateY(6px);
+  opacity: 0.55;
+  text-shadow: 0 0 0 transparent;
+  transition:
+    transform 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.15s,
+    opacity 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.15s,
+    text-shadow 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.4s;
+}
+.step[data-reveal].is-in .step-num {
+  transform: translateY(0);
+  opacity: 1;
+  /* Settled, permanent soft glow — no pulse */
+  text-shadow:
+    0 0 20px rgba(98, 166, 219, 0.55),
+    0 0 4px rgba(98, 166, 219, 0.35);
+}
+
+/* Title underline draws on reveal */
+.step .step-head h3 { position: relative; }
+.step .step-head h3::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -7px;
+  height: 1px;
+  width: 0;
+  background: linear-gradient(90deg, var(--bp-blue), transparent 90%);
+  box-shadow: 0 0 8px rgba(98, 166, 219, 0.5);
+  transition: width 1.3s cubic-bezier(0.16, 1, 0.3, 1) 0.45s;
+}
+.step[data-reveal].is-in .step-head h3::after { width: 64px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .step[data-reveal] .step-num { transform: none; opacity: 1; transition: none; }
+  .step .step-head h3::after { width: 64px; transition: none; }
 }
 
 /* ──────── Card hover lift (general) ──────── */

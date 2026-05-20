@@ -171,7 +171,17 @@ const shots = [
     rail.addEventListener('touchstart', pause, { passive: true });
     rail.addEventListener('touchend',   () => window.setTimeout(resume, 2000));
 
-    start();
+    // Defer the first auto-advance until the carousel enters the viewport,
+    // then wait ~2.5s before the first scroll so the user gets to look first.
+    let started = false;
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !started) {
+        started = true;
+        window.setTimeout(() => { tick(); start(); }, 2500);
+        io.unobserve(rail);
+      }
+    }, { threshold: 0.25 });
+    io.observe(rail);
   });
 </script>
 
