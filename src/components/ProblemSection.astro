@@ -1,7 +1,4 @@
 ---
-import { Image } from 'astro:assets';
-import bg from '../assets/images/backgrounds/bg-1-svddendeath-red-wickedoaks.jpg';
-
 const pains = [
   { quote: "I'm posting but nothing's really happening.",     gap: 'Fan growth, streams, and booking opportunities — left on the table every week.' },
   { quote: "I have a ton of footage but don't know what to do with it.", gap: 'Viral moments, brand elevation, audience growth — all wasted on a hard drive.' },
@@ -13,19 +10,6 @@ const pains = [
 ];
 ---
 <section class="problem" id="problem">
-  <div class="bg kenburns" data-parallax-bg aria-hidden="true">
-    <Image
-      src={bg}
-      alt=""
-      width={1920}
-      height={1280}
-      format="webp"
-      quality={75}
-      loading="lazy"
-    />
-  </div>
-  <div class="bg-overlay" aria-hidden="true"></div>
-
   <div class="container content">
     <p class="label" data-reveal="left">The Gap</p>
     <h2 data-reveal>
@@ -55,21 +39,7 @@ const pains = [
     padding: 6rem 0 7rem;
     overflow: hidden;
   }
-  .bg { position: absolute; inset: 0; z-index: 0; }
-  .bg :global(img) {
-    width: 100%; height: 100%;
-    object-fit: cover;
-    object-position: center;
-  }
-  .bg-overlay {
-    position: absolute; inset: 0;
-    z-index: 1;
-    background:
-      linear-gradient(180deg, rgba(10,10,15,0.72) 0%, rgba(10,10,15,0.42) 32%, rgba(10,10,15,0.55) 70%, rgba(10,10,15,0.82) 100%),
-      radial-gradient(60% 50% at 50% 50%, transparent 0%, rgba(10,10,15,0.18) 100%);
-  }
   .content { position: relative; z-index: 2; }
-  .content h2, .content .lede, .content .label { text-shadow: 0 2px 14px rgba(0,0,0,0.55); }
 
   .lede {
     margin: 1rem 0 2.5rem;

@@ -148,6 +148,9 @@ const frames = [
     object-fit: cover;
     object-position: center 35%;
   }
+  /* Excision frame: lower the focal point so stage + fire are visible
+     under the lasers. Other frames keep the higher crop. */
+  .frame[data-frame="0"] .img-wrap :global(img) { object-position: center 68%; }
 
   .overlay {
     position: absolute; inset: 0;
