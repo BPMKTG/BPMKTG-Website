@@ -179,4 +179,41 @@ The full Section 15 photo plan, in one pass:
 
 ---
 
+## Session 4 — 2026-05-19 — Cinematic refinements pass (commit `ff50620`)
+
+This session landed on top of a parallel set of color tweaks (commits `2975c82` → `a27556b`) that re-balanced the palette toward **blue-dominant, orange-sparing** per brief §16. Both sets merged cleanly via rebase.
+
+### What got built
+
+1. **Portfolio lightbox** — every Access card + masonry tile is now a `<button>` that opens a native `<dialog>` overlay with the full-size image (a 1800px WebP variant generated at build time via `getImage()`). Backdrop click, X button, and ESC all close. Body scroll is locked while open. No JS dependencies — vanilla `<dialog>` + ~30 lines of script.
+2. **Carousel** — auto-advances every ~4.2s with a smooth `scrollBy()` snap. Pauses on mouse hover, on touch, when the tab is hidden, and during any nav-button click or drag (resumes 2s later). Mouse drag-to-pan added (touch uses native scroll-snap to keep momentum smooth). Click suppression after a drag so an accidental tile click doesn't trigger when the user is actually panning. Respects `prefers-reduced-motion`.
+3. **`Parallax.astro` (new component)** — full-bleed section inserted between Problem and Solution. Cycles through the 3 hero images on a 5s crossfade. Background images transform on scroll via `requestAnimationFrame` for true parallax (no `background-attachment: fixed` so it works on iOS). Includes a 3-button "meter" with animated fill bars showing which frame is active; clicking a meter jumps to that frame and resets the cycle.
+4. **Background overlay dial-back** — `ProblemSection` and `MarketStats` went from ~0.95 / 0.78 / 0.85 opacity gradients down to ~0.72 / 0.42 / 0.55. Photos bleed through far more visibly. Added `text-shadow: 0 2px 14px rgba(0,0,0,0.55)` to the section heading + label so they stay crisp on the lighter base.
+5. **Access section** — expanded from 3 → 5 cards. Added `carousel-subtronics-levelup.jpeg` (sidestage DFT) and `portfolio-hero-theresistance-grimefest.jpeg` (Grimefest headline). Grid is now 5-col → 3-col → 2-col → 1-col responsive.
+
+### Build numbers
+
+- 4 pages, **94 WebP variants** (up from 55 — the lightbox 1800px variants account for the new ~40).
+- Cache hit rate ~80% on rebuild — only new variants regenerated.
+
+### Decisions worth remembering
+
+- **No JS framework added.** All interactivity (parallax, carousel autoplay, drag, lightbox) is vanilla TypeScript embedded in `<script>` blocks. ~120 LOC total across 3 components. If we add a 4th interactive thing, consider an Astro island with Preact or similar.
+- **Lightbox source = 1800px WebP.** Not the full original JPG. Renders crisp at 4K viewports while keeping bundle reasonable.
+- **Parallax shift is ±80px.** Chosen so the image inset (`-10% -2%`) never reveals the underlying section background. If we crank parallax stronger, increase the inset proportionally.
+- **`In The Field` carousel section now has an autoplay loop** that wraps to start at the end. If you scroll all 15 manually, it'll start over.
+
+### Known small bug (low priority)
+
+In `Carousel.astro` the `userInteracted` flag prevents auto-resume after a `visibilitychange → visible` event if the user previously clicked a nav button. The setTimeout-driven resume still fires within the same session, so the carousel doesn't permanently stop — but if the user clicks a nav button → tabs away → tabs back, it'll stay paused until they hover. Fix: drop the `userInteracted` gate in the visibilitychange handler (always resume on visible). Not shipped because the symptom is minor.
+
+### Queued
+
+- **Calendly / email / socials** — still placeholders.
+- **`Neotek`** — still un-IDed from the `portfolio-NN` shots.
+- **Portfolio filter chips** (artist / event) — still queued.
+- **Scroll-triggered fade-ins** for non-hero sections — most sections now have their own motion (parallax, carousel, lightbox) so the priority is lower.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
