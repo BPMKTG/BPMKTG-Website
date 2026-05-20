@@ -166,10 +166,10 @@ const tilesLB = await Promise.all(
                 quality={82}
                 loading="lazy"
               />
-            </span>
-            <span class="meta">
-              <span class="tag">{f.tag}</span>
-              <strong>{f.caption}</strong>
+              <span class="hover-meta">
+                <span class="tag">{f.tag}</span>
+                <strong>{f.caption}</strong>
+              </span>
             </span>
           </button>
         ))}
@@ -340,8 +340,29 @@ const tilesLB = await Promise.all(
   }
   .feat-card:hover .img-wrap :global(img),
   .feat-card:focus-visible .img-wrap :global(img) { transform: scale(1.05); }
-  .feat-card .meta { padding: 0 0.25rem; display: flex; flex-direction: column; gap: 0.2rem; }
-  .feat-card .tag {
+
+  /* Hover caption: slides up from bottom of the photo */
+  .feat-card .hover-meta {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 2.2rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    background: linear-gradient(to top, rgba(10,10,15,0.94), rgba(10,10,15,0) 100%);
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.4s cubic-bezier(.2,.7,.3,1),
+                transform 0.4s cubic-bezier(.2,.7,.3,1);
+    pointer-events: none;
+    z-index: 4; /* above the tilt light-leak overlay */
+  }
+  .feat-card:hover .hover-meta,
+  .feat-card:focus-visible .hover-meta {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .feat-card .hover-meta .tag {
     color: var(--bp-blue);
     font-family: var(--font-display);
     font-size: 0.7rem;
@@ -349,12 +370,12 @@ const tilesLB = await Promise.all(
     text-transform: uppercase;
     font-weight: 700;
   }
-  .feat-card strong {
-    color: var(--ink);
+  .feat-card .hover-meta strong {
+    color: #fff;
     font-family: var(--font-display);
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    font-size: 0.92rem;
+    font-size: 0.95rem;
     font-weight: 700;
   }
 
@@ -396,17 +417,22 @@ const tilesLB = await Promise.all(
   .tile .caption {
     position: absolute;
     bottom: 0; left: 0; right: 0;
-    padding: 1.5rem 1rem 0.85rem;
-    background: linear-gradient(to top, rgba(10,10,15,0.92), rgba(10,10,15,0) 100%);
+    padding: 2rem 1rem 0.95rem;
+    background: linear-gradient(to top, rgba(10,10,15,0.94), rgba(10,10,15,0) 100%);
     display: flex;
     flex-direction: column;
-    gap: 0.1rem;
+    gap: 0.15rem;
     opacity: 0;
-    transition: opacity 0.2s;
+    transform: translateY(14px);
+    transition: opacity 0.35s cubic-bezier(.2,.7,.3,1),
+                transform 0.35s cubic-bezier(.2,.7,.3,1);
     z-index: 2;
     pointer-events: none;
   }
-  .tile:hover .caption, .tile:focus-visible .caption { opacity: 1; }
+  .tile:hover .caption, .tile:focus-visible .caption {
+    opacity: 1;
+    transform: translateY(0);
+  }
   .tile .caption strong {
     color: #fff;
     font-family: var(--font-display);

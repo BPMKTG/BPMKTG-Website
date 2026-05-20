@@ -13,7 +13,7 @@ const pains = [
 ];
 ---
 <section class="problem" id="problem">
-  <div class="bg kenburns" aria-hidden="true">
+  <div class="bg kenburns" data-parallax-bg aria-hidden="true">
     <Image
       src={bg}
       alt=""
@@ -23,8 +23,8 @@ const pains = [
       quality={75}
       loading="lazy"
     />
-    <div class="bg-overlay"></div>
   </div>
+  <div class="bg-overlay" aria-hidden="true"></div>
 
   <div class="container content">
     <p class="label" data-reveal="left">The Gap</p>
@@ -63,6 +63,7 @@ const pains = [
   }
   .bg-overlay {
     position: absolute; inset: 0;
+    z-index: 1;
     background:
       linear-gradient(180deg, rgba(10,10,15,0.72) 0%, rgba(10,10,15,0.42) 32%, rgba(10,10,15,0.55) 70%, rgba(10,10,15,0.82) 100%),
       radial-gradient(60% 50% at 50% 50%, transparent 0%, rgba(10,10,15,0.18) 100%);

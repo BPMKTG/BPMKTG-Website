@@ -408,11 +408,39 @@ p { margin: 0; color: var(--muted); }
   transform-origin: center;
 }
 
-/* ──────── Carousel slide / Ken Burns / caption fade ──────── */
-.rail .card .img-wrap :global(img) {
-  transition: transform 0.6s cubic-bezier(.2,.7,.3,1);
+/* ──────── Full-bleed photo section parallax
+   Element is sized larger than its section (inset: -10% 0) and translated
+   on scroll. Section is `overflow: hidden`, so the extra room never reveals. */
+[data-parallax-bg] {
+  inset: -10% 0 !important;
+  transform: translate3d(0, var(--parallax-y, 0), 0);
+  will-change: transform;
 }
-.rail .card:hover .img-wrap :global(img) { transform: scale(1.06); }
+@media (prefers-reduced-motion: reduce) {
+  [data-parallax-bg] { transform: none; }
+}
+
+/* ──────── Carousel Ken Burns
+   Subtle continuous zoom on every card. Cheap (transform only).
+   Cards stagger via :nth-child so the rail doesn't pulse in unison. */
+.rail .card .img-wrap :global(img) {
+  animation: cardKB 14s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+.rail .card:nth-child(3n) .img-wrap :global(img) { animation-delay: -3s; }
+.rail .card:nth-child(3n+1) .img-wrap :global(img) { animation-delay: -7s; }
+.rail .card:nth-child(3n+2) .img-wrap :global(img) { animation-delay: -11s; }
+.rail .card:hover .img-wrap :global(img) {
+  animation-play-state: paused;
+  transform: scale(1.06);
+}
+@keyframes cardKB {
+  0%   { transform: scale(1.0); }
+  100% { transform: scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail .card .img-wrap :global(img) { animation: none; }
+}
 
 /* ──────── 3D tilt + light leak ──────── */
 [data-tilt] {

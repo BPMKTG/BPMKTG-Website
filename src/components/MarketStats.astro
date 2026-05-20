@@ -12,7 +12,7 @@ const stats = [
 ];
 ---
 <section class="stats-section">
-  <div class="bg" aria-hidden="true">
+  <div class="bg" data-parallax-bg aria-hidden="true">
     <Image
       src={bg}
       alt=""
@@ -22,8 +22,8 @@ const stats = [
       quality={75}
       loading="lazy"
     />
-    <div class="bg-overlay"></div>
   </div>
+  <div class="bg-overlay" aria-hidden="true"></div>
 
   <div class="container content">
     <header class="stats-head">
@@ -58,6 +58,7 @@ const stats = [
   }
   .bg-overlay {
     position: absolute; inset: 0;
+    z-index: 1;
     background:
       linear-gradient(180deg, rgba(10,10,15,0.72) 0%, rgba(10,10,15,0.42) 45%, rgba(10,10,15,0.78) 100%),
       radial-gradient(40% 60% at 50% 50%, rgba(38, 79, 160, 0.22), transparent 70%);

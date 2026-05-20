@@ -38,24 +38,29 @@ function parseCounter(target: string) {
   return { prefix: m[1], value: parseFloat(m[2]), suffix: m[3] };
 }
 
+function formatCounterValue(v: number, decimals: number, prefix: string, suffix: string) {
+  if (decimals > 0) return prefix + v.toFixed(decimals) + suffix;
+  return prefix + Math.round(v).toLocaleString('en-US') + suffix;
+}
+
 function animateCounter(el: HTMLElement) {
   const target = el.dataset.counter;
   if (!target) return;
   const parsed = parseCounter(target);
   if (!parsed) return;
   const decimals = (target.split('.')[1] || '').replace(/[^\d]/g, '').length;
-  const dur = 1400;
+  const dur = 1600;
   const t0 = performance.now();
 
   const frame = (now: number) => {
     const t = Math.min(1, (now - t0) / dur);
     const eased = 1 - Math.pow(1 - t, 3);
     const v = parsed.value * eased;
-    el.textContent = parsed.prefix + v.toFixed(decimals) + parsed.suffix;
+    el.textContent = formatCounterValue(v, decimals, parsed.prefix, parsed.suffix);
     if (t < 1) requestAnimationFrame(frame);
     else {
       el.textContent = target;
-      const wrap = el.closest('.stat');
+      const wrap = el.closest('.stat, .price');
       if (wrap) wrap.classList.add('is-counted');
     }
   };
@@ -69,7 +74,9 @@ function initCounters() {
   els.forEach(el => {
     const target = el.dataset.counter!;
     const p = parseCounter(target);
-    el.textContent = p ? p.prefix + '0' + p.suffix : target;
+    if (!p) { el.textContent = target; return; }
+    const decimals = (target.split('.')[1] || '').replace(/[^\d]/g, '').length;
+    el.textContent = formatCounterValue(0, decimals, p.prefix, p.suffix);
   });
   if (reduce()) {
     els.forEach(el => { el.textContent = el.dataset.counter!; el.closest('.stat')?.classList.add('is-counted'); });
@@ -400,6 +407,44 @@ function initLightboxArrows() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 11. Background parallax for full-bleed photo sections
+//     Cheap pattern: one rAF-throttled scroll listener, sets --parallax-y
+//     on every [data-parallax-bg] element that's near the viewport.
+// ─────────────────────────────────────────────────────────────
+function initBgParallax() {
+  if (reduce()) return;
+  const els = Array.from(document.querySelectorAll<HTMLElement>('[data-parallax-bg]'));
+  if (!els.length) return;
+
+  // Cache section references
+  const items = els.map(el => ({ el, section: (el.closest('section') ?? el.parentElement) as HTMLElement }));
+
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    const vh = window.innerHeight;
+    for (const { el, section } of items) {
+      if (!section) continue;
+      const rect = section.getBoundingClientRect();
+      // Skip elements far outside viewport — cheap perf win
+      if (rect.bottom < -300 || rect.top > vh + 300) continue;
+      const progress = (vh / 2 - (rect.top + rect.height / 2)) / (vh / 2 + rect.height / 2);
+      const clamped = Math.max(-1, Math.min(1, progress));
+      const shift = clamped * 70;
+      el.style.setProperty('--parallax-y', `${shift}px`);
+    }
+  };
+  const onScroll = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(update);
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+  update();
+}
+
+// ─────────────────────────────────────────────────────────────
 // Init / re-init
 // ─────────────────────────────────────────────────────────────
 function init() {
@@ -411,6 +456,7 @@ function init() {
   initHeroParticles();
   initTilt();
   initRoadmapLine();
+  initBgParallax();
   initCtaParticles();
   initLightboxArrows();
 }

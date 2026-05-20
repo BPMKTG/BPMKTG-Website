@@ -19,7 +19,7 @@ const stats = [
 const subhead = "Blueprint Marketing builds growth infrastructure for EDM artists — turning content, shows, and releases into real fans and real revenue.";
 ---
 <section class="hero">
-  <div class="slides" aria-hidden="true">
+  <div class="slides" data-parallax-bg aria-hidden="true">
     {slides.map((s, i) => (
       <div class={`slide slide-${i}`}>
         <Image
@@ -33,9 +33,9 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
         />
       </div>
     ))}
-    <div class="overlay"></div>
-    <div class="grid-layer"></div>
   </div>
+  <div class="overlay" aria-hidden="true"></div>
+  <div class="grid-layer" aria-hidden="true"></div>
 
   <div class="container hero-inner">
     <p class="label" data-reveal="left">For touring EDM artists</p>
@@ -96,6 +96,8 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     object-fit: cover;
     object-position: center 35%;
   }
+  /* Excision frame: keep stage + fire visible beneath the lasers */
+  .slide-0 :global(img) { object-position: center 68%; }
   .slide-0 { animation-delay:  0s; }
   .slide-1 { animation-delay:  7s; }
   .slide-2 { animation-delay: 14s; }
