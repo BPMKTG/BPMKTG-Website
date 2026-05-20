@@ -96,6 +96,7 @@ p { margin: 0; color: var(--muted); }
   text-decoration-thickness: 0.07em;
   text-underline-offset: 0.1em;
 }
+.highlight.blue { color: var(--bp-blue); }
 .glow-blue { color: var(--bp-blue); }
 .glow-deep { color: var(--bp-light); }
 

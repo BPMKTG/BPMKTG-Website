@@ -41,7 +41,7 @@ const stats = [
     <h1>
       Turn every show, release,<br />
       and moment into a<br />
-      <span class="highlight">growth system.</span>
+      <span class="highlight blue">growth system.</span>
     </h1>
 
     <p class="hero-sub">
@@ -50,7 +50,7 @@ const stats = [
     </p>
 
     <div class="cta-row">
-      <a href="#book" class="button">
+      <a href="#book" class="button accent">
         Book a Free Strategy Call
         <span class="arrow" aria-hidden="true">→</span>
       </a>
@@ -128,7 +128,11 @@ const stats = [
     gap: 1.5rem;
     align-items: flex-start;
   }
-  .hero h1 { max-width: 18ch; text-shadow: 0 4px 30px rgba(0,0,0,0.6); }
+  .hero h1 {
+    max-width: 18ch;
+    font-size: clamp(2.1rem, 4.8vw, 4rem);
+    text-shadow: 0 4px 30px rgba(0,0,0,0.6);
+  }
   .hero-sub {
     color: var(--ink);
     opacity: 0.85;
