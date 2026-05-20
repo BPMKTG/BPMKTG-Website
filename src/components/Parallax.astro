@@ -1,0 +1,244 @@
+---
+import { Image } from 'astro:assets';
+import h1 from '../assets/images/hero/hero-1-excision-magenta-713.jpeg';
+import h2 from '../assets/images/hero/hero-2-alienpark-green-silo.jpeg';
+import h3 from '../assets/images/hero/hero-3-grimefest-crowd-lightsaber.jpeg';
+
+const frames = [
+  { src: h1, alt: 'Excision performing at 713 Music Hall', tag: 'Excision',    venue: '713 Music Hall, Houston' },
+  { src: h2, alt: 'Alien Park live at Silo Dallas',         tag: 'Alien Park',  venue: 'Silo Dallas' },
+  { src: h3, alt: 'Grimefest crowd, lightsaber glow',       tag: 'The Crowd',   venue: 'Grimefest' },
+];
+---
+<section class="parallax-section" data-parallax aria-label="In the field — image showcase">
+  <div class="stage" data-parallax-stage>
+    {frames.map((f, i) => (
+      <figure class={`frame ${i === 0 ? 'is-active' : ''}`} data-frame={i}>
+        <div class="img-wrap" data-parallax-img>
+          <Image
+            src={f.src}
+            alt={f.alt}
+            width={2400}
+            height={1600}
+            format="webp"
+            quality={84}
+            loading="lazy"
+          />
+        </div>
+      </figure>
+    ))}
+
+    <div class="overlay" aria-hidden="true"></div>
+    <div class="grid-layer" aria-hidden="true"></div>
+  </div>
+
+  <div class="container content">
+    <p class="label">From The Field</p>
+    <h2>
+      The growth system behind<br />
+      <span class="highlight">the artists everyone's watching.</span>
+    </h2>
+    <p class="sub">
+      Real shows. Real artists. Real-time. The energy your audience already
+      follows — we just help you capture and compound it.
+    </p>
+
+    <div class="meter" role="tablist" aria-label="Featured frame">
+      {frames.map((f, i) => (
+        <button
+          type="button"
+          class={`meter-btn ${i === 0 ? 'is-active' : ''}`}
+          data-meter={i}
+          aria-label={`Show frame ${i + 1}: ${f.tag}`}
+        >
+          <span class="meter-bar"><span class="meter-fill"></span></span>
+          <span class="meter-text">
+            <strong>{f.tag}</strong>
+            <em>{f.venue}</em>
+          </span>
+        </button>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  const sections = document.querySelectorAll('[data-parallax]');
+  sections.forEach(section => {
+    const frames = Array.from(section.querySelectorAll('[data-frame]'));
+    const meters = Array.from(section.querySelectorAll('[data-meter]'));
+    const imgWraps = Array.from(section.querySelectorAll('[data-parallax-img]')) as HTMLElement[];
+    if (!frames.length) return;
+
+    let current = 0;
+    const CYCLE_MS = 5000;
+
+    const setActive = (idx: number) => {
+      current = idx;
+      frames.forEach((f, i) => f.classList.toggle('is-active', i === idx));
+      meters.forEach((m, i) => m.classList.toggle('is-active', i === idx));
+    };
+
+    let timer: number | null = null;
+    const start = () => { stop(); timer = window.setInterval(() => setActive((current + 1) % frames.length), CYCLE_MS); };
+    const stop  = () => { if (timer !== null) { clearInterval(timer); timer = null; } };
+
+    meters.forEach((m, i) => m.addEventListener('click', () => { setActive(i); start(); }));
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else start(); });
+
+    // Parallax: translate images on scroll. Range tuned so it never reveals an empty edge.
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const rect = (section as HTMLElement).getBoundingClientRect();
+      const vh = window.innerHeight;
+      // Progress = -1 (section below view) → 0 (centered) → 1 (above view)
+      const progress = (vh / 2 - (rect.top + rect.height / 2)) / (vh / 2 + rect.height / 2);
+      const clamped = Math.max(-1, Math.min(1, progress));
+      const shift = clamped * 80; // px
+      imgWraps.forEach(w => { w.style.setProperty('--parallax-y', `${shift}px`); });
+    };
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    update();
+
+    // Respect reduced motion
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      stop();
+    } else {
+      start();
+    }
+  });
+</script>
+
+<style>
+  .parallax-section {
+    position: relative;
+    min-height: clamp(560px, 80vh, 820px);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    isolation: isolate;
+  }
+  .stage { position: absolute; inset: 0; z-index: 0; }
+
+  .frame {
+    position: absolute; inset: 0;
+    margin: 0;
+    opacity: 0;
+    transition: opacity 1.4s cubic-bezier(.4,.0,.2,1);
+    will-change: opacity;
+  }
+  .frame.is-active { opacity: 1; }
+
+  .img-wrap {
+    position: absolute;
+    inset: -10% -2%; /* extra room so parallax shift never reveals edges */
+    transform: translate3d(0, var(--parallax-y, 0), 0) scale(1.08);
+    transition: transform 0.1s linear;
+    will-change: transform;
+  }
+  .img-wrap :global(img) {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center 35%;
+  }
+
+  .overlay {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(10,10,15,0.72) 0%, rgba(10,10,15,0.4) 40%, rgba(10,10,15,0.85) 100%),
+      radial-gradient(50% 60% at 80% 20%, rgba(38, 79, 160, 0.22), transparent 70%);
+  }
+  .grid-layer {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(70% 70% at 50% 50%, #000 30%, transparent 100%);
+  }
+
+  .content {
+    position: relative;
+    z-index: 2;
+    padding: 5rem 1.5rem;
+    max-width: var(--max-width);
+  }
+  .content h2 {
+    margin-top: 1rem;
+    max-width: 22ch;
+    text-shadow: 0 4px 30px rgba(0,0,0,0.65);
+  }
+  .sub {
+    margin-top: 1.25rem;
+    color: var(--ink);
+    opacity: 0.88;
+    max-width: 50ch;
+    font-size: 1.05rem;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.65);
+  }
+
+  .meter {
+    margin-top: 2.5rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    max-width: 720px;
+  }
+  .meter-btn {
+    appearance: none;
+    background: transparent;
+    border: none;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0;
+  }
+  .meter-bar {
+    height: 2px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 999px;
+    overflow: hidden;
+    display: block;
+  }
+  .meter-fill {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--bp-blue);
+    transition: width 0.4s ease;
+  }
+  .meter-btn.is-active .meter-fill {
+    width: 100%;
+    animation: meterFill 5s linear forwards;
+  }
+  @keyframes meterFill { from { width: 0%; } to { width: 100%; } }
+
+  .meter-text { display: flex; flex-direction: column; gap: 0.1rem; }
+  .meter-text strong {
+    color: var(--ink);
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.88rem;
+    opacity: 0.7;
+    transition: opacity 0.3s;
+  }
+  .meter-btn.is-active .meter-text strong { color: var(--bp-light); opacity: 1; }
+  .meter-text em { font-style: normal; color: var(--muted); font-size: 0.78rem; }
+
+  @media (max-width: 600px) {
+    .meter { grid-template-columns: 1fr; gap: 0.6rem; }
+    .meter-bar { width: 80px; }
+    .meter-btn { flex-direction: row; align-items: center; gap: 0.85rem; }
+  }
+</style>

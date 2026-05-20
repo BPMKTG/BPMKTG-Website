@@ -81,15 +81,97 @@ const shots = [
 </section>
 
 <script>
-  document.querySelectorAll('[data-rail]').forEach(rail => {
+  const AUTO_MS = 4200;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  document.querySelectorAll<HTMLElement>('[data-rail]').forEach(rail => {
     const wrap = rail.parentElement!;
-    const step = () => Math.round(rail.clientWidth * 0.85);
+    const step = () => Math.round(rail.clientWidth * 0.42);
+    const maxScroll = () => rail.scrollWidth - rail.clientWidth - 4;
+
+    let timer: number | null = null;
+    let paused = false;
+    let userInteracted = false;
+
+    const tick = () => {
+      if (paused) return;
+      if (rail.scrollLeft >= maxScroll()) {
+        rail.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        rail.scrollBy({ left: step(), behavior: 'smooth' });
+      }
+    };
+    const start = () => { stop(); if (!reduceMotion) timer = window.setInterval(tick, AUTO_MS); };
+    const stop  = () => { if (timer !== null) { clearInterval(timer); timer = null; } };
+    const pause = () => { paused = true; stop(); };
+    const resume = () => { paused = false; if (!timer) start(); };
+
+    // Buttons
     wrap.querySelector('[data-rail-prev]')?.addEventListener('click', () => {
-      rail.scrollBy({ left: -step(), behavior: 'smooth' });
+      userInteracted = true; pause();
+      rail.scrollBy({ left: -step() * 2, behavior: 'smooth' });
+      window.setTimeout(resume, 2500);
     });
     wrap.querySelector('[data-rail-next]')?.addEventListener('click', () => {
-      rail.scrollBy({ left:  step(), behavior: 'smooth' });
+      userInteracted = true; pause();
+      rail.scrollBy({ left:  step() * 2, behavior: 'smooth' });
+      window.setTimeout(resume, 2500);
     });
+
+    // Pause on hover (mouse)
+    rail.addEventListener('mouseenter', pause);
+    rail.addEventListener('mouseleave', resume);
+
+    // Pause when tab hidden
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) pause(); else if (!userInteracted) resume();
+    });
+
+    // Mouse drag-to-pan (touch uses native scroll-snap so we skip it)
+    let dragging = false;
+    let startX = 0;
+    let startScroll = 0;
+    let moved = false;
+
+    rail.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      dragging = true;
+      moved = false;
+      startX = e.clientX;
+      startScroll = rail.scrollLeft;
+      rail.setPointerCapture(e.pointerId);
+      rail.style.scrollBehavior = 'auto';
+      rail.style.cursor = 'grabbing';
+      pause();
+    });
+    rail.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) > 4) moved = true;
+      rail.scrollLeft = startScroll - dx;
+    });
+    const endDrag = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      try { rail.releasePointerCapture(e.pointerId); } catch {}
+      rail.style.scrollBehavior = '';
+      rail.style.cursor = '';
+      userInteracted = true;
+      window.setTimeout(resume, 2000);
+    };
+    rail.addEventListener('pointerup', endDrag);
+    rail.addEventListener('pointercancel', endDrag);
+
+    // Suppress click handlers if user dragged
+    rail.addEventListener('click', (e) => {
+      if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; }
+    }, true);
+
+    // Pause briefly on native touch scroll too
+    rail.addEventListener('touchstart', pause, { passive: true });
+    rail.addEventListener('touchend',   () => window.setTimeout(resume, 2000));
+
+    start();
   });
 </script>
 
@@ -135,7 +217,12 @@ const shots = [
     scroll-padding-left: 1.5rem;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.2) transparent;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
   }
+  .rail:active { cursor: grabbing; }
+  .rail :global(img) { -webkit-user-drag: none; user-drag: none; }
   .rail::-webkit-scrollbar { height: 8px; }
   .rail::-webkit-scrollbar-track { background: transparent; }
   .rail::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 999px; }

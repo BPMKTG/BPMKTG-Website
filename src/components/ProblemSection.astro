@@ -64,9 +64,11 @@ const pains = [
   .bg-overlay {
     position: absolute; inset: 0;
     background:
-      linear-gradient(180deg, rgba(10,10,15,0.95) 0%, rgba(10,10,15,0.78) 30%, rgba(10,10,15,0.85) 70%, rgba(10,10,15,0.96) 100%);
+      linear-gradient(180deg, rgba(10,10,15,0.72) 0%, rgba(10,10,15,0.42) 32%, rgba(10,10,15,0.55) 70%, rgba(10,10,15,0.82) 100%),
+      radial-gradient(60% 50% at 50% 50%, transparent 0%, rgba(10,10,15,0.18) 100%);
   }
   .content { position: relative; z-index: 2; }
+  .content h2, .content .lede, .content .label { text-shadow: 0 2px 14px rgba(0,0,0,0.55); }
 
   .lede {
     margin: 1rem 0 2.5rem;

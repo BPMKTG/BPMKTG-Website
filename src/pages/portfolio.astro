@@ -1,7 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import BookCall from '../components/BookCall.astro';
-import { Image } from 'astro:assets';
+import { Image, getImage } from 'astro:assets';
 
 import heroImg from '../assets/images/portfolio/portfolio-hero-theresistance-grimefest.jpeg';
 
@@ -9,12 +9,12 @@ import heroImg from '../assets/images/portfolio/portfolio-hero-theresistance-gri
 import fluxDoctorP   from '../assets/images/carousel/carousel-flux-doctorp-rv.jpeg';
 import wooliAP       from '../assets/images/carousel/carousel-wooli-alienpark-backstage.jpeg';
 import atliens       from '../assets/images/carousel/carousel-atliens-sidestage.jpeg';
+import subLevelUp    from '../assets/images/carousel/carousel-subtronics-levelup.jpeg';
 
 // Rest of the carousel shots
 import fireworks     from '../assets/images/carousel/carousel-fireworks-dft.jpeg';
 import sanpachoSelfie from '../assets/images/carousel/carousel-sanpacho-selfie.jpeg';
 import subtronicsRed from '../assets/images/carousel/carousel-subtronics-red.jpeg';
-import subLevelUp    from '../assets/images/carousel/carousel-subtronics-levelup.jpeg';
 import allTheReason  from '../assets/images/carousel/carousel-allthereason-graffiti.jpeg';
 import sanpachoYR    from '../assets/images/carousel/carousel-sanpacho-yellowred.jpeg';
 import sanpachoRL    from '../assets/images/carousel/carousel-sanpacho-redlasers.jpeg';
@@ -25,20 +25,20 @@ import martinGarrix  from '../assets/images/carousel/carousel-martingarrix-freak
 import wooliees      from '../assets/images/carousel/carousel-wooliees-silo.jpeg';
 
 // The additional ~19 unsorted shots from the broader set
-const extras = await Promise.all(
-  Object.entries(import.meta.glob<{ default: ImageMetadata }>(
+const extras = Object.entries(import.meta.glob<{ default: ImageMetadata }>(
     '../assets/images/portfolio/portfolio-*.jpeg',
     { eager: true }
   ))
     .filter(([path]) => !path.includes('portfolio-hero'))
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([path, mod]) => ({ path, src: mod.default }))
-);
+    .map(([path, mod]) => ({ path, src: mod.default }));
 
 const featured = [
-  { src: fluxDoctorP, caption: 'Backstage with Flux Pavilion & Doctor P', tag: 'Backstage' },
-  { src: wooliAP,     caption: 'Backstage with Wooli & Alien Park',       tag: 'Backstage · Silo Dallas' },
-  { src: atliens,     caption: 'Sidestage with ATLiens — Dancefestopia',  tag: 'Sidestage' },
+  { src: fluxDoctorP, caption: 'Backstage with Flux Pavilion & Doctor P',  tag: 'Backstage' },
+  { src: wooliAP,     caption: 'Backstage with Wooli & Alien Park',        tag: 'Backstage · Silo Dallas' },
+  { src: atliens,     caption: 'Sidestage with ATLiens — Dancefestopia',   tag: 'Sidestage' },
+  { src: subLevelUp,  caption: 'Subtronics + Level Up — Dancefestopia',    tag: 'Sidestage · DFT' },
+  { src: heroImg,     caption: 'The Resistance — Grimefest',               tag: 'Headline · Grimefest' },
 ];
 
 const gallery = [
@@ -47,7 +47,6 @@ const gallery = [
   { src: yookie,         caption: 'Yookie',                   tag: 'Grimefest' },
   { src: levelUpWide,    caption: 'Level Up',                 tag: 'Dancefestopia' },
   { src: ahee,           caption: 'AHEE',                     tag: 'Dancefestopia' },
-  { src: subLevelUp,     caption: 'Subtronics + Level Up',    tag: 'Sidestage · DFT' },
   { src: sanpachoSelfie, caption: 'San Pacho',                tag: 'Silo Dallas' },
   { src: sanpachoRL,     caption: 'San Pacho',                tag: 'Silo Dallas' },
   { src: sanpachoYR,     caption: 'San Pacho',                tag: 'Silo Dallas' },
@@ -63,6 +62,17 @@ const extrasMapped = extras.map((e, i) => ({
 }));
 
 const allTiles = [...gallery, ...extrasMapped];
+
+// Generate larger variants for the lightbox
+const lightboxOf = async (src: ImageMetadata) =>
+  (await getImage({ src, width: 1800, format: 'webp', quality: 86 })).src;
+
+const featuredLB = await Promise.all(
+  featured.map(async f => ({ ...f, full: await lightboxOf(f.src) }))
+);
+const tilesLB = await Promise.all(
+  allTiles.map(async t => ({ ...t, full: await lightboxOf(t.src) }))
+);
 ---
 <Layout
   title="Portfolio — Blueprint Marketing"
@@ -99,9 +109,16 @@ const allTiles = [...gallery, ...extrasMapped];
       <h2>Where most cameras don't get to stand.</h2>
 
       <div class="featured-grid">
-        {featured.map(f => (
-          <figure class="feat-card">
-            <div class="img-wrap">
+        {featuredLB.map(f => (
+          <button
+            class="feat-card"
+            type="button"
+            data-lightbox-open
+            data-full={f.full}
+            data-caption={f.caption}
+            aria-label={`Open larger view: ${f.caption}`}
+          >
+            <span class="img-wrap">
               <Image
                 src={f.src}
                 alt={f.caption}
@@ -111,12 +128,12 @@ const allTiles = [...gallery, ...extrasMapped];
                 quality={82}
                 loading="lazy"
               />
-            </div>
-            <figcaption>
+            </span>
+            <span class="meta">
               <span class="tag">{f.tag}</span>
               <strong>{f.caption}</strong>
-            </figcaption>
-          </figure>
+            </span>
+          </button>
         ))}
       </div>
     </div>
@@ -130,9 +147,16 @@ const allTiles = [...gallery, ...extrasMapped];
       </header>
 
       <div class="masonry">
-        {allTiles.map(tile => (
-          <figure class="tile">
-            <div class="img-wrap">
+        {tilesLB.map(tile => (
+          <button
+            class="tile"
+            type="button"
+            data-lightbox-open
+            data-full={tile.full}
+            data-caption={`${tile.caption} — ${tile.tag}`}
+            aria-label={`Open larger view: ${tile.caption}`}
+          >
+            <span class="img-wrap">
               <Image
                 src={tile.src}
                 alt={tile.caption}
@@ -142,16 +166,65 @@ const allTiles = [...gallery, ...extrasMapped];
                 quality={78}
                 loading="lazy"
               />
-            </div>
-            <figcaption>
+            </span>
+            <span class="caption">
               <strong>{tile.caption}</strong>
               <span>{tile.tag}</span>
-            </figcaption>
-          </figure>
+            </span>
+          </button>
         ))}
       </div>
     </div>
   </section>
+
+  <!-- Lightbox overlay -->
+  <dialog class="lightbox" data-lightbox>
+    <button type="button" class="lightbox-close" data-lightbox-close aria-label="Close">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <figure>
+      <img alt="" data-lightbox-img />
+      <figcaption data-lightbox-caption></figcaption>
+    </figure>
+  </dialog>
+
+  <script>
+    const dialog = document.querySelector<HTMLDialogElement>('[data-lightbox]');
+    const img = dialog?.querySelector<HTMLImageElement>('[data-lightbox-img]');
+    const cap = dialog?.querySelector<HTMLElement>('[data-lightbox-caption]');
+
+    const openers = document.querySelectorAll<HTMLElement>('[data-lightbox-open]');
+
+    const open = (full: string, caption: string) => {
+      if (!dialog || !img || !cap) return;
+      img.src = full;
+      img.alt = caption;
+      cap.textContent = caption;
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+      document.body.style.overflow = 'hidden';
+    };
+    const close = () => {
+      if (!dialog) return;
+      if (typeof dialog.close === 'function') dialog.close();
+      else dialog.removeAttribute('open');
+      document.body.style.overflow = '';
+      if (img) img.removeAttribute('src');
+    };
+
+    openers.forEach(btn => btn.addEventListener('click', () => {
+      open(btn.dataset.full || '', btn.dataset.caption || '');
+    }));
+
+    dialog?.querySelector('[data-lightbox-close]')?.addEventListener('click', close);
+    dialog?.addEventListener('click', (e) => {
+      // backdrop click — close only if the click landed on the dialog itself, not its children
+      if (e.target === dialog) close();
+    });
+    dialog?.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+  </script>
 
   <BookCall />
 </Layout>
@@ -173,7 +246,7 @@ const allTiles = [...gallery, ...extrasMapped];
   .overlay {
     position: absolute; inset: 0;
     background:
-      linear-gradient(180deg, rgba(10,10,15,0.55) 0%, rgba(10,10,15,0.7) 50%, rgba(10,10,15,0.96) 100%);
+      linear-gradient(180deg, rgba(10,10,15,0.45) 0%, rgba(10,10,15,0.6) 50%, rgba(10,10,15,0.94) 100%);
   }
   .hero-inner {
     position: relative;
@@ -198,24 +271,41 @@ const allTiles = [...gallery, ...extrasMapped];
   .featured-block h2 { margin-top: 1rem; margin-bottom: 2.5rem; max-width: 22ch; }
   .featured-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 1rem;
   }
-  .feat-card { margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  .feat-card {
+    margin: 0;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
   .feat-card .img-wrap {
     aspect-ratio: 3 / 4;
     overflow: hidden;
     border-radius: 16px;
     background: var(--card);
     position: relative;
+    display: block;
   }
-  .feat-card .img-wrap :global(img) { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
-  .feat-card:hover .img-wrap :global(img) { transform: scale(1.04); }
-  .feat-card figcaption { padding: 0 0.25rem; display: flex; flex-direction: column; gap: 0.2rem; }
+  .feat-card .img-wrap :global(img) {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+  }
+  .feat-card:hover .img-wrap :global(img),
+  .feat-card:focus-visible .img-wrap :global(img) { transform: scale(1.05); }
+  .feat-card .meta { padding: 0 0.25rem; display: flex; flex-direction: column; gap: 0.2rem; }
   .feat-card .tag {
     color: var(--bp-blue);
     font-family: var(--font-display);
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     font-weight: 700;
@@ -225,7 +315,8 @@ const allTiles = [...gallery, ...extrasMapped];
     font-family: var(--font-display);
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    font-size: 1rem;
+    font-size: 0.92rem;
+    font-weight: 700;
   }
 
   .gallery-block { padding: 4rem 0 6rem; }
@@ -246,11 +337,23 @@ const allTiles = [...gallery, ...extrasMapped];
     border: 1px solid var(--line);
     position: relative;
     isolation: isolate;
+    width: 100%;
+    padding: 0;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
-  .tile .img-wrap { width: 100%; line-height: 0; }
-  .tile .img-wrap :global(img) { width: 100%; height: auto; display: block; transition: transform 0.4s ease; }
-  .tile:hover .img-wrap :global(img) { transform: scale(1.04); }
-  .tile figcaption {
+  .tile:hover, .tile:focus-visible {
+    transform: translateY(-3px);
+    border-color: rgba(98, 166, 219, 0.45);
+    box-shadow: 0 24px 50px -25px rgba(0,0,0,0.7);
+  }
+  .tile .img-wrap { width: 100%; line-height: 0; display: block; }
+  .tile .img-wrap :global(img) { width: 100%; height: auto; display: block; transition: transform 0.5s ease; }
+  .tile:hover .img-wrap :global(img),
+  .tile:focus-visible .img-wrap :global(img) { transform: scale(1.05); }
+  .tile .caption {
     position: absolute;
     bottom: 0; left: 0; right: 0;
     padding: 1.5rem 1rem 0.85rem;
@@ -261,21 +364,107 @@ const allTiles = [...gallery, ...extrasMapped];
     opacity: 0;
     transition: opacity 0.2s;
     z-index: 2;
+    pointer-events: none;
   }
-  .tile:hover figcaption { opacity: 1; }
-  .tile figcaption strong {
+  .tile:hover .caption, .tile:focus-visible .caption { opacity: 1; }
+  .tile .caption strong {
     color: #fff;
     font-family: var(--font-display);
     text-transform: uppercase;
     letter-spacing: 0.02em;
     font-size: 0.95rem;
+    font-weight: 700;
   }
-  .tile figcaption span { color: var(--bp-light); font-size: 0.78rem; }
+  .tile .caption span { color: var(--bp-light); font-size: 0.78rem; }
 
-  @media (max-width: 1080px) { .masonry { column-count: 3; } }
-  @media (max-width: 760px)  {
+  /* ───────── Lightbox ───────── */
+  .lightbox {
+    background: transparent;
+    border: none;
+    padding: 0;
+    max-width: 100vw;
+    max-height: 100vh;
+    width: 100vw;
+    height: 100vh;
+    color: #fff;
+    overflow: visible;
+  }
+  .lightbox::backdrop {
+    background: rgba(5, 6, 12, 0.92);
+    backdrop-filter: blur(14px);
+  }
+  .lightbox[open] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: lbFade 0.25s ease;
+  }
+  @keyframes lbFade { from { opacity: 0; } to { opacity: 1; } }
+
+  .lightbox figure {
+    margin: 0;
+    max-width: min(94vw, 1600px);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    pointer-events: none; /* clicks inside fall to image/caption, not backdrop */
+  }
+  .lightbox img {
+    max-width: 100%;
+    max-height: 78vh;
+    height: auto;
+    width: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 30px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(98, 166, 219, 0.15);
+    pointer-events: auto;
+  }
+  .lightbox figcaption {
+    color: var(--bp-light);
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.85rem;
+    text-align: center;
+    pointer-events: auto;
+  }
+  .lightbox-close {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    background: rgba(15, 17, 25, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: #fff;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.15s;
+    z-index: 10;
+  }
+  .lightbox-close:hover {
+    background: var(--bp-orange);
+    border-color: var(--bp-orange);
+    transform: scale(1.05);
+  }
+
+  @media (max-width: 1080px) {
+    .masonry { column-count: 3; }
+    .featured-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 760px) {
     .masonry { column-count: 2; }
+    .featured-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 480px)  {
+    .masonry { column-count: 1; }
     .featured-grid { grid-template-columns: 1fr; }
   }
-  @media (max-width: 480px)  { .masonry { column-count: 1; } }
 </style>
