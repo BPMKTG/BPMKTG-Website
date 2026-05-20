@@ -3,35 +3,76 @@ import Layout from '../layouts/Layout.astro';
 import BookCall from '../components/BookCall.astro';
 import { Image, getImage } from 'astro:assets';
 
-import heroImg from '../assets/images/portfolio/portfolio-hero-theresistance-grimefest.jpeg';
+import heroImg from '../assets/images/portfolio/portfolio-hero-theresistance-grimefest.jpg';
 
-// Lead the grid with the high-access shots (brief §15)
-import fluxDoctorP   from '../assets/images/carousel/carousel-flux-doctorp-rv.jpeg';
-import wooliAP       from '../assets/images/carousel/carousel-wooli-alienpark-backstage.jpeg';
-import atliens       from '../assets/images/carousel/carousel-atliens-sidestage.jpeg';
-import subLevelUp    from '../assets/images/carousel/carousel-subtronics-levelup.jpeg';
+// Carousel-folder imports used as the Access featured row
+import fluxDoctorP   from '../assets/images/carousel/carousel-flux-doctorp-rv.jpg';
+import wooliAP       from '../assets/images/carousel/carousel-wooli-alienpark-backstage.jpg';
+import atliens       from '../assets/images/carousel/carousel-atliens-sidestage.jpg';
+import subLevelUp    from '../assets/images/carousel/carousel-subtronics-levelup.jpg';
 
-// Rest of the carousel shots
-import fireworks     from '../assets/images/carousel/carousel-fireworks-dft.jpeg';
-import sanpachoSelfie from '../assets/images/carousel/carousel-sanpacho-selfie.jpeg';
-import subtronicsRed from '../assets/images/carousel/carousel-subtronics-red.jpeg';
-import allTheReason  from '../assets/images/carousel/carousel-allthereason-graffiti.jpeg';
-import sanpachoYR    from '../assets/images/carousel/carousel-sanpacho-yellowred.jpeg';
-import sanpachoRL    from '../assets/images/carousel/carousel-sanpacho-redlasers.jpeg';
-import ahee          from '../assets/images/carousel/carousel-ahee-crowd.jpeg';
-import levelUpWide   from '../assets/images/carousel/carousel-levelup-wide.jpeg';
-import yookie        from '../assets/images/carousel/carousel-yookie-grimefest.jpeg';
-import martinGarrix  from '../assets/images/carousel/carousel-martingarrix-freakyducky.jpeg';
-import wooliees      from '../assets/images/carousel/carousel-wooliees-silo.jpeg';
+// Carousel shots also displayed in the gallery
+import fireworks     from '../assets/images/carousel/carousel-fireworks-dft.jpg';
+import sanpachoSelfie from '../assets/images/carousel/carousel-sanpacho-selfie.jpg';
+import subtronicsRed from '../assets/images/carousel/carousel-subtronics-red.jpg';
+import allTheReason  from '../assets/images/carousel/carousel-allthereason-graffiti.jpg';
+import sanpachoYR    from '../assets/images/carousel/carousel-sanpacho-yellowred.jpg';
+import sanpachoRL    from '../assets/images/carousel/carousel-sanpacho-redlasers.jpg';
+import ahee          from '../assets/images/carousel/carousel-ahee-crowd.jpg';
+import levelUpWide   from '../assets/images/carousel/carousel-levelup-wide.jpg';
+import yookie        from '../assets/images/carousel/carousel-yookie-grimefest.jpg';
+import martinGarrix  from '../assets/images/carousel/carousel-martingarrix-freakyducky.jpg';
+import wooliees      from '../assets/images/carousel/carousel-wooliees-silo.jpg';
 
-// The additional ~19 unsorted shots from the broader set
-const extras = Object.entries(import.meta.glob<{ default: ImageMetadata }>(
-    '../assets/images/portfolio/portfolio-*.jpeg',
-    { eager: true }
-  ))
-    .filter(([path]) => !path.includes('portfolio-hero'))
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([path, mod]) => ({ path, src: mod.default }));
+// New descriptively-named portfolio shots — caption map below
+const portfolioGlob = import.meta.glob<{ default: ImageMetadata }>(
+  '../assets/images/portfolio/*.jpg',
+  { eager: true }
+);
+
+// Caption + tag mapping for the new shots, keyed by filename (without extension)
+const captions: Record<string, { caption: string; tag: string }> = {
+  'adventureclub-silo':                        { caption: 'Adventure Club',             tag: 'Silo Dallas' },
+  'ahee-dft':                                  { caption: 'AHEE',                       tag: 'Dancefestopia' },
+  'ahee-managment-dft-backstage':              { caption: 'AHEE Management',            tag: 'Backstage · DFT' },
+  'alienpark-dft':                             { caption: 'Alien Park',                 tag: 'Dancefestopia' },
+  'alienpark-silo':                            { caption: 'Alien Park',                 tag: 'Silo Dallas' },
+  'allthereason-vulcangasco':                  { caption: 'All The Reason',             tag: 'Vulcan Gas Co.' },
+  'atliens-dft-sidestage':                     { caption: 'ATLiens',                    tag: 'Sidestage · DFT' },
+  'automhate-grimefest':                       { caption: 'Automhate',                  tag: 'Grimefest' },
+  'blankface-b2b-sqishi-grimefest':            { caption: 'Blankface B2B Sqishi',       tag: 'Grimefest' },
+  'blankface-b2b-sqishi-grimefest-blue':       { caption: 'Blankface B2B Sqishi',       tag: 'Grimefest' },
+  'blankface-b2b-sqishi-grimefest-wide':       { caption: 'Blankface B2B Sqishi',       tag: 'Grimefest' },
+  'blankface-b2b-sqishi-surprised-grimefest':  { caption: 'Blankface B2B Sqishi',       tag: 'Grimefest' },
+  'crowd-alienpark-dft':                       { caption: 'The Crowd · Alien Park',     tag: 'Dancefestopia' },
+  'crowd-grimefest':                           { caption: 'The Crowd',                  tag: 'Grimefest' },
+  'dancefestopia':                             { caption: "Dancefestopia '25",          tag: 'Festival' },
+  'izyyvadim-grimefest-smoking':               { caption: 'Izzy Vadim',                 tag: 'Grimefest' },
+  'izzyvadim-grimefest-wideangle':             { caption: 'Izzy Vadim',                 tag: 'Grimefest' },
+  'laurenmia-fluffycloud-silo':                { caption: 'Lauren Mia × Fluffycloud',   tag: 'Silo Dallas' },
+  'laurenmia-fluffycloud-silo-red':            { caption: 'Lauren Mia × Fluffycloud',   tag: 'Silo Dallas' },
+  'legendofshellda-toatsatx':                  { caption: 'Legend of Shellda',          tag: 'TOATS ATX' },
+  'neotek-silo':                               { caption: 'Neotek',                     tag: 'Silo Dallas' },
+  'neotek-silo-onstage':                       { caption: 'Neotek',                     tag: 'Silo Dallas' },
+  'ognixin-grimefest':                         { caption: 'Ognixin',                    tag: 'Grimefest' },
+  'rzrkt-drinkurwater-vulcangasco':            { caption: 'RZRKT × Drinkurwater',       tag: 'Vulcan Gas Co.' },
+  'sanpacho-silo':                             { caption: 'San Pacho',                  tag: 'Silo Dallas' },
+  'spira-toatsatx':                            { caption: 'Spira',                      tag: 'TOATS ATX' },
+  'sqishi-grimefest-beer':                     { caption: 'Sqishi',                     tag: 'Grimefest' },
+  'subtronics-dancefestopia':                  { caption: 'Subtronics',                 tag: 'Dancefestopia' },
+  'svddendeath-wickedoaks':                    { caption: 'Svdden Death',               tag: 'Wicked Oaks' },
+  'wankdat-wooli-crankdat-dancefestopia':      { caption: 'Crankdat × Wooli',           tag: 'Dancefestopia' },
+  'yookie-grimefest-bassface':                 { caption: 'Yookie',                     tag: 'Grimefest' },
+};
+
+const portfolioExtras = Object.entries(portfolioGlob)
+  .filter(([path]) => !path.includes('portfolio-hero'))
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([path, mod]) => {
+    const slug = path.split('/').pop()!.replace(/\.jpg$/, '');
+    const meta = captions[slug] ?? { caption: slug.replace(/-/g, ' '), tag: 'In The Field' };
+    return { src: mod.default, ...meta, slug };
+  });
 
 const featured = [
   { src: fluxDoctorP, caption: 'Backstage with Flux Pavilion & Doctor P',  tag: 'Backstage' },
@@ -41,27 +82,22 @@ const featured = [
   { src: heroImg,     caption: 'The Resistance — Grimefest',               tag: 'Headline · Grimefest' },
 ];
 
-const gallery = [
-  { src: subtronicsRed,  caption: 'Subtronics',              tag: 'Dancefestopia' },
-  { src: martinGarrix,   caption: 'Martin Garrix',            tag: 'Freaky Deaky' },
-  { src: yookie,         caption: 'Yookie',                   tag: 'Grimefest' },
-  { src: levelUpWide,    caption: 'Level Up',                 tag: 'Dancefestopia' },
-  { src: ahee,           caption: 'AHEE',                     tag: 'Dancefestopia' },
-  { src: sanpachoSelfie, caption: 'San Pacho',                tag: 'Silo Dallas' },
-  { src: sanpachoRL,     caption: 'San Pacho',                tag: 'Silo Dallas' },
-  { src: sanpachoYR,     caption: 'San Pacho',                tag: 'Silo Dallas' },
-  { src: allTheReason,   caption: 'All The Reason',           tag: 'Grimefest' },
-  { src: wooliees,       caption: 'Wooli',                    tag: 'Silo Dallas' },
-  { src: fireworks,      caption: 'Dancefestopia \'25',       tag: 'Festival' },
+// Carousel shots that also live in the gallery (with captions)
+const carouselGallery = [
+  { src: subtronicsRed,   caption: 'Subtronics',           tag: 'Dancefestopia' },
+  { src: martinGarrix,    caption: 'Martin Garrix',        tag: 'Freaky Deaky' },
+  { src: yookie,          caption: 'Yookie',               tag: 'Grimefest' },
+  { src: levelUpWide,     caption: 'Level Up',             tag: 'Dancefestopia' },
+  { src: ahee,            caption: 'AHEE',                 tag: 'Dancefestopia' },
+  { src: sanpachoSelfie,  caption: 'San Pacho',            tag: 'Silo Dallas' },
+  { src: sanpachoRL,      caption: 'San Pacho',            tag: 'Silo Dallas' },
+  { src: sanpachoYR,      caption: 'San Pacho',            tag: 'Silo Dallas' },
+  { src: allTheReason,    caption: 'All The Reason',       tag: 'Grimefest' },
+  { src: wooliees,        caption: 'Wooli',                tag: 'Silo Dallas' },
+  { src: fireworks,       caption: "Dancefestopia '25",    tag: 'Festival' },
 ];
 
-const extrasMapped = extras.map((e, i) => ({
-  src: e.src,
-  caption: 'In The Field',
-  tag: `Frame ${String(i + 1).padStart(2, '0')}`,
-}));
-
-const allTiles = [...gallery, ...extrasMapped];
+const allTiles = [...carouselGallery, ...portfolioExtras];
 
 // Generate larger variants for the lightbox
 const lightboxOf = async (src: ImageMetadata) =>
@@ -144,6 +180,7 @@ const tilesLB = await Promise.all(
       <header class="gallery-head">
         <p class="label">The Full Set</p>
         <h2>Festival floors, headline sets,<br/><span class="glow-blue">and everything between.</span></h2>
+        <p class="gallery-sub">{tilesLB.length} frames across {new Set(tilesLB.map(t => t.tag.replace(/^.* · /, ''))).size}+ events. Click any image to view full size.</p>
       </header>
 
       <div class="masonry">
@@ -220,7 +257,6 @@ const tilesLB = await Promise.all(
 
     dialog?.querySelector('[data-lightbox-close]')?.addEventListener('click', close);
     dialog?.addEventListener('click', (e) => {
-      // backdrop click — close only if the click landed on the dialog itself, not its children
       if (e.target === dialog) close();
     });
     dialog?.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
@@ -322,6 +358,7 @@ const tilesLB = await Promise.all(
   .gallery-block { padding: 4rem 0 6rem; }
   .gallery-head { margin-bottom: 2.5rem; max-width: 60ch; }
   .gallery-head h2 { margin-top: 1rem; }
+  .gallery-sub { color: var(--muted); margin-top: 0.85rem; font-size: 0.95rem; }
 
   .masonry {
     column-count: 4;
@@ -410,7 +447,7 @@ const tilesLB = await Promise.all(
     align-items: center;
     gap: 1rem;
     padding: 1.5rem;
-    pointer-events: none; /* clicks inside fall to image/caption, not backdrop */
+    pointer-events: none;
   }
   .lightbox img {
     max-width: 100%;
