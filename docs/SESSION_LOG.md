@@ -216,4 +216,55 @@ In `Carousel.astro` the `userInteracted` flag prevents auto-resume after a `visi
 
 ---
 
+## Session 5 — 2026-05-19 — Higher-res image swap + real portfolio captions (commit `df9e100`)
+
+### What changed
+
+- **All 20 original photos** swapped to higher-quality `.jpg` versions (was `.jpeg`). Sizes roughly 2–3× the originals — Astro still compresses them to similar final WebP sizes.
+- **32 new descriptively-named shots** added to `/src/assets/images/portfolio/`. Real artist + venue names baked into the filename.
+- **Duplicates removed** from `/portfolio/` (the hero/bg/carousel files that were drag-copied in). Carousel components still import from `/carousel/`, so the dedupe doesn't break anything.
+- **`pages/portfolio.astro` rewritten** to consume the new files via `import.meta.glob` + a hand-curated caption map keyed by filename slug. Generic "Frame 01" captions are gone — every tile now has a real artist + venue caption derived from the filename.
+- **Extension migration:** all `.jpeg` imports across `Hero.astro`, `Parallax.astro`, `ProblemSection.astro`, `MarketStats.astro`, `Carousel.astro` flipped to `.jpg`.
+
+### Build numbers
+
+- 4 pages, **118 image variants** (was 94 — the 32 new shots each generate a display + lightbox WebP).
+- Cache stayed warm except for the swapped files; build ran in ~21s.
+
+### Caption choices worth flagging
+
+A few I had to make a judgment call on — confirm or override:
+
+| Filename slug | I rendered it as | Notes |
+|---|---|---|
+| `wankdat-wooli-crankdat-dancefestopia` | "Crankdat × Wooli" | "wankdat" looks like a typo of "Crankdat" but kept Wooli too. Confirm? |
+| `izyyvadim-grimefest-smoking` & `izzyvadim-grimefest-wideangle` | Both "Izzy Vadim" | Two spellings; I unified to the double-Z. Override if intentional. |
+| `legendofshellda-toatsatx` & `spira-toatsatx` | venue = "TOATS ATX" | Assumed it's a venue acronym. Real name? |
+| `allthereason-vulcangasco` & `rzrkt-drinkurwater-vulcangasco` | venue = "Vulcan Gas Co." | Austin venue, "Vulcan Gas Company" — confirm shortform. |
+| `ahee-managment-dft-backstage` | "AHEE Management" | Note "managment" is misspelled in filename. Caption corrected. |
+| `dancefestopia.jpg` | "Dancefestopia '25" | Just the festival branding shot — generic. |
+| `crowd-alienpark-dft.jpg` | "The Crowd · Alien Park" | Edit if this should be just "The Crowd". |
+
+The caption map lives in [`pages/portfolio.astro:42`](src/pages/portfolio.astro) — edit any line in the `captions` object to override.
+
+### Section breakdown after this session
+
+- **Homepage hero** — 3 hero photos (Excision, Alien Park, Grimefest crowd), now higher-res
+- **Problem section bg** — Svdden Death (higher-res)
+- **Parallax section** — same 3 hero photos, now higher-res
+- **Stats section bg** — Perry Wayne (higher-res)
+- **In The Field carousel** — same 15 carousel photos, now higher-res
+- **Portfolio hero** — The Resistance (higher-res)
+- **Portfolio Access (5 cards)** — unchanged content, now higher-res
+- **Portfolio gallery (43 tiles)** — 11 carousel + 32 new shots, all with real artist/venue captions, click-to-lightbox
+
+### Still queued
+
+- Calendly URL / email / socials — placeholders
+- Portfolio filter chips (artist / event / festival)
+- Scroll-triggered fade-ins for non-hero sections
+- Caption confirmations above
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
