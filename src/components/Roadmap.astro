@@ -30,17 +30,18 @@ const steps = [
 <section class="roadmap" id="process">
   <div class="container">
     <header class="roadmap-head">
-      <p class="label">How It Works</p>
-      <h2>The 5-Step Blueprint.</h2>
-      <p class="lede">
+      <p class="label" data-reveal="left">How It Works</p>
+      <h2 data-reveal>The 5-Step Blueprint.</h2>
+      <p class="lede" data-reveal>
         From audit to infrastructure — the exact path we run with every artist
         we work with. No campaigns. No one-offs. A system that compounds.
       </p>
     </header>
 
-    <ol class="steps">
+    <ol class="steps" data-reveal-group>
+      <div class="roadmap-line" aria-hidden="true"></div>
       {steps.map((s, i) => (
-        <li class="step">
+        <li class="step" data-reveal>
           <div class="step-head">
             <span class="step-num">{String(i + 1).padStart(2, '0')}</span>
             <h3>{s.title}</h3>

@@ -25,18 +25,18 @@ const diffs = [
 <section class="why" id="why">
   <div class="container">
     <header class="why-head">
-      <p class="label">Why Blueprint</p>
-      <h2>What every<br/>competitor doesn't do.</h2>
-      <p class="lede">
+      <p class="label" data-reveal="left">Why Blueprint</p>
+      <h2 data-reveal>What every<br/>competitor doesn't do.</h2>
+      <p class="lede" data-reveal>
         MPT, AMW, View Maniac — all campaign-based, exposure-focused, and not built for
         mid-level EDM artists. The white space they leave open is exactly where we live:
         <span class="glow-deep">the growth system behind the artist.</span>
       </p>
     </header>
 
-    <div class="diff-grid">
+    <div class="diff-grid" data-reveal-group>
       {diffs.map((d, i) => (
-        <article class="diff">
+        <article class="diff" data-reveal>
           <span class="diff-num">{String(i + 1).padStart(2, '0')}</span>
           <h3>{d.title}</h3>
           <p>{d.body}</p>

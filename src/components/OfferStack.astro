@@ -81,17 +81,17 @@ const tiers = [
 <section class="offers" id="offers">
   <div class="container">
     <header class="offers-head">
-      <p class="label">The Offer Stack</p>
-      <h2>Four ways to plug in.</h2>
-      <p class="lede">
+      <p class="label" data-reveal="left">The Offer Stack</p>
+      <h2 data-reveal>Four ways to plug in.</h2>
+      <p class="lede" data-reveal>
         Start with a single session or roll into full-funnel infrastructure.
         Every tier ships a clear system you keep — not a campaign that ends.
       </p>
     </header>
 
-    <div class="tiers">
+    <div class="tiers" data-reveal-group>
       {tiers.map(t => (
-        <article class={`tier ${t.featured ? 'featured' : ''}`} style={`--accent: var(${t.accent});`}>
+        <article class={`tier ${t.featured ? 'featured' : ''}`} style={`--accent: var(${t.accent});`} data-reveal>
           {t.featured && <span class="ribbon">Most picked</span>}
           <p class="tag">{t.tag}</p>
           <h3>{t.name}</h3>

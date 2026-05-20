@@ -27,14 +27,15 @@ const stats = [
 
   <div class="container content">
     <header class="stats-head">
-      <p class="label">Market Context</p>
-      <h2>The window is open.<br/><span class="glow-blue">Most artists are missing it.</span></h2>
+      <p class="label" data-reveal="left">Market Context</p>
+      <h2 data-reveal>The window is open.<br/><span class="glow-blue">Most artists are missing it.</span></h2>
     </header>
 
-    <div class="stat-grid">
+    <div class="stat-grid" data-reveal-group>
       {stats.map(s => (
-        <article class="stat">
-          <span class="stat-value">{s.value}</span>
+        <article class="stat" data-reveal>
+          <span class="stat-value" data-counter={s.value}>{s.value}</span>
+          <span class="stat-underline" aria-hidden="true"></span>
           <p class="stat-label">{s.label}</p>
           <p class="stat-sub">{s.sub}</p>
         </article>

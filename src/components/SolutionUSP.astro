@@ -9,17 +9,17 @@ const pillars = [
 <section class="solution" id="solution">
   <div class="container">
     <div class="solution-head">
-      <p class="label">The Blueprint Approach</p>
-      <h2>Not a content team.<br/>Not a marketing agency.<br/><span class="highlight">The growth system behind your career.</span></h2>
-      <p class="lede">
+      <p class="label" data-reveal="left">The Blueprint Approach</p>
+      <h2 data-reveal>Not a content team.<br/>Not a marketing agency.<br/><span class="highlight">The growth system behind your career.</span></h2>
+      <p class="lede" data-reveal>
         We don't manage your content. We build the growth infrastructure behind it —
         content, distribution, fan capture, and monetization, running as one system.
       </p>
     </div>
 
-    <div class="pillars">
+    <div class="pillars" data-reveal-group>
       {pillars.map((p, i) => (
-        <article class="pillar">
+        <article class="pillar" data-reveal>
           <span class="pillar-step">0{i + 1}</span>
           <h3>{p.title}</h3>
           <p>{p.body}</p>

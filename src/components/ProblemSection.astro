@@ -13,7 +13,7 @@ const pains = [
 ];
 ---
 <section class="problem" id="problem">
-  <div class="bg" aria-hidden="true">
+  <div class="bg kenburns" aria-hidden="true">
     <Image
       src={bg}
       alt=""
@@ -27,19 +27,19 @@ const pains = [
   </div>
 
   <div class="container content">
-    <p class="label">The Gap</p>
-    <h2>
+    <p class="label" data-reveal="left">The Gap</p>
+    <h2 data-reveal>
       You're creating.<br />
       <span class="glow-blue">But it's not converting.</span>
     </h2>
-    <p class="lede">
+    <p class="lede" data-reveal>
       The problem isn't your music. It's the missing system between
       what you create and the fanbase you're trying to build.
     </p>
 
-    <div class="pain-grid">
+    <div class="pain-grid" data-reveal-group>
       {pains.map((p, i) => (
-        <article class="pain">
+        <article class="pain" data-reveal>
           <span class="pain-num">0{i + 1}</span>
           <p class="pain-quote">"{p.quote}"</p>
           <p class="pain-gap">{p.gap}</p>

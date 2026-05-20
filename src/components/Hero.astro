@@ -15,6 +15,8 @@ const stats = [
   { value: '2.4×',   label: 'Growth from daily short-form' },
   { value: '73%',    label: 'Discover artists on social' },
 ];
+
+const subhead = "Blueprint Marketing builds growth infrastructure for EDM artists — turning content, shows, and releases into real fans and real revenue.";
 ---
 <section class="hero">
   <div class="slides" aria-hidden="true">
@@ -36,31 +38,35 @@ const stats = [
   </div>
 
   <div class="container hero-inner">
-    <p class="label">For touring EDM artists</p>
+    <p class="label" data-reveal="left">For touring EDM artists</p>
 
     <h1>
-      Turn every show, release,<br />
-      and moment into a<br />
-      <span class="highlight blue">growth system.</span>
+      <span data-reveal>Turn every show, release,</span><br />
+      <span data-reveal>and moment into a</span><br />
+      <span class="highlight blue glitch" data-glitch data-reveal>growth system.</span>
     </h1>
 
-    <p class="hero-sub">
-      Blueprint Marketing builds growth infrastructure for EDM artists —
-      turning content, shows, and releases into real fans and real revenue.
+    <p class="hero-sub" data-reveal>
+      <span data-typewriter data-typewriter-text={subhead}>{subhead}</span>
     </p>
 
-    <div class="cta-row">
-      <a href="#book" class="button accent">
+    <div class="cta-row" data-reveal-group>
+      <a href="#book" class="button accent" data-reveal>
         Book a Free Strategy Call
-        <span class="arrow" aria-hidden="true">→</span>
+        <span class="arrow" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
       </a>
-      <a href="#process" class="button ghost">See how it works</a>
+      <a href="#process" class="button ghost" data-reveal>See how it works</a>
     </div>
 
-    <div class="stats">
+    <div class="stats" data-reveal-group>
       {stats.map(s => (
-        <div class="stat">
-          <span class="stat-value">{s.value}</span>
+        <div class="stat" data-reveal>
+          <span class="stat-value" data-counter={s.value}>{s.value}</span>
+          <span class="stat-underline" aria-hidden="true"></span>
           <span class="stat-label">{s.label}</span>
         </div>
       ))}
@@ -76,6 +82,7 @@ const stats = [
     min-height: clamp(620px, 85vh, 900px);
     display: flex;
     align-items: center;
+    isolation: isolate;
   }
 
   .slides { position: absolute; inset: 0; z-index: 0; }
@@ -94,7 +101,7 @@ const stats = [
   .slide-2 { animation-delay: 14s; }
 
   @keyframes heroFade {
-     0%  { opacity: 0; transform: scale(1.04); }
+     0%  { opacity: 0; transform: scale(1.06); }
      5%  { opacity: 1; }
     33%  { opacity: 1; transform: scale(1.00); }
     38%  { opacity: 0; }
@@ -106,13 +113,13 @@ const stats = [
   }
 
   .overlay {
-    position: absolute; inset: 0; z-index: 1;
+    position: absolute; inset: 0; z-index: 2;
     background:
       linear-gradient(180deg, rgba(10,10,15,0.45) 0%, rgba(10,10,15,0.65) 50%, rgba(10,10,15,0.95) 100%),
       radial-gradient(60% 60% at 80% 20%, rgba(38, 79, 160, 0.18), transparent 70%);
   }
   .grid-layer {
-    position: absolute; inset: 0; z-index: 1;
+    position: absolute; inset: 0; z-index: 2;
     background-image:
       linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
@@ -122,7 +129,7 @@ const stats = [
 
   .hero-inner {
     position: relative;
-    z-index: 2;
+    z-index: 3;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -134,11 +141,13 @@ const stats = [
     font-size: clamp(2.1rem, 4.8vw, 4rem);
     text-shadow: 0 4px 30px rgba(0,0,0,0.6);
   }
+  .hero h1 > span[data-reveal] { display: inline-block; }
   .hero-sub {
     color: var(--ink);
     opacity: 0.85;
     font-size: 1.15rem;
     max-width: 60ch;
+    min-height: 4em;
     text-shadow: 0 2px 12px rgba(0,0,0,0.6);
   }
   .cta-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem; }

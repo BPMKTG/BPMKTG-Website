@@ -5,20 +5,20 @@ const sub = [
   { title: 'A System You Keep',   body: "You don't just get content. You leave with a repeatable system you can run forever." },
 ];
 ---
-<section class="guarantee" id="guarantee">
+<section class="guarantee bp-texture" id="guarantee">
   <div class="container">
-    <div class="card">
+    <div class="card" data-reveal="scale">
       <div class="card-inner">
-        <p class="label">The Guarantee</p>
-        <h2>
+        <p class="label" data-reveal="left">The Guarantee</p>
+        <h2 data-reveal>
           If we don't deliver consistent, high-quality content<br/>
           and a clear growth system in <span class="highlight">30 days</span>,<br/>
           we work for free until we do.
         </h2>
 
-        <div class="sub-grid">
+        <div class="sub-grid" data-reveal-group>
           {sub.map(s => (
-            <div class="sub">
+            <div class="sub" data-reveal>
               <h3>{s.title}</h3>
               <p>{s.body}</p>
             </div>

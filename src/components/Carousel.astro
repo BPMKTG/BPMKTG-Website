@@ -38,10 +38,10 @@ const shots = [
 <section class="field-section" id="field">
   <div class="container head">
     <div class="head-text">
-      <p class="label">In The Field</p>
-      <h2>We don't just market EDM —<br/><span class="glow-blue">we live it.</span></h2>
+      <p class="label" data-reveal="left">In The Field</p>
+      <h2 data-reveal>We don't just market EDM —<br/><span class="glow-blue">we live it.</span></h2>
     </div>
-    <a href="/portfolio" class="see-all">
+    <a href="/portfolio" class="see-all" data-reveal>
       See full portfolio
       <span class="arrow" aria-hidden="true">→</span>
     </a>
@@ -81,7 +81,7 @@ const shots = [
 </section>
 
 <script>
-  const AUTO_MS = 4200;
+  const AUTO_MS = 3000;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   document.querySelectorAll<HTMLElement>('[data-rail]').forEach(rail => {

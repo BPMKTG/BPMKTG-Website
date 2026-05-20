@@ -129,9 +129,9 @@ const tilesLB = await Promise.all(
     </div>
 
     <div class="container hero-inner">
-      <p class="label">In The Field</p>
-      <h1>We don't just market EDM.<br/><span class="highlight">We live it.</span></h1>
-      <p class="lede">
+      <p class="label" data-reveal="left">In The Field</p>
+      <h1 data-reveal>We don't just market EDM.<br/><span class="highlight">We live it.</span></h1>
+      <p class="lede" data-reveal>
         Credentialed media access across festivals, headline sets, and backstage
         with the artists shaping the scene. The portfolio you're scrolling
         through is the proof.
@@ -141,15 +141,17 @@ const tilesLB = await Promise.all(
 
   <section class="featured-block">
     <div class="container">
-      <p class="label">Access</p>
-      <h2>Where most cameras don't get to stand.</h2>
+      <p class="label" data-reveal="left">Access</p>
+      <h2 data-reveal>Where most cameras don't get to stand.</h2>
 
-      <div class="featured-grid">
+      <div class="featured-grid" data-reveal-group>
         {featuredLB.map(f => (
           <button
             class="feat-card"
             type="button"
             data-lightbox-open
+            data-tilt
+            data-reveal
             data-full={f.full}
             data-caption={f.caption}
             aria-label={`Open larger view: ${f.caption}`}
@@ -178,17 +180,18 @@ const tilesLB = await Promise.all(
   <section class="gallery-block">
     <div class="container">
       <header class="gallery-head">
-        <p class="label">The Full Set</p>
-        <h2>Festival floors, headline sets,<br/><span class="glow-blue">and everything between.</span></h2>
-        <p class="gallery-sub">{tilesLB.length} frames across {new Set(tilesLB.map(t => t.tag.replace(/^.* · /, ''))).size}+ events. Click any image to view full size.</p>
+        <p class="label" data-reveal="left">The Full Set</p>
+        <h2 data-reveal>Festival floors, headline sets,<br/><span class="glow-blue">and everything between.</span></h2>
+        <p class="gallery-sub" data-reveal>{tilesLB.length} frames across {new Set(tilesLB.map(t => t.tag.replace(/^.* · /, ''))).size}+ events. Click any image to view full size. Use arrow keys to navigate.</p>
       </header>
 
-      <div class="masonry">
+      <div class="masonry" data-reveal-group>
         {tilesLB.map(tile => (
           <button
             class="tile"
             type="button"
             data-lightbox-open
+            data-reveal
             data-full={tile.full}
             data-caption={`${tile.caption} — ${tile.tag}`}
             aria-label={`Open larger view: ${tile.caption}`}
