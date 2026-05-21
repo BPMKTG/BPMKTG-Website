@@ -36,12 +36,54 @@ const trackList = [...artists, ...artists];
   </div>
 </section>
 
+<script>
+  // Web Animations API instead of CSS animation so hover can smoothly
+  // change playback rate WITHOUT jumping to a new playhead position.
+  const init = () => {
+    document.querySelectorAll<HTMLElement>('.marquee').forEach(marquee => {
+      if (marquee.dataset.marqueeInit) return;
+      marquee.dataset.marqueeInit = '1';
+
+      const row = marquee.querySelector<HTMLElement>('.marquee-row');
+      if (!row) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      const isMobile = window.innerWidth < 700;
+      const duration = isMobile ? 130_000 : 180_000;
+
+      const animation = row.animate(
+        [
+          { transform: 'translate3d(0, 0, 0)' },
+          { transform: 'translate3d(-50%, 0, 0)' },
+        ],
+        { duration, iterations: Infinity, easing: 'linear' }
+      );
+
+      // updatePlaybackRate keeps the current visual position and just changes
+      // how fast time advances — no jump.
+      marquee.addEventListener('pointerenter', () => animation.updatePlaybackRate(0.12));
+      marquee.addEventListener('pointerleave', () => animation.updatePlaybackRate(1));
+
+      // Pause when tab is hidden so we don't burn cycles in the background
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) animation.pause();
+        else animation.play();
+      });
+    });
+  };
+
+  document.addEventListener('astro:page-load', init);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
+</script>
+
 <style>
   .marquee {
-    background: var(--bg);
+    background: transparent;
     padding: 2rem 0 2.25rem;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
     overflow: hidden;
     position: relative;
   }
@@ -78,7 +120,6 @@ const trackList = [...artists, ...artists];
   }
 
   .marquee-row {
-    --marquee-dur: 110s;
     display: flex;
     align-items: center;
     flex-shrink: 0;
@@ -86,18 +127,9 @@ const trackList = [...artists, ...artists];
     margin: 0;
     padding: 0;
     white-space: nowrap;
-    animation: marqueeScroll var(--marquee-dur) linear infinite;
     will-change: transform;
-  }
-
-  /* Hover: slow down dramatically but keep moving */
-  .marquee:hover .marquee-row {
-    --marquee-dur: 440s;
-  }
-
-  @keyframes marqueeScroll {
-    from { transform: translate3d(0, 0, 0); }
-    to   { transform: translate3d(-50%, 0, 0); }
+    /* The motion is driven by JS via Web Animations API (see <script> below)
+       so we can smoothly change playback rate on hover without jumping. */
   }
 
   .marquee-item {
@@ -128,21 +160,12 @@ const trackList = [...artists, ...artists];
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .marquee-row {
-      animation: none;
-      /* Show first chunk only when motion is reduced */
-      transform: none;
-    }
-    .marquee-track {
-      overflow-x: auto;
-    }
+    .marquee-track { overflow-x: auto; }
   }
 
   @media (max-width: 700px) {
     .marquee { padding: 1.5rem 0 1.75rem; }
     .artist { font-size: 0.85rem; letter-spacing: 0.18em; padding-right: 1.1rem; }
     .sep { padding-right: 1.1rem; }
-    .marquee-row { --marquee-dur: 80s; }
-    .marquee:hover .marquee-row { --marquee-dur: 320s; }
   }
 </style>
