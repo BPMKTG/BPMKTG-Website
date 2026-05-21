@@ -417,7 +417,8 @@ const tilesLB = tilesLBRaw;
   .masonry {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
+    /* row-gap 0 so rows sit flush against each other; column-gap stays. */
+    gap: 0 1rem;
     align-items: start;
   }
   .tile {
