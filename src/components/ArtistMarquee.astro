@@ -59,16 +59,36 @@ const trackList = [...artists, ...artists];
         { duration, iterations: Infinity, easing: 'linear' }
       );
 
+      // Hold at frame 0 until the marquee actually enters the viewport,
+      // so the user sees the big names first instead of arriving mid-scroll.
+      animation.pause();
+
+      let hovering = false;
+      let visible = false;
+
+      const applyState = () => {
+        if (!visible) { animation.pause(); return; }
+        animation.play();
+        animation.updatePlaybackRate(hovering ? 0.3 : 1);
+      };
+
       // updatePlaybackRate keeps the current visual position and just changes
       // how fast time advances — no jump.
-      marquee.addEventListener('pointerenter', () => animation.updatePlaybackRate(0.12));
-      marquee.addEventListener('pointerleave', () => animation.updatePlaybackRate(1));
+      marquee.addEventListener('pointerenter', () => { hovering = true;  applyState(); });
+      marquee.addEventListener('pointerleave', () => { hovering = false; applyState(); });
 
       // Pause when tab is hidden so we don't burn cycles in the background
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) animation.pause();
-        else animation.play();
+        else applyState();
       });
+
+      // Only animate while the marquee is in view
+      const io = new IntersectionObserver(([entry]) => {
+        visible = entry.isIntersecting;
+        applyState();
+      }, { threshold: 0.15 });
+      io.observe(marquee);
     });
   };
 
