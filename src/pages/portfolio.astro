@@ -40,13 +40,19 @@ for (const [path, mod] of Object.entries(allFolders)) {
 // Explicit gallery order — left to right, top to bottom, like a book.
 // Each entry has the file slug, big-text caption (uppercased via CSS),
 // and small blue tag.
+//
+// Curated for a 2-column visual model where left-column / right-column
+// items stay anchored relative to their original side. When the duplicate
+// neotek-silo-onstage was removed from the original position 24, the
+// right-column items below shifted up to fill (originals 26→24, 28→26,
+// 30→28, …, 54→52) and odd-positioned left-column items stayed put.
 const galleryOrder: { slug: string; caption: string; tag: string }[] = [
   { slug: 'hero-4-martingarrix-wickedoaks',           caption: 'Martin Garrix',             tag: 'Wicked Oaks' },
   { slug: 'portfolio-hero-theresistance-grimefest',   caption: 'The Resistance',            tag: 'Grimefest' },
   { slug: 'hero-1-excision-magenta-713',              caption: 'Excision',                  tag: '713 Music Hall - Houston' },
-  { slug: 'martingarrix-onstage-pyro',                caption: 'Martin Garrix',             tag: 'Wicked Oaks' },
-  { slug: 'hero-3-grimefest-crowd-lightsaber',        caption: 'The Crowd',                 tag: 'Grimefest' },
   { slug: 'atliens-dft-sidestage',                    caption: 'ATLiens',                   tag: 'Sidestage - DFT' },
+  { slug: 'hero-3-grimefest-crowd-lightsaber',        caption: 'The Crowd',                 tag: 'Grimefest' },
+  { slug: 'martingarrix-onstage-pyro',                caption: 'Martin Garrix',             tag: 'Wicked Oaks' },
   { slug: 'hero-2-alienpark-green-silo',              caption: 'Alien Park',                tag: 'Silo - Dallas' },
   { slug: 'carousel-subtronics-red',                  caption: 'Subtronics',                tag: 'Dancefestopia' },
   { slug: 'bg-1-svddendeath-red-wickedoaks',          caption: 'Svdden Death - Voyd',       tag: 'Wicked Oaks' },
@@ -64,37 +70,36 @@ const galleryOrder: { slug: string; caption: string; tag: string }[] = [
   { slug: 'martingarrix-wickedoaks-festivalstage-pyro', caption: 'Martin Garrix',           tag: 'Wicked Oaks' },
   { slug: 'neotek-silo-onstage',                      caption: 'Neotek',                    tag: 'Silo - Dallas' },
   { slug: 'svddendeath-productionteam-foh',           caption: 'Svdden Death Production',   tag: 'Wicked Oaks' },
-  { slug: 'neotek-silo-onstage',                      caption: 'Neotek',                    tag: 'Silo - Dallas' },
-  { slug: 'subtronics-dancefestopia',                 caption: 'Subtronics',                tag: 'Dancefestopia' },
   { slug: 'laurenmia-fluffycloud-silo',               caption: 'Lauren Mia X Fluffy Cloud', tag: 'Silo - Dallas' },
-  { slug: 'carousel-yookie-grimefest',                caption: 'Yookie',                    tag: 'Grimefest' },
+  { slug: 'subtronics-dancefestopia',                 caption: 'Subtronics',                tag: 'Dancefestopia' },
   { slug: 'carousel-sanpacho-yellowred',              caption: 'San Pacho',                 tag: 'Silo Dallas' },
-  { slug: 'bg-2-perrywayne-purple-dft',               caption: 'Perry Wayne',               tag: 'Dancefestopia' },
+  { slug: 'carousel-yookie-grimefest',                caption: 'Yookie',                    tag: 'Grimefest' },
   { slug: 'rzrkt-drinkurwater-vulcangasco',           caption: 'Rzrkt X Drinkurwater',      tag: 'Vulcan Gas Co.' },
-  { slug: 'alienpark-dft',                            caption: 'Alien Park',                tag: 'Dancefestopia' },
+  { slug: 'bg-2-perrywayne-purple-dft',               caption: 'Perry Wayne',               tag: 'Dancefestopia' },
   { slug: 'automhate-grimefest',                      caption: 'Automhate',                 tag: 'Grimefest' },
-  { slug: 'ognixin-grimefest',                        caption: 'OG Nixin',                  tag: 'Grimefest' },
+  { slug: 'alienpark-dft',                            caption: 'Alien Park',                tag: 'Dancefestopia' },
   { slug: 'sqishi-grimefest-beer',                    caption: 'Sqishi',                    tag: 'Grimefest' },
-  { slug: 'adventureclub-silo',                       caption: 'Adventure Club',            tag: 'Silo - Dallas' },
+  { slug: 'ognixin-grimefest',                        caption: 'OG Nixin',                  tag: 'Grimefest' },
   { slug: 'izzyvadim-grimefest-wideangle',            caption: 'Izzy Vadim',                tag: 'Grimefest' },
-  { slug: 'carousel-martingarrix-freakyducky',        caption: 'Martin Garrix',             tag: 'Wicked Oaks' },
+  { slug: 'adventureclub-silo',                       caption: 'Adventure Club',            tag: 'Silo - Dallas' },
   { slug: 'ahee-dft',                                 caption: 'AHEE',                      tag: 'Dancefestopia' },
-  { slug: 'svddendeath-wickedoaks',                   caption: 'Svdden Death - Voyd',       tag: 'Wicked Oaks' },
+  { slug: 'carousel-martingarrix-freakyducky',        caption: 'Martin Garrix',             tag: 'Wicked Oaks' },
   { slug: 'izyyvadim-grimefest-smoking',              caption: 'Izzy Vadim',                tag: 'Grimefest' },
-  { slug: 'spira-toatsatx',                           caption: 'Spira',                     tag: 'Toats - Austin' },
+  { slug: 'svddendeath-wickedoaks',                   caption: 'Svdden Death - Voyd',       tag: 'Wicked Oaks' },
   { slug: 'blankface-b2b-sqishi-surprised-grimefest', caption: 'Blankface B2B Sqishi',      tag: 'Grimefest' },
-  { slug: 'neotek-silo',                              caption: 'Neotek',                    tag: 'Silo - Dallas' },
+  { slug: 'spira-toatsatx',                           caption: 'Spira',                     tag: 'Toats - Austin' },
   { slug: 'ahee-managment-dft-backstage',             caption: 'AHEE Management',           tag: 'Backstage - DFT' },
-  { slug: 'crowd-alienpark-dft',                      caption: 'The Crowd - Alien Park',    tag: 'Dancefestopia' },
+  { slug: 'neotek-silo',                              caption: 'Neotek',                    tag: 'Silo - Dallas' },
   { slug: 'blankface-b2b-sqishi-grimefest-blue',      caption: 'Blankface B2B Sqishi',      tag: 'Grimefest' },
-  { slug: 'dancefestopia',                            caption: 'Emerald Stage',             tag: 'Dancefestopia' },
+  { slug: 'crowd-alienpark-dft',                      caption: 'The Crowd - Alien Park',    tag: 'Dancefestopia' },
   { slug: 'crowd-grimefest',                          caption: 'The Crowd',                 tag: 'Grimefest' },
-  { slug: 'svddendeath-productionteam-lasers-pyro',   caption: 'Svdden Death Production',   tag: 'FOH - Wicked Oaks' },
+  { slug: 'dancefestopia',                            caption: 'Emerald Stage',             tag: 'Dancefestopia' },
   { slug: 'alienpark-silo',                           caption: 'Alien Park',                tag: 'Silo - Dallas' },
-  { slug: 'allthereason-vulcangasco',                 caption: 'All The Reason',            tag: 'Vulcan Gas Co.' },
+  { slug: 'svddendeath-productionteam-lasers-pyro',   caption: 'Svdden Death Production',   tag: 'FOH - Wicked Oaks' },
   { slug: 'blankface-b2b-sqishi-grimefest-wide',      caption: 'Grimefest',                 tag: 'The Galactic Wars II' },
-  { slug: 'sanpacho-silo',                            caption: 'San Pacho',                 tag: 'Silo - Dallas' },
+  { slug: 'allthereason-vulcangasco',                 caption: 'All The Reason',            tag: 'Vulcan Gas Co.' },
   { slug: 'laurenmia-fluffycloud-silo-red',           caption: 'Lauren Mia X Fluffy Cloud', tag: 'Silo - Dallas' },
+  { slug: 'sanpacho-silo',                            caption: 'San Pacho',                 tag: 'Silo - Dallas' },
   { slug: 'legendofshellda-toatsatx',                 caption: 'Legend of Shellda',         tag: 'Toats - Austin' },
 ];
 
@@ -409,13 +414,18 @@ const tilesLB = tilesLBRaw;
 
   /* CSS Grid with row-major auto-flow gives left-to-right reading order
      (top-to-bottom by row), unlike column-count which fills column-by-column.
-     Row height computed via container queries so H tiles render as actual
-     squares regardless of viewport. H = 3 rows, V = 4 rows (3:4 portrait). */
-  .gallery-block { container-type: inline-size; }
+     Row height is computed from the masonry's actual inline size so H tiles
+     render as real squares. H = 3 rows, V = 4 rows (3:4 portrait).
+
+     --masonry-w = .container's content box width = min(viewport, max-width)
+     minus the .container's 3rem horizontal padding. Earlier code used
+     100cqi against .gallery-block (full-viewport-width), which made H tiles
+     render way taller than the column width at desktop. */
   .masonry {
+    --masonry-w: calc(min(100vw, var(--max-width)) - 3rem);
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: calc((100cqi - 11rem) / 12);
+    grid-auto-rows: calc((var(--masonry-w) - 11rem) / 12);
     gap: 1rem;
     /* No grid-auto-flow: dense — preserves the explicit order */
   }
@@ -564,22 +574,22 @@ const tilesLB = tilesLBRaw;
     transform: scale(1.05);
   }
 
-  @container (max-width: 1080px) {
+  @media (max-width: 1080px) {
     .masonry {
       grid-template-columns: repeat(3, 1fr);
-      grid-auto-rows: calc((100cqi - 8rem) / 9);
+      grid-auto-rows: calc((var(--masonry-w) - 8rem) / 9);
     }
   }
-  @container (max-width: 760px) {
+  @media (max-width: 760px) {
     .masonry {
       grid-template-columns: repeat(2, 1fr);
-      grid-auto-rows: calc((100cqi - 5rem) / 6);
+      grid-auto-rows: calc((var(--masonry-w) - 5rem) / 6);
     }
   }
-  @container (max-width: 480px) {
+  @media (max-width: 480px) {
     .masonry {
       grid-template-columns: 1fr;
-      grid-auto-rows: calc((100cqi - 2rem) / 3);
+      grid-auto-rows: calc((var(--masonry-w) - 2rem) / 3);
     }
   }
   @media (max-width: 1080px) { .featured-grid { grid-template-columns: repeat(3, 1fr); } }
