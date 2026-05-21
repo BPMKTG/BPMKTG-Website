@@ -1,0 +1,144 @@
+---
+const artists = [
+  'Martin Garrix', 'Excision', 'Flux Pavilion', 'Subtronics', 'Doctor P',
+  'Slander', 'Adventure Club', 'Crankdat', 'Kai Wachi', 'ATLiens',
+  'Wooli', 'The Resistance', 'Svdden Death', 'Voyd', 'Space Laces',
+  'Level Up', 'Dion Timmer', 'San Pacho', 'Drinkurwater', 'Inzo',
+  'Beauz', 'AlleyCvt', 'Yookie', 'Ahee', 'Automhate',
+  'Alien Park', 'Neotek', 'Lauren Mia', 'Silver Panda', 'Perry Wayne',
+  'All The Reason', 'Blankface', 'Sqishi', 'OG Nixin', 'Izzy Vadim',
+  'Rzrkt', 'Nimda', 'Yvm3', 'Skyvak', 'Ophion',
+  'Mushroom Cloud', 'Destroyah', 'Krazz', 'Spira', 'LegendOfShellda',
+  'Gabetoldmeto',
+];
+
+// Duplicate the list so the CSS animation can translate -50% for a seamless loop
+const trackList = [...artists, ...artists];
+---
+<section class="marquee" aria-label="Artists in the field">
+  <div class="container">
+    <p class="marquee-label">In The Field With</p>
+  </div>
+
+  <div class="marquee-track" aria-hidden="true">
+    <ul class="marquee-row" role="presentation">
+      {trackList.map((name, i) => (
+        <li class="marquee-item">
+          <span class="artist">{name}</span>
+          <span class="sep" aria-hidden="true">
+            <svg viewBox="0 0 12 12" width="10" height="10" fill="currentColor">
+              <polygon points="2.5,1.5 10,6 2.5,10.5" />
+            </svg>
+          </span>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .marquee {
+    background: var(--bg);
+    padding: 2rem 0 2.25rem;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    overflow: hidden;
+    position: relative;
+  }
+  .marquee-label {
+    text-align: center;
+    margin-bottom: 1.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--bp-light);
+    font-family: var(--font-display);
+  }
+
+  .marquee-track {
+    display: flex;
+    width: 100%;
+    overflow: hidden;
+    /* Edge fade in/out */
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      #000 7%,
+      #000 93%,
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      #000 7%,
+      #000 93%,
+      transparent 100%
+    );
+  }
+
+  .marquee-row {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+    animation: marqueeScroll 80s linear infinite;
+    will-change: transform;
+  }
+
+  /* Pause on hover */
+  .marquee:hover .marquee-row { animation-play-state: paused; }
+
+  @keyframes marqueeScroll {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-50%, 0, 0); }
+  }
+
+  .marquee-item {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .artist {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.88);
+    padding: 0 1.6rem 0 0;
+    transition: color 0.2s;
+  }
+  .marquee-item:hover .artist { color: var(--bp-light); }
+
+  .sep {
+    color: var(--bp-orange);
+    display: inline-flex;
+    align-items: center;
+    padding-right: 1.6rem;
+    opacity: 0.85;
+    filter: drop-shadow(0 0 6px rgba(227, 112, 59, 0.35));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-row {
+      animation: none;
+      /* Show first chunk only when motion is reduced */
+      transform: none;
+    }
+    .marquee-track {
+      overflow-x: auto;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .marquee { padding: 1.5rem 0 1.75rem; }
+    .artist { font-size: 0.85rem; letter-spacing: 0.18em; padding-right: 1.1rem; }
+    .sep { padding-right: 1.1rem; }
+    .marquee-row { animation-duration: 60s; }
+  }
+</style>
