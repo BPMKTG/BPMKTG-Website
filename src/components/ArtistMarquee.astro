@@ -78,6 +78,7 @@ const trackList = [...artists, ...artists];
   }
 
   .marquee-row {
+    --marquee-dur: 110s;
     display: flex;
     align-items: center;
     flex-shrink: 0;
@@ -85,12 +86,14 @@ const trackList = [...artists, ...artists];
     margin: 0;
     padding: 0;
     white-space: nowrap;
-    animation: marqueeScroll 80s linear infinite;
+    animation: marqueeScroll var(--marquee-dur) linear infinite;
     will-change: transform;
   }
 
-  /* Pause on hover */
-  .marquee:hover .marquee-row { animation-play-state: paused; }
+  /* Hover: slow down dramatically but keep moving */
+  .marquee:hover .marquee-row {
+    --marquee-dur: 440s;
+  }
 
   @keyframes marqueeScroll {
     from { transform: translate3d(0, 0, 0); }
@@ -139,6 +142,7 @@ const trackList = [...artists, ...artists];
     .marquee { padding: 1.5rem 0 1.75rem; }
     .artist { font-size: 0.85rem; letter-spacing: 0.18em; padding-right: 1.1rem; }
     .sep { padding-right: 1.1rem; }
-    .marquee-row { animation-duration: 60s; }
+    .marquee-row { --marquee-dur: 80s; }
+    .marquee:hover .marquee-row { --marquee-dur: 320s; }
   }
 </style>
