@@ -24,12 +24,12 @@ const trackList = [...artists, ...artists];
     <ul class="marquee-row" role="presentation">
       {trackList.map((name, i) => (
         <li class="marquee-item">
-          <span class="artist">{name}</span>
           <span class="sep" aria-hidden="true">
             <svg viewBox="0 0 12 12" width="10" height="10" fill="currentColor">
               <polygon points="2.5,1.5 10,6 2.5,10.5" />
             </svg>
           </span>
+          <span class="artist">{name}</span>
         </li>
       ))}
     </ul>
@@ -156,6 +156,8 @@ const trackList = [...artists, ...artists];
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
+    gap: 1.6rem;        /* spacing between play button and artist within item */
+    padding-right: 1.6rem; /* spacing between items */
   }
 
   .artist {
@@ -165,7 +167,6 @@ const trackList = [...artists, ...artists];
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.88);
-    padding: 0 1.6rem 0 0;
     transition: color 0.2s;
   }
   .marquee-item:hover .artist { color: var(--bp-light); }
@@ -174,7 +175,6 @@ const trackList = [...artists, ...artists];
     color: var(--bp-orange);
     display: inline-flex;
     align-items: center;
-    padding-right: 1.6rem;
     opacity: 0.85;
     filter: drop-shadow(0 0 6px rgba(227, 112, 59, 0.35));
   }
@@ -185,7 +185,7 @@ const trackList = [...artists, ...artists];
 
   @media (max-width: 700px) {
     .marquee { padding: 1.5rem 0 1.75rem; }
-    .artist { font-size: 0.85rem; letter-spacing: 0.18em; padding-right: 1.1rem; }
-    .sep { padding-right: 1.1rem; }
+    .artist { font-size: 0.85rem; letter-spacing: 0.18em; }
+    .marquee-item { gap: 1.1rem; padding-right: 1.1rem; }
   }
 </style>

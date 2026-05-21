@@ -333,4 +333,148 @@ Site-wide motion overhaul implementing the user's "make everything feel alive" b
 
 ---
 
+## Session 7 — 2026-05-20 — Cinematic refinements + Astro 6 build fix
+
+This session iterated the motion pass several times. Multiple commits, summarized as one phase.
+
+### Image + Excision crop
+
+- Excision hero photo (`hero-1`) re-cropped via `object-position: center 68%` so stage + fire show beneath the lasers. Done both in `Hero.astro` slide-0 and `Parallax.astro` frame-0.
+- Higher-res `.jpg` versions of all 40 photos came in mid-session. Lockfile already had Astro 6.3.3; my local `node_modules` was stale at 4.16.19, which masked a Cloudflare build error: I used `ViewTransitions` (Astro 4 API) which broke on Cloudflare's clean install of Astro 6 (which uses `ClientRouter`). **Fixed:** import is now `import { ClientRouter } from 'astro:transitions'` in `Layout.astro`. Ran `npm ci` locally to align.
+
+### Section bg reshuffle
+
+- Removed Svdden Death photo bg from `ProblemSection.astro` — the section is now plain dark.
+- Added Svdden Death photo bg + Ken Burns + parallax + overlay to `Roadmap.astro` (How It Works). Step cards made semi-transparent (`rgba(18,19,28,0.78)` + `backdrop-filter: blur(10px)`) so the photo glows through behind them.
+
+### Parallax expansion
+
+- Added `[data-parallax-bg]` attribute + `initBgParallax()` to motion.client.ts. Targets are `.slides` in Hero, `.bg` in Problem (now Roadmap), `.bg` in Stats. Each one bleeds `inset: -10% 0` so the ±70px scroll translation never reveals empty edges.
+
+### Carousel polish
+
+- `cardKB` keyframe added — subtle 14s scale 1.0 → 1.08 loop on every carousel card, staggered via `nth-child` so they don't pulse in sync. Hover pauses + snaps to scale 1.06.
+- `AUTO_MS` dropped 4200 → 3000ms.
+- Deferred first auto-advance until the carousel enters viewport, then `setTimeout(2500)` → tick + start interval. So the user lands on the carousel, looks for ~2.5s, then it advances.
+
+### Offer card improvements
+
+- Tier 3 price `$2-3K` → `$3,000`. Tier 4 `$5-10K` → `$10,000`.
+- Added `data-counter` on price-num. Counter parser already handled prefix/suffix; updated to use `toLocaleString` for thousands separators so `$1,000` counts up with the comma.
+- Pinned `h3 min-height` and `.positioning min-height` so prices align horizontally across cards.
+- **Symmetry refactor:** split the `tag` field on `" · "` and render as a 2-line stacked label (`Tier 01 ·` / `Entry`) — matches what Tier 4's wrapping already did naturally. All four cards now have identical 2-line header structure.
+- Stacked `.price` flex-column so cadence text always sits below the price number (was wrapping awkwardly when `$10,000` was wide).
+- Reduced `h3 font-size` to `clamp(1.05rem, 1.55vw, 1.2rem)` with `letter-spacing: -0.01em` and `text-wrap: balance` so "Growth Blueprint Session" fits in 2 lines instead of 3.
+
+### Portfolio polish
+
+- Lightbox: every Access card + masonry tile is now a `<button>` opening a native `<dialog>` with a 1800px WebP variant (`getImage()`).
+  - Close: backdrop click, X button, ESC.
+  - Arrow-key nav between tiles (in `initLightboxArrows()`).
+  - **Cursor stays visible** when lightbox open: when opening, re-parent `.bp-cursor` into the `<dialog>` so it joins the top layer; on close, re-parent back to `<body>`.
+- Masonry tile aspect-ratios: each tile carries `data-orientation="h"` or `"v"` (derived from `src.width >= src.height`). CSS: horizontals = `aspect-ratio: 1/1` square crop, verticals = `aspect-ratio: 3/4` portrait. Lightbox still loads the unmodified 1800px variant so full-size views show original ratio.
+- Gallery tiles: interleaved `tilesLB` by orientation (`H, V, H, V…`) so the masonry doesn't clump same-orientation tiles in one column.
+- Caption slide-up: tile + Access feat-card hover now slides the caption from `translateY(14px)` → `0` over 0.4s with `cubic-bezier(.2,.7,.3,1)`. For Access cards, moved `.meta` *inside* `.img-wrap` as a true hover overlay (was always-visible below before).
+- Removed the "42 frames across 9+ events…" gallery sub line.
+
+### Refined How It Works reveal
+
+- Replaced the cheap one-shot pulse animation with a **settled** entrance: step number slides up + fades with `cubic-bezier(0.16, 1, 0.3, 1)` over 1.1s, lands at full opacity with a permanent soft blue text-shadow (no pulse).
+- Title underline draws — a 1px gradient line draws from 0 → 64px under each `h3` over 1.3s.
+- Feels designed, not animated.
+
+### Guarantee headline + Calendly
+
+- Removed hard `<br/>` tags. Now uses `text-wrap: balance` + `max-width: 28ch` + `&nbsp;` between "30" and "days" so the text wraps naturally to 3 balanced lines.
+- Calendly link in `BookCall.astro` updated to `https://calendly.com/mc-media-marketing`.
+
+### Cursor refinement
+
+- Replaced circle + dot with a **crosshair** (`+`): two thin perpendicular bars, 22px span, 1.5px thick, blue, `mix-blend-mode: difference`.
+- Added a hollow center: each bar uses `linear-gradient(..., color 0% 40%, transparent 40% 60%, color 60% 100%)` so the four arms don't touch in the middle.
+- Hover state: grows to 34px, lines thicken to 2px, color shifts to orange.
+- Click state: shrinks to 16px.
+
+### Commits
+
+`0700861`, `9a5ffe0`, `ce7d735` (Astro build fix), `7ee804a`, `a4abe60`, `021e7aa`.
+
+---
+
+## Session 8 — 2026-05-20 — Artist marquee + transferring to laptop
+
+### Artist marquee added
+
+New component `src/components/ArtistMarquee.astro`. Placed between `Hero` and `ProblemSection` on the homepage.
+
+- 46 artist names hand-listed (`Martin Garrix → Gabetoldmeto`).
+- Each name is followed by an inline SVG play-button triangle in `--bp-orange` with a soft `drop-shadow` glow.
+- Render order changed mid-iteration: each `<li>` now renders `<sep>` BEFORE `<artist>` (used to be after). So at frame 0, the leftmost visible element is the play button — gives Martin Garrix a brief reading lead-in instead of being clipped at the left edge.
+- Label above: "In The Field With" in Orbitron uppercase, light blue, `0.22em` letter-spacing.
+- Background is transparent (no border lines top/bottom).
+- Edge fade via `mask-image: linear-gradient(to right, transparent 0%, #000 7%, #000 93%, transparent 100%)`.
+
+### Animation: WAAPI, not CSS
+
+CSS `animation-duration` doesn't preserve playhead position when changed (browsers keep elapsed time, not progress fraction — so changing 110s → 440s mid-animation jumps the visual). Switched to the **Web Animations API**:
+
+```ts
+const animation = row.animate(
+  [{ transform: 'translate3d(0,0,0)' }, { transform: 'translate3d(-50%,0,0)' }],
+  { duration: 180_000, iterations: Infinity, easing: 'linear' }
+);
+```
+
+- Base duration: **180s desktop / 130s mobile**.
+- Hover: `animation.updatePlaybackRate(0.3)` — drops to ~30% speed without jumping (WAAPI preserves the current playhead position by recalculating start-time when playback rate changes).
+- Tab-hidden: `animation.pause()`.
+- Initially paused. Started only when the marquee scrolls into view (IntersectionObserver, `threshold: 0.15`). So the user always sees frame 0 — first artists visible — regardless of how long the page sat before scroll.
+
+### State machine
+
+Three flags drive a single `applyState()` function: `visible` (in viewport), `hovering` (pointer over), `document.hidden`. Combinations:
+
+- Not visible → `pause()`.
+- Visible + not hovering → `play()` + rate 1.
+- Visible + hovering → `play()` + rate 0.3.
+- Tab hidden → `pause()`.
+
+### Known small notes
+
+- Tier 3 still shows "MOST PICKED" both in its ribbon AND in the second line of its tag (`TIER 03 ·` / `MOST PICKED`). Visually duplicated. Easy fix when you want it: change Tier 3's tag to e.g. `Tier 03 · Growth` (the tier name is "Fan Growth Engine") so the ribbon and tag don't repeat.
+- Cursor briefly disappears during view-transition page navigations (it's appended to `<body>` which is replaced; `astro:page-load` re-creates it but there's a flash).
+
+### Cumulative commits in session 8
+
+`3cbc61c` (marquee added), `923959e` (slower default), `08e646d` (WAAPI + transparent), `b11cdfb` (defer-until-visible + softer hover), plus the current pending commit (play-button-first start + log update for laptop handoff).
+
+### What's still queued (carryover)
+
+- Real social handles in Footer (Instagram, TikTok, YouTube, X)
+- Real email (currently `hello@blueprintmkt.com`)
+- Portfolio filter chips (artist / event)
+- Custom view-transition styles per route
+- Tier 3 ribbon/tag dedupe
+
+---
+
+## Laptop handoff checklist
+
+Last-known good state: commit on `main` after this session is pushed. To continue on laptop:
+
+```bash
+gh repo clone BPMKTG/BPMKTG-Website
+cd BPMKTG-Website
+npm ci          # respects package-lock.json -> Astro 6.3.3
+npm run dev     # http://localhost:4321
+```
+
+Then in Claude on the laptop, first message:
+
+> *"Continuing on BPMKTG-Website. Read `docs/SESSION_LOG.md` and `docs/CONTENT_BRIEF.md` first."*
+
+Memory rule **"always push directly to main"** lives at `~/.claude/projects/C--Users-Mason-Documents-Claude-BPMKTG-Website/memory/feedback_git_workflow.md` on this PC — it's local-only and won't transfer. Either copy that file over to the equivalent path on the laptop, OR add the rule to the first laptop message: *"Always push directly to main on this repo, no PR/branch flow."*
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
