@@ -1,14 +1,6 @@
 ---
 import { Image } from 'astro:assets';
-import hero1 from '../assets/images/hero/hero-1-excision-magenta-713.jpg';
-import hero2 from '../assets/images/hero/hero-2-alienpark-green-silo.jpg';
-import hero3 from '../assets/images/hero/hero-3-grimefest-crowd-lightsaber.jpg';
-
-const slides = [
-  { src: hero1, alt: 'Excision performing at 713 Music Hall, Houston', eager: true  },
-  { src: hero2, alt: 'Alien Park live at Silo Dallas',                  eager: false },
-  { src: hero3, alt: 'Grimefest crowd, lightsaber glow',                eager: false },
-];
+import hero from '../assets/images/hero/hero-4-martingarrix-wickedoaks.jpg';
 
 const stats = [
   { value: '$12.9B', label: 'EDM industry 2025' },
@@ -20,19 +12,17 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
 ---
 <section class="hero">
   <div class="slides" data-parallax-bg aria-hidden="true">
-    {slides.map((s, i) => (
-      <div class={`slide slide-${i}`}>
-        <Image
-          src={s.src}
-          alt={s.alt}
-          width={1920}
-          height={1280}
-          format="webp"
-          quality={82}
-          loading={s.eager ? 'eager' : 'lazy'}
-        />
-      </div>
-    ))}
+    <div class="slide">
+      <Image
+        src={hero}
+        alt="Martin Garrix headlining Wicked Oaks"
+        width={1920}
+        height={1280}
+        format="webp"
+        quality={84}
+        loading="eager"
+      />
+    </div>
   </div>
   <div class="overlay" aria-hidden="true"></div>
   <div class="grid-layer" aria-hidden="true"></div>
@@ -86,32 +76,20 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
   }
 
   .slides { position: absolute; inset: 0; z-index: 0; }
-  .slide {
-    position: absolute; inset: 0;
-    opacity: 0;
-    animation: heroFade 21s infinite;
-  }
+  .slide { position: absolute; inset: 0; }
   .slide :global(img) {
     width: 100%; height: 100%;
     object-fit: cover;
-    object-position: center 35%;
+    object-position: center 55%;
+    animation: heroKenBurns 36s ease-in-out infinite alternate;
+    transform-origin: center 55%;
   }
-  /* Excision frame: keep stage + fire visible beneath the lasers */
-  .slide-0 :global(img) { object-position: center 68%; }
-  .slide-0 { animation-delay:  0s; }
-  .slide-1 { animation-delay:  7s; }
-  .slide-2 { animation-delay: 14s; }
-
-  @keyframes heroFade {
-     0%  { opacity: 0; transform: scale(1.06); }
-     5%  { opacity: 1; }
-    33%  { opacity: 1; transform: scale(1.00); }
-    38%  { opacity: 0; }
-   100%  { opacity: 0; }
+  @keyframes heroKenBurns {
+    0%   { transform: scale(1.03); }
+    100% { transform: scale(1.12) translate(-1%, -1%); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .slide { animation: none; }
-    .slide-0 { opacity: 1; }
+    .slide :global(img) { animation: none; }
   }
 
   .overlay {

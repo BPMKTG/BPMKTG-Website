@@ -3,101 +3,110 @@ import Layout from '../layouts/Layout.astro';
 import BookCall from '../components/BookCall.astro';
 import { Image, getImage } from 'astro:assets';
 
+// Page hero (kept as a direct import for the eager-loaded background)
 import heroImg from '../assets/images/portfolio/portfolio-hero-theresistance-grimefest.jpg';
 
-// Carousel-folder imports used as the Access featured row
+// Explicit imports for the Access featured row
+import mgWickedOaks  from '../assets/images/carousel/carousel-martingarrix-wickedoaks.jpg';
 import fluxDoctorP   from '../assets/images/carousel/carousel-flux-doctorp-rv.jpg';
 import wooliAP       from '../assets/images/carousel/carousel-wooli-alienpark-backstage.jpg';
 import atliens       from '../assets/images/carousel/carousel-atliens-sidestage.jpg';
 import subLevelUp    from '../assets/images/carousel/carousel-subtronics-levelup.jpg';
 
-// Carousel shots also displayed in the gallery
-import fireworks     from '../assets/images/carousel/carousel-fireworks-dft.jpg';
-import sanpachoSelfie from '../assets/images/carousel/carousel-sanpacho-selfie.jpg';
-import subtronicsRed from '../assets/images/carousel/carousel-subtronics-red.jpg';
-import allTheReason  from '../assets/images/carousel/carousel-allthereason-graffiti.jpg';
-import sanpachoYR    from '../assets/images/carousel/carousel-sanpacho-yellowred.jpg';
-import sanpachoRL    from '../assets/images/carousel/carousel-sanpacho-redlasers.jpg';
-import ahee          from '../assets/images/carousel/carousel-ahee-crowd.jpg';
-import levelUpWide   from '../assets/images/carousel/carousel-levelup-wide.jpg';
-import yookie        from '../assets/images/carousel/carousel-yookie-grimefest.jpg';
-import martinGarrix  from '../assets/images/carousel/carousel-martingarrix-freakyducky.jpg';
-import wooliees      from '../assets/images/carousel/carousel-wooliees-silo.jpg';
+// Glob every image folder — gallery shows everything we've shot
+const heroGlob       = import.meta.glob<{ default: ImageMetadata }>('../assets/images/hero/*.jpg',        { eager: true });
+const bgGlob         = import.meta.glob<{ default: ImageMetadata }>('../assets/images/backgrounds/*.jpg', { eager: true });
+const carouselGlob   = import.meta.glob<{ default: ImageMetadata }>('../assets/images/carousel/*.jpg',    { eager: true });
+const portfolioGlob  = import.meta.glob<{ default: ImageMetadata }>('../assets/images/portfolio/*.jpg',   { eager: true });
 
-// New descriptively-named portfolio shots — caption map below
-const portfolioGlob = import.meta.glob<{ default: ImageMetadata }>(
-  '../assets/images/portfolio/*.jpg',
-  { eager: true }
-);
-
-// Caption + tag mapping for the new shots, keyed by filename (without extension)
+// Unified captions map keyed by filename slug
 const captions: Record<string, { caption: string; tag: string }> = {
-  'adventureclub-silo':                        { caption: 'Adventure Club',             tag: 'Silo Dallas' },
-  'ahee-dft':                                  { caption: 'AHEE',                       tag: 'Dancefestopia' },
-  'ahee-managment-dft-backstage':              { caption: 'AHEE Management',            tag: 'Backstage · DFT' },
-  'alienpark-dft':                             { caption: 'Alien Park',                 tag: 'Dancefestopia' },
-  'alienpark-silo':                            { caption: 'Alien Park',                 tag: 'Silo Dallas' },
-  'allthereason-vulcangasco':                  { caption: 'All The Reason',             tag: 'Vulcan Gas Co.' },
-  'atliens-dft-sidestage':                     { caption: 'ATLiens',                    tag: 'Sidestage · DFT' },
-  'automhate-grimefest':                       { caption: 'Automhate',                  tag: 'Grimefest' },
-  'blankface-b2b-sqishi-grimefest':            { caption: 'Blankface B2B Sqishi',       tag: 'Grimefest' },
-  'blankface-b2b-sqishi-grimefest-blue':       { caption: 'Blankface B2B Sqishi',       tag: 'Grimefest' },
-  'blankface-b2b-sqishi-grimefest-wide':       { caption: 'Blankface B2B Sqishi',       tag: 'Grimefest' },
-  'blankface-b2b-sqishi-surprised-grimefest':  { caption: 'Blankface B2B Sqishi',       tag: 'Grimefest' },
-  'crowd-alienpark-dft':                       { caption: 'The Crowd · Alien Park',     tag: 'Dancefestopia' },
-  'crowd-grimefest':                           { caption: 'The Crowd',                  tag: 'Grimefest' },
-  'dancefestopia':                             { caption: "Dancefestopia '25",          tag: 'Festival' },
-  'izyyvadim-grimefest-smoking':               { caption: 'Izzy Vadim',                 tag: 'Grimefest' },
-  'izzyvadim-grimefest-wideangle':             { caption: 'Izzy Vadim',                 tag: 'Grimefest' },
-  'laurenmia-fluffycloud-silo':                { caption: 'Lauren Mia × Fluffycloud',   tag: 'Silo Dallas' },
-  'laurenmia-fluffycloud-silo-red':            { caption: 'Lauren Mia × Fluffycloud',   tag: 'Silo Dallas' },
-  'legendofshellda-toatsatx':                  { caption: 'Legend of Shellda',          tag: 'TOATS ATX' },
-  'neotek-silo':                               { caption: 'Neotek',                     tag: 'Silo Dallas' },
-  'neotek-silo-onstage':                       { caption: 'Neotek',                     tag: 'Silo Dallas' },
-  'ognixin-grimefest':                         { caption: 'Ognixin',                    tag: 'Grimefest' },
-  'rzrkt-drinkurwater-vulcangasco':            { caption: 'RZRKT × Drinkurwater',       tag: 'Vulcan Gas Co.' },
-  'sanpacho-silo':                             { caption: 'San Pacho',                  tag: 'Silo Dallas' },
-  'spira-toatsatx':                            { caption: 'Spira',                      tag: 'TOATS ATX' },
-  'sqishi-grimefest-beer':                     { caption: 'Sqishi',                     tag: 'Grimefest' },
-  'subtronics-dancefestopia':                  { caption: 'Subtronics',                 tag: 'Dancefestopia' },
-  'svddendeath-wickedoaks':                    { caption: 'Svdden Death',               tag: 'Wicked Oaks' },
-  'wankdat-wooli-crankdat-dancefestopia':      { caption: 'Crankdat × Wooli',           tag: 'Dancefestopia' },
-  'yookie-grimefest-bassface':                 { caption: 'Yookie',                     tag: 'Grimefest' },
+  // Hero
+  'hero-1-excision-magenta-713':                { caption: 'Excision',               tag: '713 Music Hall · Houston' },
+  'hero-2-alienpark-green-silo':                { caption: 'Alien Park',             tag: 'Silo Dallas' },
+  'hero-3-grimefest-crowd-lightsaber':          { caption: 'The Crowd',              tag: 'Grimefest' },
+  'hero-4-martingarrix-wickedoaks':             { caption: 'Martin Garrix',          tag: 'Wicked Oaks' },
+  // Backgrounds
+  'bg-1-svddendeath-red-wickedoaks':            { caption: 'Svdden Death',           tag: 'Wicked Oaks' },
+  'bg-2-perrywayne-purple-dft':                 { caption: 'Perry Wayne',            tag: 'Dancefestopia' },
+  'bg-3-martingarrix-wickedoaks':               { caption: 'Martin Garrix',          tag: 'Wicked Oaks' },
+  // Carousel
+  'carousel-ahee-crowd':                        { caption: 'AHEE',                   tag: 'Dancefestopia' },
+  'carousel-allthereason-graffiti':             { caption: 'All The Reason',         tag: 'Grimefest' },
+  'carousel-atliens-sidestage':                 { caption: 'ATLiens',                tag: 'Sidestage · DFT' },
+  'carousel-fireworks-dft':                     { caption: "Dancefestopia '25",      tag: 'Festival' },
+  'carousel-flux-doctorp-rv':                   { caption: 'Flux Pavilion + Doctor P', tag: 'Backstage' },
+  'carousel-levelup-wide':                      { caption: 'Level Up',               tag: 'Dancefestopia' },
+  'carousel-martingarrix-freakyducky':          { caption: 'Martin Garrix',          tag: 'Freaky Deaky' },
+  'carousel-martingarrix-wickedoaks':           { caption: 'Martin Garrix',          tag: 'Wicked Oaks' },
+  'carousel-sanpacho-redlasers':                { caption: 'San Pacho',              tag: 'Silo Dallas' },
+  'carousel-sanpacho-selfie':                   { caption: 'San Pacho',              tag: 'Silo Dallas' },
+  'carousel-sanpacho-yellowred':                { caption: 'San Pacho',              tag: 'Silo Dallas' },
+  'carousel-subtronics-levelup':                { caption: 'Subtronics + Level Up',  tag: 'Sidestage · DFT' },
+  'carousel-subtronics-red':                    { caption: 'Subtronics',             tag: 'Dancefestopia' },
+  'carousel-wooli-alienpark-backstage':         { caption: 'Wooli + Alien Park',     tag: 'Backstage · Silo Dallas' },
+  'carousel-wooliees-silo':                     { caption: 'Wooli',                  tag: 'Silo Dallas' },
+  'carousel-yookie-grimefest':                  { caption: 'Yookie',                 tag: 'Grimefest' },
+  // Portfolio (existing)
+  'adventureclub-silo':                         { caption: 'Adventure Club',         tag: 'Silo Dallas' },
+  'ahee-dft':                                   { caption: 'AHEE',                   tag: 'Dancefestopia' },
+  'ahee-managment-dft-backstage':               { caption: 'AHEE Management',        tag: 'Backstage · DFT' },
+  'alienpark-dft':                              { caption: 'Alien Park',             tag: 'Dancefestopia' },
+  'alienpark-silo':                             { caption: 'Alien Park',             tag: 'Silo Dallas' },
+  'allthereason-vulcangasco':                   { caption: 'All The Reason',         tag: 'Vulcan Gas Co.' },
+  'atliens-dft-sidestage':                      { caption: 'ATLiens',                tag: 'Sidestage · DFT' },
+  'automhate-grimefest':                        { caption: 'Automhate',              tag: 'Grimefest' },
+  'blankface-b2b-sqishi-grimefest':             { caption: 'Blankface B2B Sqishi',   tag: 'Grimefest' },
+  'blankface-b2b-sqishi-grimefest-blue':        { caption: 'Blankface B2B Sqishi',   tag: 'Grimefest' },
+  'blankface-b2b-sqishi-grimefest-wide':        { caption: 'Blankface B2B Sqishi',   tag: 'Grimefest' },
+  'blankface-b2b-sqishi-surprised-grimefest':   { caption: 'Blankface B2B Sqishi',   tag: 'Grimefest' },
+  'crowd-alienpark-dft':                        { caption: 'The Crowd · Alien Park', tag: 'Dancefestopia' },
+  'crowd-grimefest':                            { caption: 'The Crowd',              tag: 'Grimefest' },
+  'dancefestopia':                              { caption: "Dancefestopia '25",      tag: 'Festival' },
+  'izyyvadim-grimefest-smoking':                { caption: 'Izzy Vadim',             tag: 'Grimefest' },
+  'izzyvadim-grimefest-wideangle':              { caption: 'Izzy Vadim',             tag: 'Grimefest' },
+  'laurenmia-fluffycloud-silo':                 { caption: 'Lauren Mia × Fluffycloud', tag: 'Silo Dallas' },
+  'laurenmia-fluffycloud-silo-red':             { caption: 'Lauren Mia × Fluffycloud', tag: 'Silo Dallas' },
+  'legendofshellda-toatsatx':                   { caption: 'Legend of Shellda',      tag: 'TOATS ATX' },
+  'martingarrix-onstage-pyro':                  { caption: 'Martin Garrix',          tag: 'Onstage · Pyro' },
+  'martingarrix-wickedoaks-festivalstage-pyro': { caption: 'Martin Garrix',          tag: 'Wicked Oaks · Festival Stage' },
+  'neotek-silo':                                { caption: 'Neotek',                 tag: 'Silo Dallas' },
+  'neotek-silo-onstage':                        { caption: 'Neotek',                 tag: 'Silo Dallas · Onstage' },
+  'ognixin-grimefest':                          { caption: 'OG Nixin',               tag: 'Grimefest' },
+  'portfolio-hero-theresistance-grimefest':     { caption: 'The Resistance',         tag: 'Grimefest' },
+  'rzrkt-drinkurwater-vulcangasco':             { caption: 'RZRKT × Drinkurwater',   tag: 'Vulcan Gas Co.' },
+  'sanpacho-silo':                              { caption: 'San Pacho',              tag: 'Silo Dallas' },
+  'spira-toatsatx':                             { caption: 'Spira',                  tag: 'TOATS ATX' },
+  'sqishi-grimefest-beer':                      { caption: 'Sqishi',                 tag: 'Grimefest' },
+  'subtronics-dancefestopia':                   { caption: 'Subtronics',             tag: 'Dancefestopia' },
+  'svddendeath-productionteam-foh':             { caption: 'Svdden Death Production',tag: 'FOH · Wicked Oaks' },
+  'svddendeath-productionteam-lasers-pyro':     { caption: 'Svdden Death',           tag: 'Lasers + Pyro' },
+  'svddendeath-productionteam-screaming':       { caption: 'Svdden Death Production',tag: 'Wicked Oaks' },
+  'svddendeath-wickedoaks':                     { caption: 'Svdden Death',           tag: 'Wicked Oaks' },
+  'wankdat-wooli-crankdat-dancefestopia':       { caption: 'Crankdat × Wooli',       tag: 'Dancefestopia' },
+  'yookie-grimefest-bassface':                  { caption: 'Yookie',                 tag: 'Grimefest' },
 };
 
-const portfolioExtras = Object.entries(portfolioGlob)
-  .filter(([path]) => !path.includes('portfolio-hero'))
+// Featured Access row — Martin Garrix Wicked Oaks leads, then existing five
+const featured = [
+  { src: mgWickedOaks, caption: 'Martin Garrix — Wicked Oaks',              tag: 'Headline · Wicked Oaks' },
+  { src: fluxDoctorP,  caption: 'Backstage with Flux Pavilion & Doctor P',  tag: 'Backstage' },
+  { src: wooliAP,      caption: 'Backstage with Wooli & Alien Park',        tag: 'Backstage · Silo Dallas' },
+  { src: atliens,      caption: 'Sidestage with ATLiens — Dancefestopia',   tag: 'Sidestage' },
+  { src: subLevelUp,   caption: 'Subtronics + Level Up — Dancefestopia',    tag: 'Sidestage · DFT' },
+  { src: heroImg,      caption: 'The Resistance — Grimefest',               tag: 'Headline · Grimefest' },
+];
+
+// Build a flat list of every photo in every folder for the gallery
+const allFolders = { ...heroGlob, ...bgGlob, ...carouselGlob, ...portfolioGlob };
+
+const allTiles = Object.entries(allFolders)
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([path, mod]) => {
     const slug = path.split('/').pop()!.replace(/\.jpg$/, '');
     const meta = captions[slug] ?? { caption: slug.replace(/-/g, ' '), tag: 'In The Field' };
     return { src: mod.default, ...meta, slug };
   });
-
-const featured = [
-  { src: fluxDoctorP, caption: 'Backstage with Flux Pavilion & Doctor P',  tag: 'Backstage' },
-  { src: wooliAP,     caption: 'Backstage with Wooli & Alien Park',        tag: 'Backstage · Silo Dallas' },
-  { src: atliens,     caption: 'Sidestage with ATLiens — Dancefestopia',   tag: 'Sidestage' },
-  { src: subLevelUp,  caption: 'Subtronics + Level Up — Dancefestopia',    tag: 'Sidestage · DFT' },
-  { src: heroImg,     caption: 'The Resistance — Grimefest',               tag: 'Headline · Grimefest' },
-];
-
-// Carousel shots that also live in the gallery (with captions)
-const carouselGallery = [
-  { src: subtronicsRed,   caption: 'Subtronics',           tag: 'Dancefestopia' },
-  { src: martinGarrix,    caption: 'Martin Garrix',        tag: 'Freaky Deaky' },
-  { src: yookie,          caption: 'Yookie',               tag: 'Grimefest' },
-  { src: levelUpWide,     caption: 'Level Up',             tag: 'Dancefestopia' },
-  { src: ahee,            caption: 'AHEE',                 tag: 'Dancefestopia' },
-  { src: sanpachoSelfie,  caption: 'San Pacho',            tag: 'Silo Dallas' },
-  { src: sanpachoRL,      caption: 'San Pacho',            tag: 'Silo Dallas' },
-  { src: sanpachoYR,      caption: 'San Pacho',            tag: 'Silo Dallas' },
-  { src: allTheReason,    caption: 'All The Reason',       tag: 'Grimefest' },
-  { src: wooliees,        caption: 'Wooli',                tag: 'Silo Dallas' },
-  { src: fireworks,       caption: "Dancefestopia '25",    tag: 'Festival' },
-];
-
-const allTiles = [...carouselGallery, ...portfolioExtras];
 
 // Generate larger variants for the lightbox
 const lightboxOf = async (src: ImageMetadata) =>
@@ -116,9 +125,7 @@ const tilesLBRaw = await Promise.all(
   }))
 );
 
-// Interleave horizontals + verticals so the masonry grid alternates
-// orientation column-to-column and row-to-row instead of clumping
-// the same shape together.
+// Interleave horizontals + verticals so the grid alternates orientation
 const horizontals = tilesLBRaw.filter(t => t.orient === 'h');
 const verticals   = tilesLBRaw.filter(t => t.orient === 'v');
 const tilesLB: typeof tilesLBRaw = [];
@@ -334,7 +341,7 @@ for (let i = 0; i < interleaveMax; i++) {
   .featured-block h2 { margin-top: 1rem; margin-bottom: 2.5rem; max-width: 22ch; }
   .featured-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 1rem;
   }
   .feat-card {
@@ -408,14 +415,24 @@ for (let i = 0; i < interleaveMax; i++) {
   .gallery-head h2 { margin-top: 1rem; }
   .gallery-sub { color: var(--muted); margin-top: 0.85rem; font-size: 0.95rem; }
 
+  /* CSS Grid with integer row spans gives row-aligned bottoms even
+     when mixing aspect ratios. H = 3 rows (square). V = 4 rows (3:4).
+     Row height computed from container width via container queries so
+     H tiles render as actual squares. `grid-auto-flow: dense` packs
+     later tiles into earlier gaps. */
+  .gallery-block { container-type: inline-size; }
   .masonry {
-    column-count: 4;
-    column-gap: 1rem;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    /* row-h = (col-width - 2 * gap) / 3, where col-width = (100cqi - 3gap) / 4 */
+    grid-auto-rows: calc((100cqi - 3rem) / 12 - 0.667rem);
+    grid-auto-flow: dense;
+    gap: 1rem;
   }
   .tile {
-    margin: 0 0 1rem;
+    margin: 0;
     display: block;
-    break-inside: avoid;
+    grid-row: span 3; /* H: square */
     border-radius: 14px;
     overflow: hidden;
     background: var(--card);
@@ -429,6 +446,7 @@ for (let i = 0; i < interleaveMax; i++) {
     cursor: pointer;
     transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
+  .tile[data-orientation="v"] { grid-row: span 4; }
   .tile:hover, .tile:focus-visible {
     transform: translateY(-3px);
     border-color: rgba(98, 166, 219, 0.45);
@@ -436,12 +454,11 @@ for (let i = 0; i < interleaveMax; i++) {
   }
   .tile .img-wrap {
     width: 100%;
+    height: 100%;
     line-height: 0;
     display: block;
     overflow: hidden;
-    aspect-ratio: 1 / 1; /* default: square (horizontal photos) */
   }
-  .tile[data-orientation="v"] .img-wrap { aspect-ratio: 3 / 4; }
   .tile .img-wrap :global(img) {
     width: 100%; height: 100%;
     object-fit: cover;
@@ -557,16 +574,28 @@ for (let i = 0; i < interleaveMax; i++) {
     transform: scale(1.05);
   }
 
-  @media (max-width: 1080px) {
-    .masonry { column-count: 3; }
-    .featured-grid { grid-template-columns: repeat(3, 1fr); }
+  @container (max-width: 1080px) {
+    .masonry {
+      grid-template-columns: repeat(3, 1fr);
+      /* (100cqi - 2rem) / 9 - 0.667rem */
+      grid-auto-rows: calc((100cqi - 2rem) / 9 - 0.667rem);
+    }
   }
-  @media (max-width: 760px) {
-    .masonry { column-count: 2; }
-    .featured-grid { grid-template-columns: repeat(2, 1fr); }
+  @container (max-width: 760px) {
+    .masonry {
+      grid-template-columns: repeat(2, 1fr);
+      /* (100cqi - 1rem) / 6 - 0.667rem */
+      grid-auto-rows: calc((100cqi - 1rem) / 6 - 0.667rem);
+    }
   }
-  @media (max-width: 480px)  {
-    .masonry { column-count: 1; }
-    .featured-grid { grid-template-columns: 1fr; }
+  @container (max-width: 480px) {
+    .masonry {
+      grid-template-columns: 1fr;
+      /* For single column, each H tile is 1 row, V is 1 row taller via aspect */
+      grid-auto-rows: calc(100cqi / 3 - 0.667rem);
+    }
   }
+  @media (max-width: 1080px) { .featured-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 760px)  { .featured-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px)  { .featured-grid { grid-template-columns: 1fr; } }
 </style>
