@@ -97,15 +97,29 @@ const featured = [
   { src: heroImg,      caption: 'The Resistance — Grimefest',               tag: 'Headline · Grimefest' },
 ];
 
-// Build a flat list of every photo in every folder for the gallery
+// Build a flat list of every photo in every folder for the gallery,
+// EXCLUDING the 6 photos already shown in the Access section above.
 const allFolders = { ...heroGlob, ...bgGlob, ...carouselGlob, ...portfolioGlob };
+
+const featuredSlugs = new Set([
+  'carousel-martingarrix-wickedoaks',
+  'carousel-flux-doctorp-rv',
+  'carousel-wooli-alienpark-backstage',
+  'carousel-atliens-sidestage',
+  'carousel-subtronics-levelup',
+  'portfolio-hero-theresistance-grimefest',
+]);
 
 const allTiles = Object.entries(allFolders)
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([path, mod]) => {
     const slug = path.split('/').pop()!.replace(/\.jpg$/, '');
-    const meta = captions[slug] ?? { caption: slug.replace(/-/g, ' '), tag: 'In The Field' };
-    return { src: mod.default, ...meta, slug };
+    return { path, slug, src: mod.default };
+  })
+  .filter(t => !featuredSlugs.has(t.slug))
+  .map(t => {
+    const meta = captions[t.slug] ?? { caption: t.slug.replace(/-/g, ' '), tag: 'In The Field' };
+    return { src: t.src, slug: t.slug, ...meta };
   });
 
 // Generate larger variants for the lightbox
@@ -415,24 +429,14 @@ for (let i = 0; i < interleaveMax; i++) {
   .gallery-head h2 { margin-top: 1rem; }
   .gallery-sub { color: var(--muted); margin-top: 0.85rem; font-size: 0.95rem; }
 
-  /* CSS Grid with integer row spans gives row-aligned bottoms even
-     when mixing aspect ratios. H = 3 rows (square). V = 4 rows (3:4).
-     Row height computed from container width via container queries so
-     H tiles render as actual squares. `grid-auto-flow: dense` packs
-     later tiles into earlier gaps. */
-  .gallery-block { container-type: inline-size; }
   .masonry {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    /* row-h = (col-width - 2 * gap) / 3, where col-width = (100cqi - 3gap) / 4 */
-    grid-auto-rows: calc((100cqi - 3rem) / 12 - 0.667rem);
-    grid-auto-flow: dense;
-    gap: 1rem;
+    column-count: 4;
+    column-gap: 1rem;
   }
   .tile {
-    margin: 0;
+    margin: 0 0 1rem;
     display: block;
-    grid-row: span 3; /* H: square */
+    break-inside: avoid;
     border-radius: 14px;
     overflow: hidden;
     background: var(--card);
@@ -446,7 +450,6 @@ for (let i = 0; i < interleaveMax; i++) {
     cursor: pointer;
     transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
-  .tile[data-orientation="v"] { grid-row: span 4; }
   .tile:hover, .tile:focus-visible {
     transform: translateY(-3px);
     border-color: rgba(98, 166, 219, 0.45);
@@ -454,11 +457,12 @@ for (let i = 0; i < interleaveMax; i++) {
   }
   .tile .img-wrap {
     width: 100%;
-    height: 100%;
     line-height: 0;
     display: block;
     overflow: hidden;
+    aspect-ratio: 1 / 1; /* horizontals = square */
   }
+  .tile[data-orientation="v"] .img-wrap { aspect-ratio: 3 / 4; }
   .tile .img-wrap :global(img) {
     width: 100%; height: 100%;
     object-fit: cover;
@@ -574,28 +578,16 @@ for (let i = 0; i < interleaveMax; i++) {
     transform: scale(1.05);
   }
 
-  @container (max-width: 1080px) {
-    .masonry {
-      grid-template-columns: repeat(3, 1fr);
-      /* (100cqi - 2rem) / 9 - 0.667rem */
-      grid-auto-rows: calc((100cqi - 2rem) / 9 - 0.667rem);
-    }
+  @media (max-width: 1080px) {
+    .masonry { column-count: 3; }
+    .featured-grid { grid-template-columns: repeat(3, 1fr); }
   }
-  @container (max-width: 760px) {
-    .masonry {
-      grid-template-columns: repeat(2, 1fr);
-      /* (100cqi - 1rem) / 6 - 0.667rem */
-      grid-auto-rows: calc((100cqi - 1rem) / 6 - 0.667rem);
-    }
+  @media (max-width: 760px) {
+    .masonry { column-count: 2; }
+    .featured-grid { grid-template-columns: repeat(2, 1fr); }
   }
-  @container (max-width: 480px) {
-    .masonry {
-      grid-template-columns: 1fr;
-      /* For single column, each H tile is 1 row, V is 1 row taller via aspect */
-      grid-auto-rows: calc(100cqi / 3 - 0.667rem);
-    }
+  @media (max-width: 480px) {
+    .masonry { column-count: 1; }
+    .featured-grid { grid-template-columns: 1fr; }
   }
-  @media (max-width: 1080px) { .featured-grid { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 760px)  { .featured-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 480px)  { .featured-grid { grid-template-columns: 1fr; } }
 </style>
