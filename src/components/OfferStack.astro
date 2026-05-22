@@ -149,9 +149,15 @@ const tiers = [
     flex-direction: column;
     gap: 0.75rem;
     position: relative;
-    transition: border-color 0.2s, transform 0.2s;
+    /* Reveal transition is owned by global [data-reveal="flip"] (with !important).
+       Only transition border + shadow locally so hover stays snappy without
+       fighting the slow 2.8s flip-in transform timing. */
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
   }
-  .tier:hover { border-color: rgba(255,255,255,0.18); transform: translateY(-3px); }
+  .tier:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 18px 44px -22px rgba(0, 0, 0, 0.65);
+  }
   .tier.featured {
     background:
       radial-gradient(80% 70% at 50% 0%, rgba(227, 112, 59, 0.18), transparent 60%),

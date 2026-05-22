@@ -192,9 +192,12 @@ p { margin: 0; color: var(--muted); }
     rotateX(8deg)
     rotateY(-62deg);
   transform-origin: center center;
+  /* `!important` beats Astro's auto-scoped component CSS, which
+     otherwise wins by class-level specificity (e.g. `.tier[data-astro-cid-X]`).
+     The reveal transition must own its timing. */
   transition:
-    opacity 2.8s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
-    transform 2.8s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+    opacity 2.8s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s) !important,
+    transform 2.8s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s) !important;
 }
 [data-reveal="flip"].is-in {
   transform:
