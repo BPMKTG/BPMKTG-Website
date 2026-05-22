@@ -185,7 +185,16 @@ const tilesLB = tilesLBRaw;
                 loading="lazy"
               />
               <span class="hover-meta">
-                <span class="tag">{f.tag}</span>
+                {(() => {
+                  const [prefix, ...rest] = f.tag.split(' · ');
+                  const venue = rest.join(' · ');
+                  return (
+                    <span class="tag">
+                      <span class="tag-prefix">{prefix}{venue ? ' ·' : ''}</span>
+                      {venue && <span class="tag-venue">{venue}</span>}
+                    </span>
+                  );
+                })()}
                 <strong>{f.caption}</strong>
               </span>
             </span>
@@ -393,7 +402,13 @@ const tilesLB = tilesLBRaw;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     font-weight: 700;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    line-height: 1.25;
   }
+  .feat-card .hover-meta .tag-prefix,
+  .feat-card .hover-meta .tag-venue { display: block; }
   .feat-card .hover-meta strong {
     color: #fff;
     font-family: var(--font-display);
