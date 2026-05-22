@@ -94,7 +94,7 @@ const tiers = [
         const [tierNum, ...rest] = t.tag.split(' · ');
         const tierKind = rest.join(' · ');
         return (
-        <article class={`tier ${t.featured ? 'featured' : ''}`} style={`--accent: var(${t.accent});`} data-reveal>
+        <article class={`tier ${t.featured ? 'featured' : ''}`} style={`--accent: var(${t.accent});`} data-reveal="flip">
           {t.featured && <span class="ribbon">Most picked</span>}
           <p class="tag">
             <span class="tag-num">{tierNum} ·</span>

@@ -118,7 +118,16 @@ p { margin: 0; color: var(--muted); }
   box-shadow: 0 0 0 1px rgba(98, 166, 219, 0.35), 0 12px 30px -12px rgba(38, 79, 160, 0.55);
 }
 .button:hover { transform: translateY(-1px); background: #2c5cb8; box-shadow: 0 0 0 1px rgba(98, 166, 219, 0.55), 0 16px 36px -14px rgba(38, 79, 160, 0.75); }
-.button .arrow { display: inline-flex; transform: rotate(-45deg); }
+.button .arrow {
+  display: inline-flex;
+  transform: rotate(-45deg);
+  transition: transform 0.55s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.button:hover .arrow { transform: rotate(315deg); }
+@media (prefers-reduced-motion: reduce) {
+  .button .arrow { transition: none; }
+  .button:hover .arrow { transform: rotate(-45deg); }
+}
 
 .button.ghost {
   background: transparent;
@@ -169,6 +178,18 @@ p { margin: 0; color: var(--muted); }
 [data-reveal="left"].is-in{ transform: translateX(0); }
 [data-reveal="scale"]     { transform: scale(0.96); }
 [data-reveal="scale"].is-in { transform: scale(1); }
+
+/* 3D card flip — lands flat from a tilted state, like dealing onto a table */
+[data-reveal="flip"] {
+  transform: perspective(1200px) rotateY(-16deg) translateY(28px);
+  transform-origin: center center;
+  transition:
+    opacity 1s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s),
+    transform 1s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s);
+}
+[data-reveal="flip"].is-in {
+  transform: perspective(1200px) rotateY(0) translateY(0);
+}
 
 [data-reveal-group] > [data-reveal]:nth-child(1)  { --reveal-delay: 0.00s; }
 [data-reveal-group] > [data-reveal]:nth-child(2)  { --reveal-delay: 0.08s; }
@@ -390,16 +411,17 @@ p { margin: 0; color: var(--muted); }
 }
 .step[data-reveal] .step-num {
   display: inline-block;
-  transform: translateY(6px);
+  transform: translateY(6px) rotate(-8deg);
   opacity: 0.55;
   text-shadow: 0 0 0 transparent;
+  transform-origin: center center;
   transition:
     transform 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.15s,
     opacity 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.15s,
     text-shadow 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.4s;
 }
 .step[data-reveal].is-in .step-num {
-  transform: translateY(0);
+  transform: translateY(0) rotate(0);
   opacity: 1;
   /* Settled, permanent soft glow — no pulse */
   text-shadow:

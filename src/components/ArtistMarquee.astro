@@ -177,6 +177,19 @@ const trackList = [...artists, ...artists];
     align-items: center;
     opacity: 0.85;
     filter: drop-shadow(0 0 6px rgba(227, 112, 59, 0.35));
+    transition: transform 0.4s cubic-bezier(.2,.7,.3,1);
+  }
+  /* Easter egg: while the marquee is being slowed by hover, the
+     play-button separators slowly rotate. Stops when pointer leaves. */
+  .marquee:hover .sep {
+    animation: sepSpin 5s linear infinite;
+  }
+  @keyframes sepSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marquee:hover .sep { animation: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
