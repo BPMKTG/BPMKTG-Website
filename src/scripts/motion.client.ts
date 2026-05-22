@@ -407,31 +407,51 @@ function initLightboxArrows() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 11. Background parallax for full-bleed photo sections
-//     Cheap pattern: one rAF-throttled scroll listener, sets --parallax-y
-//     on every [data-parallax-bg] element that's near the viewport.
+// 11. Background parallax + scroll-driven scale for full-bleed sections
+//     One rAF-throttled scroll listener handles both [data-parallax-bg]
+//     (vertical drift) and [data-scale-bg] (Apple-style fill-on-scroll).
 // ─────────────────────────────────────────────────────────────
-function initBgParallax() {
+function initBgScrollEffects() {
   if (reduce()) return;
-  const els = Array.from(document.querySelectorAll<HTMLElement>('[data-parallax-bg]'));
-  if (!els.length) return;
+  const parallaxEls = Array.from(document.querySelectorAll<HTMLElement>('[data-parallax-bg]'));
+  const scaleEls    = Array.from(document.querySelectorAll<HTMLElement>('[data-scale-bg]'));
+  if (!parallaxEls.length && !scaleEls.length) return;
 
-  // Cache section references
-  const items = els.map(el => ({ el, section: (el.closest('section') ?? el.parentElement) as HTMLElement }));
+  // Cache section refs + parsed scale ranges
+  const parallaxItems = parallaxEls.map(el => ({
+    el,
+    section: (el.closest('section') ?? el.parentElement) as HTMLElement,
+  }));
+  const scaleItems = scaleEls.map(el => ({
+    el,
+    section: (el.closest('section') ?? el.parentElement) as HTMLElement,
+    start: parseFloat(el.dataset.scaleStart ?? '1'),
+    end:   parseFloat(el.dataset.scaleEnd   ?? '1.12'),
+  }));
 
   let ticking = false;
   const update = () => {
     ticking = false;
     const vh = window.innerHeight;
-    for (const { el, section } of items) {
+
+    for (const { el, section } of parallaxItems) {
       if (!section) continue;
       const rect = section.getBoundingClientRect();
-      // Skip elements far outside viewport — cheap perf win
       if (rect.bottom < -300 || rect.top > vh + 300) continue;
       const progress = (vh / 2 - (rect.top + rect.height / 2)) / (vh / 2 + rect.height / 2);
       const clamped = Math.max(-1, Math.min(1, progress));
-      const shift = clamped * 70;
-      el.style.setProperty('--parallax-y', `${shift}px`);
+      el.style.setProperty('--parallax-y', `${clamped * 70}px`);
+    }
+
+    for (const { el, section, start, end } of scaleItems) {
+      if (!section) continue;
+      const rect = section.getBoundingClientRect();
+      if (rect.bottom < -300 || rect.top > vh + 300) continue;
+      // Progress: 0 when section's top hits bottom of viewport, 1 when its bottom hits top
+      const progress = (vh - rect.top) / (vh + rect.height);
+      const clamped = Math.max(0, Math.min(1, progress));
+      const scale = start + clamped * (end - start);
+      el.style.setProperty('--scale-bg', `${scale}`);
     }
   };
   const onScroll = () => {
@@ -456,7 +476,7 @@ function init() {
   initHeroParticles();
   initTilt();
   initRoadmapLine();
-  initBgParallax();
+  initBgScrollEffects();
   initCtaParticles();
   initLightboxArrows();
 }

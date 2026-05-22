@@ -493,16 +493,22 @@ p { margin: 0; color: var(--muted); }
   transform-origin: center;
 }
 
-/* ──────── Full-bleed photo section parallax
-   Element is sized larger than its section (inset: -10% 0) and translated
-   on scroll. Section is `overflow: hidden`, so the extra room never reveals. */
+/* ──────── Full-bleed photo section parallax + Apple-style scale-on-scroll
+   - [data-parallax-bg]: vertical drift (--parallax-y)
+   - [data-scale-bg]:    scroll-driven scale (--scale-bg)
+   Both compose into a single transform so they coexist on the same element. */
 [data-parallax-bg] {
   inset: -10% 0 !important;
-  transform: translate3d(0, var(--parallax-y, 0), 0);
+  transform: translate3d(0, var(--parallax-y, 0), 0) scale(var(--scale-bg, 1));
+  will-change: transform;
+}
+[data-scale-bg]:not([data-parallax-bg]) {
+  transform: scale(var(--scale-bg, 1));
+  transform-origin: center center;
   will-change: transform;
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-parallax-bg] { transform: none; }
+  [data-parallax-bg], [data-scale-bg] { transform: none; }
 }
 
 /* ──────── Carousel Ken Burns

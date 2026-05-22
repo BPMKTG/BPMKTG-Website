@@ -17,10 +17,10 @@ const trackList = [...artists, ...artists];
 ---
 <section class="marquee" aria-label="Artists in the field">
   <div class="container">
-    <p class="marquee-label">In The Field With</p>
+    <p class="marquee-label" data-reveal="left">In The Field With</p>
   </div>
 
-  <div class="marquee-track" aria-hidden="true">
+  <div class="marquee-track" data-reveal aria-hidden="true">
     <ul class="marquee-row" role="presentation">
       {trackList.map((name, i) => (
         <li class="marquee-item">
