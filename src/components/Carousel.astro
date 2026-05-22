@@ -189,6 +189,9 @@ const shots = [
       edgeDir = dir;
       pause();
       rail.style.scrollBehavior = 'auto';
+      // CSS scroll-snap forces each tiny scrollBy to jump to the nearest
+      // card edge — disable it during edge-hover so we get smooth glide
+      rail.style.scrollSnapType = 'none';
       cancelAnimationFrame(edgeRaf);
       edgeRaf = requestAnimationFrame(edgeTick);
     };
@@ -196,6 +199,7 @@ const shots = [
       edgeDir = 0;
       cancelAnimationFrame(edgeRaf);
       rail.style.scrollBehavior = '';
+      rail.style.scrollSnapType = '';
       userInteracted = true;
       window.setTimeout(resume, 1500);
     };

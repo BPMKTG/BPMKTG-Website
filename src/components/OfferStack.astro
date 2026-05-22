@@ -159,16 +159,16 @@ const tiers = [
        for border + shadow. All four properties named explicitly so the
        shorthand can't reset anything. */
     transition:
-      opacity   2.5s cubic-bezier(0.22, 1, 0.36, 1) var(--tier-flip-delay, 0s),
-      transform 2.5s cubic-bezier(0.22, 1, 0.36, 1) var(--tier-flip-delay, 0s),
+      opacity   1.6s cubic-bezier(0.22, 1, 0.36, 1) var(--tier-flip-delay, 0s),
+      transform 1.6s cubic-bezier(0.22, 1, 0.36, 1) var(--tier-flip-delay, 0s),
       border-color 0.25s ease,
       box-shadow 0.25s ease;
   }
-  /* Sequential stagger — card N waits for card N-1 to mostly settle */
+  /* Sequential stagger — tighter so the whole scene runs ~2.5s */
   .tier:nth-child(1) { --tier-flip-delay: 0s; }
-  .tier:nth-child(2) { --tier-flip-delay: 0.45s; }
-  .tier:nth-child(3) { --tier-flip-delay: 0.9s; }
-  .tier:nth-child(4) { --tier-flip-delay: 1.35s; }
+  .tier:nth-child(2) { --tier-flip-delay: 0.3s; }
+  .tier:nth-child(3) { --tier-flip-delay: 0.6s; }
+  .tier:nth-child(4) { --tier-flip-delay: 0.9s; }
 
   /* Settled state once the IntersectionObserver adds .is-in */
   .tier.is-in {
