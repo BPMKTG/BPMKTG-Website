@@ -193,8 +193,8 @@ p { margin: 0; color: var(--muted); }
     rotateY(-62deg);
   transform-origin: center center;
   transition:
-    opacity 2.2s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
-    transform 2.2s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+    opacity 2.8s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+    transform 2.8s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
 }
 [data-reveal="flip"].is-in {
   transform:
@@ -203,11 +203,12 @@ p { margin: 0; color: var(--muted); }
     rotateX(0)
     rotateY(0);
 }
-/* Pronounced stagger — each card visibly arrives in turn (~0.3s per card) */
+/* Sequential stagger — card N starts when card N-1 is ~70% through its turn.
+   Total scene runs ~8s for all four to land. */
 [data-reveal-group] > [data-reveal="flip"]:nth-child(1) { --reveal-delay: 0s; }
-[data-reveal-group] > [data-reveal="flip"]:nth-child(2) { --reveal-delay: 0.28s; }
-[data-reveal-group] > [data-reveal="flip"]:nth-child(3) { --reveal-delay: 0.56s; }
-[data-reveal-group] > [data-reveal="flip"]:nth-child(4) { --reveal-delay: 0.84s; }
+[data-reveal-group] > [data-reveal="flip"]:nth-child(2) { --reveal-delay: 1.9s; }
+[data-reveal-group] > [data-reveal="flip"]:nth-child(3) { --reveal-delay: 3.8s; }
+[data-reveal-group] > [data-reveal="flip"]:nth-child(4) { --reveal-delay: 5.7s; }
 
 [data-reveal-group] > [data-reveal]:nth-child(1)  { --reveal-delay: 0.00s; }
 [data-reveal-group] > [data-reveal]:nth-child(2)  { --reveal-delay: 0.08s; }
