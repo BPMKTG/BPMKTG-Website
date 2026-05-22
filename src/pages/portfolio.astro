@@ -408,18 +408,16 @@ const tilesLB = tilesLBRaw;
   .gallery-head h2 { margin-top: 1rem; }
   .gallery-sub { color: var(--muted); margin-top: 0.85rem; font-size: 0.95rem; }
 
-  /* Strict CSS Grid: one tile = one cell. No row spans, no auto-flow tricks.
-     Source order = visual LTR-TTB order, always. Tile height is dictated by
-     the img-wrap's aspect-ratio (1/1 for H, 5/7 ≈ 1:1.4 for V). With
-     align-items: start, shorter tiles in a mixed-orientation row sit at the
-     top of the row's cell instead of stretching to fill it — so H tiles
-     stay square even when a V tile makes the row taller. */
+  /* Strict CSS Grid: one tile = one cell. Source order = visual LTR-TTB
+     order, always. All tiles are forced to a uniform square aspect ratio
+     so every row is the same height — this is the only way to guarantee
+     zero vertical empty space while preserving order and avoiding masonry.
+     V images get cropped to square in the grid; the lightbox always shows
+     them full-size uncropped. */
   .masonry {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    /* row-gap 0 so rows sit flush against each other; column-gap stays. */
-    gap: 0 1rem;
-    align-items: start;
+    gap: 0 1rem; /* horizontal breathing room only; rows are flush */
   }
   .tile {
     margin: 0;
@@ -444,13 +442,12 @@ const tilesLB = tilesLBRaw;
   }
   .tile .img-wrap {
     width: 100%;
-    aspect-ratio: 1 / 1; /* H = square (cropped center via object-fit: cover) */
+    /* Every tile is square in the grid, regardless of source orientation.
+       V images get center-cropped here; the lightbox shows them uncropped. */
+    aspect-ratio: 1 / 1;
     line-height: 0;
     display: block;
     overflow: hidden;
-  }
-  .tile[data-orientation="v"] .img-wrap {
-    aspect-ratio: 5 / 7; /* V = ~1:1.4 portrait */
   }
   .tile .img-wrap :global(img) {
     width: 100%; height: 100%;
