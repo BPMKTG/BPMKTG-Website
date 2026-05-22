@@ -19,14 +19,13 @@ const bgGlob         = import.meta.glob<{ default: ImageMetadata }>('../assets/i
 const carouselGlob   = import.meta.glob<{ default: ImageMetadata }>('../assets/images/carousel/*.jpg',    { eager: true });
 const portfolioGlob  = import.meta.glob<{ default: ImageMetadata }>('../assets/images/portfolio/*.jpg',   { eager: true });
 
-// Featured Access row — Martin Garrix Wicked Oaks leads, then existing five
+// Featured Access row — 5 cards, captions use · as the separator
 const featured = [
-  { src: mgWickedOaks, caption: 'Martin Garrix — Wicked Oaks',              tag: 'Headline · Wicked Oaks' },
-  { src: fluxDoctorP,  caption: 'Backstage with Flux Pavilion & Doctor P',  tag: 'Backstage' },
-  { src: wooliAP,      caption: 'Backstage with Wooli & Alien Park',        tag: 'Backstage · Silo Dallas' },
-  { src: atliens,      caption: 'Sidestage with ATLiens — Dancefestopia',   tag: 'Sidestage' },
-  { src: subLevelUp,   caption: 'Subtronics + Level Up — Dancefestopia',    tag: 'Sidestage · DFT' },
-  { src: heroImg,      caption: 'The Resistance — Grimefest',               tag: 'Headline · Grimefest' },
+  { src: mgWickedOaks, caption: 'Martin Garrix',            tag: 'Onstage · Wicked Oaks' },
+  { src: fluxDoctorP,  caption: 'Flux Pavilion X Doctor P', tag: 'Artist Trailer · Wicked Oaks' },
+  { src: wooliAP,      caption: 'Wooli X Alien Park',       tag: 'Backstage · Silo Dallas' },
+  { src: atliens,      caption: 'ATLiens',                  tag: 'Sidestage · Dancefestopia' },
+  { src: subLevelUp,   caption: 'Subtronics X Level Up',    tag: 'Sidestage · Dancefestopia' },
 ];
 
 // Build a slug -> ImageMetadata lookup across every folder
@@ -96,6 +95,8 @@ const galleryOrder: { slug: string; caption: string; tag: string }[] = [
   { slug: 'sanpacho-silo',                              caption: 'San Pacho',                 tag: 'Silo - Dallas' },
   { slug: 'laurenmia-fluffycloud-silo-red',             caption: 'Lauren Mia X Fluffy Cloud', tag: 'Silo - Dallas' },
   { slug: 'legendofshellda-toatsatx',                   caption: 'Legend of Shellda',         tag: 'Toats - Austin' },
+  { slug: 'levelup-dft-bubbles',                        caption: 'Level Up',                  tag: 'Dancefestopia' },          // 55 — bottom of col 3
+  { slug: 'wooli-dft-pyro-lasers',                      caption: 'Wooli',                     tag: 'Dancefestopia' },          // 56 — bottom of col 4
 ];
 
 const allTiles = galleryOrder
@@ -333,7 +334,7 @@ const tilesLB = tilesLBRaw;
   .featured-block h2 { margin-top: 1rem; margin-bottom: 2.5rem; max-width: 22ch; }
   .featured-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 1rem;
   }
   .feat-card {
