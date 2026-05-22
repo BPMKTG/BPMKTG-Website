@@ -179,17 +179,35 @@ p { margin: 0; color: var(--muted); }
 [data-reveal="scale"]     { transform: scale(0.96); }
 [data-reveal="scale"].is-in { transform: scale(1); }
 
-/* 3D card flip — lands flat from a tilted state, like dealing onto a table */
+/* 3D card flip — cards are dealt onto a table from a deep tilt.
+   - rotateY(-62deg): card is almost edge-on at entry, rotation is very visible
+   - translateZ(-220px): cards push deep behind the page before coming forward
+   - rotateX(8deg): subtle forward lean for that "falling into place" feel
+   - 2.2s duration with a back-out curve so the card settles with a tiny overshoot
+   The parent container owns `perspective` so siblings share one camera. */
 [data-reveal="flip"] {
-  transform: perspective(1200px) rotateY(-16deg) translateY(28px);
+  transform:
+    translateY(70px)
+    translateZ(-220px)
+    rotateX(8deg)
+    rotateY(-62deg);
   transform-origin: center center;
   transition:
-    opacity 1s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s),
-    transform 1s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s);
+    opacity 2.2s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+    transform 2.2s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
 }
 [data-reveal="flip"].is-in {
-  transform: perspective(1200px) rotateY(0) translateY(0);
+  transform:
+    translateY(0)
+    translateZ(0)
+    rotateX(0)
+    rotateY(0);
 }
+/* Pronounced stagger — each card visibly arrives in turn (~0.3s per card) */
+[data-reveal-group] > [data-reveal="flip"]:nth-child(1) { --reveal-delay: 0s; }
+[data-reveal-group] > [data-reveal="flip"]:nth-child(2) { --reveal-delay: 0.28s; }
+[data-reveal-group] > [data-reveal="flip"]:nth-child(3) { --reveal-delay: 0.56s; }
+[data-reveal-group] > [data-reveal="flip"]:nth-child(4) { --reveal-delay: 0.84s; }
 
 [data-reveal-group] > [data-reveal]:nth-child(1)  { --reveal-delay: 0.00s; }
 [data-reveal-group] > [data-reveal]:nth-child(2)  { --reveal-delay: 0.08s; }

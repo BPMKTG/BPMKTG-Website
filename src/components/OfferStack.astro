@@ -136,6 +136,9 @@ const tiers = [
     grid-template-columns: repeat(4, 1fr);
     gap: 1rem;
     align-items: stretch;
+    /* Shared 3D scene so all four flip-in cards tilt toward one camera */
+    perspective: 1800px;
+    perspective-origin: center 40%;
   }
   .tier {
     background: var(--card);
