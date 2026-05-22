@@ -169,7 +169,7 @@ const tilesLB = tilesLBRaw;
             type="button"
             data-lightbox-open
             data-tilt
-            data-reveal
+            data-reveal="scale"
             data-full={f.full}
             data-caption={f.caption}
             aria-label={`Open larger view: ${f.caption}`}
@@ -211,13 +211,12 @@ const tilesLB = tilesLBRaw;
         <h2 data-reveal>Festival floors, headline sets,<br/><span class="glow-blue">and everything between.</span></h2>
       </header>
 
-      <div class="masonry" data-reveal-group>
+      <div class="masonry">
         {tilesLB.map(tile => (
           <button
             class="tile"
             type="button"
             data-lightbox-open
-            data-reveal
             data-orientation={tile.orient}
             data-full={tile.full}
             data-caption={`${tile.caption} — ${tile.tag}`}
@@ -358,6 +357,23 @@ const tilesLB = tilesLBRaw;
     flex-direction: column;
     gap: 0.6rem;
   }
+  /* Access card reveal — combines fade + scale + slide for a visible entry.
+     Doesn't fight the data-tilt hover (which targets .img-wrap, not the card itself). */
+  .feat-card[data-reveal="scale"] {
+    opacity: 0;
+    transform: translateY(36px) scale(0.88);
+    transition:
+      opacity 1s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+      transform 1s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+  }
+  .feat-card[data-reveal="scale"].is-in {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .feat-card[data-reveal="scale"] { opacity: 1; transform: none; transition: none; }
+  }
+
   .feat-card .img-wrap {
     aspect-ratio: 3 / 4;
     overflow: hidden;

@@ -185,27 +185,8 @@ p { margin: 0; color: var(--muted); }
    - rotateX(8deg): subtle forward lean for that "falling into place" feel
    - 2.2s duration with a back-out curve so the card settles with a tiny overshoot
    The parent container owns `perspective` so siblings share one camera. */
-[data-reveal="flip"] {
-  transform:
-    translateY(70px)
-    translateZ(-220px)
-    rotateX(8deg)
-    rotateY(-62deg);
-  transform-origin: center center;
-  /* `!important` beats Astro's auto-scoped component CSS, which
-     otherwise wins by class-level specificity (e.g. `.tier[data-astro-cid-X]`).
-     The reveal transition must own its timing. */
-  transition:
-    opacity 2.8s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s) !important,
-    transform 2.8s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s) !important;
-}
-[data-reveal="flip"].is-in {
-  transform:
-    translateY(0)
-    translateZ(0)
-    rotateX(0)
-    rotateY(0);
-}
+/* [data-reveal="flip"] is implemented inside OfferStack.astro's scoped CSS so
+   it has the same auto-injected class specificity and beats fewer rules. */
 /* Default stagger for normal data-reveal items */
 [data-reveal-group] > [data-reveal]:nth-child(1)  { --reveal-delay: 0.00s; }
 [data-reveal-group] > [data-reveal]:nth-child(2)  { --reveal-delay: 0.08s; }
@@ -217,13 +198,7 @@ p { margin: 0; color: var(--muted); }
 [data-reveal-group] > [data-reveal]:nth-child(8)  { --reveal-delay: 0.56s; }
 [data-reveal-group] > [data-reveal]:nth-child(n+9){ --reveal-delay: 0.60s; }
 
-/* Sequential stagger override for [data-reveal="flip"] — must come AFTER
-   the generic stagger above so the longer delays win on flip cards.
-   Card N starts when card N-1 is ~70% through its turn (~8s total scene). */
-[data-reveal-group] > [data-reveal="flip"]:nth-child(1) { --reveal-delay: 0s; }
-[data-reveal-group] > [data-reveal="flip"]:nth-child(2) { --reveal-delay: 1.9s; }
-[data-reveal-group] > [data-reveal="flip"]:nth-child(3) { --reveal-delay: 3.8s; }
-[data-reveal-group] > [data-reveal="flip"]:nth-child(4) { --reveal-delay: 5.7s; }
+/* (Flip stagger is now defined inside OfferStack.astro scoped CSS.) */
 
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] { opacity: 1; transform: none; transition: none; }

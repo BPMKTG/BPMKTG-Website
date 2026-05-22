@@ -54,6 +54,9 @@ const shots = [
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
 
+    <div class="edge edge-left" data-rail-edge="left" aria-hidden="true"></div>
+    <div class="edge edge-right" data-rail-edge="right" aria-hidden="true"></div>
+
     <div class="rail" data-rail>
       {shots.map(shot => (
         <figure class={`card ${shot.orient === 'v' ? 'v' : 'h'}`}>
@@ -173,6 +176,34 @@ const shots = [
     rail.addEventListener('touchstart', pause, { passive: true });
     rail.addEventListener('touchend',   () => window.setTimeout(resume, 2000));
 
+    // Edge-hover continuous scroll — hover the left/right edge to glide
+    let edgeRaf = 0;
+    let edgeDir: 0 | 1 | -1 = 0;
+    const edgeTick = () => {
+      if (!edgeDir) return;
+      rail.scrollBy({ left: edgeDir * 4, behavior: 'auto' });
+      edgeRaf = requestAnimationFrame(edgeTick);
+    };
+    const startEdge = (dir: 1 | -1) => {
+      if (edgeDir === dir) return;
+      edgeDir = dir;
+      pause();
+      rail.style.scrollBehavior = 'auto';
+      cancelAnimationFrame(edgeRaf);
+      edgeRaf = requestAnimationFrame(edgeTick);
+    };
+    const stopEdge = () => {
+      edgeDir = 0;
+      cancelAnimationFrame(edgeRaf);
+      rail.style.scrollBehavior = '';
+      userInteracted = true;
+      window.setTimeout(resume, 1500);
+    };
+    wrap.querySelectorAll<HTMLElement>('[data-rail-edge]').forEach(zone => {
+      zone.addEventListener('pointerenter', () => startEdge(zone.dataset.railEdge === 'left' ? -1 : 1));
+      zone.addEventListener('pointerleave', stopEdge);
+    });
+
     // Defer the first auto-advance until the carousel enters the viewport,
     // then wait ~2.5s before the first scroll so the user gets to look first.
     let started = false;
@@ -283,6 +314,23 @@ const shots = [
     font-size: 0.92rem;
   }
   figcaption span { color: var(--muted); font-size: 0.82rem; }
+
+  /* Edge-hover zones — invisible but cursor-targetable. Hover triggers
+     continuous gliding scroll; subtle gradient hints at the affordance. */
+  .edge {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 90px;
+    z-index: 2;
+    pointer-events: auto;
+    transition: opacity 0.25s ease;
+  }
+  .edge-left  { left: 0;  background: linear-gradient(to right, rgba(98,166,219,0.10), transparent); }
+  .edge-right { right: 0; background: linear-gradient(to left,  rgba(98,166,219,0.10), transparent); }
+  .edge:hover { background-image: linear-gradient(to right, rgba(98,166,219,0.22), transparent); }
+  .edge-right:hover { background-image: linear-gradient(to left, rgba(98,166,219,0.22), transparent); }
+  @media (max-width: 700px) { .edge { display: none; } }
 
   .nav {
     position: absolute;

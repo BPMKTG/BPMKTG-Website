@@ -149,14 +149,44 @@ const tiers = [
     flex-direction: column;
     gap: 0.75rem;
     position: relative;
-    /* Reveal transition is owned by global [data-reveal="flip"] (with !important).
-       Only transition border + shadow locally so hover stays snappy without
-       fighting the slow 2.8s flip-in transform timing. */
-    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+
+    /* ── Initial flip state (before .is-in lands) ── */
+    opacity: 0;
+    transform: translateY(60px) translateZ(-180px) rotateX(6deg) rotateY(-55deg);
+    transform-origin: center center;
+
+    /* Combined transition: slow reveal for opacity+transform, snappy hover
+       for border + shadow. All four properties named explicitly so the
+       shorthand can't reset anything. */
+    transition:
+      opacity   2.5s cubic-bezier(0.22, 1, 0.36, 1) var(--tier-flip-delay, 0s),
+      transform 2.5s cubic-bezier(0.22, 1, 0.36, 1) var(--tier-flip-delay, 0s),
+      border-color 0.25s ease,
+      box-shadow 0.25s ease;
   }
+  /* Sequential stagger — card N waits for card N-1 to mostly settle */
+  .tier:nth-child(1) { --tier-flip-delay: 0s; }
+  .tier:nth-child(2) { --tier-flip-delay: 0.45s; }
+  .tier:nth-child(3) { --tier-flip-delay: 0.9s; }
+  .tier:nth-child(4) { --tier-flip-delay: 1.35s; }
+
+  /* Settled state once the IntersectionObserver adds .is-in */
+  .tier.is-in {
+    opacity: 1;
+    transform: translateY(0) translateZ(0) rotateX(0) rotateY(0);
+  }
+
   .tier:hover {
     border-color: rgba(255, 255, 255, 0.25);
     box-shadow: 0 18px 44px -22px rgba(0, 0, 0, 0.65);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tier {
+      opacity: 1;
+      transform: none;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
   }
   .tier.featured {
     background:
