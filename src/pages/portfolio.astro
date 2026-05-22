@@ -39,8 +39,8 @@ for (const [path, mod] of Object.entries(allFolders)) {
 
 // Explicit gallery order — left to right, top to bottom, like a book.
 // Each entry has the file slug, big-text caption (uppercased via CSS),
-// and small blue tag. Order and captions per the curated 55-tile spec.
-// The duplicate `neotek-silo-onstage` at #21 and #23 is intentional.
+// and small blue tag. Order and captions per the curated 54-tile spec
+// (duplicate Neotek removed; several adjacencies reshuffled).
 const galleryOrder: { slug: string; caption: string; tag: string }[] = [
   { slug: 'hero-4-martingarrix-wickedoaks',             caption: 'Martin Garrix',             tag: 'Wicked Oaks' },
   { slug: 'portfolio-hero-theresistance-grimefest',     caption: 'The Resistance',            tag: 'Grimefest' },
@@ -64,34 +64,33 @@ const galleryOrder: { slug: string; caption: string; tag: string }[] = [
   { slug: 'blankface-b2b-sqishi-grimefest',             caption: 'Blankface B2B Sqishi',      tag: 'Grimefest' },
   { slug: 'neotek-silo-onstage',                        caption: 'Neotek',                    tag: 'Silo - Dallas' },
   { slug: 'martingarrix-wickedoaks-festivalstage-pyro', caption: 'Martin Garrix',             tag: 'Wicked Oaks' },
-  { slug: 'neotek-silo-onstage',                        caption: 'Neotek',                    tag: 'Silo - Dallas' },
+  { slug: 'laurenmia-fluffycloud-silo',                 caption: 'Lauren Mia X Fluffy Cloud', tag: 'Silo - Dallas' },
   { slug: 'svddendeath-productionteam-foh',             caption: 'Svdden Death Production',   tag: 'Wicked Oaks' },
   { slug: 'subtronics-dancefestopia',                   caption: 'Subtronics',                tag: 'Dancefestopia' },
-  { slug: 'laurenmia-fluffycloud-silo',                 caption: 'Lauren Mia X Fluffy Cloud', tag: 'Silo - Dallas' },
-  { slug: 'carousel-yookie-grimefest',                  caption: 'Yookie',                    tag: 'Grimefest' },
   { slug: 'carousel-sanpacho-yellowred',                caption: 'San Pacho',                 tag: 'Silo Dallas' },
+  { slug: 'carousel-yookie-grimefest',                  caption: 'Yookie',                    tag: 'Grimefest' },
   { slug: 'rzrkt-drinkurwater-vulcangasco',             caption: 'Rzrkt X Drinkurwater',      tag: 'Vulcan Gas Co.' },
-  { slug: 'bg-2-perrywayne-purple-dft',                 caption: 'Perry Wayne',               tag: 'Dancefestopia' },
   { slug: 'automhate-grimefest',                        caption: 'Automhate',                 tag: 'Grimefest' },
+  { slug: 'bg-2-perrywayne-purple-dft',                 caption: 'Perry Wayne',               tag: 'Dancefestopia' },
+  { slug: 'sqishi-grimefest-beer',                      caption: 'Sqishi',                    tag: 'Grimefest' },
   { slug: 'alienpark-dft',                              caption: 'Alien Park',                tag: 'Dancefestopia' },
   { slug: 'ognixin-grimefest',                          caption: 'OG Nixin',                  tag: 'Grimefest' },
-  { slug: 'sqishi-grimefest-beer',                      caption: 'Sqishi',                    tag: 'Grimefest' },
-  { slug: 'adventureclub-silo',                         caption: 'Adventure Club',            tag: 'Silo - Dallas' },
   { slug: 'izzyvadim-grimefest-wideangle',              caption: 'Izzy Vadim',                tag: 'Grimefest' },
+  { slug: 'adventureclub-silo',                         caption: 'Adventure Club',            tag: 'Silo - Dallas' },
   { slug: 'ahee-dft',                                   caption: 'AHEE',                      tag: 'Dancefestopia' },
-  { slug: 'carousel-martingarrix-freakyducky',          caption: 'Martin Garrix',             tag: 'Wicked Oaks' },
   { slug: 'izyyvadim-grimefest-smoking',                caption: 'Izzy Vadim',                tag: 'Grimefest' },
+  { slug: 'carousel-martingarrix-freakyducky',          caption: 'Martin Garrix',             tag: 'Wicked Oaks' },
+  { slug: 'blankface-b2b-sqishi-surprised-grimefest',   caption: 'Blankface B2B Sqishi',      tag: 'Grimefest' },
   { slug: 'svddendeath-wickedoaks',                     caption: 'Svdden Death - Voyd',       tag: 'Wicked Oaks' },
   { slug: 'spira-toatsatx',                             caption: 'Spira',                     tag: 'Toats - Austin' },
-  { slug: 'blankface-b2b-sqishi-surprised-grimefest',   caption: 'Blankface B2B Sqishi',      tag: 'Grimefest' },
-  { slug: 'neotek-silo',                                caption: 'Neotek',                    tag: 'Silo - Dallas' },
   { slug: 'ahee-managment-dft-backstage',               caption: 'AHEE Management',           tag: 'Backstage - DFT' },
+  { slug: 'neotek-silo',                                caption: 'Neotek',                    tag: 'Silo - Dallas' },
   { slug: 'blankface-b2b-sqishi-grimefest-blue',        caption: 'Blankface B2B Sqishi',      tag: 'Grimefest' },
-  { slug: 'crowd-alienpark-dft',                        caption: 'The Crowd - Alien Park',    tag: 'Dancefestopia' },
   { slug: 'crowd-grimefest',                            caption: 'The Crowd',                 tag: 'Grimefest' },
+  { slug: 'crowd-alienpark-dft',                        caption: 'The Crowd - Alien Park',    tag: 'Dancefestopia' },
+  { slug: 'alienpark-silo',                             caption: 'Alien Park',                tag: 'Silo - Dallas' },
   { slug: 'dancefestopia',                              caption: 'Emerald Stage',             tag: 'Dancefestopia' },
   { slug: 'svddendeath-productionteam-lasers-pyro',     caption: 'Svdden Death Production',   tag: 'FOH - Wicked Oaks' },
-  { slug: 'alienpark-silo',                             caption: 'Alien Park',                tag: 'Silo - Dallas' },
   { slug: 'allthereason-vulcangasco',                   caption: 'All The Reason',            tag: 'Vulcan Gas Co.' },
   { slug: 'blankface-b2b-sqishi-grimefest-wide',        caption: 'Grimefest',                 tag: 'The Galactic Wars II' },
   { slug: 'sanpacho-silo',                              caption: 'San Pacho',                 tag: 'Silo - Dallas' },
@@ -425,6 +424,13 @@ const tilesLB = tilesLBRaw;
     --masonry-w: calc(min(100vw, var(--max-width)) - 3rem);
     display: grid;
     gap: 1rem;
+    /* dense lets the placement algorithm backfill earlier rows that the
+       default sparse cursor would skip over. Without this, certain
+       columns leave a 1-row hole because the cursor moves forward past
+       an unfilled slot in another column. Each tile still has an
+       explicit grid-column, so dense only affects the row dimension —
+       the H/V/H/V column pattern is untouched. */
+    grid-auto-flow: dense;
   }
   .tile {
     margin: 0;
