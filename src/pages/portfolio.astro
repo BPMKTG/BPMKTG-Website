@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import BookCall from '../components/BookCall.astro';
+import OnFilm from '../components/OnFilm.astro';
 import { Image, getImage } from 'astro:assets';
 
 // Page hero (kept as a direct import for the eager-loaded background)
@@ -203,6 +204,8 @@ const tilesLB = tilesLBRaw;
       </div>
     </div>
   </section>
+
+  <OnFilm />
 
   <section class="gallery-block">
     <div class="container">

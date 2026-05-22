@@ -1,0 +1,411 @@
+---
+// On Film — portfolio page video section.
+// Scaffolded with placeholder tiles styled to match the brand. When real
+// videos arrive, each entry just needs `poster`, `preview` (hover MP4),
+// `vimeoId` filled in — markup + interactivity already wired.
+
+interface FilmTile {
+  slug: string;
+  caption: string;
+  tag: string;
+  /* Future fields when assets arrive: */
+  poster?: string;   // path to poster JPG, e.g. '/videos/posters/grimefest-aftermovie.jpg'
+  preview?: string;  // path to hover-preview MP4, e.g. '/videos/previews/grimefest-aftermovie.mp4'
+  vimeoId?: string;  // numeric Vimeo ID, e.g. '123456789'
+}
+
+const afterMovie: FilmTile = {
+  slug: 'grimefest-aftermovie',
+  caption: 'Grimefest',
+  tag: 'After Movie · Festival Recap',
+};
+
+const recaps: FilmTile[] = [
+  { slug: 'wooli-silo-recap',       caption: 'Wooli',           tag: 'Silo Dallas · Recap' },
+  { slug: 'dft-recap',              caption: 'Dancefestopia',   tag: 'Festival · Recap' },
+  { slug: 'martingarrix-recap',     caption: 'Martin Garrix',   tag: 'Wicked Oaks · Recap' },
+  { slug: 'grimefest-day2-recap',   caption: 'Grimefest Day 2', tag: 'Festival · Recap' },
+];
+
+const moments: FilmTile[] = [
+  { slug: 'flux-multicam',                  caption: 'Flux Pavilion',         tag: 'Multicam · Wicked Oaks' },
+  { slug: 'izzyvadim-multicam-2',           caption: 'Izzy Vadim',            tag: 'Multicam · Grimefest' },
+  { slug: 'blankface-sqishi-multicam-1',    caption: 'Blankface B2B Sqishi',  tag: 'Multicam · Grimefest' },
+  { slug: 'excision-ns-14',                 caption: 'Excision',              tag: 'Moment · 713 Music Hall' },
+  { slug: 'levelup-dft',                    caption: 'Level Up',              tag: 'Moment · Dancefestopia' },
+];
+---
+<section class="on-film" id="on-film">
+  <div class="container">
+    <header class="head">
+      <p class="label" data-reveal="left">On Film</p>
+      <h2 data-reveal>Motion.<br/>Multicam.<br/><span class="glow-blue">Moments.</span></h2>
+      <p class="lede" data-reveal>
+        Recap videos, multicam productions, and key moments captured from inside the scene.
+      </p>
+    </header>
+
+    <!-- ─────────── Featured After Movie ─────────── -->
+    <div class="feature-block" data-reveal="scale">
+      <button
+        class="film-tile film-tile--feature"
+        type="button"
+        data-orientation="h"
+        data-film-tile
+        data-slug={afterMovie.slug}
+        aria-label={`Play ${afterMovie.caption} after movie`}
+      >
+        <span class="img-wrap">
+          {afterMovie.poster ? (
+            <img src={afterMovie.poster} alt={afterMovie.caption} loading="lazy" />
+          ) : (
+            <span class="placeholder placeholder--h">
+              <span class="placeholder-pill">After Movie</span>
+              <span class="placeholder-name">{afterMovie.caption}</span>
+            </span>
+          )}
+          {afterMovie.preview && (
+            <video class="hover-video" preload="none" muted playsinline loop>
+              <source src={afterMovie.preview} type="video/mp4" />
+            </video>
+          )}
+          <span class="play-overlay" aria-hidden="true">
+            <svg viewBox="0 0 32 32" width="56" height="56" fill="currentColor">
+              <polygon points="9,5 27,16 9,27" />
+            </svg>
+          </span>
+          <span class="hover-meta">
+            <span class="meta-tag">{afterMovie.tag}</span>
+            <strong>{afterMovie.caption}</strong>
+          </span>
+        </span>
+      </button>
+    </div>
+
+    <!-- ─────────── Recap Videos ─────────── -->
+    <header class="sub-head">
+      <p class="sub-label" data-reveal="left">Recap Videos</p>
+    </header>
+    <div class="film-grid film-grid--four" data-reveal-group>
+      {recaps.map(item => (
+        <button
+          class="film-tile"
+          type="button"
+          data-orientation="v"
+          data-film-tile
+          data-slug={item.slug}
+          data-reveal="scale"
+          aria-label={`Play ${item.caption} recap`}
+        >
+          <span class="img-wrap">
+            {item.poster ? (
+              <img src={item.poster} alt={item.caption} loading="lazy" />
+            ) : (
+              <span class="placeholder placeholder--v">
+                <span class="placeholder-pill">Recap</span>
+                <span class="placeholder-name">{item.caption}</span>
+              </span>
+            )}
+            {item.preview && (
+              <video class="hover-video" preload="none" muted playsinline loop>
+                <source src={item.preview} type="video/mp4" />
+              </video>
+            )}
+            <span class="play-overlay" aria-hidden="true">
+              <svg viewBox="0 0 32 32" width="38" height="38" fill="currentColor">
+                <polygon points="9,5 27,16 9,27" />
+              </svg>
+            </span>
+            <span class="hover-meta">
+              <span class="meta-tag">{item.tag}</span>
+              <strong>{item.caption}</strong>
+            </span>
+          </span>
+        </button>
+      ))}
+    </div>
+
+    <!-- ─────────── Video Moments ─────────── -->
+    <header class="sub-head">
+      <p class="sub-label" data-reveal="left">Video Moments</p>
+    </header>
+    <div class="film-grid film-grid--five" data-reveal-group>
+      {moments.map(item => (
+        <button
+          class="film-tile"
+          type="button"
+          data-orientation="v"
+          data-film-tile
+          data-slug={item.slug}
+          data-reveal="scale"
+          aria-label={`Play ${item.caption} moment`}
+        >
+          <span class="img-wrap">
+            {item.poster ? (
+              <img src={item.poster} alt={item.caption} loading="lazy" />
+            ) : (
+              <span class="placeholder placeholder--v">
+                <span class="placeholder-pill">{item.tag.split(' · ')[0]}</span>
+                <span class="placeholder-name">{item.caption}</span>
+              </span>
+            )}
+            {item.preview && (
+              <video class="hover-video" preload="none" muted playsinline loop>
+                <source src={item.preview} type="video/mp4" />
+              </video>
+            )}
+            <span class="play-overlay" aria-hidden="true">
+              <svg viewBox="0 0 32 32" width="38" height="38" fill="currentColor">
+                <polygon points="9,5 27,16 9,27" />
+              </svg>
+            </span>
+            <span class="hover-meta">
+              <span class="meta-tag">{item.tag}</span>
+              <strong>{item.caption}</strong>
+            </span>
+          </span>
+        </button>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  // Hover-play: when a tile's video source is present, play on enter, pause on leave.
+  // Placeholder tiles (no .hover-video) do nothing — just hover-scale via CSS.
+  document.querySelectorAll<HTMLElement>('[data-film-tile]').forEach(tile => {
+    const video = tile.querySelector<HTMLVideoElement>('.hover-video');
+    if (!video) return;
+
+    let played = false;
+    tile.addEventListener('pointerenter', () => {
+      // Pause all other tile videos to keep it to one at a time
+      document.querySelectorAll<HTMLVideoElement>('.hover-video').forEach(v => {
+        if (v !== video) { v.pause(); v.currentTime = 0; }
+      });
+      video.play().catch(() => {});
+      played = true;
+    });
+    tile.addEventListener('pointerleave', () => {
+      if (played) { video.pause(); video.currentTime = 0; played = false; }
+    });
+  });
+</script>
+
+<style>
+  .on-film { padding: 6rem 0 4rem; }
+  .head { max-width: 60ch; margin-bottom: 3rem; }
+  .head h2 { margin: 1rem 0 1.25rem; }
+  .head .lede { color: var(--ink); opacity: 0.78; font-size: 1.05rem; }
+
+  .sub-head { margin: 3rem 0 1.25rem; }
+  .sub-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--bp-light);
+    font-family: var(--font-display);
+  }
+  .sub-label::before {
+    content: "";
+    width: 32px; height: 1px;
+    background: var(--bp-blue);
+    display: inline-block;
+  }
+
+  .feature-block { margin-bottom: 1.25rem; }
+
+  .film-grid {
+    display: grid;
+    gap: 1rem;
+  }
+  .film-grid--four { grid-template-columns: repeat(4, 1fr); }
+  .film-grid--five { grid-template-columns: repeat(5, 1fr); }
+
+  /* ── Tile shared styles ── */
+  .film-tile {
+    margin: 0;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: block;
+    width: 100%;
+  }
+  .film-tile .img-wrap {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    aspect-ratio: 9 / 16; /* vertical default */
+    transition: border-color 0.3s ease, transform 0.4s cubic-bezier(.2,.7,.3,1), box-shadow 0.3s ease;
+  }
+  .film-tile--feature .img-wrap { aspect-ratio: 16 / 9; }
+  .film-tile[data-orientation="h"] .img-wrap { aspect-ratio: 16 / 9; }
+
+  .film-tile:hover .img-wrap,
+  .film-tile:focus-visible .img-wrap {
+    transform: translateY(-3px);
+    border-color: rgba(98, 166, 219, 0.55);
+    box-shadow: 0 18px 44px -22px rgba(0, 0, 0, 0.7);
+  }
+
+  .film-tile .img-wrap > img,
+  .film-tile .img-wrap .hover-video {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .film-tile .hover-video {
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+  .film-tile:hover .hover-video,
+  .film-tile:focus-visible .hover-video { opacity: 1; }
+
+  /* ── Placeholder design (when no poster yet) ── */
+  .placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    padding: 1.25rem;
+    text-align: center;
+    background:
+      radial-gradient(120% 80% at 30% 30%, rgba(98, 166, 219, 0.18), transparent 60%),
+      radial-gradient(100% 80% at 80% 80%, rgba(38, 79, 160, 0.22), transparent 60%),
+      linear-gradient(135deg, #0d111c 0%, #161a26 100%);
+  }
+  .placeholder::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 26px 26px;
+    mask-image: radial-gradient(70% 70% at 50% 50%, #000 30%, transparent 100%);
+    pointer-events: none;
+  }
+  .placeholder-pill {
+    position: relative;
+    z-index: 1;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid rgba(98, 166, 219, 0.45);
+    border-radius: 999px;
+    color: var(--bp-light);
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .placeholder-name {
+    position: relative;
+    z-index: 1;
+    color: #fff;
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-size: clamp(1rem, 2vw, 1.45rem);
+    font-weight: 800;
+    line-height: 1.05;
+    max-width: 12ch;
+  }
+  .film-tile--feature .placeholder-name { font-size: clamp(2rem, 4vw, 3.5rem); max-width: 18ch; }
+
+  /* ── Play overlay (centered triangle) ── */
+  .play-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.85);
+    pointer-events: none;
+    z-index: 2;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.55));
+  }
+  .film-tile:hover .play-overlay,
+  .film-tile:focus-visible .play-overlay {
+    transform: scale(1.1);
+    color: var(--bp-orange);
+  }
+
+  /* ── Hover-meta caption ── */
+  .hover-meta {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 2.2rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    background: linear-gradient(to top, rgba(10,10,15,0.94), rgba(10,10,15,0) 100%);
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.4s cubic-bezier(.2,.7,.3,1),
+                transform 0.4s cubic-bezier(.2,.7,.3,1);
+    pointer-events: none;
+    z-index: 3;
+  }
+  .film-tile:hover .hover-meta,
+  .film-tile:focus-visible .hover-meta {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .hover-meta .meta-tag {
+    color: var(--bp-blue);
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .hover-meta strong {
+    color: #fff;
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  /* ── Scale-reveal pattern for tiles (matches Access cards) ── */
+  .film-tile[data-reveal="scale"] {
+    opacity: 0;
+    transform: translateY(36px) scale(0.92);
+    transition:
+      opacity 1s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+      transform 1s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+  }
+  .film-tile[data-reveal="scale"].is-in {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .film-tile[data-reveal="scale"] { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 1080px) {
+    .film-grid--four { grid-template-columns: repeat(2, 1fr); }
+    .film-grid--five { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .film-grid--four,
+    .film-grid--five { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
