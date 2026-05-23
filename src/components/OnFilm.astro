@@ -1,16 +1,19 @@
 ---
 // On Film — portfolio page video section.
 // Each tile needs: caption (big), tag (small), category (corner badge),
-// and optionally poster / preview / vimeoId once assets are produced.
+// and optionally posterImg / preview / vimeoId once assets are produced.
+
+import { Image } from 'astro:assets';
+import fluxPoster from '../assets/images/thumbnails/fluxpavilion-multicam.jpg';
 
 interface FilmTile {
   slug: string;
   caption: string;
   tag: string;
   category: string;
-  poster?: string;
-  preview?: string;
-  vimeoId?: string;
+  posterImg?: ImageMetadata;  // imported from /src/assets/ — processed by Astro
+  preview?: string;            // /public path to hover-preview MP4
+  vimeoId?: string;            // numeric Vimeo ID for lightbox playback
 }
 
 const afterMovie: FilmTile = {
@@ -33,6 +36,7 @@ const moments: FilmTile[] = [
     caption: 'Flux Pavilion',
     tag: 'Wicked Oaks',
     category: 'Multicam',
+    posterImg: fluxPoster,
     preview: '/videos/previews/flux-multicam.mp4',
     vimeoId: '1130704802',
   },
@@ -66,8 +70,10 @@ const moments: FilmTile[] = [
       >
         <span class="img-wrap">
           <span class="category-badge">{afterMovie.category}</span>
-          {afterMovie.poster && <img src={afterMovie.poster} alt={afterMovie.caption} loading="lazy" />}
-          {!afterMovie.poster && !afterMovie.preview && (
+          {afterMovie.posterImg && (
+            <Image src={afterMovie.posterImg} alt={afterMovie.caption} width={1280} height={720} format="webp" quality={82} loading="lazy" />
+          )}
+          {!afterMovie.posterImg && !afterMovie.preview && (
             <span class="placeholder">
               <span class="placeholder-name">{afterMovie.caption}</span>
             </span>
@@ -109,8 +115,10 @@ const moments: FilmTile[] = [
         >
           <span class="img-wrap">
             <span class="category-badge">{item.category}</span>
-            {item.poster && <img src={item.poster} alt={item.caption} loading="lazy" />}
-            {!item.poster && !item.preview && (
+            {item.posterImg && (
+              <Image src={item.posterImg} alt={item.caption} width={720} height={1280} format="webp" quality={82} loading="lazy" />
+            )}
+            {!item.posterImg && !item.preview && (
               <span class="placeholder">
                 <span class="placeholder-name">{item.caption}</span>
               </span>
@@ -153,8 +161,10 @@ const moments: FilmTile[] = [
         >
           <span class="img-wrap">
             <span class="category-badge">{item.category}</span>
-            {item.poster && <img src={item.poster} alt={item.caption} loading="lazy" />}
-            {!item.poster && !item.preview && (
+            {item.posterImg && (
+              <Image src={item.posterImg} alt={item.caption} width={720} height={1280} format="webp" quality={82} loading="lazy" />
+            )}
+            {!item.posterImg && !item.preview && (
               <span class="placeholder">
                 <span class="placeholder-name">{item.caption}</span>
               </span>
@@ -525,9 +535,14 @@ const moments: FilmTile[] = [
                 0 0 0 1px rgba(98, 166, 219, 0.2);
     pointer-events: auto;
   }
-  .vlb-frame iframe {
-    width: 100%; height: 100%;
-    border: 0; display: block;
+  /* `:global()` is required because the iframe is injected via JS,
+     so it doesn't carry Astro's auto-scoped cid attribute and the normal
+     scoped selector wouldn't match. */
+  .vlb-frame :global(iframe) {
+    width: 100% !important;
+    height: 100% !important;
+    border: 0;
+    display: block;
   }
   .vlb-caption {
     color: var(--bp-light);
