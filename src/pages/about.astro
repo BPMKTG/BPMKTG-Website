@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import BookCall from '../components/BookCall.astro';
 import { Image } from 'astro:assets';
 
+import heroBg       from '../assets/images/hero/hero-3-grimefest-crowd-lightsaber.jpg';
 import masonPhoto   from '../assets/images/about-us/mason-celum.jpg';
 import claytonPhoto from '../assets/images/about-us/clayton-ward.jpg';
 
@@ -12,14 +13,12 @@ const founders = [
     name: 'Mason Celum',
     role: 'Founder & CEO — Strategy, Systems & Client Relations',
     bio: `Mason is a Texas-based EDM photographer, strategist, and the founder of Blueprint Marketing. After years embedded in the bass music scene — shooting headline sets, festival floors, and backstage moments with artists like Martin Garrix, Excision, and Flux Pavilion — he saw the same problem everywhere: incredible artists with no real system behind their growth. Blueprint was built to fix that. Mason leads client strategy, offer development, and the growth systems that power every partnership.`,
-    detail: 'Has photographed 40+ artists across festivals including Dancefestopia, Grimefest, Freaky Deaky, and Wicked Oaks.',
   },
   {
     photo: claytonPhoto,
     name: 'Clayton Ward',
     role: 'Co-Founder & CTO — Content, Production & Operations',
-    bio: `Clayton is Blueprint's technical backbone and content director. With a sharp eye for editing and a systems-first mindset, he turns raw show footage into high-output content engines that actually move the needle. Clayton oversees production workflow, content delivery, and the operational infrastructure that keeps Blueprint running at scale.`,
-    detail: null, // user noted this needs filling in
+    bio: `Clayton is Blueprint's technical architect. He designs and manages the systems, workflows, reporting dashboards, and operational infrastructure that allow Blueprint to deliver consistent, scalable results. While Mason leads on the creative and strategy side, Clayton builds the backend systems that make everything run — turning Blueprint from an agency into a growth machine.`,
   },
 ];
 
@@ -34,9 +33,23 @@ const principles = [
   title="About — Blueprint Marketing"
   description="The growth infrastructure behind bass music's next chapter. Built by photographers and editors who live inside the scene."
 >
-  <!-- ─────────── Hero ─────────── -->
+  <!-- ─────────── Hero with photo background ─────────── -->
   <section class="about-hero">
-    <div class="container">
+    <div class="hero-bg" data-parallax-bg data-scale-bg data-scale-start="1" data-scale-end="1.18" aria-hidden="true">
+      <Image
+        src={heroBg}
+        alt=""
+        width={1920}
+        height={1280}
+        format="webp"
+        quality={82}
+        loading="eager"
+      />
+    </div>
+    <div class="hero-overlay" aria-hidden="true"></div>
+    <div class="hero-grid" aria-hidden="true"></div>
+
+    <div class="container hero-inner">
       <p class="label" data-reveal="left">About Blueprint</p>
       <h1 data-reveal>
         We're not an agency.<br/>
@@ -50,10 +63,13 @@ const principles = [
   </section>
 
   <!-- ─────────── Vision / Manifesto ─────────── -->
-  <section class="vision">
-    <div class="container narrow">
+  <section class="vision bp-texture">
+    <div class="vision-glow vision-glow--a" aria-hidden="true"></div>
+    <div class="vision-glow vision-glow--b" aria-hidden="true"></div>
+
+    <div class="container vision-inner">
       <p class="label" data-reveal="left">The Vision</p>
-      <h2 data-reveal>Where art meets infrastructure.</h2>
+      <h2 data-reveal>Where art meets <span class="glow-blue">infrastructure.</span></h2>
 
       <div class="vision-body">
         <p data-reveal>
@@ -85,28 +101,31 @@ const principles = [
     <div class="container">
       <header class="founders-head">
         <p class="label" data-reveal="left">The Founders</p>
-        <h2 data-reveal>The two people behind the system.</h2>
+        <h2 data-reveal>The two people<br/>behind the system.</h2>
       </header>
 
-      <div class="founders-grid" data-reveal-group>
-        {founders.map(f => (
-          <article class="founder" data-reveal>
+      <div class="founder-rows">
+        {founders.map((f, i) => (
+          <article class={`founder-row ${i % 2 === 1 ? 'reversed' : ''}`} data-reveal>
             <div class="founder-photo">
-              <Image
-                src={f.photo}
-                alt={f.name}
-                width={900}
-                height={1100}
-                format="webp"
-                quality={85}
-                loading="lazy"
-              />
+              <span class="founder-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+              <div class="photo-frame">
+                <Image
+                  src={f.photo}
+                  alt={f.name}
+                  width={900}
+                  height={1200}
+                  format="webp"
+                  quality={86}
+                  loading="lazy"
+                />
+                <div class="photo-glow" aria-hidden="true"></div>
+              </div>
             </div>
             <div class="founder-body">
               <h3>{f.name}</h3>
               <p class="founder-role">{f.role}</p>
               <p class="founder-bio">{f.bio}</p>
-              {f.detail && <p class="founder-detail">{f.detail}</p>}
             </div>
           </article>
         ))}
@@ -115,7 +134,7 @@ const principles = [
   </section>
 
   <!-- ─────────── Principles ─────────── -->
-  <section class="principles">
+  <section class="principles bp-texture">
     <div class="container">
       <header class="principles-head">
         <p class="label" data-reveal="left">What We Believe</p>
@@ -138,98 +157,228 @@ const principles = [
 </Layout>
 
 <style>
-  /* ── Hero ── */
-  .about-hero { padding: 5rem 0 3rem; }
-  .about-hero h1 { margin: 1rem 0 1.5rem; max-width: 20ch; }
+  /* ═══════════════════════════════════════════════
+     HERO — full-bleed photo with atmospheric overlay
+     ═══════════════════════════════════════════════ */
+  .about-hero {
+    position: relative;
+    overflow: hidden;
+    min-height: clamp(560px, 80vh, 840px);
+    display: flex;
+    align-items: center;
+    isolation: isolate;
+  }
+  .hero-bg {
+    position: absolute;
+    inset: -10% 0;
+    z-index: 0;
+  }
+  .hero-bg :global(img) {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center 35%;
+  }
+  .hero-overlay {
+    position: absolute; inset: 0; z-index: 1;
+    background:
+      linear-gradient(180deg, rgba(10,10,15,0.55) 0%, rgba(10,10,15,0.75) 60%, rgba(10,10,15,0.95) 100%),
+      radial-gradient(60% 60% at 80% 20%, rgba(38, 79, 160, 0.22), transparent 70%);
+  }
+  .hero-grid {
+    position: absolute; inset: 0; z-index: 1;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(70% 70% at 50% 30%, #000 30%, transparent 100%);
+  }
+  .hero-inner {
+    position: relative;
+    z-index: 2;
+    padding: 5rem 1.5rem;
+  }
+  .about-hero h1 {
+    margin: 1rem 0 1.5rem;
+    max-width: 20ch;
+    text-shadow: 0 4px 30px rgba(0,0,0,0.65);
+  }
   .about-hero .lede {
     color: var(--ink);
-    opacity: 0.78;
+    opacity: 0.88;
     font-size: 1.15rem;
     max-width: 60ch;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.6);
   }
 
-  /* ── Vision ── */
-  .vision { padding: 4rem 0 5rem; }
-  .narrow { max-width: 760px; }
-  .vision h2 { margin: 1rem 0 2rem; }
-  .vision-body { display: flex; flex-direction: column; gap: 1.25rem; }
+  /* ═══════════════════════════════════════════════
+     VISION — atmospheric radial glows + texture
+     ═══════════════════════════════════════════════ */
+  .vision {
+    padding: 6rem 0 7rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .vision-inner {
+    position: relative;
+    z-index: 2;
+    max-width: 820px;
+  }
+  .vision-glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .vision-glow--a {
+    width: 540px; height: 540px;
+    top: -120px; right: -120px;
+    background: radial-gradient(circle, rgba(98, 166, 219, 0.18), transparent 70%);
+  }
+  .vision-glow--b {
+    width: 460px; height: 460px;
+    bottom: -160px; left: -100px;
+    background: radial-gradient(circle, rgba(38, 79, 160, 0.22), transparent 70%);
+  }
+  .vision h2 {
+    margin: 1rem 0 2rem;
+    font-size: clamp(2rem, 4vw, 3rem);
+  }
+  .vision-body { display: flex; flex-direction: column; gap: 1.5rem; }
   .vision-body p {
     color: var(--ink);
-    opacity: 0.82;
+    opacity: 0.85;
     font-size: 1.1rem;
-    line-height: 1.6;
+    line-height: 1.65;
   }
   .vision-body .hl { color: var(--bp-light); font-weight: 500; }
 
-  /* ── Founders ── */
-  .founders { padding: 5rem 0; }
-  .founders-head { max-width: 60ch; margin-bottom: 3rem; }
-  .founders-head h2 { margin-top: 1rem; }
-  .founders-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 3rem 2.5rem;
+  /* ═══════════════════════════════════════════════
+     FOUNDERS — alternating rows, big numbered photos
+     ═══════════════════════════════════════════════ */
+  .founders {
+    padding: 6rem 0;
+    position: relative;
   }
-  .founder {
+  .founders-head { max-width: 60ch; margin-bottom: 4rem; }
+  .founders-head h2 { margin-top: 1rem; }
+
+  .founder-rows {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 6rem;
   }
+  .founder-row {
+    display: grid;
+    grid-template-columns: 5fr 6fr;
+    gap: 3rem;
+    align-items: center;
+  }
+  .founder-row.reversed .founder-photo { grid-column: 2; }
+  .founder-row.reversed .founder-body { grid-column: 1; grid-row: 1; }
+
+  /* Photo column with big numbered overlay */
   .founder-photo {
-    aspect-ratio: 4 / 5;
-    overflow: hidden;
-    border-radius: 18px;
-    background: var(--card);
-    border: 1px solid var(--line);
     position: relative;
     isolation: isolate;
   }
-  .founder-photo :global(img) {
+  .founder-num {
+    position: absolute;
+    top: -2.5rem;
+    left: -1rem;
+    font-family: var(--font-display);
+    font-size: clamp(5rem, 10vw, 9rem);
+    font-weight: 900;
+    color: rgba(98, 166, 219, 0.18);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    pointer-events: none;
+    z-index: 0;
+    text-shadow: 0 0 30px rgba(98, 166, 219, 0.12);
+  }
+  .founder-row.reversed .founder-num {
+    left: auto;
+    right: -1rem;
+  }
+
+  .photo-frame {
+    position: relative;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border-radius: 22px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    z-index: 1;
+    box-shadow:
+      0 30px 80px -30px rgba(0, 0, 0, 0.75),
+      0 0 0 1px rgba(98, 166, 219, 0.12);
+    transition: border-color 0.4s, transform 0.5s cubic-bezier(.2,.7,.3,1), box-shadow 0.4s;
+  }
+  .photo-frame :global(img) {
     width: 100%; height: 100%;
     object-fit: cover;
     display: block;
-    transition: transform 0.6s cubic-bezier(.2,.7,.3,1);
+    transition: transform 0.7s cubic-bezier(.2,.7,.3,1);
   }
-  .founder:hover .founder-photo :global(img) { transform: scale(1.03); }
-  .founder-body { display: flex; flex-direction: column; gap: 0.65rem; }
-  .founder h3 {
+  .photo-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(70% 50% at 50% 100%, rgba(98, 166, 219, 0.18), transparent 60%);
+    mix-blend-mode: screen;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .founder-row:hover .photo-frame {
+    border-color: rgba(98, 166, 219, 0.5);
+    transform: translateY(-4px);
+    box-shadow:
+      0 36px 90px -30px rgba(0, 0, 0, 0.85),
+      0 0 0 1px rgba(98, 166, 219, 0.35);
+  }
+  .founder-row:hover .photo-frame :global(img) { transform: scale(1.04); }
+  .founder-row:hover .photo-glow { opacity: 1; }
+
+  /* Body column */
+  .founder-body { display: flex; flex-direction: column; gap: 1rem; }
+  .founder-row h3 {
     color: var(--ink);
     font-family: var(--font-display);
-    font-size: clamp(1.4rem, 2.5vw, 1.85rem);
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
     text-transform: uppercase;
-    letter-spacing: -0.01em;
-    line-height: 1.05;
+    letter-spacing: -0.02em;
+    line-height: 1;
   }
   .founder-role {
     color: var(--bp-light);
     font-family: var(--font-display);
     font-size: 0.78rem;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     font-weight: 700;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--line);
   }
   .founder-bio {
     color: var(--ink);
-    opacity: 0.82;
-    font-size: 1rem;
-    line-height: 1.55;
-  }
-  .founder-detail {
-    color: var(--muted);
-    font-size: 0.92rem;
-    font-style: italic;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--line);
+    opacity: 0.85;
+    font-size: 1.02rem;
+    line-height: 1.6;
   }
 
-  /* ── Principles ── */
-  .principles { padding: 5rem 0 4rem; }
+  /* ═══════════════════════════════════════════════
+     PRINCIPLES — kept as cards, added texture wrapper
+     ═══════════════════════════════════════════════ */
+  .principles {
+    padding: 6rem 0 5rem;
+    position: relative;
+  }
   .principles-head { max-width: 60ch; margin-bottom: 3rem; }
   .principles-head h2 { margin-top: 1rem; }
   .principles-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 0.85rem;
+    gap: 1rem;
   }
   .principle {
     background: var(--card);
@@ -239,13 +388,14 @@ const principles = [
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
-    transition: border-color 0.3s, transform 0.3s;
+    transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
     position: relative;
     overflow: hidden;
   }
   .principle:hover {
-    border-color: rgba(98, 166, 219, 0.4);
+    border-color: rgba(98, 166, 219, 0.45);
     transform: translateY(-3px);
+    box-shadow: 0 20px 40px -22px rgba(0, 0, 0, 0.6);
   }
   .principle::before {
     content: "";
@@ -253,7 +403,7 @@ const principles = [
     inset: -1px -1px auto -1px;
     height: 2px;
     background: linear-gradient(90deg, transparent, var(--bp-blue), transparent);
-    opacity: 0.5;
+    opacity: 0.55;
   }
   .principle-num {
     font-family: var(--font-display);
@@ -272,9 +422,19 @@ const principles = [
   }
   .principle p { color: var(--muted); font-size: 0.9rem; }
 
-  /* ── Responsive ── */
+  /* ═══════════════════════════════════════════════
+     Responsive
+     ═══════════════════════════════════════════════ */
   @media (max-width: 880px) {
-    .founders-grid { grid-template-columns: 1fr; gap: 3.5rem; }
+    .founder-row,
+    .founder-row.reversed {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    .founder-row.reversed .founder-photo,
+    .founder-row.reversed .founder-body { grid-column: auto; grid-row: auto; }
+    .founder-rows { gap: 4.5rem; }
+    .founder-num { top: -1.75rem; font-size: 5rem; }
     .principles-grid { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 540px) {
