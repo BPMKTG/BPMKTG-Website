@@ -335,10 +335,16 @@ const moments: FilmTile[] = [
     object-fit: cover;
     display: block;
   }
+  /* Video sits on top of the poster but stays invisible until hover, so the
+     poster owns the static state. Fades in over the poster on hover. */
   .film-tile .hover-video {
     z-index: 1;
+    opacity: 0;
     pointer-events: none;
+    transition: opacity 0.35s ease;
   }
+  .film-tile:hover .hover-video,
+  .film-tile:focus-visible .hover-video { opacity: 1; }
 
   /* ── Placeholder design (when no poster + no preview yet) ── */
   .placeholder {
