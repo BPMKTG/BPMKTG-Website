@@ -40,10 +40,11 @@ const moments: FilmTile[] = [
     preview: '/videos/previews/flux-multicam.mp4',
     vimeoId: '1130704802',
   },
-  { slug: 'izzyvadim-multicam-2',         caption: 'Izzy Vadim',           tag: 'Grimefest',      category: 'Multicam' },
-  { slug: 'blankface-sqishi-multicam-1',  caption: 'Blankface B2B Sqishi', tag: 'Grimefest',      category: 'Multicam' },
-  { slug: 'excision-ns-14',               caption: 'Excision',             tag: '713 Music Hall', category: 'Moment' },
-  { slug: 'levelup-dft',                  caption: 'Level Up',             tag: 'Dancefestopia',  category: 'Moment' },
+  { slug: 'excision-ns-14',               caption: 'Excision',             tag: '713 Music Hall - Houston', category: 'Moment' },
+  { slug: 'blankface-sqishi-multicam-1',  caption: 'Blankface B2B Sqishi', tag: 'Grimefest',                category: 'Multicam' },
+  { slug: 'diontimmer-moment',            caption: 'Dion Timmer',          tag: '713 Music Hall - Houston', category: 'Moment' },
+  { slug: 'izzyvadim-multicam-2',         caption: 'Izzy Vadim',           tag: 'Grimefest',                category: 'Multicam' },
+  { slug: 'levelup-dft',                  caption: 'Level Up',             tag: 'Dancefestopia',            category: 'Moment' },
 ];
 ---
 <section class="on-film" id="on-film">
@@ -70,19 +71,17 @@ const moments: FilmTile[] = [
       >
         <span class="img-wrap">
           <span class="category-badge">{afterMovie.category}</span>
-          {afterMovie.posterImg && (
+          {afterMovie.posterImg ? (
             <Image src={afterMovie.posterImg} alt={afterMovie.caption} width={1280} height={720} format="webp" quality={82} loading="lazy" />
-          )}
-          {!afterMovie.posterImg && !afterMovie.preview && (
-            <span class="placeholder">
-              <span class="placeholder-name">{afterMovie.caption}</span>
-            </span>
+          ) : (
+            <span class="placeholder-bg" aria-hidden="true"></span>
           )}
           {afterMovie.preview && (
             <video class="hover-video" preload="metadata" muted playsinline loop>
               <source src={afterMovie.preview} type="video/mp4" />
             </video>
           )}
+          <span class="tile-name">{afterMovie.caption}</span>
           <span class="play-overlay" aria-hidden="true">
             <svg viewBox="0 0 32 32" width="56" height="56" fill="currentColor">
               <polygon points="9,5 27,16 9,27" />
@@ -115,19 +114,17 @@ const moments: FilmTile[] = [
         >
           <span class="img-wrap">
             <span class="category-badge">{item.category}</span>
-            {item.posterImg && (
+            {item.posterImg ? (
               <Image src={item.posterImg} alt={item.caption} width={720} height={1280} format="webp" quality={82} loading="lazy" />
-            )}
-            {!item.posterImg && !item.preview && (
-              <span class="placeholder">
-                <span class="placeholder-name">{item.caption}</span>
-              </span>
+            ) : (
+              <span class="placeholder-bg" aria-hidden="true"></span>
             )}
             {item.preview && (
               <video class="hover-video" preload="metadata" muted playsinline loop>
                 <source src={item.preview} type="video/mp4" />
               </video>
             )}
+            <span class="tile-name">{item.caption}</span>
             <span class="play-overlay" aria-hidden="true">
               <svg viewBox="0 0 32 32" width="38" height="38" fill="currentColor">
                 <polygon points="9,5 27,16 9,27" />
@@ -161,19 +158,17 @@ const moments: FilmTile[] = [
         >
           <span class="img-wrap">
             <span class="category-badge">{item.category}</span>
-            {item.posterImg && (
+            {item.posterImg ? (
               <Image src={item.posterImg} alt={item.caption} width={720} height={1280} format="webp" quality={82} loading="lazy" />
-            )}
-            {!item.posterImg && !item.preview && (
-              <span class="placeholder">
-                <span class="placeholder-name">{item.caption}</span>
-              </span>
+            ) : (
+              <span class="placeholder-bg" aria-hidden="true"></span>
             )}
             {item.preview && (
               <video class="hover-video" preload="metadata" muted playsinline loop>
                 <source src={item.preview} type="video/mp4" />
               </video>
             )}
+            <span class="tile-name">{item.caption}</span>
             <span class="play-overlay" aria-hidden="true">
               <svg viewBox="0 0 32 32" width="38" height="38" fill="currentColor">
                 <polygon points="9,5 27,16 9,27" />
@@ -293,7 +288,7 @@ const moments: FilmTile[] = [
 
   .film-grid { display: grid; gap: 1rem; }
   .film-grid--four { grid-template-columns: repeat(4, 1fr); }
-  .film-grid--five { grid-template-columns: repeat(5, 1fr); }
+  .film-grid--five { grid-template-columns: repeat(6, 1fr); }
 
   /* ── Tile shared styles ── */
   .film-tile {
@@ -346,22 +341,16 @@ const moments: FilmTile[] = [
   .film-tile:hover .hover-video,
   .film-tile:focus-visible .hover-video { opacity: 1; }
 
-  /* ── Placeholder design (when no poster + no preview yet) ── */
-  .placeholder {
+  /* ── Background layer when no poster is set ── */
+  .placeholder-bg {
     position: absolute;
     inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 1.25rem;
-    text-align: center;
     background:
       radial-gradient(120% 80% at 30% 30%, rgba(98, 166, 219, 0.18), transparent 60%),
       radial-gradient(100% 80% at 80% 80%, rgba(38, 79, 160, 0.22), transparent 60%),
       linear-gradient(135deg, #0d111c 0%, #161a26 100%);
   }
-  .placeholder::before {
+  .placeholder-bg::before {
     content: "";
     position: absolute; inset: 0;
     background-image:
@@ -371,21 +360,45 @@ const moments: FilmTile[] = [
     mask-image: radial-gradient(70% 70% at 50% 50%, #000 30%, transparent 100%);
     pointer-events: none;
   }
-  .placeholder-name {
-    position: relative;
-    z-index: 1;
+
+  /* ── Always-visible centered artist name (works over poster OR placeholder).
+        Fades out on hover so the video preview isn't obscured. ── */
+  .tile-name {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    text-align: center;
+    z-index: 2;
     color: #fff;
     font-family: var(--font-display);
     text-transform: uppercase;
     letter-spacing: -0.01em;
-    font-size: clamp(1rem, 2vw, 1.45rem);
+    font-size: clamp(0.95rem, 1.7vw, 1.4rem);
     font-weight: 800;
     line-height: 1.05;
-    max-width: 12ch;
+    max-width: 14ch;
+    margin: 0 auto;
+    /* Strong shadow so it reads over any background image */
+    text-shadow:
+      0 2px 18px rgba(0, 0, 0, 0.9),
+      0 0 6px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+    transition: opacity 0.4s cubic-bezier(.2,.7,.3,1),
+                transform 0.4s cubic-bezier(.2,.7,.3,1);
   }
-  .film-tile--feature .placeholder-name {
+  .film-tile--feature .tile-name {
     font-size: clamp(2rem, 4vw, 3.5rem);
     max-width: 18ch;
+  }
+  /* On hover the centered name fades so the video plays cleanly. The
+     hover-meta at the bottom takes over labeling. */
+  .film-tile:hover .tile-name,
+  .film-tile:focus-visible .tile-name {
+    opacity: 0;
+    transform: scale(0.96);
   }
 
   /* ── Always-visible category badge (top-left corner) ── */
