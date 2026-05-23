@@ -1,42 +1,283 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import BookCall from '../components/BookCall.astro';
----
-<Layout title="About — Blueprint Marketing">
-  <section class="section page-intro">
-    <div class="container narrow">
-      <p class="label">About</p>
-      <h1>The growth system<br/>behind the artist.</h1>
+import { Image } from 'astro:assets';
 
-      <div class="body">
-        <p>
-          Blueprint Marketing exists because the EDM industry doesn't need more
-          campaigns, more playlist pitches, or more agencies selling the same
-          three deliverables in different colors. It needs <span class="hl">infrastructure</span> —
-          the boring, compounding kind that turns one show into weeks of
-          growth and one release into months of momentum.
+import masonPhoto   from '../assets/images/about-us/mason-celum.jpg';
+import claytonPhoto from '../assets/images/about-us/clayton-ward.jpg';
+
+const founders = [
+  {
+    photo: masonPhoto,
+    name: 'Mason Celum',
+    role: 'Founder & CEO — Strategy, Systems & Client Relations',
+    bio: `Mason is a Texas-based EDM photographer, strategist, and the founder of Blueprint Marketing. After years embedded in the bass music scene — shooting headline sets, festival floors, and backstage moments with artists like Martin Garrix, Excision, and Flux Pavilion — he saw the same problem everywhere: incredible artists with no real system behind their growth. Blueprint was built to fix that. Mason leads client strategy, offer development, and the growth systems that power every partnership.`,
+    detail: 'Has photographed 40+ artists across festivals including Dancefestopia, Grimefest, Freaky Deaky, and Wicked Oaks.',
+  },
+  {
+    photo: claytonPhoto,
+    name: 'Clayton Ward',
+    role: 'Co-Founder & CTO — Content, Production & Operations',
+    bio: `Clayton is Blueprint's technical backbone and content director. With a sharp eye for editing and a systems-first mindset, he turns raw show footage into high-output content engines that actually move the needle. Clayton oversees production workflow, content delivery, and the operational infrastructure that keeps Blueprint running at scale.`,
+    detail: null, // user noted this needs filling in
+  },
+];
+
+const principles = [
+  { title: 'EDM-native',                body: "We don't import playbooks from other industries. We live in this scene, we shoot these shows, we know these artists." },
+  { title: 'Systems, not campaigns',    body: 'Campaigns end. Systems compound. We build the boring, repeatable infrastructure that turns shows and releases into long-term growth.' },
+  { title: 'Built on integrity',         body: "Christian values at the core: honesty, integrity, and genuine investment in every artist we work with. We don't take clients we can't help." },
+  { title: 'Building toward a platform', body: 'Content, distribution, fan capture, monetization. The full growth stack — built specifically for bass music.' },
+];
+---
+<Layout
+  title="About — Blueprint Marketing"
+  description="The growth infrastructure behind bass music's next chapter. Built by photographers and editors who live inside the scene."
+>
+  <!-- ─────────── Hero ─────────── -->
+  <section class="about-hero">
+    <div class="container">
+      <p class="label" data-reveal="left">About Blueprint</p>
+      <h1 data-reveal>
+        We're not an agency.<br/>
+        <span class="highlight">We're growth infrastructure.</span>
+      </h1>
+      <p class="lede" data-reveal>
+        Built by photographers and editors who live inside the bass music scene —
+        for the artists ready to turn their work into something that compounds.
+      </p>
+    </div>
+  </section>
+
+  <!-- ─────────── Vision / Manifesto ─────────── -->
+  <section class="vision">
+    <div class="container narrow">
+      <p class="label" data-reveal="left">The Vision</p>
+      <h2 data-reveal>Where art meets infrastructure.</h2>
+
+      <div class="vision-body">
+        <p data-reveal>
+          We built Blueprint because the EDM industry was full of agencies running campaigns —
+          and no one was building <span class="hl">systems</span>. Artists deserved better.
         </p>
-        <p>
-          We're EDM-native. We tour, we mosh, we know which producer just dropped
-          a track that's going to dominate festival season. That cultural fluency
-          is what makes the system work — it's not a generic content playbook
-          retro-fitted to dance music. It's built from inside the scene.
+        <p data-reveal>
+          We're EDM-native. We don't adapt marketing playbooks from other industries — we live in
+          this scene, we shoot these shows, we know these artists. Blueprint exists at the intersection
+          of creativity and systems, where art meets infrastructure.
         </p>
-        <p>
-          Our promise is simple: <span class="hl">we don't manage your content,
-          we build the machine behind your growth.</span> Content. Distribution.
-          Fan capture. Monetization. One system. Compounds while you tour.
+        <p data-reveal>
+          Our goal is to become the growth infrastructure layer behind the most exciting artists in
+          bass music — not just a vendor, but a long-term partner embedded in their career. By 2027,
+          we want to be the <span class="hl">first name every mid-level bass artist thinks of</span>
+          when they're ready to turn their career into something that compounds.
+        </p>
+        <p data-reveal>
+          How we operate matters as much as what we build. Christian values sit at the core:
+          honesty, integrity, and genuine investment in every artist we work with.
+          We don't take clients we can't help.
         </p>
       </div>
     </div>
   </section>
+
+  <!-- ─────────── Founders ─────────── -->
+  <section class="founders">
+    <div class="container">
+      <header class="founders-head">
+        <p class="label" data-reveal="left">The Founders</p>
+        <h2 data-reveal>The two people behind the system.</h2>
+      </header>
+
+      <div class="founders-grid" data-reveal-group>
+        {founders.map(f => (
+          <article class="founder" data-reveal>
+            <div class="founder-photo">
+              <Image
+                src={f.photo}
+                alt={f.name}
+                width={900}
+                height={1100}
+                format="webp"
+                quality={85}
+                loading="lazy"
+              />
+            </div>
+            <div class="founder-body">
+              <h3>{f.name}</h3>
+              <p class="founder-role">{f.role}</p>
+              <p class="founder-bio">{f.bio}</p>
+              {f.detail && <p class="founder-detail">{f.detail}</p>}
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────── Principles ─────────── -->
+  <section class="principles">
+    <div class="container">
+      <header class="principles-head">
+        <p class="label" data-reveal="left">What We Believe</p>
+        <h2 data-reveal>Four lines we operate by.</h2>
+      </header>
+
+      <div class="principles-grid" data-reveal-group>
+        {principles.map((p, i) => (
+          <article class="principle" data-reveal>
+            <span class="principle-num">{String(i + 1).padStart(2, '0')}</span>
+            <h3>{p.title}</h3>
+            <p>{p.body}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
   <BookCall />
 </Layout>
 
 <style>
-  .page-intro { padding-top: 4rem; padding-bottom: 2rem; }
+  /* ── Hero ── */
+  .about-hero { padding: 5rem 0 3rem; }
+  .about-hero h1 { margin: 1rem 0 1.5rem; max-width: 20ch; }
+  .about-hero .lede {
+    color: var(--ink);
+    opacity: 0.78;
+    font-size: 1.15rem;
+    max-width: 60ch;
+  }
+
+  /* ── Vision ── */
+  .vision { padding: 4rem 0 5rem; }
   .narrow { max-width: 760px; }
-  .body { margin-top: 2rem; display: flex; flex-direction: column; gap: 1.25rem; }
-  .body p { color: var(--ink); opacity: 0.78; font-size: 1.08rem; }
-  .hl { color: var(--bp-light); font-weight: 500; }
+  .vision h2 { margin: 1rem 0 2rem; }
+  .vision-body { display: flex; flex-direction: column; gap: 1.25rem; }
+  .vision-body p {
+    color: var(--ink);
+    opacity: 0.82;
+    font-size: 1.1rem;
+    line-height: 1.6;
+  }
+  .vision-body .hl { color: var(--bp-light); font-weight: 500; }
+
+  /* ── Founders ── */
+  .founders { padding: 5rem 0; }
+  .founders-head { max-width: 60ch; margin-bottom: 3rem; }
+  .founders-head h2 { margin-top: 1rem; }
+  .founders-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 3rem 2.5rem;
+  }
+  .founder {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .founder-photo {
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border-radius: 18px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    position: relative;
+    isolation: isolate;
+  }
+  .founder-photo :global(img) {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.6s cubic-bezier(.2,.7,.3,1);
+  }
+  .founder:hover .founder-photo :global(img) { transform: scale(1.03); }
+  .founder-body { display: flex; flex-direction: column; gap: 0.65rem; }
+  .founder h3 {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 2.5vw, 1.85rem);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    line-height: 1.05;
+  }
+  .founder-role {
+    color: var(--bp-light);
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .founder-bio {
+    color: var(--ink);
+    opacity: 0.82;
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+  .founder-detail {
+    color: var(--muted);
+    font-size: 0.92rem;
+    font-style: italic;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--line);
+  }
+
+  /* ── Principles ── */
+  .principles { padding: 5rem 0 4rem; }
+  .principles-head { max-width: 60ch; margin-bottom: 3rem; }
+  .principles-head h2 { margin-top: 1rem; }
+  .principles-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.85rem;
+  }
+  .principle {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.75rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    transition: border-color 0.3s, transform 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .principle:hover {
+    border-color: rgba(98, 166, 219, 0.4);
+    transform: translateY(-3px);
+  }
+  .principle::before {
+    content: "";
+    position: absolute;
+    inset: -1px -1px auto -1px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--bp-blue), transparent);
+    opacity: 0.5;
+  }
+  .principle-num {
+    font-family: var(--font-display);
+    color: var(--bp-blue);
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+  }
+  .principle h3 {
+    color: var(--ink);
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+  }
+  .principle p { color: var(--muted); font-size: 0.9rem; }
+
+  /* ── Responsive ── */
+  @media (max-width: 880px) {
+    .founders-grid { grid-template-columns: 1fr; gap: 3.5rem; }
+    .principles-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 540px) {
+    .principles-grid { grid-template-columns: 1fr; }
+  }
 </style>

@@ -1,0 +1,164 @@
+---
+import { Image } from 'astro:assets';
+import masonPhoto   from '../assets/images/about-us/mason-celum.jpg';
+import claytonPhoto from '../assets/images/about-us/clayton-ward.jpg';
+
+const founders = [
+  { photo: masonPhoto,   name: 'Mason Celum',  role: 'Founder & CEO' },
+  { photo: claytonPhoto, name: 'Clayton Ward', role: 'Co-Founder & CTO' },
+];
+---
+<section class="about-tease" id="about-tease">
+  <div class="container tease-grid">
+    <div class="tease-copy">
+      <p class="label" data-reveal="left">Who's behind it</p>
+      <h2 data-reveal>
+        Built by two creators<br/>
+        <span class="glow-blue">inside the scene.</span>
+      </h2>
+      <p class="lede" data-reveal>
+        Blueprint isn't run by suits guessing at trends. It's built by a
+        photographer and an editor who live in this culture — and decided to
+        build the system the artists deserved.
+      </p>
+      <a href="/about" class="tease-link" data-reveal>
+        Read our story
+        <span class="arrow" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </a>
+    </div>
+
+    <div class="tease-portraits" data-reveal-group>
+      {founders.map(f => (
+        <a href="/about" class="portrait" data-reveal="scale" aria-label={`Meet ${f.name}`}>
+          <span class="portrait-photo">
+            <Image
+              src={f.photo}
+              alt={f.name}
+              width={600}
+              height={750}
+              format="webp"
+              quality={82}
+              loading="lazy"
+            />
+          </span>
+          <span class="portrait-caption">
+            <strong>{f.name}</strong>
+            <span>{f.role}</span>
+          </span>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .about-tease { padding: 5rem 0; }
+
+  .tease-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 3.5rem;
+    align-items: center;
+  }
+  @media (max-width: 920px) {
+    .tease-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+  }
+
+  .tease-copy { max-width: 50ch; }
+  .tease-copy h2 { margin: 1rem 0 1.25rem; text-wrap: balance; }
+  .tease-copy .lede {
+    color: var(--ink);
+    opacity: 0.78;
+    font-size: 1.05rem;
+    margin-bottom: 1.5rem;
+  }
+  .tease-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--bp-light);
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.7rem 1.1rem;
+    border: 1px solid rgba(98, 166, 219, 0.4);
+    border-radius: 999px;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .tease-link:hover {
+    background: rgba(98, 166, 219, 0.12);
+    color: #fff;
+    border-color: var(--bp-blue);
+  }
+  .tease-link .arrow { display: inline-flex; transition: transform 0.3s cubic-bezier(.2,.7,.3,1); }
+  .tease-link:hover .arrow { transform: translateX(3px); }
+
+  .tease-portraits {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+  .portrait {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .portrait-photo {
+    display: block;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border-radius: 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    position: relative;
+    isolation: isolate;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .portrait-photo :global(img) {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s cubic-bezier(.2,.7,.3,1);
+  }
+  .portrait:hover .portrait-photo {
+    border-color: rgba(98, 166, 219, 0.5);
+    box-shadow: 0 18px 44px -22px rgba(0, 0, 0, 0.6);
+  }
+  .portrait:hover .portrait-photo :global(img) { transform: scale(1.04); }
+
+  .portrait-caption {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0 0.15rem;
+  }
+  .portrait-caption strong {
+    color: var(--ink);
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-size: 1rem;
+    font-weight: 800;
+  }
+  .portrait-caption span {
+    color: var(--bp-light);
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portrait-photo :global(img),
+    .tease-link .arrow { transition: none; }
+  }
+</style>
