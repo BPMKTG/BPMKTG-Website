@@ -4,7 +4,15 @@
 // and optionally posterImg / preview / vimeoId once assets are produced.
 
 import { Image } from 'astro:assets';
-import fluxPoster from '../assets/images/thumbnails/fluxpavilion-multicam.jpg';
+import fluxPoster         from '../assets/images/thumbnails/fluxpavilion-multicam.jpg';
+import grimefestPoster    from '../assets/images/thumbnails/grimefest-recap.jpg';
+import wooliPoster        from '../assets/images/thumbnails/wooli-recap.jpg';
+import dftPoster          from '../assets/images/thumbnails/dancefestopia-recap.jpg';
+import martingarrixPoster from '../assets/images/thumbnails/martingarrix-recap.jpg';
+import excisionPoster     from '../assets/images/thumbnails/excision-moment.jpg';
+import blankfacePoster    from '../assets/images/thumbnails/blankfaceb2bsqishi-multicam.jpg';
+import izzyvadimPoster    from '../assets/images/thumbnails/izzyvadim-multicam.jpg';
+import levelupPoster      from '../assets/images/thumbnails/levelup-moment.jpg';
 
 interface FilmTile {
   slug: string;
@@ -18,16 +26,18 @@ interface FilmTile {
 
 const afterMovie: FilmTile = {
   slug: 'grimefest-aftermovie',
-  caption: 'Grimefest',
-  tag: 'Festival Recap',
+  caption: 'Grimefest The Galactic Wars II',
+  tag: 'Festival',
   category: 'After Movie',
+  posterImg: grimefestPoster,
+  vimeoId: '1194846780',
 };
 
 const recaps: FilmTile[] = [
-  { slug: 'wooli-silo-recap',     caption: 'Wooli',           tag: 'Silo Dallas', category: 'Recap' },
-  { slug: 'dft-recap',            caption: 'Dancefestopia',   tag: 'Festival',    category: 'Recap' },
-  { slug: 'martingarrix-recap',   caption: 'Martin Garrix',   tag: 'Wicked Oaks', category: 'Recap' },
-  { slug: 'grimefest-day2-recap', caption: 'Grimefest Day 2', tag: 'Festival',    category: 'Recap' },
+  { slug: 'wooli-silo-recap',     caption: 'Wooli',                          tag: 'Silo - Dallas', category: 'Recap', posterImg: wooliPoster,        vimeoId: '1122000651' },
+  { slug: 'dft-recap',            caption: 'Dancefestopia',                  tag: 'Festival',      category: 'Recap', posterImg: dftPoster,          vimeoId: '1122003465' },
+  { slug: 'martingarrix-recap',   caption: 'Martin Garrix',                  tag: 'Wicked Oaks',   category: 'Recap', posterImg: martingarrixPoster, vimeoId: '1132975664' },
+  { slug: 'grimefest-day2-recap', caption: 'Grimefest The Galactic Wars II', tag: 'Festival',      category: 'Recap', posterImg: grimefestPoster,    vimeoId: '1194846332' },
 ];
 
 const moments: FilmTile[] = [
@@ -40,11 +50,11 @@ const moments: FilmTile[] = [
     preview: '/videos/previews/flux-multicam.mp4',
     vimeoId: '1130704802',
   },
-  { slug: 'excision-ns-14',               caption: 'Excision',             tag: '713 Music Hall - Houston', category: 'Moment' },
-  { slug: 'blankface-sqishi-multicam-1',  caption: 'Blankface B2B Sqishi', tag: 'Grimefest',                category: 'Multicam' },
-  { slug: 'diontimmer-moment',            caption: 'Dion Timmer',          tag: '713 Music Hall - Houston', category: 'Moment' },
-  { slug: 'izzyvadim-multicam-2',         caption: 'Izzy Vadim',           tag: 'Grimefest',                category: 'Multicam' },
-  { slug: 'levelup-dft',                  caption: 'Level Up',             tag: 'Dancefestopia',            category: 'Moment' },
+  { slug: 'excision-ns-14',               caption: 'Excision',             tag: '713 Music Hall - Houston', category: 'Moment',   posterImg: excisionPoster,  vimeoId: '1194847477' },
+  { slug: 'blankface-sqishi-multicam-1',  caption: 'Blankface b2b Sqishi', tag: 'Grimefest',                category: 'Multicam', posterImg: blankfacePoster, vimeoId: '1194847014' },
+  { slug: 'diontimmer-moment',            caption: 'Dion Timmer',          tag: '713 Music Hall - Houston', category: 'Moment',                               vimeoId: '1194917343' },
+  { slug: 'izzyvadim-multicam-2',         caption: 'Izzy Vadim',           tag: 'Grimefest',                category: 'Multicam', posterImg: izzyvadimPoster, vimeoId: '1194847204' },
+  { slug: 'levelup-dft',                  caption: 'Level Up',             tag: 'Dancefestopia',            category: 'Moment',   posterImg: levelupPoster,   vimeoId: '1122346566' },
 ];
 ---
 <section class="on-film" id="on-film">
