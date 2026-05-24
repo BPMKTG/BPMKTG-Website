@@ -458,6 +458,91 @@ Three flags drive a single `applyState()` function: `visible` (in viewport), `ho
 
 ---
 
+## Session 10 — 2026-05-23 (laptop, evening) — Optimization pass: kill the glitches
+
+User reported intermittent "glitchy or doesn't load sometimes" symptoms. Did
+a focused audit + three commits.
+
+### Audit findings
+
+Five real bugs in `src/scripts/motion.client.ts`, all caused by lifecycle
+mishandling around Astro's `ClientRouter` view transitions:
+
+1. **`init()` ran twice on first page load.** `astro:page-load` fires on the
+   initial document too, not just on subsequent navigations. The original
+   bootstrap installed BOTH an `astro:page-load` listener AND an immediate
+   else-branch fallback, so both fired. Visible symptom: counters animated
+   twice (flicker), typewriter restarted mid-stream, glitch double-fired.
+2. **Listeners stacked across navigations.** `initCursor`,
+   `initBgScrollEffects`, `initHeroParticles`, `initLightboxArrows` attached
+   to `document`/`window` with no removal. After three navigations the site
+   had three sets of scroll/keydown/pointer handlers. Sluggish after a few
+   clicks.
+3. **No idempotency on per-element observers.** Re-running `initTilt`,
+   `initReveal`, etc. against the same DOM added another set of pointer
+   listeners to the same elements. Compounds with #1 and #2.
+4. **Stale DOM refs in `initBgScrollEffects`.** It cached
+   `[data-parallax-bg]` / `[data-scale-bg]` element refs at init time; after
+   a view transition swapped those nodes, the scroll handler kept running
+   `getBoundingClientRect()` on detached DOM.
+5. **Hero particle canvas could orphan.** If a view transition replaced the
+   hero, the old particle loop kept running against a detached canvas.
+
+Plus two low-impact size/hygiene issues — 27 MB of founder JPGs being
+4x-downscaled by Astro anyway, and the three duplicated tile blocks in
+OnFilm.astro.
+
+### Fixes shipped
+
+**Commit `a739fc4` — motion.client lifecycle rewrite**
+- Single bootstrap via `astro:page-load` + `didInit` flag for dedupe;
+  DOMContentLoaded fallback only fires if `astro:page-load` hasn't.
+- `runCleanups()` on `astro:before-swap` detaches every document/window
+  listener and disconnects every IntersectionObserver from the outgoing
+  page.
+- Every init now uses `:not([data-mx-{name}])` selectors + `setAttribute`
+  markers, so re-running against partially-bound DOM is a no-op.
+- `isConnected` guard inside `initBgScrollEffects.update()` belt-and-braces
+  against any cleanup misses.
+- `initLightboxArrows` replaces per-opener click listeners with a single
+  delegated `document.click` handler.
+
+**Commit `a8c789f` — founder JPGs 27 MB → 1.1 MB**
+- `clayton-ward.jpg` (3302x4953, 13 MB) and `mason-celum.jpg` (3680x5520,
+  14 MB) resampled to 1800px max dimension at JPEG q85 via `sips`.
+- About.astro renders them at `width={900} height={1200}`, so Astro was
+  downscaling 4x just to throw the data away.
+- Served webp output unchanged (24-119 KB depending on breakpoint). Repo
+  clones now pull ~26 MB less.
+
+**Commit `f6c6d4a` — OnFilm tile dedupe**
+- Three near-identical tile blocks (feature / recap / moment) collapsed
+  into one shared `FilmTile.astro` component that takes
+  `variant: 'feature' | 'standard'`.
+- Tile-internal CSS moved with the markup (Astro scoped). OnFilm keeps the
+  section / grid / video-lightbox concerns.
+- OnFilm.astro 612 → 281 lines; FilmTile.astro is new (286 lines). Net -45
+  lines. Bigger win: tile updates now happen in one place.
+- No DOM / CSS / JS behavior change. The hover-play + Vimeo lightbox script
+  still selects via `[data-film-tile]`, unaffected by the component split.
+
+### Decisions worth remembering
+
+- **`astro:page-load` fires on initial load too.** Any future client script
+  should bootstrap through it alone (with an optional DOMContentLoaded
+  safety net) — never both, or you'll re-init.
+- **Detach listeners on `astro:before-swap`.** Cleanest pattern is the
+  `onCleanup`/`runCleanups` helper now in `motion.client.ts`. Use the same
+  pattern for any new global-scope listener.
+- **Per-element idempotency**: `[data-mx-{name}]` markers are the standard
+  for "did I already bind this element?" in this codebase.
+
+### What's still queued (carryover from Session 9)
+
+Unchanged. Calendly URL confirm, real social handles, BMV video drop, etc.
+
+---
+
 ## Session 9 — 2026-05-21 to 2026-05-23 — Polish, gallery iterations, full video system, About rebuild
 
 A long stretch — too much for a clean per-day breakdown so consolidated by feature. Roughly 35 commits.
