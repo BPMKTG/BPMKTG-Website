@@ -458,6 +458,118 @@ Three flags drive a single `applyState()` function: `visible` (in viewport), `ho
 
 ---
 
+## Session 9 — 2026-05-21 to 2026-05-23 — Polish, gallery iterations, full video system, About rebuild
+
+A long stretch — too much for a clean per-day breakdown so consolidated by feature. Roughly 35 commits.
+
+### Offer card flip-in saga (cascade lessons learned)
+
+User wanted the four tier cards to flip in 3D as they enter view. Took 6 attempts to get right because of cascade conflicts:
+
+1. **Attempt 1–3:** Added `[data-reveal="flip"]` to global.css with progressively bigger rotation (−16° → −34° → −62°). Each time the user reported they were "snapping" too fast.
+2. **Found the bug:** `OfferStack.astro`'s scoped CSS had `transition: border-color 0.2s, transform 0.2s` on `.tier`. Astro auto-scopes selectors with a `[data-astro-cid-X]` attribute, giving them class-level specificity. My global `[data-reveal="flip"]` selector (only attribute-level specificity) was being beaten — transition was 0.2s instead of the intended 1.6–2.8s.
+3. **First fix attempt:** `!important` on the global transition. Worked but had a side-effect — the tier hover `transform: translateY(-3px)` started inheriting the slow 2.8s timing, making hover sluggish.
+4. **Final fix:** Moved the entire flip CSS *into* `OfferStack.astro`'s scoped block. Removed `!important`. Hover now uses `box-shadow + border-color` only (no transform conflict). Reveal owns the transform.
+
+**Current state (commit `2f63ead`):** 1.6s flip, 0.3s sequential stagger, ~2.5s total scene. `rotateY(-55deg) translateY(60px) translateZ(-180px) rotateX(6deg)` initial state.
+
+**Lesson logged:** Any new `data-reveal=*` variant that needs to win against component-scoped CSS should be defined IN the scoped block, not in global.css. Or use scoped-friendly selectors like `.specific-class[data-reveal="…"]`.
+
+### Carousel edge-hover scroll
+
+Added invisible 90px hover zones on the left/right edges of the In The Field carousel. Pointer enters edge → continuous scroll at ~240px/s via `requestAnimationFrame`. **Critical fix:** `scroll-snap-type: x mandatory` on the rail was making the tiny scrollBy calls snap to the next card edge (jumping hundreds of pixels). Solution: toggle `scrollSnapType: 'none'` on edge enter, restore on leave.
+
+### Gallery ordering iterations
+
+User went through several iterations on the masonry layout — most happened directly on Cloudflare's main without my involvement. Logged as commits `2975c82` through `af1f8f4` and beyond. End state:
+- 54 tiles in explicit user-curated order (no auto-sort)
+- CSS Grid with `grid-auto-flow: row` + integer row spans (H = span 3, V = span 4)
+- Row height computed via `100cqi` container queries for true squares
+- Bottom is row-aligned (straight line)
+- Removed `data-reveal` from individual tiles so they no longer pop in as you scroll — they load via lazy `<img>` only, feels snappier
+
+Then later (commit `b795b84`): 2 new tiles appended (Wooli + Level Up at #55, #56). User asked to swap order so Wooli is at #55 (col 3), Level Up at #56 (col 4). Done.
+
+### On Film video section (full wiring)
+
+This was the big one. Built from scratch as `OnFilm.astro` placed between Access and Gallery on the portfolio page.
+
+**Structure:**
+- 1 Featured After Movie (full-width 16:9): Grimefest
+- "Recap Videos" sub-section: 4 vertical tiles (Wooli, DFT, Martin Garrix, Grimefest Day 2)
+- "Video Moments" sub-section: 6 vertical tiles (Flux, Excision, Blankface, Dion Timmer, Izzy Vadim, Level Up). Grid is `repeat(6, 1fr)` at wide, drops to 3 → 2 on smaller.
+
+**Per-tile UX:**
+- Static state: artist name centered in dead-center via `.tile-name` overlay (text-shadow for legibility over any image)
+- Hover: name fades to 0 + scales down 0.96, video preview fades in over poster, bottom `.hover-meta` slides up with venue label, orange play icon fades in (now hover-only — used to be always visible but covered the name)
+- Click: opens a dedicated **video lightbox** (separate from the photo lightbox) with the Vimeo embed autoplaying with audio. `?autoplay=1&title=0&byline=0&portrait=0&dnt=1` strips Vimeo branding. Iframe `:global()` selector required because the iframe is JS-injected and doesn't carry the Astro cid attribute that scoped CSS targets.
+- Category badge (`MULTICAM` / `RECAP` / `MOMENT` / `AFTER MOVIE`) always visible in top-left corner with backdrop blur
+
+**Assets wired (10/10):**
+- All 10 thumbnails live in `src/assets/images/thumbnails/` (Astro-processed to WebP)
+- All 10 hover previews live in `public/videos/previews/` (10–20MB each, encoded from Premiere at 720p/24fps/VBR 2-pass 3–8 Mbps depending on content density)
+- All 10 Vimeo IDs wired
+- After-movie Grimefest reuses `hero-3-grimefest-crowd-lightsaber.jpg` as its poster (no dedicated thumbnail)
+- Blankface tile uses the "surprised" portfolio shot as its thumbnail (better than the multicam crop)
+
+**Known issue (currently being addressed):** Festival recap content (rapid cuts + lasers + smoke + crowd detail) compresses much worse than artist-closeup content. The two Grimefest recaps initially looked artifacted. Fix is re-exporting at 8 Mbps + 1080p source resolution. User re-uploaded both recently (file sizes jumped from 7MB → 17–18MB) — looks clean now.
+
+### Brand Message Video section (homepage)
+
+New `BrandMessage.astro` between ArtistMarquee and ProblemSection on the homepage.
+
+**Layout:** 5fr / 7fr two-column grid at wide (text left, video right), stacks at ≤920px. Uses brief excerpt from the BMV script as intro: *"You're doing everything right. **And still wondering why nothing's breaking through.**"* + a lede about the 2-minute manifesto. Below: "Skip the video, book the call" CTA → `#book`.
+
+**Video player:** placeholder for now (Coming Soon pill + big play button + Vimeo-ready iframe slot). Drop a `vimeoId` in the frontmatter when the BMV is delivered — markup auto-swaps to a real Vimeo iframe.
+
+### About page rebuild (`/about`)
+
+User asked for a full About page with founders, vision, goals, and a tease on the homepage. Built option C from my earlier proposal (both home tease + full /about page).
+
+**Full `/about` page structure:**
+1. Hero — atmospheric crowd-grimefest photo background with parallax + scroll-scale, "We're not an agency. We're growth infrastructure." headline
+2. Vision — 4 paragraphs (manifesto-style: industry gap → EDM-native → 2027 goal → Christian values), atmospheric radial glows + `bp-texture` grid overlay
+3. Founders — alternating row layout: Mason left/right, Clayton mirrored. Big numbered overlay (`01`, `02`) at 9rem Orbitron Black 18% blue peeks from top-corner of each photo. Photos at 4:5 portrait with hover lift + border glow + bottom radial blue light leak
+4. Principles — 4 cards (EDM-native, Systems-not-campaigns, Built on integrity, Building toward a platform) — same pattern as Why Blueprint cards but with `bp-texture` background
+5. BookCall reused at bottom
+
+**Homepage tease — `AboutTease.astro`** slots between WhyBlueprint and MarketStats. Side-by-side: copy on left ("Built by two creators inside the scene"), portraits side-by-side on right with hover lift. "Read our story →" pill links to `/about`.
+
+**Nav update:** added "About" between "In The Field" and "Blog" in the header pill nav. 6 items total now — fits at desktop, hides at mobile per existing breakpoint.
+
+**Photos:** `src/assets/images/about-us/mason-celum.jpg` and `clayton-ward.jpg`. Folder originally named `about us` (with space), renamed to `about-us` for clean imports.
+
+### Other polish landed in this stretch
+
+- Marquee finalized: WAAPI animation (Web Animations API, not CSS) so hover slowdown preserves playhead position. Defer-until-visible (IntersectionObserver). Play-button-first item order so visual leads with the icon. List rotated so Gabetoldmeto is at index 0 (gives Martin Garrix lead-in time to read).
+- Footer logo glow on hover, social link translate-X
+- Scroll-driven scale on Hero + Stats backgrounds (via generalized `data-scale-bg` attribute in motion.client.ts)
+- Spin moments: offer card flip-in (above), step number tilt entry, button arrow 360° on hover, marquee separator easter egg (rotate while hovered)
+- Hero replaced with single Martin Garrix Wicked Oaks image (was 3-image crossfade), continuous slow Ken Burns
+- Carousel auto-advance to 3s, deferred start until in view
+- Cursor → crosshair with hollow center, visible during lightbox open (re-parented into dialog for top-layer rendering)
+
+### Final state per page (as of this session)
+
+**`/` (homepage):** Hero (MG Wicked Oaks single image) → ArtistMarquee (46 names, WAAPI scroll) → BrandMessage (placeholder) → ProblemSection → Parallax → SolutionUSP → Roadmap (with Svdden Death bg) → OfferStack (flip cards) → WhyBlueprint → **AboutTease (new)** → MarketStats → Carousel (In The Field) → Guarantee → BookCall
+
+**`/portfolio`:** Hero (Resistance) → Access (5 featured cards) → **OnFilm (new — 11 video tiles)** → Gallery (54 photo tiles in user's curated order) → BookCall
+
+**`/about`:** **Rebuilt** — Hero (crowd-grimefest bg) → Vision → Founders (alternating rows) → Principles → BookCall
+
+**`/blog`:** Still basic stub.
+
+### Still queued / TODOs
+
+- Real Calendly URL → currently `https://calendly.com/mc-media-marketing` (looks real, confirm before launch)
+- Real social handles in Footer (Instagram, TikTok, YouTube, X) — all `#` still
+- Brand Message Video itself when ready (drop `vimeoId` in `BrandMessage.astro`)
+- "Personal detail" for Clayton if you want one (Mason's was removed per request, Clayton's never added)
+- Custom view-transition styles per route (right now default cross-fade)
+- Cursor briefly disappears during view-transition page swap (~50ms flash)
+
+---
+
 ## Laptop handoff checklist
 
 Last-known good state: commit on `main` after this session is pushed. To continue on laptop:
