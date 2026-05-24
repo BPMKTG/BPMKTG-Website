@@ -1,0 +1,286 @@
+---
+// Single video tile, used by OnFilm in three contexts:
+//   variant="feature"  — large 16:9 hero tile (After Movie)
+//   variant="standard" — 9:16 tile inside a grid (Recap / Moment)
+// The DOM + CSS were identical across all three before; only image
+// dimensions, orientation hint, and the reveal animation differ.
+import { Image } from 'astro:assets';
+
+interface Props {
+  slug: string;
+  caption: string;
+  tag: string;
+  category: string;
+  posterImg?: ImageMetadata;
+  preview?: string;
+  vimeoId?: string;
+  variant?: 'feature' | 'standard';
+}
+
+const {
+  slug,
+  caption,
+  tag,
+  category,
+  posterImg,
+  preview,
+  vimeoId,
+  variant = 'standard',
+} = Astro.props;
+
+const isFeature = variant === 'feature';
+const cls       = isFeature ? 'film-tile film-tile--feature' : 'film-tile';
+const orient    = isFeature ? 'h' : 'v';
+const imgW      = isFeature ? 1280 : 720;
+const imgH      = isFeature ? 720  : 1280;
+const playSize  = isFeature ? 56 : 38;
+// Lowercase the category for the aria-label so it reads naturally:
+// "After Movie" -> "Play X after movie", "Recap" -> "Play X recap".
+const ariaLabel = `Play ${caption} ${category.toLowerCase()}`;
+---
+<button
+  class={cls}
+  type="button"
+  data-orientation={orient}
+  data-film-tile
+  data-slug={slug}
+  data-caption={`${caption} — ${tag}`}
+  data-vimeo-id={vimeoId}
+  data-reveal={isFeature ? undefined : 'scale'}
+  aria-label={ariaLabel}
+>
+  <span class="img-wrap">
+    <span class="category-badge">{category}</span>
+    {posterImg ? (
+      <Image src={posterImg} alt={caption} width={imgW} height={imgH} format="webp" quality={82} loading="lazy" />
+    ) : (
+      <span class="placeholder-bg" aria-hidden="true"></span>
+    )}
+    {preview && (
+      <video class="hover-video" preload="metadata" muted playsinline loop>
+        <source src={preview} type="video/mp4" />
+      </video>
+    )}
+    <span class="tile-name">{caption}</span>
+    <span class="play-overlay" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width={playSize} height={playSize} fill="currentColor">
+        <polygon points="9,5 27,16 9,27" />
+      </svg>
+    </span>
+    <span class="hover-meta">
+      <span class="meta-tag">{tag}</span>
+      <strong>{caption}</strong>
+    </span>
+  </span>
+</button>
+
+<style>
+  .film-tile {
+    margin: 0;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: block;
+    width: 100%;
+  }
+  .film-tile .img-wrap {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #0d111c;
+    border: 1px solid var(--line);
+    aspect-ratio: 9 / 16;
+    transition: border-color 0.3s ease, transform 0.4s cubic-bezier(.2,.7,.3,1), box-shadow 0.3s ease;
+  }
+  .film-tile--feature .img-wrap,
+  .film-tile[data-orientation="h"] .img-wrap { aspect-ratio: 16 / 9; }
+
+  .film-tile:hover .img-wrap,
+  .film-tile:focus-visible .img-wrap {
+    transform: translateY(-3px);
+    border-color: rgba(98, 166, 219, 0.55);
+    box-shadow: 0 18px 44px -22px rgba(0, 0, 0, 0.7);
+  }
+
+  .film-tile .img-wrap > img,
+  .film-tile .img-wrap .hover-video {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  /* Video sits on top of the poster but stays invisible until hover, so the
+     poster owns the static state. Fades in over the poster on hover. */
+  .film-tile .hover-video {
+    z-index: 1;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+  .film-tile:hover .hover-video,
+  .film-tile:focus-visible .hover-video { opacity: 1; }
+
+  /* ── Background layer when no poster is set ── */
+  .placeholder-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(120% 80% at 30% 30%, rgba(98, 166, 219, 0.18), transparent 60%),
+      radial-gradient(100% 80% at 80% 80%, rgba(38, 79, 160, 0.22), transparent 60%),
+      linear-gradient(135deg, #0d111c 0%, #161a26 100%);
+  }
+  .placeholder-bg::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 26px 26px;
+    mask-image: radial-gradient(70% 70% at 50% 50%, #000 30%, transparent 100%);
+    pointer-events: none;
+  }
+
+  /* Always-visible centered artist name. Fades out on hover so the video
+     preview isn't obscured. */
+  .tile-name {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    text-align: center;
+    z-index: 2;
+    color: #fff;
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-size: clamp(0.95rem, 1.7vw, 1.4rem);
+    font-weight: 800;
+    line-height: 1.05;
+    max-width: 14ch;
+    margin: 0 auto;
+    text-shadow:
+      0 2px 18px rgba(0, 0, 0, 0.9),
+      0 0 6px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+    transition: opacity 0.4s cubic-bezier(.2,.7,.3,1),
+                transform 0.4s cubic-bezier(.2,.7,.3,1);
+  }
+  .film-tile--feature .tile-name {
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    max-width: 18ch;
+  }
+  .film-tile:hover .tile-name,
+  .film-tile:focus-visible .tile-name {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  /* ── Always-visible category badge (top-left corner) ── */
+  .category-badge {
+    position: absolute;
+    top: 0.85rem;
+    left: 0.85rem;
+    z-index: 4;
+    padding: 0.32rem 0.7rem;
+    border: 1px solid rgba(98, 166, 219, 0.5);
+    border-radius: 999px;
+    background: rgba(10, 10, 15, 0.75);
+    backdrop-filter: blur(6px);
+    color: var(--bp-light);
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .film-tile--feature .category-badge {
+    top: 1.25rem;
+    left: 1.25rem;
+    font-size: 0.72rem;
+    padding: 0.42rem 0.9rem;
+  }
+
+  /* Play overlay (centered triangle) — fades in as the artist name fades out. */
+  .play-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bp-orange);
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0;
+    transform: scale(0.85);
+    transition: opacity 0.4s cubic-bezier(.2,.7,.3,1),
+                transform 0.4s cubic-bezier(.2,.7,.3,1);
+    filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.7));
+  }
+  .film-tile:hover .play-overlay,
+  .film-tile:focus-visible .play-overlay {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Hover-meta caption (bottom slide-up) */
+  .hover-meta {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 2.2rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    background: linear-gradient(to top, rgba(10,10,15,0.94), rgba(10,10,15,0) 100%);
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.4s cubic-bezier(.2,.7,.3,1),
+                transform 0.4s cubic-bezier(.2,.7,.3,1);
+    pointer-events: none;
+    z-index: 3;
+  }
+  .film-tile:hover .hover-meta,
+  .film-tile:focus-visible .hover-meta {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .hover-meta .meta-tag {
+    color: var(--bp-blue);
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .hover-meta strong {
+    color: #fff;
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  /* Scale-reveal for standard tiles (motion.client toggles .is-in). */
+  .film-tile[data-reveal="scale"] {
+    opacity: 0;
+    transform: translateY(36px) scale(0.92);
+    transition:
+      opacity 1s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+      transform 1s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+  }
+  .film-tile[data-reveal="scale"].is-in {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .film-tile[data-reveal="scale"] { opacity: 1; transform: none; transition: none; }
+  }
+</style>
