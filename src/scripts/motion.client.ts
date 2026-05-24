@@ -1,20 +1,41 @@
 // Master motion script — loaded once from Layout.astro.
 // Hooks: [data-reveal], [data-counter], [data-typewriter], [data-glitch], [data-tilt],
 //        [data-roadmap-line], plus hero particles + custom cursor + CTA particles.
-// All effects are IntersectionObserver-gated so nothing runs off-screen.
-// Re-initializes on `astro:page-load` for view-transition navigation.
+//
+// Lifecycle:
+// - Single bootstrap path: `astro:page-load` (fires on initial load AND on
+//   every view-transition navigation). A DOMContentLoaded fallback covers
+//   the case where the script registers its listener after page-load fired.
+// - Per-element `data-mx-*` markers make every init function idempotent:
+//   re-running against the same DOM is a no-op for already-bound elements.
+// - `astro:before-swap` runs `runCleanups()` so document/window listeners
+//   and IntersectionObservers from the outgoing page don't stack up on the
+//   incoming page.
 
 const reduce = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const finePointer = () => window.matchMedia('(pointer: fine)').matches;
 
 // ─────────────────────────────────────────────────────────────
-// 1. Reveal-on-scroll (single shared observer)
+// Lifecycle plumbing
+// ─────────────────────────────────────────────────────────────
+type Cleanup = () => void;
+let cleanups: Cleanup[] = [];
+const onCleanup = (fn: Cleanup) => { cleanups.push(fn); };
+function runCleanups() {
+  for (const fn of cleanups) {
+    try { fn(); } catch { /* keep tearing down */ }
+  }
+  cleanups = [];
+}
+
+// ─────────────────────────────────────────────────────────────
+// 1. Reveal-on-scroll
 // ─────────────────────────────────────────────────────────────
 function initReveal() {
-  const els = document.querySelectorAll<HTMLElement>('[data-reveal]');
+  const els = document.querySelectorAll<HTMLElement>('[data-reveal]:not([data-mx-reveal])');
   if (!els.length) return;
   if (reduce()) {
-    els.forEach(el => el.classList.add('is-in'));
+    els.forEach(el => { el.classList.add('is-in'); el.setAttribute('data-mx-reveal', '1'); });
     return;
   }
   const io = new IntersectionObserver(entries => {
@@ -25,7 +46,8 @@ function initReveal() {
       }
     }
   }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
-  els.forEach(el => io.observe(el));
+  els.forEach(el => { el.setAttribute('data-mx-reveal', '1'); io.observe(el); });
+  onCleanup(() => io.disconnect());
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -68,7 +90,7 @@ function animateCounter(el: HTMLElement) {
 }
 
 function initCounters() {
-  const els = document.querySelectorAll<HTMLElement>('[data-counter]');
+  const els = document.querySelectorAll<HTMLElement>('[data-counter]:not([data-mx-counter])');
   if (!els.length) return;
   // Seed each element with a "0"-state matching its format
   els.forEach(el => {
@@ -77,6 +99,7 @@ function initCounters() {
     if (!p) { el.textContent = target; return; }
     const decimals = (target.split('.')[1] || '').replace(/[^\d]/g, '').length;
     el.textContent = formatCounterValue(0, decimals, p.prefix, p.suffix);
+    el.setAttribute('data-mx-counter', '1');
   });
   if (reduce()) {
     els.forEach(el => { el.textContent = el.dataset.counter!; el.closest('.stat')?.classList.add('is-counted'); });
@@ -91,15 +114,21 @@ function initCounters() {
     }
   }, { threshold: 0.5 });
   els.forEach(el => io.observe(el));
+  onCleanup(() => io.disconnect());
 }
 
 // ─────────────────────────────────────────────────────────────
 // 3. Typewriter
 // ─────────────────────────────────────────────────────────────
 function initTypewriter() {
-  document.querySelectorAll<HTMLElement>('[data-typewriter]').forEach(el => {
+  const els = document.querySelectorAll<HTMLElement>('[data-typewriter]:not([data-mx-typewriter])');
+  if (!els.length) return;
+  const ios: IntersectionObserver[] = [];
+  const timers: number[] = [];
+  els.forEach(el => {
     const text = el.dataset.typewriterText ?? el.textContent ?? '';
     el.dataset.typewriterText = text;
+    el.setAttribute('data-mx-typewriter', '1');
     if (reduce()) { el.textContent = text; el.classList.add('is-done'); return; }
     el.textContent = '';
 
@@ -114,7 +143,7 @@ function initTypewriter() {
               i++;
               const ch = text[i - 1];
               const delay = ch === '.' || ch === ',' ? 70 : ch === ' ' ? 14 : 12 + Math.random() * 18;
-              window.setTimeout(tick, delay);
+              timers.push(window.setTimeout(tick, delay));
             } else {
               el.classList.remove('is-typing');
               el.classList.add('is-done');
@@ -126,6 +155,11 @@ function initTypewriter() {
       }
     }, { threshold: 0.4 });
     io.observe(el);
+    ios.push(io);
+  });
+  onCleanup(() => {
+    ios.forEach(io => io.disconnect());
+    timers.forEach(id => window.clearTimeout(id));
   });
 }
 
@@ -134,24 +168,34 @@ function initTypewriter() {
 // ─────────────────────────────────────────────────────────────
 function initGlitch() {
   if (reduce()) return;
-  document.querySelectorAll<HTMLElement>('[data-glitch]').forEach(el => {
+  const els = document.querySelectorAll<HTMLElement>('[data-glitch]:not([data-mx-glitch])');
+  if (!els.length) return;
+  const ios: IntersectionObserver[] = [];
+  const timers: number[] = [];
+  els.forEach(el => {
     if (!el.hasAttribute('data-text')) el.setAttribute('data-text', el.textContent || '');
+    el.setAttribute('data-mx-glitch', '1');
     const io = new IntersectionObserver(entries => {
       for (const entry of entries) {
         if (entry.isIntersecting) {
-          window.setTimeout(() => {
+          timers.push(window.setTimeout(() => {
             el.classList.add('is-glitching');
-            window.setTimeout(() => el.classList.remove('is-glitching'), 700);
-          }, 220);
-          window.setTimeout(() => {
+            timers.push(window.setTimeout(() => el.classList.remove('is-glitching'), 700));
+          }, 220));
+          timers.push(window.setTimeout(() => {
             el.classList.add('is-glitching');
-            window.setTimeout(() => el.classList.remove('is-glitching'), 700);
-          }, 1450);
+            timers.push(window.setTimeout(() => el.classList.remove('is-glitching'), 700));
+          }, 1450));
           io.unobserve(entry.target);
         }
       }
     }, { threshold: 0.4 });
     io.observe(el);
+    ios.push(io);
+  });
+  onCleanup(() => {
+    ios.forEach(io => io.disconnect());
+    timers.forEach(id => window.clearTimeout(id));
   });
 }
 
@@ -160,32 +204,49 @@ function initGlitch() {
 // ─────────────────────────────────────────────────────────────
 function initCursor() {
   if (!finePointer() || reduce()) return;
-  if (document.querySelector('.bp-cursor')) return;
 
-  const cursor = document.createElement('div');
-  cursor.className = 'bp-cursor';
-  cursor.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(cursor);
+  // Re-use the cursor element if it survived the view transition; otherwise
+  // create it once. Either way, listeners get re-bound fresh on each init.
+  let cursor = document.querySelector<HTMLElement>('.bp-cursor');
+  if (!cursor) {
+    cursor = document.createElement('div');
+    cursor.className = 'bp-cursor';
+    cursor.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(cursor);
+  }
+  const node = cursor;
 
-  let tx = -100, ty = -100, x = -100, y = -100;
+  let tx = -100, ty = -100, x = -100, y = -100, raf = 0, running = true;
   const onMove = (e: PointerEvent) => { tx = e.clientX; ty = e.clientY; };
+  const onDown = () => node.classList.add('is-click');
+  const onUp   = () => node.classList.remove('is-click');
+  const onOver = (e: Event) => {
+    const t = e.target as HTMLElement | null;
+    if (!t || !t.closest) return;
+    const hot = t.closest('a, button, [role="button"], [data-lightbox-open], [data-meter], input, textarea, select, label');
+    node.classList.toggle('is-hover', !!hot);
+  };
   document.addEventListener('pointermove', onMove);
-  document.addEventListener('pointerdown', () => cursor.classList.add('is-click'));
-  document.addEventListener('pointerup',   () => cursor.classList.remove('is-click'));
+  document.addEventListener('pointerdown', onDown);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointerover', onOver);
 
   const tick = () => {
+    if (!running) return;
     x += (tx - x) * 0.28;
     y += (ty - y) * 0.28;
-    cursor.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-    requestAnimationFrame(tick);
+    node.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    raf = requestAnimationFrame(tick);
   };
-  requestAnimationFrame(tick);
+  raf = requestAnimationFrame(tick);
 
-  document.addEventListener('pointerover', (e) => {
-    const t = e.target as HTMLElement;
-    if (!t) return;
-    const hot = t.closest?.('a, button, [role="button"], [data-lightbox-open], [data-meter], input, textarea, select, label');
-    cursor.classList.toggle('is-hover', !!hot);
+  onCleanup(() => {
+    running = false;
+    cancelAnimationFrame(raf);
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerdown', onDown);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointerover', onOver);
   });
 }
 
@@ -196,12 +257,17 @@ function initHeroParticles() {
   if (reduce()) return;
   const hero = document.querySelector<HTMLElement>('.hero');
   if (!hero) return;
-  if (hero.querySelector('.hero-particles')) return;
 
-  const canvas = document.createElement('canvas');
-  canvas.className = 'hero-particles';
-  canvas.setAttribute('aria-hidden', 'true');
-  hero.insertBefore(canvas, hero.firstChild);
+  // If the persisted hero already has a canvas, leave it alone (just rebind
+  // its listeners). If not — fresh page — create the canvas.
+  let canvas = hero.querySelector<HTMLCanvasElement>(':scope > canvas.hero-particles');
+  const ownsCanvas = !canvas;
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.className = 'hero-particles';
+    canvas.setAttribute('aria-hidden', 'true');
+    hero.insertBefore(canvas, hero.firstChild);
+  }
 
   const ctx = canvas.getContext('2d', { alpha: true });
   if (!ctx) return;
@@ -212,10 +278,10 @@ function initHeroParticles() {
   const resize = () => {
     const rect = hero.getBoundingClientRect();
     w = rect.width; h = rect.height;
-    canvas.width  = Math.floor(w * dpr);
-    canvas.height = Math.floor(h * dpr);
-    canvas.style.width  = w + 'px';
-    canvas.style.height = h + 'px';
+    canvas!.width  = Math.floor(w * dpr);
+    canvas!.height = Math.floor(h * dpr);
+    canvas!.style.width  = w + 'px';
+    canvas!.style.height = h + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   };
   resize();
@@ -233,18 +299,19 @@ function initHeroParticles() {
   }));
 
   let mx = -9999, my = -9999;
-  hero.addEventListener('pointermove', (e) => {
+  const onPointerMove = (e: PointerEvent) => {
     const rect = hero.getBoundingClientRect();
-    mx = (e as PointerEvent).clientX - rect.left;
-    my = (e as PointerEvent).clientY - rect.top;
-  });
-  hero.addEventListener('pointerleave', () => { mx = my = -9999; });
+    mx = e.clientX - rect.left;
+    my = e.clientY - rect.top;
+  };
+  const onPointerLeave = () => { mx = my = -9999; };
+  hero.addEventListener('pointermove', onPointerMove);
+  hero.addEventListener('pointerleave', onPointerLeave);
 
   let raf = 0, running = false;
   const draw = () => {
     ctx.clearRect(0, 0, w, h);
 
-    // Connections first (lines)
     for (let i = 0; i < ps.length; i++) {
       for (let j = i + 1; j < ps.length; j++) {
         const a = ps[i], b = ps[j];
@@ -274,10 +341,8 @@ function initHeroParticles() {
       p.y += p.vy;
       p.vx *= 0.985;
       p.vy *= 0.985;
-      // Gentle drift to keep movement alive
       p.vx += (Math.random() - 0.5) * 0.005;
       p.vy += (Math.random() - 0.5) * 0.005;
-      // Wrap
       if (p.x < -4)  p.x = w + 4;
       if (p.x > w + 4) p.x = -4;
       if (p.y < -4)  p.y = h + 4;
@@ -298,9 +363,22 @@ function initHeroParticles() {
   }, { threshold: 0 });
   io.observe(hero);
 
-  document.addEventListener('visibilitychange', () => {
+  const onVisibility = () => {
     if (document.hidden) { running = false; cancelAnimationFrame(raf); }
-    else if (io) { /* observer will re-trigger when scrolled */ }
+  };
+  document.addEventListener('visibilitychange', onVisibility);
+
+  onCleanup(() => {
+    running = false;
+    cancelAnimationFrame(raf);
+    io.disconnect();
+    window.removeEventListener('resize', resize);
+    hero.removeEventListener('pointermove', onPointerMove);
+    hero.removeEventListener('pointerleave', onPointerLeave);
+    document.removeEventListener('visibilitychange', onVisibility);
+    // Remove the canvas only if THIS init created it; otherwise let the
+    // persisted hero keep its canvas across the swap.
+    if (ownsCanvas && canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
   });
 }
 
@@ -309,9 +387,13 @@ function initHeroParticles() {
 // ─────────────────────────────────────────────────────────────
 function initTilt() {
   if (reduce() || !finePointer()) return;
-  document.querySelectorAll<HTMLElement>('[data-tilt]').forEach(el => {
+  const els = document.querySelectorAll<HTMLElement>('[data-tilt]:not([data-mx-tilt])');
+  if (!els.length) return;
+  const teardown: Array<() => void> = [];
+  els.forEach(el => {
     const wrap = el.querySelector<HTMLElement>('.img-wrap');
     if (!wrap) return;
+    el.setAttribute('data-mx-tilt', '1');
 
     let trx = 0, try_ = 0, rx = 0, ry = 0, raf = 0, running = false;
     const max = 8;
@@ -324,8 +406,8 @@ function initTilt() {
       if (running) raf = requestAnimationFrame(tick);
     };
 
-    el.addEventListener('pointerenter', () => { if (!running) { running = true; raf = requestAnimationFrame(tick); } });
-    el.addEventListener('pointermove', (e) => {
+    const onEnter = () => { if (!running) { running = true; raf = requestAnimationFrame(tick); } };
+    const onMove = (e: PointerEvent) => {
       const rect = el.getBoundingClientRect();
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
@@ -335,25 +417,40 @@ function initTilt() {
       try_ = px * max;
       wrap.style.setProperty('--mx', `${(cx / rect.width) * 100}%`);
       wrap.style.setProperty('--my', `${(cy / rect.height) * 100}%`);
-    });
-    el.addEventListener('pointerleave', () => {
+    };
+    const onLeave = () => {
       trx = 0; try_ = 0;
       window.setTimeout(() => { running = false; cancelAnimationFrame(raf); }, 450);
+    };
+
+    el.addEventListener('pointerenter', onEnter);
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerleave', onLeave);
+
+    teardown.push(() => {
+      running = false;
+      cancelAnimationFrame(raf);
+      el.removeEventListener('pointerenter', onEnter);
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerleave', onLeave);
     });
   });
+  onCleanup(() => teardown.forEach(fn => fn()));
 }
 
 // ─────────────────────────────────────────────────────────────
 // 8. Roadmap connecting line + steps reveal
 // ─────────────────────────────────────────────────────────────
 function initRoadmapLine() {
-  const line = document.querySelector<HTMLElement>('.roadmap-line');
+  const line = document.querySelector<HTMLElement>('.roadmap-line:not([data-mx-roadmap])');
   if (!line) return;
+  line.setAttribute('data-mx-roadmap', '1');
   if (reduce()) { line.classList.add('is-in'); return; }
   const io = new IntersectionObserver(entries => {
     if (entries[0].isIntersecting) { line.classList.add('is-in'); io.unobserve(line); }
   }, { threshold: 0.2 });
   io.observe(line);
+  onCleanup(() => io.disconnect());
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -384,25 +481,36 @@ function initLightboxArrows() {
   const img = dialog.querySelector<HTMLImageElement>('[data-lightbox-img]');
   const cap = dialog.querySelector<HTMLElement>('[data-lightbox-caption]');
   if (!img || !cap) return;
-  const openers = Array.from(document.querySelectorAll<HTMLElement>('[data-lightbox-open]'));
 
-  let idx = -1;
-  // Track which opener was used so we can navigate
-  openers.forEach((btn, i) => btn.addEventListener('click', () => { idx = i; }));
+  let lastIdx = -1;
 
-  const navigate = (delta: number) => {
-    if (!openers.length) return;
-    idx = (idx + delta + openers.length) % openers.length;
-    const btn = openers[idx];
-    const full = btn.dataset.full || '';
-    const caption = btn.dataset.caption || '';
-    img.src = full; img.alt = caption; cap.textContent = caption;
+  // Delegated click: any opener click records its index in the live opener
+  // list. Re-binding per-element click listeners on every init would stack
+  // handlers without easy cleanup; delegation sidesteps that.
+  const onClick = (e: Event) => {
+    const btn = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-lightbox-open]');
+    if (!btn) return;
+    const openers = Array.from(document.querySelectorAll<HTMLElement>('[data-lightbox-open]'));
+    lastIdx = openers.indexOf(btn);
   };
-
-  document.addEventListener('keydown', (e) => {
+  const onKey = (e: KeyboardEvent) => {
     if (!dialog.open) return;
-    if (e.key === 'ArrowRight') { e.preventDefault(); navigate(1); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); navigate(-1); }
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const openers = Array.from(document.querySelectorAll<HTMLElement>('[data-lightbox-open]'));
+    if (!openers.length) return;
+    const delta = e.key === 'ArrowRight' ? 1 : -1;
+    lastIdx = (lastIdx + delta + openers.length) % openers.length;
+    const btn = openers[lastIdx];
+    img.src = btn.dataset.full || '';
+    img.alt = btn.dataset.caption || '';
+    cap.textContent = btn.dataset.caption || '';
+  };
+  document.addEventListener('click', onClick);
+  document.addEventListener('keydown', onKey);
+  onCleanup(() => {
+    document.removeEventListener('click', onClick);
+    document.removeEventListener('keydown', onKey);
   });
 }
 
@@ -417,7 +525,7 @@ function initBgScrollEffects() {
   const scaleEls    = Array.from(document.querySelectorAll<HTMLElement>('[data-scale-bg]'));
   if (!parallaxEls.length && !scaleEls.length) return;
 
-  // Cache section refs + parsed scale ranges
+  // Re-resolved on every init so view-transition swaps replace stale refs.
   const parallaxItems = parallaxEls.map(el => ({
     el,
     section: (el.closest('section') ?? el.parentElement) as HTMLElement,
@@ -435,7 +543,7 @@ function initBgScrollEffects() {
     const vh = window.innerHeight;
 
     for (const { el, section } of parallaxItems) {
-      if (!section) continue;
+      if (!section || !section.isConnected) continue;
       const rect = section.getBoundingClientRect();
       if (rect.bottom < -300 || rect.top > vh + 300) continue;
       const progress = (vh / 2 - (rect.top + rect.height / 2)) / (vh / 2 + rect.height / 2);
@@ -444,10 +552,9 @@ function initBgScrollEffects() {
     }
 
     for (const { el, section, start, end } of scaleItems) {
-      if (!section) continue;
+      if (!section || !section.isConnected) continue;
       const rect = section.getBoundingClientRect();
       if (rect.bottom < -300 || rect.top > vh + 300) continue;
-      // Progress: 0 when section's top hits bottom of viewport, 1 when its bottom hits top
       const progress = (vh - rect.top) / (vh + rect.height);
       const clamped = Math.max(0, Math.min(1, progress));
       const scale = start + clamped * (end - start);
@@ -462,6 +569,11 @@ function initBgScrollEffects() {
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll, { passive: true });
   update();
+
+  onCleanup(() => {
+    window.removeEventListener('scroll', onScroll);
+    window.removeEventListener('resize', onScroll);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -481,9 +593,25 @@ function init() {
   initLightboxArrows();
 }
 
-document.addEventListener('astro:page-load', init);
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init, { once: true });
-} else {
+// Bootstrap: rely on `astro:page-load` (fires on initial load AND on every
+// view-transition navigation). Guard against the rare case where the
+// listener registers after the event has already fired by also running on
+// DOMContentLoaded — but only if astro:page-load hasn't beaten us to it.
+let didInit = false;
+const safeInit = () => {
+  if (didInit) return;
+  didInit = true;
   init();
+};
+
+document.addEventListener('astro:before-swap', () => {
+  runCleanups();
+  didInit = false;
+});
+document.addEventListener('astro:page-load', safeInit);
+
+if (document.readyState !== 'loading') {
+  safeInit();
+} else {
+  document.addEventListener('DOMContentLoaded', safeInit, { once: true });
 }
