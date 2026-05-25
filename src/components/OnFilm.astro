@@ -96,24 +96,52 @@ const moments: FilmTileData[] = [
 </dialog>
 
 <script>
-  // ── Hover-play on tiles with a preview video ──
-  document.querySelectorAll<HTMLElement>('[data-film-tile]').forEach(tile => {
+  // ── Activation: hover on desktop, scroll-into-view on touch ──
+  // Touch devices have no `:hover`, so we pick the tile closest to the
+  // viewport center as the "active" one and autoplay its preview. One tile
+  // plays at a time. On desktop (hover: hover), pointerenter/leave still
+  // drives playback like before.
+  const tiles = Array.from(document.querySelectorAll<HTMLElement>('[data-film-tile]'));
+  const hasHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+  const stopAllExcept = (keep: HTMLVideoElement | null) => {
+    document.querySelectorAll<HTMLVideoElement>('.hover-video').forEach(v => {
+      if (v !== keep) {
+        v.pause();
+        v.currentTime = 0;
+        v.classList.remove('is-playing');
+        v.closest<HTMLElement>('[data-film-tile]')?.classList.remove('is-playing');
+      }
+    });
+  };
+
+  const play = (tile: HTMLElement) => {
     const video = tile.querySelector<HTMLVideoElement>('.hover-video');
-    if (video) {
-      let played = false;
-      tile.addEventListener('pointerenter', () => {
-        document.querySelectorAll<HTMLVideoElement>('.hover-video').forEach(v => {
-          if (v !== video) { v.pause(); v.currentTime = 0; }
-        });
-        video.play().catch(() => {});
-        played = true;
-      });
-      tile.addEventListener('pointerleave', () => {
-        if (played) { video.pause(); video.currentTime = 0; played = false; }
-      });
+    if (!video) return;
+    stopAllExcept(video);
+    video.play().catch(() => {});
+    video.classList.add('is-playing');
+    tile.classList.add('is-playing');
+  };
+  const stop = (tile: HTMLElement) => {
+    const video = tile.querySelector<HTMLVideoElement>('.hover-video');
+    if (!video) return;
+    video.pause();
+    video.currentTime = 0;
+    video.classList.remove('is-playing');
+    tile.classList.remove('is-playing');
+  };
+
+  tiles.forEach(tile => {
+    if (hasHover) {
+      const video = tile.querySelector<HTMLVideoElement>('.hover-video');
+      if (video) {
+        tile.addEventListener('pointerenter', () => play(tile));
+        tile.addEventListener('pointerleave', () => stop(tile));
+      }
     }
 
-    // ── Click → open video lightbox if the tile has a Vimeo ID ──
+    // Click → open video lightbox (works on touch and desktop)
     const vimeoId = tile.dataset.vimeoId;
     if (vimeoId) {
       tile.addEventListener('click', () => {
@@ -121,6 +149,51 @@ const moments: FilmTileData[] = [
       });
     }
   });
+
+  // Scroll-based playback for touch devices: pick whichever tile's center
+  // is closest to viewport center and play just that one. Re-evaluates on
+  // scroll/resize via rAF throttle. Pause when no tile is on-screen, or
+  // when the tab is hidden.
+  if (!hasHover && tiles.length) {
+    let activeTile: HTMLElement | null = null;
+    let ticking = false;
+
+    const pickActive = () => {
+      ticking = false;
+      if (document.hidden) {
+        if (activeTile) { stop(activeTile); activeTile = null; }
+        return;
+      }
+      const vhCenter = window.innerHeight / 2;
+      let best: { tile: HTMLElement; dist: number } | null = null;
+      for (const t of tiles) {
+        const r = t.getBoundingClientRect();
+        // Must be at least partially on screen
+        if (r.bottom < 80 || r.top > window.innerHeight - 80) continue;
+        const center = r.top + r.height / 2;
+        const dist = Math.abs(center - vhCenter);
+        if (!best || dist < best.dist) best = { tile: t, dist };
+      }
+      const next = best?.tile ?? null;
+      if (next === activeTile) return;
+      if (activeTile) stop(activeTile);
+      activeTile = next;
+      if (activeTile) play(activeTile);
+    };
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(pickActive);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && activeTile) { stop(activeTile); activeTile = null; }
+      else onScroll();
+    });
+    // Initial pick once layout settles
+    setTimeout(pickActive, 250);
+  }
 
   // ── Video lightbox ──
   const dialog = document.querySelector<HTMLDialogElement>('[data-vlb]');

@@ -30,8 +30,86 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
       Book a Call
       <span class="arrow" aria-hidden="true">→</span>
     </a>
+
+    <button
+      type="button"
+      class="nav-toggle"
+      aria-label="Open menu"
+      aria-expanded="false"
+      aria-controls="mobile-nav"
+      data-nav-toggle
+    >
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+    </button>
+  </div>
+
+  <!-- Mobile fullscreen menu sheet -->
+  <div class="mobile-nav" id="mobile-nav" data-mobile-nav hidden>
+    <nav aria-label="Mobile primary">
+      <ul>
+        {navItems.map(item => (
+          <li>
+            <a href={item.href} class:list={[{ active: path === item.href }]} data-nav-link>{item.label}</a>
+          </li>
+        ))}
+        <li class="cta-li">
+          <a href="#book" class="button accent" data-nav-link>
+            Book a Call
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
   </div>
 </header>
+
+<script>
+  const init = () => {
+    const toggle = document.querySelector<HTMLButtonElement>('[data-nav-toggle]');
+    const sheet  = document.querySelector<HTMLElement>('[data-mobile-nav]');
+    if (!toggle || !sheet || toggle.dataset.navInit) return;
+    toggle.dataset.navInit = '1';
+
+    const open = () => {
+      sheet.hidden = false;
+      // Allow display:flex to take effect before adding the class for transition
+      requestAnimationFrame(() => sheet.classList.add('is-open'));
+      toggle.classList.add('is-open');
+      toggle.setAttribute('aria-expanded', 'true');
+      toggle.setAttribute('aria-label', 'Close menu');
+      document.body.style.overflow = 'hidden';
+    };
+    const close = () => {
+      sheet.classList.remove('is-open');
+      toggle.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-label', 'Open menu');
+      document.body.style.overflow = '';
+      // Wait for transition before hiding
+      window.setTimeout(() => { if (!sheet.classList.contains('is-open')) sheet.hidden = true; }, 280);
+    };
+    toggle.addEventListener('click', () => {
+      sheet.classList.contains('is-open') ? close() : open();
+    });
+    // Close on link click (so jumping to a homepage anchor doesn't leave menu open)
+    sheet.querySelectorAll<HTMLAnchorElement>('[data-nav-link]').forEach(a => {
+      a.addEventListener('click', close);
+    });
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && sheet.classList.contains('is-open')) close();
+    });
+  };
+
+  document.addEventListener('astro:page-load', init);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
+</script>
 
 <style>
   .site-header {
@@ -79,6 +157,80 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 
   .cta-link { padding: 0.65rem 1.1rem; font-size: 0.78rem; }
 
-  @media (max-width: 980px) { .nav-pill { display: none; } }
+  /* ── Mobile hamburger ── */
+  .nav-toggle {
+    display: none;
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    width: 42px; height: 42px;
+    padding: 0;
+    cursor: pointer;
+    color: var(--ink);
+    position: relative;
+    z-index: 60;
+  }
+  .nav-toggle .bar {
+    display: block;
+    width: 18px;
+    height: 1.75px;
+    background: currentColor;
+    border-radius: 2px;
+    margin: 3px auto;
+    transition: transform 0.3s cubic-bezier(.2,.7,.3,1), opacity 0.2s ease;
+  }
+  .nav-toggle.is-open .bar:nth-child(1) { transform: translateY(5px) rotate(45deg); }
+  .nav-toggle.is-open .bar:nth-child(2) { opacity: 0; }
+  .nav-toggle.is-open .bar:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
+
+  /* ── Mobile sheet ── */
+  .mobile-nav {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(10, 10, 15, 0.96);
+    backdrop-filter: blur(18px);
+    padding: 5rem 1.5rem 2rem;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.28s cubic-bezier(.2,.7,.3,1), transform 0.28s cubic-bezier(.2,.7,.3,1);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .mobile-nav[hidden] { display: none; }
+  .mobile-nav.is-open { opacity: 1; transform: translateY(0); }
+  .mobile-nav nav { width: 100%; }
+  .mobile-nav ul {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .mobile-nav a {
+    display: block;
+    padding: 1rem 0.5rem;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    border-bottom: 1px solid var(--line);
+  }
+  .mobile-nav a.active { color: var(--bp-light); }
+  .mobile-nav .cta-li { margin-top: 1.5rem; }
+  .mobile-nav .cta-li a {
+    border: none;
+    text-align: center;
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 980px) {
+    .nav-pill { display: none; }
+    .nav-toggle { display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  }
   @media (max-width: 520px) { .cta-link { display: none; } }
 </style>

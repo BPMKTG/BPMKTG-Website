@@ -655,6 +655,97 @@ User asked for a full About page with founders, vision, goals, and a tease on th
 
 ---
 
+## Session 11 — 2026-05-24 — Mobile optimization pass
+
+User: *"do what you can to better optimize for mobile. I don't want the
+desktop version to change, but need the site to function better on mobile.
+EX. All of the mouse hover effects on desktop need to work based on scroll,
+or be removed for mobile, anything that requires clicking and holding needs
+to be changed or removed, The gallery should be 2 wide instead of one wide."*
+
+### Strategy
+
+Use `@media (hover: none)` as the gate for every touch-side override —
+matches phones + non-pen tablets, leaves any hover-capable input
+(desktops, MacBooks, tablets-with-mouse) on the existing desktop behavior.
+Don't touch desktop CSS paths.
+
+### Changes shipped
+
+**`src/styles/global.css` — touch-device override block**
+- Disables the universal arrow rotation, button shimmer sweep, and
+  card-lift transforms on `(hover: none)`. Sticky `:hover` states on touch
+  read as broken UI — easier to remove than to mask.
+- Forces `.film-tile .hover-meta`, `.feat-card .hover-meta`, `.tile .caption`
+  to `opacity:1` so the captions that desktop reveals on hover are always
+  visible on touch.
+- Kills the marquee separator spin (`.marquee:hover .sep` animation) on
+  touch — there is no hover state to drive it.
+- Adds `.film-tile.is-playing` hooks (name fades, video opacity 1) so the
+  scroll-triggered preview playback below has a CSS path to use.
+
+**`src/components/OnFilm.astro` — scroll-triggered preview playback**
+- Hover-play path retained for `(hover: hover) and (pointer: fine)`.
+- On touch, a rAF-throttled scroll listener picks whichever tile's center
+  is closest to viewport center and plays just that one preview. Pause +
+  reset on the previous tile, pause-all when tab hidden. Single tile plays
+  at a time → bandwidth-friendly while still feeling cinematic.
+- Click → Vimeo lightbox unchanged (already works on touch).
+
+**`src/pages/portfolio.astro` — 2-col gallery on phones**
+- The 1-col `@media (max-width: 480px)` branch was making the page feel
+  endless. Now 2-col with tighter `0.5rem` gap and a smaller caption
+  treatment. H/V row-span pattern preserved.
+- Access featured row also goes 2-col at phone widths (was 1-col), with
+  scaled-down hover-meta padding.
+
+**`src/components/Header.astro` — mobile nav menu**
+- Prior state: `.nav-pill { display: none }` at `≤980px` with no
+  replacement. Phones had logo + (sometimes) Book a Call only. No way to
+  reach `/portfolio`, `/about`, `/blog`, or any anchor section.
+- Added a hamburger button (`.nav-toggle`) that's hidden on desktop, shown
+  at `≤980px`. Opens a fullscreen `position: fixed` sheet with all 6 nav
+  links + the Book a Call CTA, all big enough to thumb. Closes on link
+  click and on Escape. Body scroll locked while open. Animated open/close,
+  hamburger → X morph.
+
+**`src/components/OfferStack.astro` — softer reveal on phones**
+- The desktop flip uses `rotateY(-55deg) translateZ(-180px)` for a deep
+  3D deal-in. On a phone (1-col stack, narrow viewport) this clipped at
+  the edges and was perf-heavy.
+- `@media (max-width: 760px)` overrides the tier transition to a simple
+  `translateY(40px)` slide-up + fade with a tighter 0.12s stagger. Half
+  the duration, no perspective work.
+
+### What this fixes (concrete)
+
+- **Gallery captions visible.** Previously phones got no caption at all on
+  the gallery / Access cards / video tiles — hover-meta was opacity 0 and
+  there was no hover to trigger it.
+- **Video previews actually play on phones.** Scroll-into-view replaces
+  hover-into-view.
+- **Reachable nav.** Phones can finally get to /portfolio, /about, /blog,
+  and the section anchors.
+- **No sticky hover transforms.** Cards no longer lift on tap and stay
+  lifted until the next tap somewhere else.
+- **2-col gallery.** Three full screens of scroll became one and a half.
+- **Marquee, carousel, parallax, BookCall, hero stats** were already
+  responsive — left untouched.
+
+### Notes
+
+- The `(hover: none)` query is the right gate, not viewport width. A
+  Surface Pro or iPad with a connected mouse keeps the desktop path. A
+  pen-only tablet hits `(hover: none) and (pointer: fine)` which still
+  matches — fine, captions become visible, hover-lift disabled, scroll
+  plays previews. No regressions on touch-only behavior.
+- Hover videos on the scroll-active tile remain `loop` + `muted`
+  + `playsinline` so iOS Safari autoplays without user gesture and no
+  audio surprise.
+- Build green, 4 pages, no new image variants (CSS + JS only).
+
+---
+
 ## Laptop handoff checklist
 
 Last-known good state: commit on `main` after this session is pushed. To continue on laptop:

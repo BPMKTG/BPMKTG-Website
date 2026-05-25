@@ -683,6 +683,55 @@ p { margin: 0; color: var(--muted); }
   z-index: 0;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   TOUCH / COARSE-POINTER OVERRIDES
+   `(hover: none)` matches phones + tablets without a real cursor.
+   Goal: kill anything that depends on the user being able to hover —
+   either make the hidden state always-visible, or remove the effect.
+   Desktop is untouched.
+   ═══════════════════════════════════════════════════════════════ */
+@media (hover: none) {
+  /* Button arrow rotation — meaningless without a cursor */
+  .button .arrow,
+  .button:hover .arrow { transform: rotate(-45deg); transition: none; }
+  .button:hover { transform: none; }
+  .button::after, .button:hover::after { display: none; }
+
+  /* Generic card lift hovers — sticky :hover states on touch look broken */
+  .tier:hover, .pain:hover, .diff:hover, .feat-card:hover,
+  .tile:hover, .case:hover, .step:hover, .principle:hover,
+  .portrait:hover .portrait-photo, .founder-row:hover .photo-frame,
+  .film-tile:hover .img-wrap, .feat-card:hover .img-wrap :global(img),
+  .tile:hover .img-wrap :global(img), .feat-card .img-wrap :global(img),
+  .portrait:hover .portrait-photo :global(img), .founder-row:hover .photo-frame :global(img),
+  .rail .card:hover .img-wrap :global(img), .card:hover .img-wrap :global(img) {
+    transform: none !important;
+    box-shadow: none;
+  }
+
+  /* Make hover-revealed UI permanent so touch users can actually see it */
+  .film-tile .hover-meta,
+  .feat-card .hover-meta,
+  .tile .caption {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+  }
+
+  /* Disable hover-triggered animations */
+  .marquee:hover .sep,
+  .marquee .sep { animation: none !important; }
+
+  /* Hover-video stays hidden by default; scroll-play JS handles activation */
+  /* (kept opacity:0 baseline so the script can fade it in via class) */
+  .film-tile .hover-video.is-playing { opacity: 1; }
+  .film-tile .play-overlay { opacity: 0; }
+  /* When the video is playing on-scroll, fade the name out like on desktop hover */
+  .film-tile.is-playing .tile-name { opacity: 0; transform: scale(0.96); }
+
+  /* Edge-hover scroll zones aren't useful on touch */
+  .edge { display: none !important; }
+}
+
 /* ──────── View transition polish ──────── */
 ::view-transition-old(root),
 ::view-transition-new(root) {

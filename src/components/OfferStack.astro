@@ -290,4 +290,23 @@ const tiers = [
 
   @media (max-width: 1080px) { .tiers { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 540px)  { .tiers { grid-template-columns: 1fr; } }
+
+  /* Mobile: the dramatic 3D flip looks broken on narrow viewports
+     (clipping, perf-heavy, and stacked vertically the rotation reads weird).
+     Replace it with a simple slide-up + fade. */
+  @media (max-width: 760px) {
+    .tier {
+      transform: translateY(40px);
+      transition:
+        opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1) var(--tier-flip-delay, 0s),
+        transform 0.9s cubic-bezier(0.22, 1, 0.36, 1) var(--tier-flip-delay, 0s),
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+    }
+    .tier:nth-child(1) { --tier-flip-delay: 0s; }
+    .tier:nth-child(2) { --tier-flip-delay: 0.12s; }
+    .tier:nth-child(3) { --tier-flip-delay: 0.24s; }
+    .tier:nth-child(4) { --tier-flip-delay: 0.36s; }
+    .tier.is-in { transform: translateY(0); }
+  }
 </style>

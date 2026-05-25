@@ -664,16 +664,29 @@ const tilesLB = tilesLBRaw;
     .tile:nth-child(even) { grid-column: 2; }
   }
 
-  /* 1-col phone — just H/V/H/V… down the single column */
+  /* Phone — 2-col with tighter gap; H/V pattern preserved */
   @media (max-width: 480px) {
     .masonry {
-      grid-template-columns: 1fr;
-      grid-auto-rows: calc((var(--masonry-w) - 2rem) / 3);
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      grid-auto-rows: calc((var(--masonry-w) - 2.5rem) / 6);
     }
-    .tile { grid-row: span 3; grid-column: 1; }
-    .tile:nth-child(even) { grid-row: span 4; }
+    .tile { grid-row: span 3; border-radius: 10px; }
+    .tile:nth-child(4n+2),
+    .tile:nth-child(4n+3) { grid-row: span 4; }
+    .tile:nth-child(odd)  { grid-column: 1; }
+    .tile:nth-child(even) { grid-column: 2; }
+    /* Always-visible captions on phones get a smaller treatment */
+    .tile .caption { padding: 1.25rem 0.6rem 0.55rem; }
+    .tile .caption strong { font-size: 0.72rem; }
+    .tile .caption span   { font-size: 0.65rem; }
   }
   @media (max-width: 1080px) { .featured-grid { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 760px)  { .featured-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 480px)  { .featured-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 760px)  { .featured-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; } }
+  @media (max-width: 480px)  {
+    .featured-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    .feat-card .hover-meta { padding: 1.4rem 0.5rem 0.55rem; }
+    .feat-card .hover-meta .tag { font-size: 0.6rem; }
+    .feat-card .hover-meta strong { font-size: 0.75rem; }
+  }
 </style>
