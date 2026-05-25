@@ -588,23 +588,67 @@ function initScrollFocus() {
   // Only on touch / no-hover environments
   if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
   if (reduce()) return;
-  const els = document.querySelectorAll<HTMLElement>('[data-scroll-focus]:not([data-mx-focus])');
-  if (!els.length) return;
+  const all = Array.from(document.querySelectorAll<HTMLElement>('[data-scroll-focus]'));
+  const fresh = all.filter(el => !el.hasAttribute('data-mx-focus'));
+  if (!all.length) return;
 
+  fresh.forEach(el => el.setAttribute('data-mx-focus', '1'));
+
+  // Track which elements are currently in-viewport so we don't have to
+  // measure every [data-scroll-focus] on every scroll frame.
+  const inView = new Set<HTMLElement>();
   const io = new IntersectionObserver(entries => {
     for (const entry of entries) {
-      entry.target.classList.toggle('is-focus', entry.isIntersecting);
+      const el = entry.target as HTMLElement;
+      if (entry.isIntersecting) inView.add(el);
+      else { inView.delete(el); el.classList.remove('is-focus'); }
     }
-  }, {
-    // Tight center band: trigger only when an element is within the
-    // middle ~30% of the viewport vertically. Tweak via the two
-    // negative percents below.
-    rootMargin: '-35% 0px -35% 0px',
-    threshold: 0,
-  });
+    schedule();
+  }, { rootMargin: '0px 0px 0px 0px', threshold: 0 });
+  all.forEach(el => io.observe(el));
 
-  els.forEach(el => { el.setAttribute('data-mx-focus', '1'); io.observe(el); });
-  onCleanup(() => io.disconnect());
+  // Pick the single in-view element whose vertical center is closest to
+  // the viewport center. Anything outside ±35% of the viewport is
+  // disqualified (matches the old rootMargin band, but enforced one at
+  // a time so we never have two cards lit up).
+  let current: HTMLElement | null = null;
+  let ticking = false;
+  const pick = () => {
+    ticking = false;
+    const vh = window.innerHeight;
+    const vCenter = vh / 2;
+    const maxDist = vh * 0.35;
+    let best: { el: HTMLElement; dist: number } | null = null;
+    for (const el of inView) {
+      const r = el.getBoundingClientRect();
+      if (r.height <= 0) continue;
+      const c = r.top + r.height / 2;
+      const dist = Math.abs(c - vCenter);
+      if (dist > maxDist) continue;
+      if (!best || dist < best.dist) best = { el, dist };
+    }
+    const next = best?.el ?? null;
+    if (next === current) return;
+    if (current) current.classList.remove('is-focus');
+    current = next;
+    if (current) current.classList.add('is-focus');
+  };
+  const schedule = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(pick);
+  };
+  window.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('resize', schedule, { passive: true });
+  schedule();
+
+  onCleanup(() => {
+    io.disconnect();
+    window.removeEventListener('scroll', schedule);
+    window.removeEventListener('resize', schedule);
+    if (current) current.classList.remove('is-focus');
+    current = null;
+  });
 }
 
 // ─────────────────────────────────────────────────────────────

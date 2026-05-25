@@ -57,7 +57,7 @@ const steps = [
     <ol class="steps" data-reveal-group>
       <div class="roadmap-line" aria-hidden="true"></div>
       {steps.map((s, i) => (
-        <li class="step" data-reveal>
+        <li class="step" data-reveal data-scroll-focus>
           <div class="step-head">
             <span class="step-num">{String(i + 1).padStart(2, '0')}</span>
             <h3>{s.title}</h3>

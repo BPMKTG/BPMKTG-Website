@@ -787,12 +787,44 @@ p { margin: 0; color: var(--muted); }
   }
   .founder-row.is-focus .photo-glow { opacity: 1; }
 
+  /* Roadmap step cards */
+  .step.is-focus {
+    border-color: rgba(98, 166, 219, 0.4) !important;
+    background: rgba(26, 28, 40, 0.88);
+  }
+
   /* Smooth the focus in/out so it doesn't snap as cards cross the band */
   .tile, .feat-card .img-wrap, .film-tile .img-wrap, .tier,
   .diff, .pain, .principle, .founder-row .photo-frame,
-  .founder-row .photo-glow {
+  .founder-row .photo-glow, .step {
     transition: border-color 0.35s ease, box-shadow 0.35s ease,
                 background 0.35s ease, opacity 0.35s ease;
+  }
+
+  /* Kill tap highlights + click-induced focus styling on anything that
+     manages its own highlight via scroll. Without this, tapping a card
+     briefly flashes the browser's default tap color OR leaves a focus
+     ring stuck on it, which reads as a second simultaneous highlight. */
+  [data-scroll-focus] {
+    -webkit-tap-highlight-color: transparent;
+  }
+  [data-scroll-focus]:focus,
+  [data-scroll-focus]:focus-visible,
+  [data-scroll-focus]:active {
+    outline: none;
+  }
+  /* Suppress the per-component :hover/:focus-visible outline rules that
+     could double-up with .is-focus on touch. The card's highlighted state
+     is owned entirely by the scroll system. */
+  .tile:hover, .tile:focus-visible,
+  .film-tile:hover .img-wrap, .film-tile:focus-visible .img-wrap,
+  .feat-card:hover .img-wrap, .feat-card:focus-visible .img-wrap,
+  .tier:focus-visible, .diff:focus-visible, .pain:focus-visible,
+  .principle:focus-visible, .step:focus-visible,
+  .founder-row:focus-visible .photo-frame {
+    border-color: var(--line) !important;
+    box-shadow: none !important;
+    background: revert;
   }
 }
 
