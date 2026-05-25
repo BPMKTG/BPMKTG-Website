@@ -23,7 +23,7 @@ const pains = [
 
     <div class="pain-grid" data-reveal-group>
       {pains.map((p, i) => (
-        <article class="pain" data-reveal>
+        <article class="pain" data-reveal data-scroll-focus>
           <span class="pain-num">0{i + 1}</span>
           <p class="pain-quote">"{p.quote}"</p>
           <p class="pain-gap">{p.gap}</p>

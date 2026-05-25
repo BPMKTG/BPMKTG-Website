@@ -106,7 +106,7 @@ const principles = [
 
       <div class="founder-rows">
         {founders.map((f, i) => (
-          <article class={`founder-row ${i % 2 === 1 ? 'reversed' : ''}`} data-reveal>
+          <article class={`founder-row ${i % 2 === 1 ? 'reversed' : ''}`} data-reveal data-scroll-focus>
             <div class="founder-photo">
               <span class="founder-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
               <div class="photo-frame">
@@ -143,7 +143,7 @@ const principles = [
 
       <div class="principles-grid" data-reveal-group>
         {principles.map((p, i) => (
-          <article class="principle" data-reveal>
+          <article class="principle" data-reveal data-scroll-focus>
             <span class="principle-num">{String(i + 1).padStart(2, '0')}</span>
             <h3>{p.title}</h3>
             <p>{p.body}</p>

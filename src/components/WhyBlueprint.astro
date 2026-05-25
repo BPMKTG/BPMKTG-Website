@@ -36,7 +36,7 @@ const diffs = [
 
     <div class="diff-grid" data-reveal-group>
       {diffs.map((d, i) => (
-        <article class="diff" data-reveal>
+        <article class="diff" data-reveal data-scroll-focus>
           <span class="diff-num">{String(i + 1).padStart(2, '0')}</span>
           <h3>{d.title}</h3>
           <p>{d.body}</p>

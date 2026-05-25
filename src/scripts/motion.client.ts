@@ -577,6 +577,37 @@ function initBgScrollEffects() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 12. Scroll-driven focus state (touch-only)
+//     Touch devices have no :hover, so cards/tiles never get the
+//     blue-outline emphasis desktop users see when they mouse over.
+//     This applies an `.is-focus` class to any [data-scroll-focus]
+//     element while it sits in the middle band of the viewport, so
+//     the CSS @media (hover: none) rules can mirror the :hover look.
+// ─────────────────────────────────────────────────────────────
+function initScrollFocus() {
+  // Only on touch / no-hover environments
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+  if (reduce()) return;
+  const els = document.querySelectorAll<HTMLElement>('[data-scroll-focus]:not([data-mx-focus])');
+  if (!els.length) return;
+
+  const io = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      entry.target.classList.toggle('is-focus', entry.isIntersecting);
+    }
+  }, {
+    // Tight center band: trigger only when an element is within the
+    // middle ~30% of the viewport vertically. Tweak via the two
+    // negative percents below.
+    rootMargin: '-35% 0px -35% 0px',
+    threshold: 0,
+  });
+
+  els.forEach(el => { el.setAttribute('data-mx-focus', '1'); io.observe(el); });
+  onCleanup(() => io.disconnect());
+}
+
+// ─────────────────────────────────────────────────────────────
 // Init / re-init
 // ─────────────────────────────────────────────────────────────
 function init() {
@@ -591,6 +622,7 @@ function init() {
   initBgScrollEffects();
   initCtaParticles();
   initLightboxArrows();
+  initScrollFocus();
 }
 
 // Bootstrap: rely on `astro:page-load` (fires on initial load AND on every
