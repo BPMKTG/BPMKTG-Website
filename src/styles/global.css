@@ -732,53 +732,42 @@ p { margin: 0; color: var(--muted); }
   .edge { display: none !important; }
 
   /* ── Scroll-driven focus state ──
-     Mirrors each component's :hover outline so the card or picture in
-     the middle of the viewport gets the same blue emphasis a desktop
-     user sees on mouseover. JS toggles `.is-focus` via
-     IntersectionObserver in motion.client.ts. */
+     Mirrors each component's :hover outline so the card in the middle
+     of the viewport gets the same blue emphasis a desktop user sees on
+     mouseover. JS toggles `.is-focus` via IntersectionObserver in
+     motion.client.ts. Single-active across the page.
 
-  /* Portfolio gallery tiles + Access cards */
-  .tile.is-focus {
-    border-color: rgba(98, 166, 219, 0.55) !important;
-    box-shadow: 0 24px 50px -25px rgba(0, 0, 0, 0.7);
-  }
-  .feat-card.is-focus .img-wrap {
-    box-shadow: 0 0 0 1px rgba(98, 166, 219, 0.5),
-                0 24px 50px -25px rgba(0, 0, 0, 0.7);
-  }
+     Portfolio gallery tiles + Access cards are intentionally NOT in
+     this set — their captions appear/disappear with focus and the
+     constant flicker reads poorly when you have a dense grid. */
 
-  /* Video tiles — same blue frame as desktop hover */
+  /* Video tiles */
   .film-tile.is-focus .img-wrap {
     border-color: rgba(98, 166, 219, 0.55) !important;
     box-shadow: 0 18px 44px -22px rgba(0, 0, 0, 0.7);
   }
-
   /* Offer tiers */
   .tier.is-focus {
     border-color: rgba(98, 166, 219, 0.45) !important;
     box-shadow: 0 18px 44px -22px rgba(0, 0, 0, 0.65);
   }
-
   /* Why Blueprint differentiator cards */
   .diff.is-focus {
     border-color: rgba(98, 166, 219, 0.45) !important;
   }
-
-  /* Problem section pain cards — warm hover glow on desktop, same here */
+  /* Problem section pain cards — warm orange glow per their desktop hover */
   .pain.is-focus {
     border-color: rgba(227, 112, 59, 0.5) !important;
     box-shadow: 0 22px 50px -28px rgba(227, 112, 59, 0.45),
                 0 0 0 1px rgba(227, 112, 59, 0.35);
     background: rgba(26, 28, 40, 0.85);
   }
-
-  /* About — principles cards */
+  /* About principles */
   .principle.is-focus {
     border-color: rgba(98, 166, 219, 0.5) !important;
     box-shadow: 0 20px 40px -22px rgba(0, 0, 0, 0.6);
   }
-
-  /* About — founder photo frame */
+  /* About founder photo frame */
   .founder-row.is-focus .photo-frame {
     border-color: rgba(98, 166, 219, 0.5);
     box-shadow:
@@ -786,7 +775,6 @@ p { margin: 0; color: var(--muted); }
       0 0 0 1px rgba(98, 166, 219, 0.35);
   }
   .founder-row.is-focus .photo-glow { opacity: 1; }
-
   /* Roadmap step cards */
   .step.is-focus {
     border-color: rgba(98, 166, 219, 0.4) !important;
@@ -794,37 +782,54 @@ p { margin: 0; color: var(--muted); }
   }
 
   /* Smooth the focus in/out so it doesn't snap as cards cross the band */
-  .tile, .feat-card .img-wrap, .film-tile .img-wrap, .tier,
-  .diff, .pain, .principle, .founder-row .photo-frame,
-  .founder-row .photo-glow, .step {
+  .film-tile .img-wrap, .tier, .diff, .pain, .principle,
+  .founder-row .photo-frame, .founder-row .photo-glow, .step {
     transition: border-color 0.35s ease, box-shadow 0.35s ease,
                 background 0.35s ease, opacity 0.35s ease;
   }
 
-  /* Kill tap highlights + click-induced focus styling on anything that
-     manages its own highlight via scroll. Without this, tapping a card
-     briefly flashes the browser's default tap color OR leaves a focus
-     ring stuck on it, which reads as a second simultaneous highlight. */
-  [data-scroll-focus] {
+  /* Kill tap highlights + click-induced focus styling on every card,
+     scroll-focus-managed or not. iOS Safari simulates :hover on tap and
+     it sticks until you tap elsewhere, which fakes a second highlight. */
+  [data-scroll-focus],
+  .tile, .feat-card, .film-tile, .tier, .diff, .pain, .principle, .step,
+  .founder-row, .portrait {
     -webkit-tap-highlight-color: transparent;
   }
   [data-scroll-focus]:focus,
   [data-scroll-focus]:focus-visible,
-  [data-scroll-focus]:active {
+  [data-scroll-focus]:active,
+  .tile:focus, .tile:focus-visible, .tile:active,
+  .feat-card:focus, .feat-card:focus-visible, .feat-card:active,
+  .film-tile:focus, .film-tile:focus-visible, .film-tile:active {
     outline: none;
   }
-  /* Suppress the per-component :hover/:focus-visible outline rules that
-     could double-up with .is-focus on touch. The card's highlighted state
-     is owned entirely by the scroll system. */
-  .tile:hover, .tile:focus-visible,
-  .film-tile:hover .img-wrap, .film-tile:focus-visible .img-wrap,
-  .feat-card:hover .img-wrap, .feat-card:focus-visible .img-wrap,
-  .tier:focus-visible, .diff:focus-visible, .pain:focus-visible,
-  .principle:focus-visible, .step:focus-visible,
-  .founder-row:focus-visible .photo-frame {
+
+  /* Wipe the per-component :hover/:focus-visible outlines on touch so a
+     sticky tap-hover doesn't paint a competing highlight. For
+     scroll-focus cards we use :not(.is-focus) so the scroll-applied
+     state still wins; for everything else we just kill the outline. */
+  .film-tile:not(.is-focus):hover .img-wrap,
+  .film-tile:focus-visible .img-wrap,
+  .tier:not(.is-focus):hover,
+  .diff:not(.is-focus):hover,
+  .pain:not(.is-focus):hover,
+  .principle:not(.is-focus):hover,
+  .step:not(.is-focus):hover,
+  .founder-row:not(.is-focus):hover .photo-frame {
     border-color: var(--line) !important;
     box-shadow: none !important;
+    transform: none !important;
     background: revert;
+  }
+  /* Portfolio gallery + Access + AboutTease portraits: never highlight
+     from a tap. Border/shadow on hover are gone, transforms gone. */
+  .tile:hover, .tile:focus, .tile:focus-visible, .tile:active,
+  .feat-card:hover, .feat-card:focus, .feat-card:focus-visible, .feat-card:active,
+  .portrait:hover .portrait-photo, .portrait:focus .portrait-photo {
+    border-color: var(--line) !important;
+    box-shadow: none !important;
+    transform: none !important;
   }
 }
 
