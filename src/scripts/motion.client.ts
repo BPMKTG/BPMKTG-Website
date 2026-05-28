@@ -255,8 +255,18 @@ function initCursor() {
 // ─────────────────────────────────────────────────────────────
 function initHeroParticles() {
   if (reduce()) return;
-  const hero = document.querySelector<HTMLElement>('.hero');
-  if (!hero) return;
+  const heroEl = document.querySelector<HTMLElement>('.hero');
+  if (!heroEl) return;
+
+  // In the cinematic desktop hero the section is a tall (200vh) scroll
+  // track, so host the canvas in the pinned 100vh stage instead — that way
+  // the particles stay put and sized to the viewport. Decided by the same
+  // media query the cinematic effect uses (avoids a class-timing race).
+  const cine = window.matchMedia(
+    '(min-width: 981px) and (hover: hover) and (prefers-reduced-motion: no-preference)'
+  ).matches;
+  const sticky = heroEl.querySelector<HTMLElement>('.hero-sticky');
+  const hero = (cine && sticky) ? sticky : heroEl;
 
   // If the persisted hero already has a canvas, leave it alone (just rebind
   // its listeners). If not — fresh page — create the canvas.
@@ -287,15 +297,15 @@ function initHeroParticles() {
   resize();
   window.addEventListener('resize', resize, { passive: true });
 
-  const COUNT = window.innerWidth < 700 ? 24 : 48;
+  const COUNT = window.innerWidth < 700 ? 42 : 110;
   type P = { x: number; y: number; vx: number; vy: number; r: number; a: number };
   const ps: P[] = Array.from({ length: COUNT }, () => ({
     x: Math.random() * w,
     y: Math.random() * h,
     vx: (Math.random() - 0.5) * 0.16,
     vy: (Math.random() - 0.5) * 0.16,
-    r: Math.random() * 1.6 + 0.45,
-    a: Math.random() * 0.4 + 0.18,
+    r: Math.random() * 2 + 0.8,
+    a: Math.random() * 0.45 + 0.38,
   }));
 
   let mx = -9999, my = -9999;
@@ -317,8 +327,8 @@ function initHeroParticles() {
         const a = ps[i], b = ps[j];
         const dx = a.x - b.x, dy = a.y - b.y;
         const d2 = dx * dx + dy * dy;
-        if (d2 < 110 * 110) {
-          const alpha = (1 - Math.sqrt(d2) / 110) * 0.18;
+        if (d2 < 118 * 118) {
+          const alpha = (1 - Math.sqrt(d2) / 118) * 0.3;
           ctx.strokeStyle = `rgba(98, 166, 219, ${alpha})`;
           ctx.lineWidth = 1;
           ctx.beginPath();
@@ -332,8 +342,8 @@ function initHeroParticles() {
     for (const p of ps) {
       const dx = p.x - mx, dy = p.y - my;
       const dist = Math.hypot(dx, dy);
-      if (dist < 110 && dist > 0.01) {
-        const f = (110 - dist) / 110 * 0.06;
+      if (dist < 160 && dist > 0.01) {
+        const f = (160 - dist) / 160 * 0.1;
         p.vx += (dx / dist) * f;
         p.vy += (dy / dist) * f;
       }

@@ -429,7 +429,13 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
        shows in the letterbox bars, matching the rest of the site */
     background: transparent;
   }
-  .hero--cinematic :global(.hero-particles) { display: none; }
+  /* Particle field floats above the full-screen video at the top, then
+     fades out as the editor zooms into frame (so dots don't sit over the
+     Premiere screenshot). Hosted in the pinned stage by motion.client. */
+  .hero--cinematic :global(.hero-particles) {
+    z-index: 4;
+    opacity: clamp(0, calc(1 - var(--cine-morph, 0) * 1.8), 1);
+  }
 
   /* ── Editor backdrop ── */
   .hero--cinematic .editor {

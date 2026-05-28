@@ -661,7 +661,7 @@ p { margin: 0; color: var(--muted); }
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  opacity: 0.85;
+  opacity: 1;
 }
 
 /* ──────── Lightbox scale-up ──────── */
