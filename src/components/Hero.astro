@@ -111,6 +111,11 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
   const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
+  // Backdrop screenshot natural size + the program-monitor rectangle as
+  // fractions of that natural image (measured from editor-backdrop.png).
+  const IMG_W = 2560, IMG_H = 1440;
+  const MON = { l: 0.204, t: 0.0885, w: 0.453, h: 0.453 };
+
   const init = () => {
     const hero = document.querySelector<HTMLElement>('[data-hero-cine]');
     if (!hero || hero.dataset.cineInit) return;
@@ -131,6 +136,7 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
 
     const reset = () => {
       media.style.transform = '';
+      media.style.left = media.style.top = media.style.width = media.style.height = '';
       hero.style.removeProperty('--cine-p');
       hero.style.removeProperty('--cine-morph');
     };
@@ -148,20 +154,45 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
       const morph = easeInOut(clamp((p - 0.04) / 0.56));
 
       const sRect = sticky.getBoundingClientRect();
-      const mRect = slot.getBoundingClientRect();
+      const SW = sRect.width, SH = sRect.height;
 
-      // Uniform scale (based on width) so the attached copy never distorts.
-      // Vertically centered inside the slot in case it isn't perfectly 16:9.
-      const scale = mRect.width / sRect.width;
-      const scaledH = sRect.height * scale;
-      const left = mRect.left - sRect.left;
-      const top  = (mRect.top - sRect.top) + (mRect.height - scaledH) / 2;
+      // The morphing group is ALWAYS 16:9 so it fits the 16:9 monitor with
+      // no aspect mismatch. At the start it's sized to COVER the stage
+      // (cropped by overflow), so the full-screen state has no gaps.
+      const coverW = Math.max(SW, SH * 16 / 9);
+      const coverH = coverW * 9 / 16;
+      const coverLeft = (SW - coverW) / 2;
+      const coverTop  = (SH - coverH) / 2;
+      media.style.left = `${coverLeft}px`;
+      media.style.top = `${coverTop}px`;
+      media.style.width = `${coverW}px`;
+      media.style.height = `${coverH}px`;
 
-      const curScale = lerp(1, scale, morph);
-      const curLeft  = lerp(0, left,  morph);
-      const curTop   = lerp(0, top,   morph);
+      // Program-monitor rect after object-fit:cover crops the 16:9
+      // screenshot into the stage — exact for any viewport aspect ratio.
+      const cover = Math.max(SW / IMG_W, SH / IMG_H);
+      const rW = IMG_W * cover, rH = IMG_H * cover;
+      const offX = (SW - rW) / 2, offY = (SH - rH) / 2;
+      const monL = offX + MON.l * rW;
+      const monT = offY + MON.t * rH;
+      const monW = MON.w * rW;
+      const monH = MON.h * rH;
+      slot.style.left = `${monL}px`;
+      slot.style.top = `${monT}px`;
+      slot.style.width = `${monW}px`;
+      slot.style.height = `${monH}px`;
 
-      media.style.transform = `translate(${curLeft}px, ${curTop}px) scale(${curScale})`;
+      // FLIP from the cover box (identity) to the monitor. Both are 16:9,
+      // so a single uniform scale lands it exactly — no distortion, no gaps.
+      const targetScale = monW / coverW;
+      const targetTx = monL - coverLeft;
+      const targetTy = monT - coverTop;
+
+      const s  = lerp(1, targetScale, morph);
+      const tx = lerp(0, targetTx, morph);
+      const ty = lerp(0, targetTy, morph);
+
+      media.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
       hero.style.setProperty('--cine-p', String(p));
       hero.style.setProperty('--cine-morph', String(morph));
     };
@@ -366,6 +397,7 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
   /* ── Morphing media group ── */
   .hero--cinematic .hero-media {
     z-index: 3;
+    inset: auto;            /* JS drives left/top/width/height (16:9 cover box) */
     transform-origin: 0 0;
     will-change: transform;
   }
