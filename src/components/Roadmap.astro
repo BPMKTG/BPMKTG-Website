@@ -121,9 +121,39 @@ const steps = [
     grid-template-columns: 1.2fr 1fr 1fr;
     gap: 1.5rem;
     align-items: start;
-    transition: border-color 0.15s, background 0.15s;
+    /* Includes opacity+transform so the [data-reveal] entrance actually
+       animates (this scoped rule otherwise overrides the global reveal
+       transition and the cards would just pop in). */
+    transition:
+      opacity 0.6s cubic-bezier(.2,.7,.3,1) var(--reveal-delay, 0s),
+      transform 0.7s cubic-bezier(.2,.7,.3,1) var(--reveal-delay, 0s),
+      border-color 0.3s ease,
+      background 0.3s ease;
   }
   .step:hover { border-color: rgba(98, 166, 219, 0.4); background: rgba(26, 28, 40, 0.88); }
+
+  /* Desktop: cards cascade in from the left and spring into place (slight
+     overshoot) instead of a flat pop. Connecting line is hidden < 901px,
+     so mobile keeps the gentle global translateY reveal. */
+  @media (min-width: 901px) and (prefers-reduced-motion: no-preference) {
+    .step[data-reveal] {
+      transform: translateX(-60px) scale(0.965);
+      transform-origin: left center;
+      transition:
+        opacity 0.5s ease var(--reveal-delay, 0s),
+        transform 0.9s cubic-bezier(0.34, 1.42, 0.5, 1) var(--reveal-delay, 0s),
+        border-color 0.3s ease,
+        background 0.3s ease;
+    }
+    .step[data-reveal].is-in { transform: translateX(0) scale(1); }
+
+    /* Even, pronounced stagger for a clear cascade (child 1 is the line). */
+    .steps > .step:nth-child(2) { --reveal-delay: 0s; }
+    .steps > .step:nth-child(3) { --reveal-delay: 0.12s; }
+    .steps > .step:nth-child(4) { --reveal-delay: 0.24s; }
+    .steps > .step:nth-child(5) { --reveal-delay: 0.36s; }
+    .steps > .step:nth-child(6) { --reveal-delay: 0.48s; }
+  }
   .step-head { display: flex; align-items: baseline; gap: 1rem; }
   .step-num {
     font-family: var(--font-display);
