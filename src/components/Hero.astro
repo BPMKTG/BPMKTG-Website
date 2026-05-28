@@ -118,7 +118,7 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
   // monitor (~43.6%, 29.7%); sized 16:9 in PIXELS for the 2558x1380 image
   // (w/h fractions differ because the image isn't exactly 16:9). ~43% width
   // gives a slightly bigger parked video and a ~2.3x zoom.
-  const MON = { l: 0.201, t: 0.052, w: 0.47, h: 0.49 };
+  const MON = { l: 0.216, t: 0.0675, w: 0.44, h: 0.459 };
 
   const init = () => {
     const hero = document.querySelector<HTMLElement>('[data-hero-cine]');
@@ -396,7 +396,9 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     top: 0;
     height: 100vh;
     overflow: hidden;
-    background: #05060a;
+    /* transparent so the page's own background (incl. its blue gradients)
+       shows in the letterbox bars, matching the rest of the site */
+    background: transparent;
   }
   .hero--cinematic :global(.hero-particles) { display: none; }
 
@@ -421,10 +423,10 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
      Tuned to sit exactly on the cars frame. */
   .editor-monitor {
     position: absolute;
-    left:  var(--mon-l, 20.1%);
-    top:   var(--mon-t, 5.2%);
-    width: var(--mon-w, 47%);
-    height: var(--mon-h, 49%);
+    left:  var(--mon-l, 21.6%);
+    top:   var(--mon-t, 6.75%);
+    width: var(--mon-w, 44%);
+    height: var(--mon-h, 45.9%);
     pointer-events: none;
   }
 
