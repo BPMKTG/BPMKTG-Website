@@ -113,12 +113,12 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
 
   // Backdrop screenshot natural size + the program-monitor rectangle as
   // fractions of that natural image (measured from editor-backdrop.png).
-  const IMG_W = 2560, IMG_H = 1440;
-  // Program-monitor viewing area as fractions of the screenshot. The monitor
-  // is dark gray now, so the montage fills this region and any edge sits on
-  // the dark pasteboard (no precise-alignment requirement). Centered on the
-  // monitor (~43%, 32%); 16:9 (w% == h% on a 16:9 canvas).
-  const MON = { l: 0.19, t: 0.08, w: 0.48, h: 0.48 };
+  const IMG_W = 2558, IMG_H = 1380;
+  // Program-monitor target as fractions of the screenshot. Centered on the
+  // monitor (~43.6%, 29.7%); sized 16:9 in PIXELS for the 2558x1380 image
+  // (w/h fractions differ because the image isn't exactly 16:9). A ~40%
+  // width gives a ~2.5x zoom — a clean reveal that keeps the editor crisp.
+  const MON = { l: 0.236, t: 0.0885, w: 0.40, h: 0.417 };
 
   const init = () => {
     const hero = document.querySelector<HTMLElement>('[data-hero-cine]');
@@ -129,7 +129,8 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     const sticky = hero.querySelector<HTMLElement>('.hero-sticky');
     const media  = hero.querySelector<HTMLElement>('[data-hero-media]');
     const slot   = hero.querySelector<HTMLElement>('[data-monitor]');
-    if (!track || !sticky || !media || !slot) return;
+    const editor = hero.querySelector<HTMLElement>('.editor');
+    if (!track || !sticky || !media || !slot || !editor) return;
 
     const mq = window.matchMedia(
       '(min-width: 981px) and (hover: hover) and (prefers-reduced-motion: no-preference)'
@@ -141,6 +142,7 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     const reset = () => {
       media.style.transform = '';
       media.style.left = media.style.top = media.style.width = media.style.height = '';
+      editor.style.transform = '';
       hero.style.removeProperty('--cine-p');
       hero.style.removeProperty('--cine-morph');
     };
@@ -187,17 +189,28 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
       slot.style.width = `${monW}px`;
       slot.style.height = `${monH}px`;
 
-      // FLIP from the cover box (identity) to the monitor. Both are 16:9,
-      // so a single uniform scale lands it exactly — no distortion, no gaps.
+      // ── Video + copy: shrink from full-screen (cover box) into the monitor.
+      //    Scales DOWN only, so the video and text stay crisp. ──
       const targetScale = monW / coverW;
-      const targetTx = monL - coverLeft;
-      const targetTy = monT - coverTop;
-
       const s  = lerp(1, targetScale, morph);
-      const tx = lerp(0, targetTx, morph);
-      const ty = lerp(0, targetTy, morph);
-
+      const tx = lerp(0, monL - coverLeft, morph);
+      const ty = lerp(0, monT - coverTop, morph);
       media.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+
+      // ── Editor: zoom OUT in lock-step. At the start it's scaled up so its
+      //    program monitor exactly fills the viewport (hidden behind the
+      //    full-screen video); as you scroll it pulls back to its natural
+      //    fit, revealing the whole editor around the video. Because both the
+      //    video's shrink path and the editor's monitor share the same two
+      //    endpoints (full-screen ↔ monitor rect) and both interpolate
+      //    linearly, the video stays locked to the monitor the entire time. ──
+      const zoom = Math.max(SW / monW, SH / monH);
+      const cx = monL + monW / 2, cy = monT + monH / 2;
+      const ez = lerp(zoom, 1, morph);
+      const etx = lerp(SW / 2 - cx * zoom, 0, morph);
+      const ety = lerp(SH / 2 - cy * zoom, 0, morph);
+      editor.style.transform = `translate(${etx}px, ${ety}px) scale(${ez})`;
+
       hero.style.setProperty('--cine-p', String(p));
       hero.style.setProperty('--cine-morph', String(morph));
     };
@@ -378,7 +391,9 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     position: absolute;
     inset: 0;
     z-index: 1;
-    opacity: clamp(0, calc((var(--cine-morph, 0) - 0.12) / 0.5), 1);
+    opacity: 1;                 /* revealed by the zoom-out, not a fade */
+    transform-origin: 0 0;      /* JS drives the zoom-out transform */
+    will-change: transform;
   }
   .editor-shot {
     position: absolute;
@@ -393,10 +408,10 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
      Tuned to sit exactly on the cars frame. */
   .editor-monitor {
     position: absolute;
-    left:  var(--mon-l, 19%);
-    top:   var(--mon-t, 8%);
-    width: var(--mon-w, 48%);
-    height: var(--mon-h, 48%);
+    left:  var(--mon-l, 23.6%);
+    top:   var(--mon-t, 8.85%);
+    width: var(--mon-w, 40%);
+    height: var(--mon-h, 41.7%);
     pointer-events: none;
   }
 
