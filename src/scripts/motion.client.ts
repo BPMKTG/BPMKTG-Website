@@ -297,7 +297,7 @@ function initHeroParticles() {
   resize();
   window.addEventListener('resize', resize, { passive: true });
 
-  const COUNT = window.innerWidth < 700 ? 38 : 90;
+  const COUNT = window.innerWidth < 700 ? 32 : 75;
   type P = { x: number; y: number; vx: number; vy: number; r: number; a: number };
   const ps: P[] = Array.from({ length: COUNT }, () => ({
     x: Math.random() * w,
