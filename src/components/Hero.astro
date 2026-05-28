@@ -47,9 +47,25 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
           quality={84}
           loading="eager"
         />
-        <video class="hero-video" autoplay muted loop playsinline preload="auto">
-          <source src="/videos/hero-montage.mp4" type="video/mp4" />
-        </video>
+        <video class="hero-video" autoplay muted loop playsinline preload="auto"></video>
+        <script is:inline>
+          /* Pick the hero video by viewport: a vertical (9:16) cut on
+             phones/tablets where the hero is tall, the horizontal montage on
+             desktop (also what the editor zoom-out uses). Runs inline before
+             the video loads so only the right file downloads. Falls back to
+             the horizontal file if the vertical one isn't present. */
+          (function () {
+            var v = document.querySelector('.hero-video');
+            if (!v) return;
+            var HORIZ = '/videos/hero-montage.mp4';
+            var VERT  = '/videos/hero-montage-vertical.mp4';
+            var mobile = window.matchMedia('(max-width: 980px)').matches;
+            v.addEventListener('error', function () {
+              if ((v.currentSrc || v.src).indexOf('vertical') > -1) v.src = HORIZ;
+            }, { once: true });
+            v.src = mobile ? VERT : HORIZ;
+          })();
+        </script>
         <div class="media-overlay" aria-hidden="true"></div>
         <div class="media-grid" aria-hidden="true"></div>
 
