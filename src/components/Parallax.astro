@@ -1,13 +1,13 @@
 ---
 import { Image } from 'astro:assets';
-import h1 from '../assets/images/hero/hero-1-excision-magenta-713.jpg';
-import h2 from '../assets/images/hero/hero-2-alienpark-green-silo.jpg';
-import h3 from '../assets/images/hero/hero-3-grimefest-crowd-lightsaber.jpg';
+import h1 from '../assets/images/hero/hero-4-martingarrix-wickedoaks.jpg';
+import h2 from '../assets/images/hero/hero-1-excision-magenta-713.jpg';
+import h3 from '../assets/images/portfolio/subtronics-dancefestopia.jpg';
 
 const frames = [
-  { src: h1, alt: 'Excision performing at 713 Music Hall', tag: 'Excision',    venue: '713 Music Hall, Houston' },
-  { src: h2, alt: 'Alien Park live at Silo Dallas',         tag: 'Alien Park',  venue: 'Silo Dallas' },
-  { src: h3, alt: 'Grimefest crowd, lightsaber glow',       tag: 'The Crowd',   venue: 'Grimefest' },
+  { src: h1, alt: 'Martin Garrix headlining Wicked Oaks',   tag: 'Martin Garrix', venue: 'Wicked Oaks' },
+  { src: h2, alt: 'Excision performing at 713 Music Hall',  tag: 'Excision',      venue: '713 Music Hall, Houston' },
+  { src: h3, alt: 'Subtronics at Dancefestopia',            tag: 'Subtronics',    venue: 'Dancefestopia' },
 ];
 ---
 <section class="parallax-section" data-parallax aria-label="In the field — image showcase">
@@ -148,9 +148,9 @@ const frames = [
     object-fit: cover;
     object-position: center 35%;
   }
-  /* Excision frame: lower the focal point so stage + fire are visible
-     under the lasers. Other frames keep the higher crop. */
-  .frame[data-frame="0"] .img-wrap :global(img) { object-position: center 68%; }
+  /* Excision frame (now index 1): lower the focal point so stage + fire
+     are visible under the lasers. Other frames keep the higher crop. */
+  .frame[data-frame="1"] .img-wrap :global(img) { object-position: center 68%; }
 
   .overlay {
     position: absolute; inset: 0;

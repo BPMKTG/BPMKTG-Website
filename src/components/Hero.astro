@@ -22,6 +22,20 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
         quality={84}
         loading="eager"
       />
+      <!-- Montage video sits above the poster image and autoplays muted.
+           The Image behind acts as the instant poster while the video
+           buffers, and as the prefers-reduced-motion fallback (video is
+           hidden via CSS in that case). -->
+      <video
+        class="hero-video"
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="auto"
+      >
+        <source src="/videos/hero-montage.mp4" type="video/mp4" />
+      </video>
     </div>
   </div>
   <div class="overlay" aria-hidden="true"></div>
@@ -90,6 +104,21 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
   }
   @media (prefers-reduced-motion: reduce) {
     .slide :global(img) { animation: none; }
+  }
+
+  /* Montage video — fills the hero, layered above the poster image */
+  .slide .hero-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 55%;
+    z-index: 1;
+  }
+  /* Motion-sensitive users get the still poster image, not the video */
+  @media (prefers-reduced-motion: reduce) {
+    .slide .hero-video { display: none; }
   }
 
   .overlay {
