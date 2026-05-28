@@ -12,75 +12,270 @@ const stats = [
 
 const subhead = "Blueprint Marketing builds growth infrastructure for EDM artists — turning content, shows, and releases into real fans and real revenue.";
 ---
-<section class="hero">
-  <div class="slides" data-parallax-bg data-scale-bg data-scale-start="1" data-scale-end="1.18" aria-hidden="true">
-    <div class="slide">
-      <Image
-        src={hero}
-        alt="Festival main stage under lights and haze"
-        width={1456}
-        height={816}
-        format="webp"
-        quality={84}
-        loading="eager"
-      />
-      <!-- Montage video sits above the poster image and autoplays muted.
-           The Image behind acts as the instant poster while the video
-           buffers, and as the prefers-reduced-motion fallback (video is
-           hidden via CSS in that case). -->
-      <video
-        class="hero-video"
-        autoplay
-        muted
-        loop
-        playsinline
-        preload="auto"
-      >
-        <source src="/videos/hero-montage.mp4" type="video/mp4" />
-      </video>
-    </div>
-  </div>
-  <div class="overlay" aria-hidden="true"></div>
-  <div class="grid-layer" aria-hidden="true"></div>
+<section class="hero" data-hero-cine>
+  <div class="hero-track">
+    <div class="hero-sticky">
 
-  <div class="container hero-inner">
-    <p class="label" data-reveal="left">For touring EDM artists</p>
-
-    <h1>
-      <span data-reveal>Turn every show, release,</span><br />
-      <span data-reveal>and moment into a</span><br />
-      <span class="highlight blue glitch" data-glitch data-reveal>growth system.</span>
-    </h1>
-
-    <p class="hero-sub" data-reveal>
-      <span data-typewriter data-typewriter-text={subhead}>{subhead}</span>
-    </p>
-
-    <div class="cta-row" data-reveal-group>
-      <a href="#book" class="button accent" data-reveal>
-        Book a Free Strategy Call
-        <span class="arrow" aria-hidden="true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </span>
-      </a>
-      <a href="#process" class="button ghost" data-reveal>See how it works</a>
-    </div>
-
-    <div class="stats" data-reveal-group>
-      {stats.map(s => (
-        <div class="stat" data-reveal>
-          <span class="stat-value" data-counter={s.value}>{s.value}</span>
-          <span class="stat-underline" aria-hidden="true"></span>
-          <span class="stat-label">{s.label}</span>
+      <!-- ───────── Stylized Premiere-style editor chrome ─────────
+           Hidden at scroll start, assembles in as the video shrinks
+           into the program monitor. Decorative only. -->
+      <div class="editor" aria-hidden="true">
+        <div class="editor-bar">
+          <span class="dots"><i></i><i></i><i></i></span>
+          <span class="tab">Blueprint_Hero.prproj</span>
+          <span class="ws"><em class="on">Edit</em><em>Color</em><em>Effects</em><em>Audio</em></span>
         </div>
-      ))}
+
+        <div class="editor-main">
+          <div class="panel panel-project">
+            <span class="panel-h">Project · Footage</span>
+            <div class="bins">
+              <span class="bin"></span><span class="bin"></span>
+              <span class="bin"></span><span class="bin"></span>
+              <span class="bin"></span><span class="bin"></span>
+            </div>
+          </div>
+
+          <div class="panel panel-monitor">
+            <!-- The live video lands exactly here (measured by JS) -->
+            <div class="editor-monitor" data-monitor></div>
+            <div class="monitor-bar">
+              <span class="tc" data-tc>00;00;00;00</span>
+              <span class="transport">
+                <i></i><i class="play"></i><i></i>
+              </span>
+              <span class="res">1080p · 23.976</span>
+            </div>
+          </div>
+
+          <div class="panel panel-fx">
+            <span class="panel-h">Lumetri</span>
+            <div class="sliders">
+              <span class="slider"><i style="--v:62%"></i></span>
+              <span class="slider"><i style="--v:38%"></i></span>
+              <span class="slider"><i style="--v:74%"></i></span>
+              <span class="slider"><i style="--v:50%"></i></span>
+              <span class="slider"><i style="--v:28%"></i></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="editor-timeline">
+          <div class="ruler"></div>
+          <div class="tracks">
+            <div class="trk">
+              <span class="clip c-blue"  style="--l:4%;  --w:26%"></span>
+              <span class="clip c-blue"  style="--l:32%; --w:18%"></span>
+              <span class="clip c-light" style="--l:52%; --w:30%"></span>
+              <span class="clip c-blue"  style="--l:84%; --w:12%"></span>
+            </div>
+            <div class="trk">
+              <span class="clip c-orange" style="--l:12%; --w:22%"></span>
+              <span class="clip c-light"  style="--l:46%; --w:16%"></span>
+              <span class="clip c-orange" style="--l:66%; --w:24%"></span>
+            </div>
+            <div class="trk trk-audio">
+              <span class="clip c-audio" style="--l:6%;  --w:40%"></span>
+              <span class="clip c-audio" style="--l:50%; --w:44%"></span>
+            </div>
+          </div>
+          <div class="playhead" data-playhead></div>
+        </div>
+      </div>
+
+      <!-- ───────── The montage video (morphs into the monitor) ───────── -->
+      <div class="hero-media" data-hero-media>
+        <Image
+          src={hero}
+          alt="Festival main stage under lights and haze"
+          width={1456}
+          height={816}
+          format="webp"
+          quality={84}
+          loading="eager"
+        />
+        <video class="hero-video" autoplay muted loop playsinline preload="auto">
+          <source src="/videos/hero-montage.mp4" type="video/mp4" />
+        </video>
+        <div class="media-overlay" aria-hidden="true"></div>
+        <div class="media-grid" aria-hidden="true"></div>
+      </div>
+
+      <!-- ───────── Hero copy (fades out as the editor assembles) ───────── -->
+      <div class="hero-copy">
+        <div class="container hero-inner">
+          <p class="label" data-reveal="left">For touring EDM artists</p>
+
+          <h1>
+            <span data-reveal>Turn every show, release,</span><br />
+            <span data-reveal>and moment into a</span><br />
+            <span class="highlight blue glitch" data-glitch data-reveal>growth system.</span>
+          </h1>
+
+          <p class="hero-sub" data-reveal>
+            <span data-typewriter data-typewriter-text={subhead}>{subhead}</span>
+          </p>
+
+          <div class="cta-row" data-reveal-group>
+            <a href="#book" class="button accent" data-reveal>
+              Book a Free Strategy Call
+              <span class="arrow" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </a>
+            <a href="#process" class="button ghost" data-reveal>See how it works</a>
+          </div>
+
+          <div class="stats" data-reveal-group>
+            {stats.map(s => (
+              <div class="stat" data-reveal>
+                <span class="stat-value" data-counter={s.value}>{s.value}</span>
+                <span class="stat-underline" aria-hidden="true"></span>
+                <span class="stat-label">{s.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <span class="scroll-cue" aria-hidden="true">
+          <span class="scroll-cue-text">Scroll into the edit</span>
+          <span class="scroll-cue-line"></span>
+        </span>
+      </div>
+
     </div>
   </div>
 </section>
 
+<script>
+  // ───────── Cinematic hero: video shrinks into a Premiere-style editor
+  //           as you scroll, then parks as a section. Desktop + fine
+  //           pointer + no reduced-motion only. Mobile/reduced gets the
+  //           static hero (no pin, editor hidden) via CSS. ─────────
+  const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+  const init = () => {
+    const hero = document.querySelector<HTMLElement>('[data-hero-cine]');
+    if (!hero || hero.dataset.cineInit) return;
+    hero.dataset.cineInit = '1';
+
+    const track   = hero.querySelector<HTMLElement>('.hero-track');
+    const sticky  = hero.querySelector<HTMLElement>('.hero-sticky');
+    const media   = hero.querySelector<HTMLElement>('[data-hero-media]');
+    const slot    = hero.querySelector<HTMLElement>('[data-monitor]');
+    const video   = hero.querySelector<HTMLVideoElement>('.hero-video');
+    const playhead = hero.querySelector<HTMLElement>('[data-playhead]');
+    const tc      = hero.querySelector<HTMLElement>('[data-tc]');
+    if (!track || !sticky || !media || !slot) return;
+
+    const mq = window.matchMedia(
+      '(min-width: 981px) and (hover: hover) and (prefers-reduced-motion: no-preference)'
+    );
+
+    let active = false;
+    let ticking = false;
+
+    const reset = () => {
+      media.style.transform = '';
+      media.style.borderRadius = '';
+      hero.style.removeProperty('--cine-p');
+      hero.style.removeProperty('--cine-morph');
+    };
+
+    const update = () => {
+      ticking = false;
+      if (!active) return;
+
+      const trackTop = track.getBoundingClientRect().top;
+      const total = track.offsetHeight - window.innerHeight;
+      const p = total > 0 ? clamp(-trackTop / total) : 0;
+
+      // Media morph runs from p=0.04 and completes by p=0.6, leaving the
+      // last 40% of the scroll as a "parked" beat before release.
+      const morph = easeInOut(clamp((p - 0.04) / 0.56));
+
+      const sRect = sticky.getBoundingClientRect();
+      const mRect = slot.getBoundingClientRect();
+      const left = mRect.left - sRect.left;
+      const top  = mRect.top  - sRect.top;
+      const sx = mRect.width  / sRect.width;
+      const sy = mRect.height / sRect.height;
+
+      const curL  = lerp(0, left, morph);
+      const curT  = lerp(0, top,  morph);
+      const curSx = lerp(1, sx,   morph);
+      const curSy = lerp(1, sy,   morph);
+
+      media.style.transform = `translate(${curL}px, ${curT}px) scale(${curSx}, ${curSy})`;
+      media.style.borderRadius = `${14 * morph}px`;
+
+      hero.style.setProperty('--cine-p', String(p));
+      hero.style.setProperty('--cine-morph', String(morph));
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    };
+
+    const enable = () => {
+      if (active) return;
+      active = true;
+      hero.classList.add('hero--cinematic');
+      window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', onScroll, { passive: true });
+      update();
+    };
+    const disable = () => {
+      if (!active) return;
+      active = false;
+      hero.classList.remove('hero--cinematic');
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      reset();
+    };
+
+    if (mq.matches) enable();
+    mq.addEventListener('change', e => (e.matches ? enable() : disable()));
+
+    // Playhead + timecode tied to the actual video playback for realism.
+    if (video && playhead) {
+      const tick = () => {
+        if (active && video.duration) {
+          const frac = (video.currentTime / video.duration) || 0;
+          playhead.style.left = `${frac * 100}%`;
+          if (tc) {
+            const f = Math.floor((video.currentTime % 1) * 24).toString().padStart(2, '0');
+            const s = Math.floor(video.currentTime % 60).toString().padStart(2, '0');
+            const m = Math.floor(video.currentTime / 60).toString().padStart(2, '0');
+            tc.textContent = `00;${m};${s};${f}`;
+          }
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+  };
+
+  document.addEventListener('astro:page-load', init);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
+</script>
+
 <style>
+  /* ════════════════════════════════════════════════════════════════
+     BASE / STATIC HERO (mobile + reduced-motion fallback)
+     The wrappers collapse via display:contents so the layout is
+     identical to the original single-screen hero.
+     ════════════════════════════════════════════════════════════════ */
   .hero {
     position: relative;
     overflow: hidden;
@@ -90,46 +285,39 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     align-items: center;
     isolation: isolate;
   }
+  .hero-track, .hero-sticky { display: contents; }
+  .editor { display: none; }
 
-  .slides { position: absolute; inset: 0; z-index: 0; }
-  .slide { position: absolute; inset: 0; }
-  .slide :global(img) {
+  .hero-media { position: absolute; inset: 0; z-index: 0; }
+  .hero-media :global(img),
+  .hero-media .hero-video {
+    position: absolute;
+    inset: 0;
     width: 100%; height: 100%;
     object-fit: cover;
     object-position: center 55%;
+  }
+  .hero-media :global(img) {
     animation: heroKenBurns 36s ease-in-out infinite alternate;
     transform-origin: center 55%;
   }
+  .hero-video { z-index: 1; }
   @keyframes heroKenBurns {
     0%   { transform: scale(1.03); }
     100% { transform: scale(1.12) translate(-1%, -1%); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .slide :global(img) { animation: none; }
+    .hero-media :global(img) { animation: none; }
+    .hero-video { display: none; }
   }
 
-  /* Montage video — fills the hero, layered above the poster image */
-  .slide .hero-video {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center 55%;
-    z-index: 1;
-  }
-  /* Motion-sensitive users get the still poster image, not the video */
-  @media (prefers-reduced-motion: reduce) {
-    .slide .hero-video { display: none; }
-  }
-
-  .overlay {
+  .media-overlay {
     position: absolute; inset: 0; z-index: 2;
     background:
       linear-gradient(180deg, rgba(10,10,15,0.45) 0%, rgba(10,10,15,0.65) 50%, rgba(10,10,15,0.95) 100%),
       radial-gradient(60% 60% at 80% 20%, rgba(38, 79, 160, 0.18), transparent 70%);
   }
-  .grid-layer {
+  .media-grid {
     position: absolute; inset: 0; z-index: 2;
     background-image:
       linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
@@ -138,9 +326,8 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     mask-image: radial-gradient(70% 70% at 50% 30%, #000 30%, transparent 100%);
   }
 
+  .hero-copy { position: relative; z-index: 3; width: 100%; }
   .hero-inner {
-    position: relative;
-    z-index: 3;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -189,8 +376,265 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     letter-spacing: 0.12em;
   }
 
+  .scroll-cue { display: none; }
+
   @media (max-width: 600px) {
     .stats { grid-template-columns: 1fr 1fr; gap: 1.25rem; }
     .stat:nth-child(3) { grid-column: 1 / -1; }
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     CINEMATIC MODE (desktop, hover, no reduced-motion)
+     JS adds .hero--cinematic. Establishes the pinned scroll zone and
+     reveals the editor chrome driven by --cine-p / --cine-morph.
+     ════════════════════════════════════════════════════════════════ */
+  .hero--cinematic {
+    display: block;
+    min-height: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .hero--cinematic .hero-track { display: block; height: 240vh; }
+  .hero--cinematic .hero-sticky {
+    display: block;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
+  /* Hide the tall particle canvas in cinematic mode (it would span 240vh) */
+  .hero--cinematic :global(.hero-particles) { display: none; }
+
+  /* Media now morphs via JS transform; kill the Ken Burns so the two
+     transforms don't fight. Origin top-left for the FLIP math. */
+  .hero--cinematic .hero-media {
+    z-index: 3;
+    transform-origin: 0 0;
+    will-change: transform;
+    box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.85);
+  }
+  .hero--cinematic .hero-media :global(img) { animation: none; }
+
+  /* Overlay + grid belong to the full-screen state; fade them as the
+     editor takes over so the shrunk monitor reads as clean footage. */
+  .hero--cinematic .media-overlay,
+  .hero--cinematic .media-grid {
+    opacity: calc(1 - var(--cine-morph, 0));
+  }
+
+  /* Copy sits centered over the full video at the start, fades out fast */
+  .hero--cinematic .hero-copy {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    opacity: clamp(0, calc(1 - var(--cine-p, 0) * 4.5), 1);
+    pointer-events: auto;
+  }
+  .hero--cinematic .hero-inner { padding: 0 1.5rem; }
+
+  /* Scroll cue — only in cinematic mode, fades with the copy */
+  .hero--cinematic .scroll-cue {
+    position: absolute;
+    left: 50%;
+    bottom: 2rem;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--bp-light);
+  }
+  .scroll-cue-text {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 0.66rem;
+    opacity: 0.8;
+  }
+  .scroll-cue-line {
+    width: 1px; height: 38px;
+    background: linear-gradient(to bottom, var(--bp-blue), transparent);
+    animation: cuePulse 1.8s ease-in-out infinite;
+  }
+  @keyframes cuePulse {
+    0%, 100% { transform: scaleY(0.5); opacity: 0.4; transform-origin: top; }
+    50%      { transform: scaleY(1);   opacity: 1;   transform-origin: top; }
+  }
+
+  /* ───────── Editor chrome ───────── */
+  .hero--cinematic .editor {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(1rem, 3vh, 2.2rem) clamp(1rem, 3vw, 2.6rem) clamp(1rem, 3vh, 2.2rem);
+    gap: 0.75rem;
+    background:
+      radial-gradient(80% 60% at 50% 0%, rgba(38,79,160,0.12), transparent 60%),
+      #0b0c12;
+    opacity: clamp(0, calc((var(--cine-p, 0) - 0.34) * 3.2), 1);
+  }
+  .editor-bar, .editor-main, .editor-timeline {
+    /* assemble in with a small upward drift */
+    transform: translateY(calc((1 - clamp(0, calc((var(--cine-p, 0) - 0.4) * 3), 1)) * 18px));
+  }
+
+  .editor-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0.9rem;
+    background: #14161f;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-family: var(--font-display);
+  }
+  .editor-bar .dots { display: inline-flex; gap: 6px; }
+  .editor-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: #2a2d3a; }
+  .editor-bar .dots i:nth-child(1) { background: #e3703b; }
+  .editor-bar .dots i:nth-child(2) { background: #d8b13a; opacity: 0.8; }
+  .editor-bar .dots i:nth-child(3) { background: #62a6db; }
+  .editor-bar .tab {
+    color: var(--ink); opacity: 0.85;
+    font-size: 0.72rem; letter-spacing: 0.04em;
+    padding: 0.25rem 0.7rem;
+    background: rgba(255,255,255,0.05);
+    border-radius: 6px;
+  }
+  .editor-bar .ws { margin-left: auto; display: inline-flex; gap: 1.1rem; }
+  .editor-bar .ws em {
+    font-style: normal; font-size: 0.66rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .editor-bar .ws em.on { color: var(--bp-light); }
+
+  .editor-main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 2.4fr 1fr;
+    gap: 0.75rem;
+    min-height: 0;
+  }
+  .panel {
+    background: #14161f;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.7rem 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-height: 0;
+  }
+  .panel-h {
+    font-family: var(--font-display);
+    font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--bp-light); opacity: 0.7;
+  }
+  .bins { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; align-content: start; }
+  .bin {
+    aspect-ratio: 16/9;
+    border-radius: 5px;
+    background:
+      linear-gradient(135deg, rgba(98,166,219,0.18), rgba(38,79,160,0.28)),
+      #0d111c;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .bin:nth-child(3n) { background: linear-gradient(135deg, rgba(227,112,59,0.18), rgba(38,79,160,0.22)), #0d111c; }
+
+  .panel-monitor { padding: 0.6rem; background: #0c0e15; }
+  .editor-monitor {
+    flex: 1;
+    border-radius: 6px;
+    background: #05060a;
+    border: 1px solid rgba(255,255,255,0.06);
+    min-height: 0;
+  }
+  .monitor-bar {
+    display: flex; align-items: center; gap: 0.8rem;
+    padding-top: 0.55rem;
+  }
+  .monitor-bar .tc {
+    font-family: var(--font-display);
+    font-size: 0.66rem; letter-spacing: 0.08em;
+    color: var(--bp-light);
+  }
+  .monitor-bar .transport { display: inline-flex; gap: 0.5rem; align-items: center; }
+  .monitor-bar .transport i {
+    width: 0; height: 0;
+    border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+    border-left: 8px solid rgba(255,255,255,0.5);
+  }
+  .monitor-bar .transport i.play {
+    border-left-color: var(--bp-orange);
+    border-top-width: 6px; border-bottom-width: 6px; border-left-width: 10px;
+  }
+  .monitor-bar .res { margin-left: auto; font-size: 0.6rem; color: var(--muted); letter-spacing: 0.08em; }
+
+  .sliders { display: flex; flex-direction: column; gap: 0.55rem; }
+  .slider { height: 5px; border-radius: 999px; background: rgba(255,255,255,0.08); position: relative; }
+  .slider i {
+    position: absolute; inset: 0 auto 0 0;
+    width: var(--v, 50%);
+    background: linear-gradient(90deg, var(--bp-deep), var(--bp-blue));
+    border-radius: 999px;
+  }
+  .slider i::after {
+    content: ""; position: absolute; right: -4px; top: 50%;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--bp-light); transform: translateY(-50%);
+    box-shadow: 0 0 8px rgba(98,166,219,0.6);
+  }
+
+  .editor-timeline {
+    height: clamp(96px, 18vh, 150px);
+    background: #14161f;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.5rem 0.7rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .ruler {
+    height: 12px; border-radius: 4px;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.12) 0 1px, transparent 1px 40px);
+    opacity: 0.5;
+  }
+  .tracks { flex: 1; display: flex; flex-direction: column; gap: 0.3rem; min-height: 0; }
+  .trk { position: relative; flex: 1; background: rgba(255,255,255,0.03); border-radius: 5px; }
+  .clip {
+    position: absolute; top: 3px; bottom: 3px;
+    left: var(--l, 0); width: var(--w, 20%);
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .clip.c-blue   { background: linear-gradient(180deg, rgba(98,166,219,0.55), rgba(38,79,160,0.4)); }
+  .clip.c-light  { background: linear-gradient(180deg, rgba(179,224,246,0.5), rgba(98,166,219,0.35)); }
+  .clip.c-orange { background: linear-gradient(180deg, rgba(227,112,59,0.55), rgba(180,80,40,0.4)); }
+  .trk-audio { flex: 0.7; }
+  .clip.c-audio {
+    background:
+      repeating-linear-gradient(90deg, rgba(98,166,219,0.5) 0 2px, rgba(98,166,219,0.12) 2px 5px),
+      rgba(20,30,50,0.6);
+  }
+  .playhead {
+    position: absolute;
+    top: 0.5rem; bottom: 0.5rem;
+    left: 0;
+    width: 2px;
+    background: var(--bp-orange);
+    box-shadow: 0 0 10px rgba(227,112,59,0.7);
+  }
+  .playhead::before {
+    content: "";
+    position: absolute; top: -2px; left: -4px;
+    width: 10px; height: 8px;
+    background: var(--bp-orange);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
   }
 </style>
