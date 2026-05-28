@@ -148,9 +148,10 @@ const frames = [
     object-fit: cover;
     object-position: center 35%;
   }
-  /* Excision frame (now index 1): lower the focal point so stage + fire
-     are visible under the lasers. Other frames keep the higher crop. */
-  .frame[data-frame="1"] .img-wrap :global(img) { object-position: center 68%; }
+  /* Per-frame focal points — lower crops keep the subject/stage in view. */
+  .frame[data-frame="0"] .img-wrap :global(img) { object-position: center 55%; } /* Martin Garrix */
+  .frame[data-frame="1"] .img-wrap :global(img) { object-position: center 68%; } /* Excision */
+  .frame[data-frame="2"] .img-wrap :global(img) { object-position: center 58%; } /* Subtronics */
 
   .overlay {
     position: absolute; inset: 0;

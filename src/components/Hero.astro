@@ -1,6 +1,8 @@
 ---
 import { Image } from 'astro:assets';
-import hero from '../assets/images/hero/hero-4-martingarrix-wickedoaks.jpg';
+// Poster == the video's actual first frame (extracted from hero-montage.mp4),
+// so there's no visual jump when the video starts playing over it.
+import hero from '../assets/images/hero/hero-montage-poster.jpg';
 
 const stats = [
   { value: '$12.9B', label: 'EDM industry 2025' },
@@ -15,9 +17,9 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     <div class="slide">
       <Image
         src={hero}
-        alt="Martin Garrix headlining Wicked Oaks"
-        width={1920}
-        height={1280}
+        alt="Festival main stage under lights and haze"
+        width={1456}
+        height={816}
         format="webp"
         quality={84}
         loading="eager"
