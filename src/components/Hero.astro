@@ -116,9 +116,9 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
   const IMG_W = 2558, IMG_H = 1380;
   // Program-monitor target as fractions of the screenshot. Centered on the
   // monitor (~43.6%, 29.7%); sized 16:9 in PIXELS for the 2558x1380 image
-  // (w/h fractions differ because the image isn't exactly 16:9). A ~40%
-  // width gives a ~2.5x zoom — a clean reveal that keeps the editor crisp.
-  const MON = { l: 0.236, t: 0.0885, w: 0.40, h: 0.417 };
+  // (w/h fractions differ because the image isn't exactly 16:9). ~43% width
+  // gives a slightly bigger parked video and a ~2.3x zoom.
+  const MON = { l: 0.201, t: 0.052, w: 0.47, h: 0.49 };
 
   const init = () => {
     const hero = document.querySelector<HTMLElement>('[data-hero-cine]');
@@ -130,7 +130,8 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     const media  = hero.querySelector<HTMLElement>('[data-hero-media]');
     const slot   = hero.querySelector<HTMLElement>('[data-monitor]');
     const editor = hero.querySelector<HTMLElement>('.editor');
-    if (!track || !sticky || !media || !slot || !editor) return;
+    const shot   = hero.querySelector<HTMLElement>('.editor-shot');
+    if (!track || !sticky || !media || !slot || !editor || !shot) return;
 
     const mq = window.matchMedia(
       '(min-width: 981px) and (hover: hover) and (prefers-reduced-motion: no-preference)'
@@ -143,6 +144,7 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
       media.style.transform = '';
       media.style.left = media.style.top = media.style.width = media.style.height = '';
       editor.style.transform = '';
+      shot.style.left = shot.style.top = shot.style.width = shot.style.height = '';
       hero.style.removeProperty('--cine-p');
       hero.style.removeProperty('--cine-morph');
     };
@@ -155,9 +157,10 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
       const total = track.offsetHeight - window.innerHeight;
       const p = total > 0 ? clamp(-trackTop / total) : 0;
 
-      // Morph runs from p=0.04 and completes by p=0.6, leaving the last
-      // 40% as a parked beat before release.
-      const morph = easeInOut(clamp((p - 0.04) / 0.56));
+      // Morph runs across almost the whole pinned track and completes at
+      // p≈0.95, so the editor reaches full frame right as the section
+      // releases into the next one — no dead "parked" pause at the end.
+      const morph = easeInOut(clamp((p - 0.02) / 0.93));
 
       const sRect = sticky.getBoundingClientRect();
       const SW = sRect.width, SH = sRect.height;
@@ -174,12 +177,24 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
       media.style.width = `${coverW}px`;
       media.style.height = `${coverH}px`;
 
-      // Program-monitor rect after object-fit:contain fits the whole 16:9
-      // screenshot into the stage (letterboxed, never cropped) — exact for
-      // any viewport aspect ratio.
-      const fit = Math.min(SW / IMG_W, SH / IMG_H);
+      // Fit the whole editor into the area BELOW the sticky header (so its
+      // menu bar isn't tucked under the header at the parked end), centered
+      // in that available area. Never cropped.
+      const headerEl = document.querySelector<HTMLElement>('.site-header');
+      const headerH = headerEl ? headerEl.offsetHeight : 70;
+      const padTop = headerH + 6, padBot = 10;
+      const availH = SH - padTop - padBot;
+      const fit = Math.min(SW / IMG_W, availH / IMG_H);
       const rW = IMG_W * fit, rH = IMG_H * fit;
-      const offX = (SW - rW) / 2, offY = (SH - rH) / 2;
+      const offX = (SW - rW) / 2;
+      const offY = padTop + (availH - rH) / 2;
+      // Position the editor IMAGE explicitly (JS owns the fit, not CSS
+      // object-fit) so the image, the monitor slot, and the video all share
+      // the exact same below-header rectangle.
+      shot.style.left = `${offX}px`;
+      shot.style.top = `${offY}px`;
+      shot.style.width = `${rW}px`;
+      shot.style.height = `${rH}px`;
       const monL = offX + MON.l * rW;
       const monT = offY + MON.t * rH;
       const monW = MON.w * rW;
@@ -374,7 +389,7 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
      CINEMATIC MODE (desktop, hover, no reduced-motion)
      ════════════════════════════════════════════════════════════════ */
   .hero--cinematic { display: block; min-height: 0; overflow: visible; }
-  .hero--cinematic .hero-track { display: block; height: 240vh; }
+  .hero--cinematic .hero-track { display: block; height: 200vh; }
   .hero--cinematic .hero-sticky {
     display: block;
     position: sticky;
@@ -397,21 +412,19 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
   }
   .editor-shot {
     position: absolute;
-    inset: 0;
-    width: 100%; height: 100%;
-    object-fit: contain;   /* show the WHOLE editor, never crop; letterbox on
-                              non-16:9 windows (bars match the dark stage bg) */
-    object-position: center;
+    /* left/top/width/height set by JS to the below-header contain rect.
+       The box is aspect-correct, so object-fit: fill doesn't distort. */
+    object-fit: fill;
   }
   /* Program-monitor slot — the morph target. Coordinates are % of the
      stage (which equals % of the 16:9 screenshot on a 16:9 viewport).
      Tuned to sit exactly on the cars frame. */
   .editor-monitor {
     position: absolute;
-    left:  var(--mon-l, 23.6%);
-    top:   var(--mon-t, 8.85%);
-    width: var(--mon-w, 40%);
-    height: var(--mon-h, 41.7%);
+    left:  var(--mon-l, 20.1%);
+    top:   var(--mon-t, 5.2%);
+    width: var(--mon-w, 47%);
+    height: var(--mon-h, 49%);
     pointer-events: none;
   }
 
