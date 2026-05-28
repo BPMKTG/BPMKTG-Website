@@ -114,7 +114,11 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
   // Backdrop screenshot natural size + the program-monitor rectangle as
   // fractions of that natural image (measured from editor-backdrop.png).
   const IMG_W = 2560, IMG_H = 1440;
-  const MON = { l: 0.204, t: 0.0885, w: 0.453, h: 0.453 };
+  // Program-monitor viewing area as fractions of the screenshot. The monitor
+  // is dark gray now, so the montage fills this region and any edge sits on
+  // the dark pasteboard (no precise-alignment requirement). Centered on the
+  // monitor (~43%, 32%); 16:9 (w% == h% on a 16:9 canvas).
+  const MON = { l: 0.19, t: 0.08, w: 0.48, h: 0.48 };
 
   const init = () => {
     const hero = document.querySelector<HTMLElement>('[data-hero-cine]');
@@ -387,10 +391,10 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
      Tuned to sit exactly on the cars frame. */
   .editor-monitor {
     position: absolute;
-    left:  var(--mon-l, 20.4%);
-    top:   var(--mon-t, 8.85%);
-    width: var(--mon-w, 45.3%);
-    height: var(--mon-h, 45.3%);
+    left:  var(--mon-l, 19%);
+    top:   var(--mon-t, 8%);
+    width: var(--mon-w, 48%);
+    height: var(--mon-h, 48%);
     pointer-events: none;
   }
 
