@@ -1,12 +1,10 @@
 ---
 // Brand Message Video — homepage section under the Artist Marquee.
-// Scaffolded with a placeholder player. When the final video is ready, drop
-// the Vimeo ID into `vimeoId` (or set `videoSrc` for self-hosted) and the
-// markup below picks it up automatically.
+import { Image } from 'astro:assets';
+import bmvPoster from '../assets/images/thumbnails/BMV v1 Horizontal.jpg';
 
 const vimeoId: string | null = '1196578279';   // Brand Message Video (Vimeo)
 const videoSrc: string | null = null;          // self-hosted fallback: '/videos/brand-message.mp4'
-const poster: string | null = null;            // optional: '/videos/posters/brand-message.jpg'
 ---
 <section class="brand-message" id="brand-message">
   <div class="container bmv-grid">
@@ -23,7 +21,7 @@ const poster: string | null = null;            // optional: '/videos/posters/bra
 
     <div class="bmv-stage" data-reveal="scale">
       {videoSrc && !vimeoId ? (
-        <video class="bmv-player" controls playsinline poster={poster ?? undefined}>
+        <video class="bmv-player" controls playsinline>
           <source src={videoSrc} type="video/mp4" />
         </video>
       ) : (
@@ -34,7 +32,8 @@ const poster: string | null = null;            // optional: '/videos/posters/bra
           data-bmv-vimeo={vimeoId ?? ''}
           aria-label="Play the Blueprint Marketing manifesto video"
         >
-          <span class="bmv-bg" aria-hidden="true"></span>
+          <Image class="bmv-poster" src={bmvPoster} alt="" widths={[640, 960, 1280]} sizes="(max-width: 920px) 90vw, 55vw" loading="lazy" />
+          <span class="bmv-shade" aria-hidden="true"></span>
           <span class="bmv-content">
             <span class="bmv-pill">{vimeoId ? '2 Min Watch' : 'Coming Soon'}</span>
             <span class="bmv-play" aria-hidden="true">
@@ -42,8 +41,6 @@ const poster: string | null = null;            // optional: '/videos/posters/bra
                 <polygon points="9,5 27,16 9,27" />
               </svg>
             </span>
-            <span class="bmv-caption">Blueprint Marketing — The Manifesto</span>
-            <span class="bmv-subcaption">Where creativity meets clarity, and your vision turns into momentum.</span>
           </span>
         </button>
       )}
@@ -77,6 +74,9 @@ const poster: string | null = null;            // optional: '/videos/posters/bra
       btn.addEventListener('click', () => {
         const iframe = document.createElement('iframe');
         iframe.className = 'bmv-player';
+        // Inline sizing: this element is created in JS so it carries no Astro
+        // scoped-style attribute, so the scoped .bmv-player CSS won't match it.
+        iframe.style.cssText = 'display:block;width:100%;height:100%;border:0;background:#000;';
         iframe.src = `https://player.vimeo.com/video/${id}?autoplay=1&title=0&byline=0&portrait=0&dnt=1`;
         iframe.allow = 'autoplay; fullscreen; picture-in-picture';
         iframe.setAttribute('allowfullscreen', '');
@@ -120,33 +120,31 @@ const poster: string | null = null;            // optional: '/videos/posters/bra
   .bmv-stage {
     position: relative;
     width: 100%;
+    aspect-ratio: 16 / 9;        /* defines the box; children fill it */
     border-radius: 24px;
     overflow: hidden;
+    background: #05060a;
     box-shadow:
       0 30px 80px -30px rgba(0, 0, 0, 0.75),
       0 0 0 1px rgba(98, 166, 219, 0.25);
   }
 
-  /* ── Final state: Vimeo iframe or self-hosted video ── */
+  /* ── Player (Vimeo iframe / self-hosted) fills the stage ── */
   .bmv-player {
     display: block;
     width: 100%;
-    aspect-ratio: 16 / 9;
+    height: 100%;
     border: 0;
     background: #000;
   }
-  iframe.bmv-player,
-  video.bmv-player {
-    width: 100%;
-    height: 100%;
-  }
 
-  /* ── Placeholder state ── */
+  /* ── Placeholder (thumbnail + play) fills the stage ── */
   .bmv-placeholder {
-    position: relative;
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
-    aspect-ratio: 16 / 9;
+    height: 100%;
     border: none;
     padding: 0;
     cursor: pointer;
@@ -155,23 +153,28 @@ const poster: string | null = null;            // optional: '/videos/posters/bra
     background: #0d111c;
     isolation: isolate;
   }
-  .bmv-bg {
+  .bmv-poster {
     position: absolute;
     inset: 0;
-    background:
-      radial-gradient(80% 60% at 30% 30%, rgba(98, 166, 219, 0.28), transparent 60%),
-      radial-gradient(80% 60% at 75% 80%, rgba(38, 79, 160, 0.4), transparent 60%),
-      radial-gradient(40% 50% at 50% 50%, rgba(227, 112, 59, 0.12), transparent 70%),
-      linear-gradient(140deg, #0a0d18, #0f1424, #0a0d18);
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
   }
-  .bmv-bg::after {
-    content: "";
-    position: absolute; inset: 0;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
-    background-size: 38px 38px;
-    mask-image: radial-gradient(70% 70% at 50% 50%, #000 30%, transparent 100%);
+  .bmv-shade {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(60% 60% at 50% 45%, rgba(5,6,10,0.15), rgba(5,6,10,0.55) 100%),
+      linear-gradient(180deg, rgba(5,6,10,0.1) 0%, rgba(5,6,10,0.55) 100%);
+    transition: background 0.3s;
+  }
+  .bmv-placeholder:hover .bmv-shade,
+  .bmv-placeholder:focus-visible .bmv-shade {
+    background:
+      radial-gradient(60% 60% at 50% 45%, rgba(5,6,10,0.05), rgba(5,6,10,0.45) 100%),
+      linear-gradient(180deg, rgba(5,6,10,0.05) 0%, rgba(5,6,10,0.45) 100%);
   }
 
   .bmv-content {
