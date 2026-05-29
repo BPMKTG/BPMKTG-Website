@@ -4,7 +4,7 @@
 // the Vimeo ID into `vimeoId` (or set `videoSrc` for self-hosted) and the
 // markup below picks it up automatically.
 
-const vimeoId: string | null = null;          // e.g. '123456789'
+const vimeoId: string | null = '1196578279';   // Brand Message Video (Vimeo)
 const videoSrc: string | null = null;          // self-hosted fallback: '/videos/brand-message.mp4'
 const poster: string | null = null;            // optional: '/videos/posters/brand-message.jpg'
 ---
@@ -22,24 +22,21 @@ const poster: string | null = null;            // optional: '/videos/posters/bra
     </header>
 
     <div class="bmv-stage" data-reveal="scale">
-      {vimeoId ? (
-        <div class="bmv-player">
-          <iframe
-            src={`https://player.vimeo.com/video/${vimeoId}?title=0&byline=0&portrait=0&dnt=1`}
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowfullscreen
-            title="Blueprint Marketing — Brand Message"
-          ></iframe>
-        </div>
-      ) : videoSrc ? (
+      {videoSrc && !vimeoId ? (
         <video class="bmv-player" controls playsinline poster={poster ?? undefined}>
           <source src={videoSrc} type="video/mp4" />
         </video>
       ) : (
-        <button type="button" class="bmv-placeholder" data-bmv-placeholder>
+        <button
+          type="button"
+          class="bmv-placeholder"
+          data-bmv-placeholder
+          data-bmv-vimeo={vimeoId ?? ''}
+          aria-label="Play the Blueprint Marketing manifesto video"
+        >
           <span class="bmv-bg" aria-hidden="true"></span>
           <span class="bmv-content">
-            <span class="bmv-pill">Coming Soon</span>
+            <span class="bmv-pill">{vimeoId ? '2 Min Watch' : 'Coming Soon'}</span>
             <span class="bmv-play" aria-hidden="true">
               <svg viewBox="0 0 32 32" width="72" height="72" fill="currentColor">
                 <polygon points="9,5 27,16 9,27" />
@@ -65,6 +62,33 @@ const poster: string | null = null;            // optional: '/videos/posters/bra
       </a>
     </div>
 </section>
+
+<script>
+  // Click-to-play: keep the branded poster, then swap in the autoplaying
+  // Vimeo player (branding stripped) on click. Idempotent across view
+  // transitions.
+  function initBMV() {
+    document.querySelectorAll('[data-bmv-placeholder]').forEach(el => {
+      const btn = el as HTMLButtonElement;
+      if (btn.dataset.bmvBound) return;
+      const id = btn.getAttribute('data-bmv-vimeo');
+      if (!id) return;                       // no video yet -> stays a poster
+      btn.dataset.bmvBound = '1';
+      btn.addEventListener('click', () => {
+        const iframe = document.createElement('iframe');
+        iframe.className = 'bmv-player';
+        iframe.src = `https://player.vimeo.com/video/${id}?autoplay=1&title=0&byline=0&portrait=0&dnt=1`;
+        iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.title = 'Blueprint Marketing — Brand Message';
+        btn.replaceWith(iframe);
+      });
+    });
+  }
+  document.addEventListener('astro:page-load', initBMV);
+  if (document.readyState !== 'loading') initBMV();
+  else document.addEventListener('DOMContentLoaded', initBMV, { once: true });
+</script>
 
 <style>
   .brand-message {
