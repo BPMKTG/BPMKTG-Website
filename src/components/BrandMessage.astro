@@ -227,6 +227,16 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
     gap: 1.25rem;
     padding: 2rem;
     text-align: center;
+    transition: opacity 0.35s ease;
+  }
+  /* Hover preview plays clean: fade the pill/play/captions out so they
+     don't sit over the subject's face while the video's running. They fade
+     right back in on leave. Touch devices keep the overlay (no hover). */
+  @media (hover: hover) and (pointer: fine) {
+    .bmv-placeholder:hover .bmv-content,
+    .bmv-placeholder:focus-visible .bmv-content {
+      opacity: 0;
+    }
   }
   .bmv-pill {
     padding: 0.4rem 0.9rem;
