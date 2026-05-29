@@ -229,12 +229,11 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
     text-align: center;
     transition: opacity 0.35s ease;
   }
-  /* Hover preview plays clean: fade the pill/play/captions out so they
-     don't sit over the subject's face while the video's running. They fade
-     right back in on leave. Touch devices keep the overlay (no hover). */
+  /* Hover preview: fade only the play button out so it doesn't sit over the
+     subject's face; keep the pill and captions visible. */
   @media (hover: hover) and (pointer: fine) {
-    .bmv-placeholder:hover .bmv-content,
-    .bmv-placeholder:focus-visible .bmv-content {
+    .bmv-placeholder:hover .bmv-play,
+    .bmv-placeholder:focus-visible .bmv-play {
       opacity: 0;
     }
   }
@@ -260,7 +259,7 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
     background: rgba(10, 10, 15, 0.55);
     border: 1px solid rgba(98, 166, 219, 0.4);
     backdrop-filter: blur(6px);
-    transition: transform 0.3s cubic-bezier(.2,.7,.3,1), color 0.3s, background 0.3s, border-color 0.3s;
+    transition: transform 0.3s cubic-bezier(.2,.7,.3,1), color 0.3s, background 0.3s, border-color 0.3s, opacity 0.3s ease;
     filter: drop-shadow(0 8px 28px rgba(0, 0, 0, 0.5));
   }
   .bmv-play svg { width: 62px; height: 62px; }
