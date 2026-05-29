@@ -41,6 +41,8 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
                 <polygon points="9,5 27,16 9,27" />
               </svg>
             </span>
+            <span class="bmv-caption">Blueprint Marketing — The Manifesto</span>
+            <span class="bmv-subcaption">Where creativity meets clarity, and your vision turns into momentum.</span>
           </span>
         </button>
       )}
@@ -228,13 +230,15 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
     letter-spacing: 0.02em;
     font-size: clamp(1.1rem, 2vw, 1.5rem);
     font-weight: 800;
+    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
   }
   .bmv-subcaption {
     color: var(--bp-light);
     font-style: italic;
     font-size: 0.95rem;
     max-width: 44ch;
-    opacity: 0.85;
+    opacity: 0.92;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85);
   }
 
   .bmv-cta {
