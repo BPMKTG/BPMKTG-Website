@@ -55,6 +55,9 @@ const principles = [
         We're not an agency.<br/>
         <span class="highlight">We're growth infrastructure.</span>
       </h1>
+      <p class="hero-tagline" data-reveal>
+        We don't just market music — <em>we live and breathe the culture.</em>
+      </p>
       <p class="lede" data-reveal>
         Built by photographers and editors who live inside the bass music scene —
         for the artists ready to turn their work into something that compounds.
@@ -141,6 +144,10 @@ const principles = [
       <header class="founders-head">
         <p class="label" data-reveal="left">The Founders</p>
         <h2 data-reveal>The two people<br/>behind the system.</h2>
+        <p class="founders-creed" data-reveal>
+          <span class="creed-tick" aria-hidden="true"></span>
+          <em>Your wins are our wins.</em> Partnership, not delivery queue.
+        </p>
       </header>
 
       <div class="founder-rows">
@@ -240,6 +247,22 @@ const principles = [
     margin: 1rem 0 1.5rem;
     max-width: 20ch;
     text-shadow: 0 4px 30px rgba(0,0,0,0.65);
+  }
+  .about-hero .hero-tagline {
+    color: var(--bp-light);
+    font-family: var(--font-display);
+    font-size: clamp(1rem, 1.6vw, 1.25rem);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+    margin: 0 0 1.25rem;
+    max-width: 56ch;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.6);
+  }
+  .about-hero .hero-tagline em {
+    color: #fff;
+    font-style: normal;
+    font-weight: 700;
   }
   .about-hero .lede {
     color: var(--ink);
@@ -383,6 +406,31 @@ const principles = [
   }
   .founders-head { max-width: 60ch; margin-bottom: 4rem; }
   .founders-head h2 { margin-top: 1rem; }
+  .founders-creed {
+    margin-top: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 1rem 0.55rem 0.8rem;
+    background: rgba(227, 112, 59, 0.08);
+    border: 1px solid rgba(227, 112, 59, 0.35);
+    border-radius: 999px;
+    color: var(--ink);
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+  .founders-creed em {
+    color: var(--bp-orange);
+    font-style: normal;
+    font-weight: 700;
+  }
+  .creed-tick {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--bp-orange);
+    box-shadow: 0 0 10px rgba(227, 112, 59, 0.7);
+    flex-shrink: 0;
+  }
 
   .founder-rows {
     display: flex;
