@@ -5,10 +5,10 @@
   --bp-gray:     #737374;
   --bp-orange:   #e3703b;
 
-  --bg:          #0a0a0f;
+  --bg:          #080810;
   --bg-2:        #0d0e16;
-  --card:        #12131c;
-  --card-elev:   #1a1c28;
+  --card:        rgba(18, 19, 28, 0.85);
+  --card-elev:   rgba(26, 28, 40, 0.88);
   --line:        rgba(255, 255, 255, 0.08);
 
   --ink:         #f5f7ff;
@@ -38,9 +38,14 @@ html, body {
 }
 
 body {
+  /* Deep-space nebula clouds (fixed across scroll). Very subtle blue + purple
+     gradients painted as the root background. The SpaceBackground canvas
+     sits above this and paints stars + shooting stars; content sits above
+     the canvas. */
   background-image:
-    radial-gradient(60% 50% at 50% 0%, rgba(98, 166, 219, 0.10), transparent 70%),
-    radial-gradient(40% 40% at 100% 30%, rgba(38, 79, 160, 0.10), transparent 70%);
+    radial-gradient(55% 45% at 18% 12%, rgba(38, 79, 160, 0.05),  transparent 60%),
+    radial-gradient(50% 45% at 82% 72%, rgba(120, 60, 180, 0.04), transparent 65%),
+    radial-gradient(45% 40% at 60% 35%, rgba(38, 79, 160, 0.035), transparent 70%);
   background-attachment: fixed;
 }
 

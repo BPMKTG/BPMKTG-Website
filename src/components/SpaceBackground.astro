@@ -1,0 +1,208 @@
+---
+// Page-wide unified space background. Lives in Layout, fixed across scroll,
+// behind ALL content. The canvas paints:
+//   - Small static stars (varying size + opacity + subtle hue)
+//   - Occasional diagonal shooting stars with a fading trail
+// Nebula color clouds are CSS body background (also fixed-attachment) so this
+// canvas stays mostly transparent and cheap.
+//
+// Idempotent across view transitions via a flag on the canvas element.
+---
+<canvas class="space-canvas" aria-hidden="true"></canvas>
+
+<script>
+  const initSpace = () => {
+    const canvas = document.querySelector<HTMLCanvasElement>('canvas.space-canvas');
+    if (!canvas) return;
+    // Avoid double-init on astro:page-load swaps.
+    if ((canvas as any).__spaceInit) return;
+    (canvas as any).__spaceInit = true;
+
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) return;
+
+    const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isMobile = () => window.matchMedia('(max-width: 700px)').matches;
+
+    let dpr = 1;
+    let W = 0, H = 0;
+
+    type Star = { x: number; y: number; r: number; a: number; tone: number };
+    let stars: Star[] = [];
+
+    function genStars() {
+      const target = isMobile() ? 90 : 230;
+      stars = new Array(target);
+      for (let i = 0; i < target; i++) {
+        stars[i] = {
+          x: Math.random() * W,
+          y: Math.random() * H,
+          // Bias toward small dots, occasional brighter
+          r: Math.pow(Math.random(), 2.2) * 1.4 + 0.3,
+          a: Math.random() * 0.55 + 0.2,
+          tone: Math.random(),
+        };
+      }
+    }
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      genStars();
+    }
+    resize();
+
+    // Debounce resize so we're not regenerating stars on every frame of drag.
+    let resizeTimer = 0;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(resize, 160);
+    }, { passive: true });
+
+    function drawStars() {
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
+        const color =
+          s.tone < 0.85 ? `rgba(255,255,255,${s.a})` :
+          s.tone < 0.94 ? `rgba(179,224,246,${s.a})` :
+                          `rgba(98,166,219,${s.a})`;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // ── Shooting stars ──
+    type Shoot = {
+      x: number; y: number;       // current head position (CSS px)
+      vx: number; vy: number;     // velocity (px/sec)
+      life: number; max: number;  // seconds
+      len: number;                // trail length in px
+      w: number;                  // line width
+    };
+    const shoots: Shoot[] = [];
+    let nextShoot = 0;  // ms timestamp for next spawn
+
+    function spawnShoot() {
+      // 20–45 degrees below horizontal — natural meteor angles, never axis-aligned
+      const angle = (20 + Math.random() * 25) * Math.PI / 180;
+      const speed = (isMobile() ? 700 : 1000) + Math.random() * 600;  // 700–1600 px/s
+      const max = 0.6 + Math.random() * 0.6;                          // 0.6–1.2s
+      const len = speed * (0.10 + Math.random() * 0.06);              // trail length
+      const w = 1 + Math.random() * 0.8;
+
+      // Spawn just off either the top or left edge, with some inset variation
+      let x: number, y: number;
+      if (Math.random() < 0.5) {
+        x = Math.random() * (W * 0.85);
+        y = -30 - Math.random() * 40;
+      } else {
+        x = -30 - Math.random() * 40;
+        y = Math.random() * (H * 0.55);
+      }
+
+      shoots.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0, max,
+        len, w,
+      });
+    }
+
+    function drawShoots(dt: number) {
+      for (let i = shoots.length - 1; i >= 0; i--) {
+        const s = shoots[i];
+        s.life += dt;
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+
+        // Trail end point (behind the head, opposite motion)
+        const m = Math.hypot(s.vx, s.vy);
+        const ux = s.vx / m, uy = s.vy / m;
+        const tailX = s.x - ux * s.len;
+        const tailY = s.y - uy * s.len;
+
+        // Fade in quickly, fade out across the rest of the life
+        const p = s.life / s.max;
+        const alpha =
+          p < 0.12 ? p / 0.12 :
+          p > 0.85 ? Math.max(0, 1 - (p - 0.85) / 0.15) :
+          1;
+
+        // Trail: bright-head -> light-blue mid -> transparent tail
+        const grad = ctx.createLinearGradient(s.x, s.y, tailX, tailY);
+        grad.addColorStop(0,    `rgba(255,255,255,${alpha})`);
+        grad.addColorStop(0.35, `rgba(179,224,246,${alpha * 0.55})`);
+        grad.addColorStop(1,    'rgba(255,255,255,0)');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = s.w;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(tailX, tailY);
+        ctx.lineTo(s.x, s.y);
+        ctx.stroke();
+
+        // Bright head dot
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.w * 1.3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.fill();
+
+        // Despawn when life ends OR fully off-screen on either axis
+        if (s.life >= s.max || s.x > W + 100 || s.y > H + 100) {
+          shoots.splice(i, 1);
+        }
+      }
+    }
+
+    let lastT = 0;
+    function frame(t: number) {
+      const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
+      lastT = t;
+
+      ctx.clearRect(0, 0, W, H);
+      drawStars();
+
+      if (t >= nextShoot) {
+        spawnShoot();
+        nextShoot = t + 4000 + Math.random() * 4000;  // 4–8s
+      }
+      drawShoots(dt);
+
+      requestAnimationFrame(frame);
+    }
+
+    if (reduced()) {
+      // Reduced motion: paint static stars only, no shooting stars or rAF loop.
+      ctx.clearRect(0, 0, W, H);
+      drawStars();
+    } else {
+      requestAnimationFrame(frame);
+    }
+  };
+
+  // Fire on initial load AND on Astro view transitions.
+  document.addEventListener('astro:page-load', initSpace);
+  if (document.readyState !== 'loading') initSpace();
+  else document.addEventListener('DOMContentLoaded', initSpace, { once: true });
+</script>
+
+<style>
+  .space-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: -1;          /* behind in-flow content; body bg paints under it */
+    pointer-events: none;
+    width: 100vw;
+    height: 100vh;
+    background: transparent;
+  }
+</style>
