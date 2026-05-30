@@ -1,4 +1,6 @@
 ---
+import SpaceBg from './SpaceBg.astro';
+
 const diffs = [
   {
     title: 'Built for bass music.',
@@ -23,6 +25,7 @@ const diffs = [
 ];
 ---
 <section class="why" id="why">
+  <SpaceBg tone="mixed" density="medium" shooting={true} />
   <div class="container">
     <header class="why-head">
       <p class="label" data-reveal="left">Why Blueprint</p>
@@ -48,7 +51,7 @@ const diffs = [
 </section>
 
 <style>
-  .why { padding: 5rem 0; }
+  .why { padding: 5rem 0; position: relative; overflow: hidden; isolation: isolate; }
   .why-head { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: end; margin-bottom: 3rem; }
   .why-head .label { grid-column: 1 / -1; }
   .why-head h2 { margin-top: 0.75rem; }

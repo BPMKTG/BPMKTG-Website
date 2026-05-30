@@ -1,4 +1,6 @@
 ---
+import SpaceBg from './SpaceBg.astro';
+
 const tiers = [
   {
     tag: 'Tier 01 · Entry',
@@ -83,6 +85,7 @@ const tiers = [
 ];
 ---
 <section class="offers" id="offers">
+  <SpaceBg tone="mixed" density="medium" shooting={true} />
   <div class="container">
     <header class="offers-head">
       <p class="label" data-reveal="left">The Offer Stack</p>
@@ -140,7 +143,7 @@ const tiers = [
 </section>
 
 <style>
-  .offers { padding: 5rem 0; }
+  .offers { padding: 5rem 0; position: relative; overflow: hidden; isolation: isolate; }
   .offers-head { max-width: 60ch; margin-bottom: 3rem; }
   .offers-head h2 { margin: 1rem 0; }
   .lede { color: var(--ink); opacity: 0.72; font-size: 1.05rem; }

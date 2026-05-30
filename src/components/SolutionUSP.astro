@@ -1,4 +1,6 @@
 ---
+import SpaceBg from './SpaceBg.astro';
+
 const pillars = [
   { title: 'Content',      body: 'Your shows, releases, and existing footage turned into a high-output content engine.' },
   { title: 'Distribution', body: 'Platform-native posting, hooks, and EDM-trend alignment that actually reaches new fans.' },
@@ -7,6 +9,7 @@ const pillars = [
 ];
 ---
 <section class="solution" id="solution">
+  <SpaceBg tone="blue" density="medium" />
   <div class="container">
     <div class="solution-head">
       <p class="label" data-reveal="left">The Blueprint Approach</p>
@@ -30,7 +33,7 @@ const pillars = [
 </section>
 
 <style>
-  .solution { padding: 5rem 0; }
+  .solution { padding: 5rem 0; position: relative; overflow: hidden; isolation: isolate; }
   /* Wide enough that the H2's longest sentence ("NOT A MARKETING AGENCY.")
      fits on a single line in Orbitron uppercase at the H2 clamp size. */
   .solution-head { max-width: 880px; }

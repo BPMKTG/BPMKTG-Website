@@ -1,4 +1,6 @@
 ---
+import SpaceBg from './SpaceBg.astro';
+
 const pains = [
   { quote: "I'm posting but nothing's really happening.",     gap: 'Fan growth, streams, and booking opportunities — left on the table every week.' },
   { quote: "I have a ton of footage but don't know what to do with it.", gap: 'Viral moments, brand elevation, audience growth — all wasted on a hard drive.' },
@@ -10,6 +12,7 @@ const pains = [
 ];
 ---
 <section class="problem" id="problem">
+  <SpaceBg tone="deep" density="medium" shooting={true} />
   <div class="container content">
     <p class="label" data-reveal="left">The Gap</p>
     <h2 data-reveal>
@@ -38,6 +41,7 @@ const pains = [
     position: relative;
     padding: 6rem 0 7rem;
     overflow: hidden;
+    isolation: isolate;
   }
   .content { position: relative; z-index: 2; }
 
