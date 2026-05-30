@@ -1,4 +1,11 @@
 ---
+const steps = [
+  { title: 'Book the call',          body: 'Free, 30 minutes, no pitch deck — pick a slot that works.' },
+  { title: 'Discovery + audit',      body: 'We dig into your content, audience, and growth gaps so the conversation is specific to you.' },
+  { title: 'Custom proposal',        body: 'A tailored plan with clear deliverables, timeline, and pricing — no inflated numbers, no fine print.' },
+  { title: 'Quick-win launch',       body: 'We ship something fast — a content drop, a funnel, a campaign test — to prove the system works.' },
+  { title: 'Long-term partnership',  body: 'The growth system runs in the background. We optimize. You make music.' },
+];
 ---
 <section class="book" id="book">
   <div class="container">
@@ -30,8 +37,25 @@
       <ul class="trust" data-reveal>
         <li>Free · 30 minutes</li>
         <li>No-pressure intro</li>
+        <li>No inflated metrics. No hidden costs.</li>
         <li>Walk away with a growth plan</li>
       </ul>
+
+      <!-- What happens after you book (5-step sales process from the brand) -->
+      <div class="process" data-reveal-group>
+        <p class="process-label" data-reveal>What happens after you book</p>
+        <ol class="process-steps">
+          {steps.map((s, i) => (
+            <li class="process-step" data-reveal>
+              <span class="ps-num">{String(i + 1).padStart(2, '0')}</span>
+              <div class="ps-body">
+                <h3>{s.title}</h3>
+                <p>{s.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   </div>
 </section>
@@ -85,5 +109,78 @@
     background: var(--bp-blue);
     border-radius: 50%;
     box-shadow: 0 0 8px var(--bp-blue);
+  }
+
+  /* ─────────── Process steps (what happens after you book) ─────────── */
+  .process {
+    width: 100%;
+    margin-top: 3.5rem;
+    padding-top: 2.5rem;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    text-align: left;
+  }
+  .process-label {
+    font-family: var(--font-display);
+    color: var(--bp-light);
+    font-size: 0.74rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1.75rem;
+  }
+  .process-steps {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    counter-reset: ps;
+  }
+  .process-step {
+    background: rgba(18, 19, 28, 0.55);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.1rem 1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    position: relative;
+    transition: border-color 0.25s ease, transform 0.25s ease;
+  }
+  .process-step:hover {
+    border-color: rgba(98, 166, 219, 0.35);
+    transform: translateY(-2px);
+  }
+  .ps-num {
+    font-family: var(--font-display);
+    color: var(--bp-blue);
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+  }
+  .ps-body { display: flex; flex-direction: column; gap: 0.3rem; }
+  .ps-body h3 {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 0.88rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    margin: 0;
+  }
+  .ps-body p {
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  @media (max-width: 980px) {
+    .process-steps { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .process-steps { grid-template-columns: 1fr; }
   }
 </style>

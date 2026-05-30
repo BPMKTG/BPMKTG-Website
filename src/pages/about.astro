@@ -96,6 +96,45 @@ const principles = [
     </div>
   </section>
 
+  <!-- ─────────── Mission · Vision · Values (brand-exact) ─────────── -->
+  <section class="mvv">
+    <div class="container">
+      <header class="mvv-head">
+        <p class="label" data-reveal="left">What We Stand For</p>
+        <h2 data-reveal>Mission, vision, values.<br/><span class="glow-blue">In our own words.</span></h2>
+      </header>
+
+      <div class="mvv-grid" data-reveal-group>
+        <article class="mvv-card mission" data-reveal data-scroll-focus>
+          <p class="mvv-eyebrow">Mission</p>
+          <p class="mvv-body">
+            To empower artists, labels, and music professionals with honest, effective, and
+            results-driven marketing that <em>amplifies their vision and elevates their impact</em> —
+            growing their audience, reputation, and revenue through creativity, innovation, and integrity.
+          </p>
+        </article>
+
+        <article class="mvv-card vision" data-reveal data-scroll-focus>
+          <p class="mvv-eyebrow">Vision</p>
+          <p class="mvv-body">
+            To become the most trusted creative partner for artists, labels, and music brands in
+            EDM and bass — <em>setting a new standard for values-based marketing</em> in an industry
+            built on hype. We want creatives to thrive without compromising who they are.
+          </p>
+        </article>
+
+        <article class="mvv-card values" data-reveal data-scroll-focus>
+          <p class="mvv-eyebrow">Values</p>
+          <ul class="mvv-values">
+            <li><strong>Honesty</strong> — no inflated metrics, no unrealistic promises, no hidden costs.</li>
+            <li><strong>Integrity</strong> — we don't take clients we can't help, and we don't pretend otherwise.</li>
+            <li><strong>Service</strong> — your wins are our wins. We work shoulder to shoulder, not over the top.</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
   <!-- ─────────── Founders ─────────── -->
   <section class="founders">
     <div class="container">
@@ -252,6 +291,88 @@ const principles = [
     line-height: 1.65;
   }
   .vision-body .hl { color: var(--bp-light); font-weight: 500; }
+
+  /* ═══════════════════════════════════════════════
+     MISSION · VISION · VALUES — brand-exact panel
+     ═══════════════════════════════════════════════ */
+  .mvv { padding: 6rem 0 5rem; position: relative; }
+  .mvv-head { max-width: 60ch; margin-bottom: 3rem; }
+  .mvv-head h2 { margin-top: 1rem; }
+  .mvv-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  .mvv-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.75rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  .mvv-card:hover {
+    border-color: rgba(98, 166, 219, 0.45);
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px -22px rgba(0, 0, 0, 0.6);
+  }
+  .mvv-card::before {
+    content: "";
+    position: absolute;
+    inset: -1px -1px auto -1px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--bp-blue), transparent);
+    opacity: 0.55;
+  }
+  .mvv-card.values::before { background: linear-gradient(90deg, transparent, var(--bp-orange), transparent); }
+  .mvv-eyebrow {
+    font-family: var(--font-display);
+    color: var(--bp-blue);
+    font-size: 0.74rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .mvv-card.values .mvv-eyebrow { color: var(--bp-orange); }
+  .mvv-body {
+    color: var(--ink);
+    opacity: 0.88;
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+  .mvv-body em { font-style: normal; color: var(--bp-light); font-weight: 600; }
+  .mvv-values {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .mvv-values li {
+    color: var(--ink);
+    opacity: 0.88;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    padding-left: 1rem;
+    position: relative;
+  }
+  .mvv-values li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0.55rem;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--bp-orange);
+  }
+  .mvv-values strong { color: var(--ink); font-weight: 800; font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.92rem; margin-right: 0.3rem; }
+
+  @media (max-width: 880px) {
+    .mvv-grid { grid-template-columns: 1fr; }
+  }
 
   /* ═══════════════════════════════════════════════
      FOUNDERS — alternating rows, big numbered photos
