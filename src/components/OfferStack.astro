@@ -5,6 +5,7 @@ const tiers = [
     name: 'Growth Blueprint Session™',
     price: '$1,000',
     cadence: 'one-time',
+    pif: null,
     positioning: "Let's get your content actually working first.",
     buying: 'Immediate traction. Prove the system works without a big commitment.',
     deliverables: [
@@ -23,6 +24,7 @@ const tiers = [
     name: 'Content Engine Starter™',
     price: '$1,000',
     cadence: '/month · 3-mo',
+    pif: { amount: '$2,500', save: '$500' },
     positioning: 'A plug-and-play content system that drives consistent visibility.',
     buying: 'Consistency without thinking. Your output finally matches your level.',
     deliverables: [
@@ -41,6 +43,7 @@ const tiers = [
     name: 'Fan Growth Engine™',
     price: '$3,000',
     cadence: '/month · 6-mo',
+    pif: { amount: '$15,000', save: '$3,000' },
     positioning: 'We turn your content into a system that actually grows your fanbase.',
     buying: 'Growth + direction + consistency, fully managed.',
     deliverables: [
@@ -61,6 +64,7 @@ const tiers = [
     name: 'Artist Growth Infrastructure™',
     price: '$10,000',
     cadence: '/month · 6-mo',
+    pif: { amount: '$50,000', save: '$10,000' },
     positioning: 'Not just marketing — your entire growth infrastructure, managed.',
     buying: 'A complete growth machine: content → conversion → revenue.',
     deliverables: [
@@ -111,6 +115,11 @@ const tiers = [
           <div class="price">
             <span class="price-num" data-counter={t.price}>{t.price}</span>
             <span class="price-cadence">{t.cadence}</span>
+            {t.pif && (
+              <span class="price-pif">
+                or <strong>{t.pif.amount}</strong> paid-in-full · <em>saves {t.pif.save}</em>
+              </span>
+            )}
           </div>
 
           <p class="buying">{t.buying}</p>
@@ -304,6 +313,14 @@ const tiers = [
     letter-spacing: 0.04em;
     white-space: nowrap;
   }
+  .price-pif {
+    margin-top: 0.4rem;
+    font-size: 0.78rem;
+    color: var(--bp-light);
+    line-height: 1.35;
+  }
+  .price-pif strong { color: var(--ink); font-weight: 700; }
+  .price-pif em { font-style: normal; color: var(--bp-orange); font-weight: 700; }
   .buying {
     color: var(--ink);
     opacity: 0.78;
