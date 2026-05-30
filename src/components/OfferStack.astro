@@ -2,7 +2,7 @@
 const tiers = [
   {
     tag: 'Tier 01 · Entry',
-    name: 'Growth Blueprint Session',
+    name: 'Growth Blueprint Session™',
     price: '$1,000',
     cadence: 'one-time',
     positioning: "Let's get your content actually working first.",
@@ -20,7 +20,7 @@ const tiers = [
   },
   {
     tag: 'Tier 02 · Consistency',
-    name: 'Content Engine Starter',
+    name: 'Content Engine Starter™',
     price: '$1,000',
     cadence: '/month · 3-mo',
     positioning: 'A plug-and-play content system that drives consistent visibility.',
@@ -38,7 +38,7 @@ const tiers = [
   },
   {
     tag: 'Tier 03 · Most Picked',
-    name: 'Fan Growth Engine',
+    name: 'Fan Growth Engine™',
     price: '$3,000',
     cadence: '/month · 6-mo',
     positioning: 'We turn your content into a system that actually grows your fanbase.',
@@ -58,7 +58,7 @@ const tiers = [
   },
   {
     tag: 'Tier 04 · Infrastructure',
-    name: 'Artist Growth Infrastructure',
+    name: 'Artist Growth Infrastructure™',
     price: '$10,000',
     cadence: '/month · 6-mo',
     positioning: 'Not just marketing — your entire growth infrastructure, managed.',
@@ -87,6 +87,11 @@ const tiers = [
         Start with a single session or roll into full-funnel infrastructure.
         Every tier ships a clear system you keep — not a campaign that ends.
       </p>
+      <a class="offers-guarantee" href="#guarantee" data-reveal>
+        <span class="og-dot" aria-hidden="true"></span>
+        <span class="og-text"><strong>30-day guarantee.</strong> If we don't deliver a clear growth system in the first 30 days, we work for free until we do.</span>
+        <span class="og-arrow" aria-hidden="true">→</span>
+      </a>
     </header>
 
     <div class="tiers" data-reveal-group>
@@ -130,6 +135,44 @@ const tiers = [
   .offers-head { max-width: 60ch; margin-bottom: 3rem; }
   .offers-head h2 { margin: 1rem 0; }
   .lede { color: var(--ink); opacity: 0.72; font-size: 1.05rem; }
+
+  .offers-guarantee {
+    margin-top: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.7rem 1.1rem 0.7rem 0.95rem;
+    background: rgba(227, 112, 59, 0.08);
+    border: 1px solid rgba(227, 112, 59, 0.4);
+    border-radius: 999px;
+    color: var(--ink);
+    font-size: 0.92rem;
+    line-height: 1.4;
+    max-width: 60ch;
+    text-decoration: none;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+  }
+  .offers-guarantee:hover {
+    background: rgba(227, 112, 59, 0.14);
+    border-color: rgba(227, 112, 59, 0.6);
+    transform: translateY(-1px);
+  }
+  .og-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--bp-orange);
+    box-shadow: 0 0 12px rgba(227, 112, 59, 0.7);
+    flex-shrink: 0;
+  }
+  .og-text { flex: 1; }
+  .og-text strong { color: var(--bp-orange); font-weight: 700; }
+  .og-arrow {
+    color: var(--bp-orange);
+    font-weight: 800;
+    transition: transform 0.2s cubic-bezier(.2,.7,.3,1);
+    flex-shrink: 0;
+  }
+  .offers-guarantee:hover .og-arrow { transform: translateX(3px); }
 
   .tiers {
     display: grid;
