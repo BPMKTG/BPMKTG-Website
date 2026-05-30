@@ -31,15 +31,18 @@
     let stars: Star[] = [];
 
     function genStars() {
-      const target = isMobile() ? 90 : 230;
+      // Density scales with viewport area so it never feels sparse on big
+      // screens or noisy on small ones. ~1 star per 5,500 px².
+      const area = W * H;
+      const target = Math.round(Math.min(isMobile() ? 220 : 600, area / 5500));
       stars = new Array(target);
       for (let i = 0; i < target; i++) {
         stars[i] = {
           x: Math.random() * W,
           y: Math.random() * H,
-          // Bias toward small dots, occasional brighter
-          r: Math.pow(Math.random(), 2.2) * 1.4 + 0.3,
-          a: Math.random() * 0.55 + 0.2,
+          // Slight small-bias but with more chance of brighter/larger ones
+          r: Math.pow(Math.random(), 1.5) * 1.9 + 0.5,
+          a: Math.random() * 0.55 + 0.4,
           tone: Math.random(),
         };
       }
@@ -69,13 +72,22 @@
       for (let i = 0; i < stars.length; i++) {
         const s = stars[i];
         const color =
-          s.tone < 0.85 ? `rgba(255,255,255,${s.a})` :
-          s.tone < 0.94 ? `rgba(179,224,246,${s.a})` :
+          s.tone < 0.82 ? `rgba(255,255,255,${s.a})` :
+          s.tone < 0.92 ? `rgba(179,224,246,${s.a})` :
                           `rgba(98,166,219,${s.a})`;
+        // Subtle glow on the brightest ~15% of stars — gives the starfield
+        // a sense of depth instead of looking like a flat dot grid.
+        if (s.r > 1.6) {
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = color;
+        }
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
         ctx.fill();
+        if (s.r > 1.6) {
+          ctx.shadowBlur = 0;
+        }
       }
     }
 
