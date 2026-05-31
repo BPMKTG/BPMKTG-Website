@@ -46,16 +46,21 @@ html {
 body {
   margin: 0;
   padding: 0;
-  /* Background-color is a semi-transparent dark veil over the canvas
-     (NOT fully opaque — that would re-hide the SpaceBackground). 0.55
-     alpha keeps the stars visible while damping their overall brightness,
-     which also gives per-section effects (BookCall floating particles,
-     glows, neon text) enough contrast to read against the cosmos. */
-  background-color: rgba(8, 8, 16, 0.55);
+  /* Stacked background, painted on top of the SpaceBackground canvas:
+       1. SVG fractalNoise grain — gives the cosmos visible depth/texture
+          instead of looking flat. Tiles every 220px.
+       2. Three subtle blue/purple nebula gradients.
+       3. A 0.75-alpha dark veil (background-color) that dims the whole
+          starfield + grain to ~25% strength. Was 0.55 — too bright.
+     background-color is NOT fully opaque or the canvas re-disappears. */
+  background-color: rgba(8, 8, 16, 0.75);
   background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
     radial-gradient(55% 45% at 18% 12%, rgba(38, 79, 160, 0.10),  transparent 60%),
     radial-gradient(50% 45% at 82% 72%, rgba(120, 60, 180, 0.08), transparent 65%),
     radial-gradient(45% 40% at 60% 35%, rgba(38, 79, 160, 0.06),  transparent 70%);
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  background-size: 220px 220px, auto, auto, auto;
   background-attachment: fixed;
 }
 

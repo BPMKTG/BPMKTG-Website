@@ -61,7 +61,10 @@ const steps = [
 </section>
 
 <style>
-  .book { padding: 6rem 0 7rem; position: relative; overflow: hidden; }
+  /* Opaque dark backdrop so the page-wide SpaceBackground doesn't show
+     here — this section has its own grid + glows + floating particles
+     and they need a clean dark stage to read against. */
+  .book { padding: 6rem 0 7rem; position: relative; overflow: hidden; background: #06060c; }
   .bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
   .grid-layer {
     position: absolute; inset: 0;
