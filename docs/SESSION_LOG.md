@@ -746,6 +746,154 @@ Don't touch desktop CSS paths.
 
 ---
 
+## Session 12 — 2026-05-25 to 2026-05-30 — Cinematic hero rebuild, brand audit, BMV, unified space background
+
+The biggest session by volume. Five major arcs (cinematic hero, BMV wiring, brand audits, voice lines, background system rebuild) plus a lot of small polish. Site is now feature-complete except mobile optimization and content-gated items (socials, testimonials).
+
+### Arc 1 — Cinematic hero (multiple rewrites, the longest single thread)
+
+**Where it ended up:** On desktop the hero is a zoom-out reveal — the montage video stays locked inside the Program monitor of a real Premiere screenshot, and as you scroll the editor pulls back to reveal itself around the video. Synchronized FLIP transforms; the video's shrink path and the editor's monitor path share the same two endpoints (full-screen ↔ monitor rect), interpolate linearly, and stay pixel-locked throughout (verified dx/dy = 0 at start, mid, and parked). Mobile keeps the static hero with the vertical video cut.
+
+**Three sequential rebuilds** (each one the user clarified what they actually wanted):
+
+1. **v1:** Stylized CSS Premiere chrome (panels, timeline, fake clips, playhead tied to video time). Video shrinks into it. — *Rejected: user wanted a real screenshot.*
+2. **v2:** Real `editor-backdrop.png` as backdrop, video shrinks into the Program-monitor rect, text attached, scales together. — *Rejected: cars baked into the screenshot didn't line up perfectly; user asked for an empty-monitor screenshot which we got, then asked for a different motion altogether.*
+3. **v3 (current):** Real screenshot + zoom-out (editor scales from monitor-fills-viewport at p=0 → identity at p=1, video locked to monitor at all p). Backdrop = empty-monitor Premiere screenshot, 2558×1380, monitor target = a moderate 16:9 region (~44% width) centered on the dark monitor area.
+
+**Key technical pattern (the lock-step math):** Two linear-interpolated affine transforms on different elements stay pixel-locked at all p if their endpoints match. Video FLIP: identity (cover box) → translate+scale to monitor rect. Editor transform: zoom (monitor center → viewport center, max scale) → identity. Both apply linear lerps to corner positions; corners coincide at p=0 (cover box = monitor-at-zoom) and p=1 (monitor rect = monitor-at-identity), so they stay locked mid-scroll.
+
+**Final values worth knowing:**
+- `MON = { l: 0.216, t: 0.0675, w: 0.44, h: 0.459 }` (fractions of 2558×1380 backdrop; 16:9 in pixels)
+- Editor fit positioned **below** the sticky header via `padTop = headerH + 6` so the menu bar isn't tucked under the header
+- Track height 200vh, morph completes at p≈0.95 so there's no dead "parked" pause before release
+- Cinematic only fires on `(min-width: 981px) and (hover: hover) and (prefers-reduced-motion: no-preference)` — mobile/touch/reduced-motion gets the static hero
+- Mobile (≤980) serves `/videos/hero-montage-vertical.mp4` (1080×1920); desktop serves `/videos/hero-montage.mp4` (1920×1080). Inline `is:inline` script picks the source before the video loads so only the right file downloads; falls back to horizontal if vertical 404s.
+
+**Particles:** were disabled during the cinematic rebuild (canvas would span 240vh). Re-enabled by hosting the particle canvas in `.hero-sticky` instead of `.hero` (only when cinematic mq matches), z-index 4 above the video, opacity fades with `--cine-morph` so particles vanish as the editor zooms in. Final count is 75 (was 110 — user dialed back).
+
+### Arc 2 — MP4 generation in the browser (novel pattern)
+
+We needed three video deliverables: an animated "how it works" intro card (5s loop) and a 5.5s end card (CTA → logo crossfade). Plus other one-offs. Built a reusable browser-side MP4 pipeline:
+
+1. Open a temp `public/_xxx.html` page with a canvas + per-frame `draw(t)` function + a `window.encodeMP4` async function.
+2. `encodeMP4` uses `WebCodecs VideoEncoder` (avc1.4d401f, H.264 Main 3.1) and dynamically imports `mp4-muxer@5.2.1` from esm.sh. Loops `total = FPS * DUR` frames, drawing each one to canvas and feeding `new VideoFrame(canvas, {timestamp})` to the encoder.
+3. After `await encoder.flush()` and `muxer.finalize()`, base64-encode the resulting `ArrayBuffer` and stash on `window.__vidb64`.
+4. Eval to retrieve `window.__vidb64` — too large to inline (returns 1–2M chars), preview tool auto-saves it to a tool-result `.txt` file.
+5. Python one-liner: `base64.b64decode(open(path).read().strip().strip('"'))` → writes the `.mp4`.
+6. ffprobe-static via npx for verification, ffmpeg-static for frame extraction.
+
+**FPS support:** WebCodecs handles 23.976 fps cleanly via `framerate: 24000/1001` config + `Math.round(i * 1e6 / FPS)` timestamps. End-card was originally 30fps; user asked for 23.976 to match their Premiere timeline + 3 extra frames (135 total = 5:15 @ 23.976) — re-rendered with FPS = 24000/1001.
+
+**Files produced and committed:** `public/videos/how-it-works.mp4` (5s loop, 30fps), `public/videos/end-card.mp4` (5.5s, 23.976fps), `public/brand/how-it-works.svg` (with embedded Orbitron woff2 base64 — fully portable, font baked in), `public/brand/how-it-works.jpg`.
+
+### Arc 3 — Brand Message Video wiring
+
+Vimeo ID **1196578279**. Pattern: branded poster (the cinematic placeholder we built) → click → swaps in autoplaying Vimeo iframe with branding stripped (`?autoplay=1&title=0&byline=0&portrait=0&dnt=1`). Thumbnail = `src/assets/images/thumbnails/BMV v1 Horizontal.jpg` (user-provided). Hover preview = `/videos/previews/bmv-hoverpreview.mp4` — plays on `pointerenter` (desktop hover only via `(hover:hover) and (pointer:fine)`), pauses on leave. On hover only the play button fades out (`opacity: 0`) — captions and pill stay visible. Manifesto captions still on the poster with text-shadow for legibility over the photo.
+
+**Gotcha that bit us (third time this session):** JS-injected iframes don't carry Astro's scoped CSS attribute, so `.bmv-player` styles didn't apply and the iframe rendered at default 300×150. Fix: set sizing inline on the JS-created iframe (`iframe.style.cssText = 'display:block;width:100%;height:100%;border:0;background:#000;'`). Same pattern as the earlier On Film lightbox fix and the Roadmap scoped-CSS override.
+
+### Arc 4 — Two brand audits
+
+**Audit 1 — IOF (Notion brand bible):** Fetched all sub-pages via the notion-fetch MCP tool. Found 3 gaps:
+- **FAQ section** (new component `FAQ.astro`) — 7 objection-handlers lifted from the brand `Objections + Solutions` doc, accordion format, placed between OfferStack and WhyBlueprint.
+- **OfferStack polish** — ™ on all four tier names; 30-day guarantee chip at the top of the offers header (orange pill, links to `#guarantee`); PIF pricing on tiers 2–4 (`$2,500 / $15,000 / $50,000` with `saves $X` highlight in orange).
+- **Funnel reorder** — Pain before Manifesto (video lands as resolution, not setup); Carousel before OfferStack (proof at the decision moment).
+- Tiny polish: Roadmap step 5 "Infrastructure Scaling" → "Revenue Scaling"; WhyBlueprint card 1 "EDM-native" → "Built for bass music."
+
+**Audit 2 — Business plan (Google Doc, public-export endpoint after the user shared it):** Surfaced what the IOF didn't have:
+- **Mission/Vision/Values panel** on About page (between the Vision narrative and Founders). Mission and Vision quoted from the doc; values triad named explicitly for the first time: **Honesty / Integrity / Service**.
+- **"What happens after you book" 5-step section** inside BookCall (Book the call → Discovery + audit → Custom proposal → Quick-win launch → Long-term partnership). Demystifies the call.
+- **BookCall trust list** added "No inflated metrics. No hidden costs."
+- **Three brand voice lines** added: "For artists who want more than just cool visuals." (WhyBlueprint lede opener); "We don't just market music — we live and breathe the culture." (About hero tagline under H1); "Your wins are our wins." (orange creed chip under Founders header).
+
+**Held off:** the user explicitly said no testimonials yet, no real social handles, no Future-State section.
+
+### Arc 5 — Background system (two rewrites, ending unified)
+
+**v1:** Built `SpaceBg.astro` as a per-section component with `tone` (mixed/blue/deep/warm/orange), `density`, `grid`, `shooting` props. Pure CSS + SMIL pattern animation. Applied to 6 sections (ProblemSection, SolutionUSP, OfferStack, FAQ, WhyBlueprint, AboutTease) with varying tones for visual rhythm. — *Rejected: user wanted ONE unified environment, not section-by-section.*
+
+**v2 (current):** Deleted `SpaceBg.astro`. New `SpaceBackground.astro` lives in `Layout.astro`, single fixed `<canvas>` at `z-index: -1`, full viewport, paints stars + diagonal shooting stars across the **entire page**.
+
+Key design choices:
+- Body bg = `#080810` (slightly blue-tinted near-black, replaces `--bg`) + 3 fixed-attachment radial-gradient nebula clouds at 6–10% opacity (subtle blue + purple).
+- `--card: rgba(18, 19, 28, 0.85)` and `--card-elev: rgba(26, 28, 40, 0.88)` — cards semi-transparent so the cosmos shows subtly through.
+- Photo-section overlays (Roadmap, MarketStats, About hero) reduced ~20% so concert photos bleed through more.
+- Stars: viewport-area driven (~1 per 5,500 px², capped 600 desktop / 220 mobile). Radius 0.5–2.4, alpha 0.4–0.95, brightest ~15% get a `shadowBlur: 6` halo for depth. Hue: 82% white / 10% light blue / 8% brand blue.
+- Shooting stars: 20–45° down-right angles, 0.6–1.2s, varying speed/size, spawn from top OR left edge, fire every 4–8s. Trail = `linearGradient` stroke from bright head → blue mid → transparent tail + bright head dot. Despawn off-screen.
+- DPR-aware, debounced resize (regenerates stars at new viewport), idempotent across view transitions via `__spaceInit` flag.
+- Reduced-motion: static stars only, no rAF loop, no shooting stars.
+
+**Hero JS particles remain hero-only** (scoped to `.hero-sticky` in cinematic, `.hero` in static). Not extended page-wide.
+
+**Diagnosis lesson:** First render of v2 looked like nothing — 0.09% lit pixels (technically painted but invisible). Bumped count + size + alpha + added halo. Verified after: 0.90% lit pixels (10×) — actually reads as a starfield now.
+
+### Other small things landed in this stretch
+
+- **Roadmap "How It Works" cards** — desktop entrance was popping in flat (a Roadmap scoped `.step { transition: border-color 0.15s, background 0.15s }` was silently overriding the global reveal transition's transform). Fixed by defining the lively entrance INSIDE Roadmap's scoped CSS — cards now cascade in from the left with a 0.9s spring (`cubic-bezier(0.34, 1.42, 0.5, 1)`) and a 0.12s pronounced stagger.
+- **Mobile hero fit** — was clipping the "FOR TOURING EDM ARTISTS" label under the sticky header. Fixed at `@media (max-width: 600px)` by top-aligning content (`hero-copy { align-items: flex-start }`) with `min-height: 100svh` and `padding: 5rem 1.5rem 1.5rem` so content clears the header and stats fit above the fold.
+- **Parallax frame swap** — Subtronics → Level Up (carousel-levelup-wide.jpg, focal point `center 60%`).
+- **Carousel captions** — all 16 shots updated to match the portfolio's exact copy (Access-row wording for the 5 featured shots, gallery captions for the rest).
+- **Header logo** — swapped to `logo-header.svg` (the white square mark with embedded play triangle). Wordmark was sitting inside a 576×576 canvas with huge empty padding — cropped the viewBox to `62 220 437 135` so the wordmark fills the logo box; height set to 32px.
+- **Scroll-driven focus on mobile** — added the `data-scroll-focus` system: IntersectionObserver-based single-active focus highlight on touch devices (mirrors desktop :hover outline). Applied to film tiles, offer tiers, why cards, pain cards, principles, founder rows, and roadmap steps. Touch tap-highlights suppressed; `:hover` overrides gated by `:not(.is-focus)` so scroll-applied focus wins.
+
+### Cumulative file inventory
+
+**New components:** `SpaceBackground.astro`, `FAQ.astro`. **Deleted:** `SpaceBg.astro` (replaced by SpaceBackground).
+
+**New brand assets:**
+- `public/brand/editor-backdrop.png` — empty-monitor Premiere screenshot, 2558×1380
+- `public/brand/logo-header.svg` — white square logo (viewBox cropped to wordmark)
+- `public/brand/how-it-works.svg` + `.jpg` — intro card graphic (SVG has Orbitron woff2 embedded as base64, fully portable)
+- `public/videos/how-it-works.mp4` — 5s seamless loop, 30fps
+- `public/videos/end-card.mp4` — 5.5s CTA→logo, 23.976fps
+- `public/videos/hero-montage-vertical.mp4` — 1080×1920 mobile cut
+- `public/videos/previews/bmv-hoverpreview.mp4` — BMV thumbnail hover preview
+- `src/assets/images/hero/editor-backdrop.png` — (Astro-processed copy of the Premiere screenshot)
+- `src/assets/images/hero/hero-montage-poster.jpg` — first frame extracted from hero-montage.mp4 (poster for the video)
+- `src/assets/images/thumbnails/BMV v1 Horizontal.jpg` — Brand Message Video thumbnail
+
+**Updated repeatedly:** `public/videos/hero-montage.mp4` (user re-exported several times).
+
+### Decisions worth remembering for next session
+
+1. **Three different scoped-CSS-override bugs this session.** Astro scoped CSS doesn't apply to JS-injected DOM (no cid attribute). Three places we hit it: Vimeo lightbox iframes (fixed earlier with `:global()`), Roadmap step transition (component's `.step` transition silently overrode the global reveal transition's transform — fixed by defining the reveal INSIDE Roadmap's scoped CSS), BMV iframe (no scope attr, `.bmv-player` styles missed — fixed with inline `style.cssText`). Pattern: when behavior comes from JS-created elements OR when a scoped rule on the same element conflicts, expect specificity tangles. Check via `getComputedStyle(...).transition` (or whichever property).
+
+2. **PIF pricing is now: T1 N/A (one-time), T2 $2,500, T3 $15,000, T4 $50,000.** Lives in the `tiers` array in `OfferStack.astro` with `pif: { amount, save }` field.
+
+3. **Brand mission/vision/values triad** is now formally on About page: "Honesty / Integrity / Service" (orange-accented). The brand voice lines also live in three places that matter — see "Three brand voice lines" above.
+
+4. **Cinematic hero math constants** (in `Hero.astro` script):
+   - `IMG_W = 2558, IMG_H = 1380` (Premiere screenshot)
+   - `MON = { l: 0.216, t: 0.0675, w: 0.44, h: 0.459 }`
+   - `morph = easeInOut(clamp((p - 0.02) / 0.93))` (completes at p ≈ 0.95)
+   - Editor fit uses `padTop = headerH + 6, padBot = 10` so it clears the sticky header
+   - Track height 200vh
+
+5. **The cinematic hero ONLY runs at `(min-width: 981px) and (hover: hover) and (prefers-reduced-motion: no-preference)`** — anywhere else (mobile, tablets without fine pointer, reduced-motion) gets the static hero with the appropriate video (vertical on mobile, horizontal on desktop-no-hover).
+
+6. **Space background** — body is `#080810` now (was `#0a0a0f`). Anything that referenced "the brand dark" by number should use `var(--bg)` or the new color. Nebula opacity sits at 6–10% in the body's radial-gradients. Star density is viewport-area-driven.
+
+7. **The preview tool** has consistent quirks: (a) screenshots time out when canvas animations or autoplay video are running — pause/remove video first; (b) preview window defaults to mobile width on fresh start — `preview_resize` to desktop manually; (c) browser cache + Astro dev image cache both serve stale assets when source files change — restart preview + clear `.astro` cache; (d) JSON-stringified large eval returns auto-save to tool-result `.txt` files (which is how we transferred MP4 base64).
+
+### What's still queued (carryover for next session)
+
+1. **Mobile optimization pass** — the user's stated next priority. Spec from session 11 still applies but now there's MORE to optimize: the BMV section, the new FAQ accordion, the OfferStack PIF lines, MVV cards on About, the new BookCall process steps. The space background is already mobile-aware (star density caps at 220, shooting star speed scaled). Hero is already mobile-aware (vertical video, static layout).
+2. **Real Calendly URL** — still `https://calendly.com/mc-media-marketing` in BookCall (unconfirmed).
+3. **Footer social handles** — still `#` placeholders (Instagram, TikTok, YouTube, X).
+4. **Artist testimonials** — content-gated, deferred until quotes are gathered.
+5. **Blog page** — still a stub.
+6. **Optional fine-tuning of the cinematic hero** the user might want: zoom amount (currently ~2.3×, controlled by `MON.w`), morph timing (currently completes at p ≈ 0.95), monitor position (4 numbers in the `MON` const).
+
+### Final homepage section order (after audit-pass reorder)
+
+`Hero → ArtistMarquee → ProblemSection → BrandMessage → Parallax → SolutionUSP → Roadmap → Carousel → OfferStack → FAQ → WhyBlueprint → AboutTease → MarketStats → Guarantee → BookCall`
+
+### Commits in session 12 (chronological, abbreviated)
+
+`72b9f20` editor contain fit · `e0e475f`+`eb54407`+`c44a2fe` BMV play/pill/captions iterations · `f5c25b1` zoom-out hero · `df616af` end-card v2 · `b10e8c4` PIF pricing · `9770520` parked-pause + below-header fit · `056bbc3` end-card MP4 · `0332a4a` mobile hero fit + roadmap spring · `4a4f55e` hero particles re-enabled · `cddc204` particle count tuning · `b7b1a1e` how-it-works MP4 · `93c38ce` how-it-works SVG+JPG · `bc11c13`+`fab80e0` BMV wiring + thumbnail · `1307b5a` BMV vimeo wire · `d3fd929` FAQ + OfferStack ™+chip + reorder · `057d7b3` MVV panel + process steps · `1d7c2be` 3 voice lines · `82bfe25` per-section SpaceBg (rejected) · `faf0f0e` unified SpaceBackground · `aea0c00` star visibility bump.
+
+---
+
 ## Laptop handoff checklist
 
 Last-known good state: commit on `main` after this session is pushed. To continue on laptop:
