@@ -6,7 +6,6 @@ const pains = [
   { quote: "I don't know what actually works.",               gap: 'Guessing wastes the only thing more limited than money: time.' },
   { quote: "My content doesn't match my level as an artist.", gap: 'You look smaller than you are. Bigger lineups pass you by.' },
   { quote: "I'm not growing between shows.",                  gap: "A show should be weeks of growth. For most artists it's a one-night spike." },
-  { quote: "I feel like I'm behind other artists.",           gap: 'Visibility decides bookings. Inconsistency compounds backwards.' },
 ];
 ---
 <section class="problem" id="problem">
@@ -79,11 +78,9 @@ const pains = [
   }
   .pain-quote { color: var(--ink); font-weight: 500; font-size: 1.05rem; line-height: 1.35; }
   .pain-gap { color: var(--muted); font-size: 0.9rem; }
-  .pain:nth-child(7) { grid-column: 1 / -1; max-width: calc(33.33% - 0.66rem); }
 
   @media (max-width: 980px) {
     .pain-grid { grid-template-columns: repeat(2, 1fr); }
-    .pain:nth-child(7) { grid-column: auto; max-width: none; }
   }
   @media (max-width: 600px) {
     .pain-grid { grid-template-columns: 1fr; }
