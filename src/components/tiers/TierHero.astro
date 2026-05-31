@@ -1,50 +1,126 @@
 ---
-import { Image } from 'astro:assets';
+// Note: bgImage is intentionally NOT used anymore — the hero is now a
+// fully custom HUD background (inline SVG + CSS layers), not a photo
+// hero. The prop is kept on the interface to avoid breaking the route's
+// getStaticPaths contract; future tiers can still pass it if they go
+// back to a photo bg.
 import type { ImageMetadata } from 'astro';
 import type { Tier } from '../../data/tiers';
 
 interface Props {
   tier: Tier;
-  bgImage: ImageMetadata;
+  bgImage?: ImageMetadata;
 }
-const { tier, bgImage } = Astro.props;
+const { tier } = Astro.props;
+
+// Offer-card highlights derive from the tier data so they stay in sync
+// if the deliverable list changes. Keeps the data file as the single
+// source of truth without duplicating numbers into the hero.
+const offerHighlights: { value: string; unit: string }[] = [
+  { value: tier.whatYouGet.cards.length.toString(), unit: 'deliverables' },
+  { value: '60–90',  unit: 'min strategy call' },
+  { value: '7–10',   unit: 'day turnaround' },
+  { value: '5–15',   unit: 'repurposed clips' },
+];
+
+// Tick positions derived once at SSR time so the markup stays clean.
+const topTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
+const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
 ---
-<section class="tier-hero">
-  <div class="tier-hero-bg" data-parallax-bg data-scale-bg data-scale-start="1" data-scale-end="1.08" aria-hidden="true">
-    <Image
-      src={bgImage}
-      alt=""
-      width={2400}
-      height={1600}
-      format="webp"
-      quality={82}
-      loading="eager"
-    />
-  </div>
-  <div class="tier-hero-overlay" aria-hidden="true"></div>
+<section class="tier-hero" aria-labelledby="tier-hero-title">
+  <!-- Background stack: deep-space base, magenta nebula glow, blueprint
+       grid, HUD vector. Each layer is purely decorative + aria-hidden. -->
+  <div class="tier-hero-base" aria-hidden="true"></div>
+  <div class="tier-hero-nebula" aria-hidden="true"></div>
   <div class="tier-hero-grid" aria-hidden="true"></div>
 
+  <svg
+    class="tier-hud"
+    viewBox="0 0 1600 900"
+    preserveAspectRatio="xMidYMid slice"
+    aria-hidden="true"
+  >
+    <!-- 4 corner brackets, like a viewfinder frame -->
+    <g class="hud-stroke" fill="none">
+      <path d="M 24 64 L 24 24 L 64 24" />
+      <path d="M 1536 24 L 1576 24 L 1576 64" />
+      <path d="M 24 836 L 24 876 L 64 876" />
+      <path d="M 1536 876 L 1576 876 L 1576 836" />
+    </g>
+
+    <!-- Wide orbital arcs sweeping from a center far to the bottom-left -->
+    <g class="hud-stroke hud-orbits" fill="none">
+      <circle cx="-180" cy="500" r="940" />
+      <circle cx="-180" cy="500" r="780" />
+      <circle cx="-180" cy="500" r="630" />
+    </g>
+
+    <!-- Right-side radar: nested rings + crosshair + a single marker dot -->
+    <g class="hud-stroke hud-radar" fill="none" transform="translate(1280, 290)">
+      <circle r="170" />
+      <circle r="120" />
+      <circle r="72" />
+      <circle r="32" />
+      <line x1="-200" y1="0" x2="200" y2="0" stroke-dasharray="2 9" />
+      <line x1="0" y1="-200" x2="0" y2="200" stroke-dasharray="2 9" />
+      <circle cx="118" cy="-72" r="10" />
+      <circle cx="118" cy="-72" r="4" class="hud-marker-dot" />
+    </g>
+
+    <!-- Edge tick marks (top + bottom) -->
+    <g class="hud-stroke hud-ticks" fill="none">
+      {topTicks.map(x => <line x1={x} y1="10" x2={x} y2="24" />)}
+      {botTicks.map(x => <line x1={x} y1="876" x2={x} y2="890" />)}
+    </g>
+
+    <!-- Sparse positioning dots -->
+    <g class="hud-fill">
+      <circle cx="60"   cy="120" r="2.4" />
+      <circle cx="180"  cy="44"  r="1.6" />
+      <circle cx="80"   cy="780" r="2.2" />
+      <circle cx="320"  cy="858" r="1.6" />
+      <circle cx="1500" cy="190" r="2.4" />
+      <circle cx="1470" cy="800" r="1.6" />
+      <circle cx="1240" cy="60"  r="1.8" />
+      <circle cx="440"  cy="40"  r="1.6" />
+    </g>
+
+    <!-- Bottom horizon accent — bright thin line under the section -->
+    <line
+      x1="280" y1="852" x2="1080" y2="852"
+      class="hud-horizon"
+      stroke-linecap="round"
+    />
+  </svg>
+
+  <!-- Big outlined "01 TIER" marker, HUD-style. Sits as a watermark in
+       the top-left of the section, NOT inside the content grid, so it
+       reads as part of the interface chrome. -->
+  <div class="tier-hud-marker" aria-hidden="true">
+    <span class="tier-hud-bar"></span>
+    <span class="tier-hud-marker-label">Tier</span>
+    <span class="tier-hud-marker-number">{tier.number}</span>
+  </div>
+
   <div class="container tier-hero-inner">
-    <span class="tier-hero-num" aria-hidden="true">{tier.number}</span>
+    <div class="tier-hero-layout">
+      <!-- LEFT: info stack -->
+      <div class="tier-hero-left">
+        <p class="label" data-reveal="left">{tier.hero.eyebrow}</p>
 
-    <div class="tier-hero-content">
-      <p class="label" data-reveal="left">{tier.hero.eyebrow}</p>
-      <h1 data-reveal set:html={tier.hero.headline}></h1>
-      <p class="tier-hero-sub" data-reveal>{tier.hero.sub}</p>
+        <h1 id="tier-hero-title" data-reveal>{tier.name}</h1>
 
-      <ul class="tier-hero-pills" data-reveal-group>
-        {tier.hero.pills.map(p => (
-          <li class="tier-hero-pill" data-reveal>{p}</li>
-        ))}
-      </ul>
+        <p class="tier-hero-positioning" data-reveal set:html={tier.hero.headline}></p>
 
-      <div class="tier-hero-foot" data-reveal>
-        <div class="tier-hero-price">
-          <span class="tier-price-num">{tier.price}</span>
-          <span class="tier-price-note">{tier.priceNote}</span>
-        </div>
+        <p class="tier-hero-sub" data-reveal>{tier.hero.sub}</p>
 
-        <div class="tier-hero-ctas">
+        <ul class="tier-hero-pills" data-reveal-group>
+          {tier.hero.pills.map(p => (
+            <li class="tier-hero-pill" data-reveal>{p}</li>
+          ))}
+        </ul>
+
+        <div class="tier-hero-ctas" data-reveal>
           <a href={tier.hero.primaryCta.href} class="button accent">
             {tier.hero.primaryCta.label}
             <span class="arrow" aria-hidden="true">→</span>
@@ -54,152 +130,387 @@ const { tier, bgImage } = Astro.props;
           </a>
         </div>
       </div>
+
+      <!-- RIGHT: premium offer card -->
+      <aside class="tier-offer-card" data-reveal aria-label={`${tier.name} summary card`}>
+        <header class="tier-offer-head">
+          <span class="tier-offer-num">{tier.number}</span>
+          <div class="tier-offer-id">
+            <p class="tier-offer-label">Offer</p>
+            <p class="tier-offer-name">{tier.shortName}</p>
+          </div>
+        </header>
+
+        <div class="tier-offer-divider" aria-hidden="true"></div>
+
+        <div class="tier-offer-price">
+          <span class="tier-offer-price-num">{tier.price}</span>
+          <span class="tier-offer-price-note">{tier.priceNote}</span>
+        </div>
+
+        <ul class="tier-offer-highlights">
+          {offerHighlights.map(h => (
+            <li>
+              <strong>{h.value}</strong>
+              <span>{h.unit}</span>
+            </li>
+          ))}
+        </ul>
+
+        <a href={tier.hero.primaryCta.href} class="button accent tier-offer-cta">
+          Reserve Your Session
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+
+        <p class="tier-offer-foot">Strategy-first · Foundation tier</p>
+      </aside>
     </div>
   </div>
 </section>
 
 <style>
-  /* Compact, conversion-focused hero. Not a cinematic intro — this is
-     the offer ticket. Everything a prospect needs to answer "what is
-     this / who / what do I get / cost / next step" reads above the fold. */
+  /* ═══════════════════════════════════════════════════════════════
+     TIER HERO — sci-fi HUD interface, not a cinematic photo intro
+     ═══════════════════════════════════════════════════════════════ */
   .tier-hero {
     position: relative;
     overflow: hidden;
-    min-height: clamp(440px, 65vh, 620px);
+    min-height: clamp(560px, 70vh, 720px);
     display: flex;
     align-items: center;
     isolation: isolate;
   }
-  .tier-hero-bg {
-    position: absolute;
-    inset: -8% 0;
-    z-index: 0;
+
+  /* ─── Background stack ─── */
+  .tier-hero-base {
+    position: absolute; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 100%, rgba(38, 79, 160, 0.22), transparent 70%),
+      linear-gradient(180deg, #050514 0%, #02020a 100%);
   }
-  .tier-hero-bg :global(img) {
-    width: 100%; height: 100%;
-    object-fit: cover;
-    object-position: center 40%;
-  }
-  .tier-hero-overlay {
+  .tier-hero-nebula {
     position: absolute; inset: 0; z-index: 1;
     background:
-      linear-gradient(180deg, rgba(10,10,15,0.55) 0%, rgba(10,10,15,0.68) 50%, rgba(10,10,15,0.92) 100%),
-      radial-gradient(60% 60% at 80% 20%, rgba(38, 79, 160, 0.18), transparent 70%);
+      radial-gradient(ellipse 55% 65% at 88% 92%, rgba(150, 70, 210, 0.28), transparent 60%),
+      radial-gradient(ellipse 70% 60% at 80% 60%, rgba(80, 40, 160, 0.14), transparent 70%);
+    mix-blend-mode: screen;
+    pointer-events: none;
   }
   .tier-hero-grid {
-    position: absolute; inset: 0; z-index: 1;
+    position: absolute; inset: 0; z-index: 2;
     background-image:
-      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
-    background-size: 40px 40px;
-    mask-image: radial-gradient(70% 70% at 50% 30%, #000 30%, transparent 100%);
+      linear-gradient(rgba(98, 166, 219, 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(98, 166, 219, 0.07) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(80% 80% at 50% 40%, #000 50%, transparent 100%);
+    pointer-events: none;
   }
 
-  .tier-hero-inner {
-    position: relative;
-    z-index: 2;
-    width: 100%;
-    padding: 3rem 1.5rem;
-    max-width: var(--max-width);
+  /* ─── HUD vector overlay ─── */
+  .tier-hud {
+    position: absolute; inset: 0; z-index: 3;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .tier-hud :global(.hud-stroke) {
+    stroke: rgba(98, 166, 219, 0.32);
+    stroke-width: 1;
+  }
+  .tier-hud :global(.hud-orbits) { stroke: rgba(98, 166, 219, 0.18); }
+  .tier-hud :global(.hud-radar)  { stroke: rgba(98, 166, 219, 0.28); }
+  .tier-hud :global(.hud-radar circle:first-child) { stroke: rgba(98, 166, 219, 0.14); }
+  .tier-hud :global(.hud-ticks)  { stroke: rgba(98, 166, 219, 0.4); }
+  .tier-hud :global(.hud-fill)   { fill: rgba(98, 166, 219, 0.5); }
+  .tier-hud :global(.hud-marker-dot) { fill: var(--bp-blue); }
+  .tier-hud :global(.hud-horizon) {
+    stroke: rgba(98, 166, 219, 0.55);
+    stroke-width: 1.5;
+    filter: drop-shadow(0 0 4px rgba(98, 166, 219, 0.6));
   }
 
-  /* Tier number peek — smaller than the original cinematic version
-     so it accents the hero rather than dominates it. */
-  .tier-hero-num {
+  /* ─── Big outlined "01 TIER" marker, top-left corner ─── */
+  .tier-hud-marker {
     position: absolute;
-    top: -0.5rem;
-    right: 1.5rem;
+    top: 2.5rem;
+    left: clamp(1.5rem, 4vw, 3.5rem);
+    z-index: 4;
+    display: grid;
+    grid-template-columns: auto auto auto;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    pointer-events: none;
+  }
+  .tier-hud-bar {
+    width: 26px;
+    height: 1px;
+    background: var(--bp-blue);
+    grid-row: 2;
+    grid-column: 1;
+  }
+  .tier-hud-marker-label {
+    grid-row: 2;
+    grid-column: 2;
     font-family: var(--font-display);
-    font-size: clamp(5rem, 10vw, 9rem);
+    color: var(--bp-blue);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+  }
+  .tier-hud-marker-number {
+    grid-row: 1 / 3;
+    grid-column: 3;
+    font-family: var(--font-display);
+    font-size: clamp(6rem, 11vw, 11rem);
     font-weight: 900;
     line-height: 0.85;
-    color: rgba(98, 166, 219, 0.14);
-    text-shadow: 0 0 40px rgba(98, 166, 219, 0.12);
     letter-spacing: -0.05em;
-    pointer-events: none;
-    z-index: 1;
+    /* Outlined number — transparent fill + light blue stroke */
+    color: transparent;
+    -webkit-text-stroke: 1.5px rgba(98, 166, 219, 0.55);
+    margin-left: 0.25rem;
   }
 
-  .tier-hero-content { max-width: 60ch; position: relative; z-index: 2; }
-  .tier-hero h1 {
-    margin: 0.85rem 0 1rem;
-    max-width: 22ch;
-    font-size: clamp(2rem, 4.4vw, 3.5rem);
-    text-shadow: 0 4px 30px rgba(0,0,0,0.6);
+  /* ─── Content layout ─── */
+  .tier-hero-inner {
+    position: relative;
+    z-index: 5;
+    width: 100%;
+    padding: 7rem 1.5rem 3rem;
+    max-width: var(--max-width);
   }
+  .tier-hero-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: clamp(2rem, 4vw, 4rem);
+    align-items: center;
+  }
+
+  /* ─── LEFT: info stack ─── */
+  .tier-hero-left {
+    max-width: 56ch;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .tier-hero h1 {
+    /* Premium, restrained — NOT a movie-poster headline. The tier name
+       is the strongest text on the LEFT, but it doesn't dominate the
+       composition. */
+    margin: 0.5rem 0 0;
+    font-size: clamp(1.55rem, 2.7vw, 2.25rem);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    color: var(--ink);
+    text-wrap: balance;
+    max-width: 22ch;
+  }
+  .tier-hero-positioning {
+    font-family: var(--font-display);
+    font-weight: 500;
+    color: var(--bp-light);
+    font-size: clamp(1rem, 1.35vw, 1.18rem);
+    line-height: 1.4;
+    margin: 0;
+    max-width: 30ch;
+  }
+  .tier-hero-positioning :global(.highlight) { font-weight: 600; }
+  .tier-hero-positioning :global(.highlight.blue) { color: #fff; }
   .tier-hero-sub {
     color: var(--ink);
-    opacity: 0.86;
-    font-size: 1.02rem;
-    line-height: 1.55;
-    max-width: 60ch;
-    text-shadow: 0 2px 14px rgba(0,0,0,0.55);
+    opacity: 0.78;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    max-width: 52ch;
+    margin: 0.25rem 0 0;
   }
 
-  /* Quick-value pills — at-a-glance "what's in the box". Same chip
-     language as the brand's existing badges (orange creed pill,
-     30-day guarantee pill) but in the cool palette to defer to CTAs. */
+  /* Pills — quick value points in cool palette */
   .tier-hero-pills {
     list-style: none;
-    margin: 1.25rem 0 0;
+    margin: 1rem 0 0;
     padding: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.45rem;
+    gap: 0.4rem;
   }
   .tier-hero-pill {
     display: inline-flex;
     align-items: center;
-    padding: 0.4rem 0.85rem;
-    background: rgba(98, 166, 219, 0.07);
+    padding: 0.35rem 0.8rem;
+    background: rgba(98, 166, 219, 0.06);
     border: 1px solid rgba(98, 166, 219, 0.28);
     border-radius: 999px;
     color: var(--bp-light);
     font-family: var(--font-display);
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     font-weight: 700;
     backdrop-filter: blur(6px);
   }
-
-  /* Bottom row of the hero — price + CTAs side-by-side on desktop,
-     stacked on mobile. Single data-reveal so they enter as one unit. */
-  .tier-hero-foot {
-    margin-top: 1.5rem;
-    padding-top: 1.25rem;
-    border-top: 1px solid rgba(255,255,255,0.12);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.25rem;
-    flex-wrap: wrap;
-  }
-  .tier-hero-price { display: flex; align-items: baseline; gap: 0.7rem; }
-  .tier-price-num {
-    font-family: var(--font-display);
-    font-size: clamp(1.8rem, 3vw, 2.4rem);
-    font-weight: 800;
-    color: var(--bp-light);
-    letter-spacing: -0.02em;
-    line-height: 1;
-  }
-  .tier-price-note {
-    color: var(--muted);
-    font-family: var(--font-display);
-    font-size: 0.72rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-  }
   .tier-hero-ctas {
+    margin-top: 1.5rem;
     display: flex;
     gap: 0.6rem;
     flex-wrap: wrap;
   }
 
-  @media (max-width: 760px) {
-    .tier-hero { min-height: clamp(520px, 75vh, 720px); }
-    .tier-hero-num { font-size: 6rem; top: -0.25rem; right: 0.75rem; opacity: 0.8; }
-    .tier-hero-foot { flex-direction: column; align-items: flex-start; gap: 1rem; }
+  /* ─── RIGHT: premium offer card ─── */
+  .tier-offer-card {
+    position: relative;
+    background:
+      linear-gradient(180deg, rgba(18, 19, 28, 0.72), rgba(8, 8, 16, 0.85)),
+      radial-gradient(80% 60% at 50% 0%, rgba(38, 79, 160, 0.18), transparent 70%);
+    border: 1px solid rgba(98, 166, 219, 0.35);
+    border-radius: var(--radius-lg);
+    padding: 1.85rem 1.85rem 1.65rem;
+    backdrop-filter: blur(14px);
+    box-shadow:
+      0 30px 70px -30px rgba(0, 0, 0, 0.75),
+      0 0 0 1px rgba(98, 166, 219, 0.06),
+      inset 0 0 40px -12px rgba(98, 166, 219, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    overflow: hidden;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  }
+  .tier-offer-card:hover {
+    border-color: rgba(98, 166, 219, 0.55);
+    transform: translateY(-2px);
+    box-shadow:
+      0 36px 80px -30px rgba(0, 0, 0, 0.8),
+      0 0 0 1px rgba(98, 166, 219, 0.18),
+      inset 0 0 48px -12px rgba(98, 166, 219, 0.2);
+  }
+  .tier-offer-card::before {
+    content: "";
+    position: absolute;
+    inset: -1px -1px auto -1px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--bp-blue), transparent);
+    opacity: 0.7;
+  }
+
+  .tier-offer-head {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+  .tier-offer-num {
+    font-family: var(--font-display);
+    font-size: 2.4rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: transparent;
+    -webkit-text-stroke: 1.5px rgba(98, 166, 219, 0.55);
+  }
+  .tier-offer-id { display: flex; flex-direction: column; gap: 0.2rem; }
+  .tier-offer-label {
+    margin: 0;
+    font-family: var(--font-display);
+    color: var(--bp-blue);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+  }
+  .tier-offer-name {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+  }
+
+  .tier-offer-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(98, 166, 219, 0.35), transparent);
+  }
+
+  .tier-offer-price {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+  .tier-offer-price-num {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3vw, 2.6rem);
+    font-weight: 800;
+    color: var(--bp-light);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .tier-offer-price-note {
+    color: var(--muted);
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .tier-offer-highlights {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 0.85rem;
+  }
+  .tier-offer-highlights li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding-left: 0.75rem;
+    border-left: 1px solid rgba(98, 166, 219, 0.25);
+  }
+  .tier-offer-highlights strong {
+    font-family: var(--font-display);
+    color: var(--bp-light);
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+  .tier-offer-highlights span {
+    color: var(--muted);
+    font-size: 0.74rem;
+    line-height: 1.25;
+  }
+
+  .tier-offer-cta { align-self: stretch; justify-content: center; }
+  .tier-offer-foot {
+    margin: 0;
+    color: var(--muted);
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-align: center;
+    padding-top: 0.25rem;
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 900px) {
+    .tier-hero { min-height: auto; }
+    .tier-hero-inner { padding: 6.5rem 1.5rem 3rem; }
+    .tier-hero-layout {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    .tier-hud-marker { top: 2rem; }
+    .tier-hud-marker-number { font-size: 6rem; }
+    .tier-offer-card { padding: 1.5rem 1.5rem 1.4rem; }
+  }
+  @media (max-width: 540px) {
+    .tier-hero-inner { padding: 6rem 1.25rem 2.5rem; }
+    .tier-hero-pills { gap: 0.35rem; }
+    .tier-offer-highlights { grid-template-columns: 1fr; }
   }
 </style>

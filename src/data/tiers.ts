@@ -98,17 +98,22 @@ const tier01: Tier = {
   positioning: "Let's get your content actually working first.",
 
   hero: {
-    eyebrow: 'Tier 01 — Growth Blueprint Session™',
+    // Eyebrow no longer duplicates the H1 (tier name). The HUD marker
+    // top-left + the H1 carry the tier identity; the eyebrow just
+    // positions the tier's role.
+    eyebrow: 'Strategy & Foundation',
     headline:
       'A clean starting point —<br/><span class="highlight blue">before you build bigger.</span>',
     sub:
       "Not more random content — a real plan behind the content. A one-time audit + strategy session that turns what you've already created into a 2–4 week roadmap you can run yourself.",
+    // Removed "Show footage included" (inaccurate — clips are repurposed,
+    // not show-day capture). Replaced with strategy/foundation positioning.
     pills: [
-      '6 deliverables',
+      'Strategy-focused',
       '60–90 min live session',
+      'Content roadmap',
       '7–10 day turnaround',
-      'No retainer',
-      'Show footage included',
+      'No monthly retainer',
     ],
     primaryCta: { label: 'Book Your Session', href: '#book' },
     secondaryCta: { label: 'Back to All Offers', href: '/#offers' },
