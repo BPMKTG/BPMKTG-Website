@@ -156,7 +156,7 @@ const principles = [
         {founders.map((f, i) => (
           <article class={`founder-row ${i % 2 === 1 ? 'reversed' : ''}`} data-reveal data-scroll-focus>
             <div class="founder-photo">
-              <span class="founder-num" data-counter={String(i + 1).padStart(2, '0')} aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+              <span class="founder-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
               <div class="photo-frame card-trace card-inner-glow">
                 <Image
                   src={f.photo}
@@ -500,12 +500,10 @@ const principles = [
     line-height: 1;
     letter-spacing: -0.04em;
     pointer-events: none;
-    z-index: 0;
+    /* In FRONT of the photo so the full numeral reads — the low-alpha
+       blue creates a subtle overlay rather than being clipped behind. */
+    z-index: 2;
     text-shadow: 0 0 30px rgba(98, 166, 219, 0.12);
-    /* Reserve width for both digits so the count from "0" -> "01"
-       doesn't reflow the layout while animating. */
-    display: inline-block;
-    min-width: 2ch;
   }
   .founder-row.reversed .founder-num {
     left: auto;
@@ -626,20 +624,19 @@ const principles = [
   .principle[data-reveal]:nth-child(odd)        { transform: translateX(-34px) translateY(0); }
   .principle[data-reveal]:nth-child(even)       { transform: translateX( 34px) translateY(0); }
   .principle[data-reveal].is-in                  { transform: translateX(0)    translateY(0); }
-  /* Hover icon — distinct micro-motion per principle. */
+  /* Hover icon — color change only, no movement / no swoop / no
+     re-entry animation on un-hover. */
   .principle .principle-num {
-    display: inline-block;
-    transform-origin: center;
-    transition: transform 0.5s cubic-bezier(0.34, 1.42, 0.5, 1), color 0.3s ease;
+    transition: color 0.3s ease;
   }
   .principle:nth-child(1):hover .principle-num,
-  .principle:nth-child(1).is-focus .principle-num { transform: scale(1.18) rotate(-8deg); color: var(--bp-light); }
+  .principle:nth-child(1).is-focus .principle-num { color: var(--bp-light); }
   .principle:nth-child(2):hover .principle-num,
-  .principle:nth-child(2).is-focus .principle-num { transform: scale(1.18) rotate( 8deg); color: var(--bp-light); }
+  .principle:nth-child(2).is-focus .principle-num { color: var(--bp-light); }
   .principle:nth-child(3):hover .principle-num,
-  .principle:nth-child(3).is-focus .principle-num { transform: scale(1.22);                color: var(--bp-orange); }
+  .principle:nth-child(3).is-focus .principle-num { color: var(--bp-orange); }
   .principle:nth-child(4):hover .principle-num,
-  .principle:nth-child(4).is-focus .principle-num { transform: translateY(-3px) scale(1.14); color: var(--bp-light); }
+  .principle:nth-child(4).is-focus .principle-num { color: var(--bp-light); }
   .principle::before {
     content: "";
     position: absolute;
