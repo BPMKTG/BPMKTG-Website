@@ -46,9 +46,12 @@ html {
 body {
   margin: 0;
   padding: 0;
-  /* Background-color MUST stay unset (default transparent) so the canvas
-     shows through. Only the subtle nebula gradients paint here, on top
-     of the canvas — they're 6–10% opacity, so stars read clearly. */
+  /* Background-color is a semi-transparent dark veil over the canvas
+     (NOT fully opaque — that would re-hide the SpaceBackground). 0.55
+     alpha keeps the stars visible while damping their overall brightness,
+     which also gives per-section effects (BookCall floating particles,
+     glows, neon text) enough contrast to read against the cosmos. */
+  background-color: rgba(8, 8, 16, 0.55);
   background-image:
     radial-gradient(55% 45% at 18% 12%, rgba(38, 79, 160, 0.10),  transparent 60%),
     radial-gradient(50% 45% at 82% 72%, rgba(120, 60, 180, 0.08), transparent 65%),
