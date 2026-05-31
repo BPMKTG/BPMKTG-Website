@@ -1,0 +1,89 @@
+---
+import type { Tier } from '../../data/tiers';
+
+interface Props { tier: Tier; }
+const { tier } = Astro.props;
+---
+<section class="tier-why bp-texture" data-vision-section>
+  <div class="tier-why-glow tier-why-glow--a" aria-hidden="true"></div>
+  <div class="tier-why-glow tier-why-glow--b" aria-hidden="true"></div>
+
+  <div class="container tier-why-inner">
+    <span class="vision-line" data-vision-line aria-hidden="true"></span>
+
+    <p class="label" data-reveal="left">{tier.whyExists.eyebrow}</p>
+    <h2 data-reveal set:html={tier.whyExists.headline}></h2>
+
+    <div class="tier-why-body">
+      {tier.whyExists.paragraphs.map(p => <p data-reveal set:html={p}></p>)}
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Mirrors the /about Vision section's atmospheric language so the two
+     read as the same kind of narrative beat — manifesto on a textured
+     dark stage, with a scroll-progress accent on the left edge. */
+  .tier-why {
+    padding: 6rem 0 7rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .tier-why-inner {
+    position: relative;
+    z-index: 2;
+    max-width: 820px;
+    padding-left: 1.5rem;
+  }
+  /* Faint track behind the live fill (initVisionLine writes --fill). */
+  .tier-why-inner::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0;
+    width: 2px;
+    height: 100%;
+    background: rgba(98, 166, 219, 0.1);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  /* The fill itself uses the global .vision-line style so behavior is
+     identical to /about — height: calc(var(--fill, 0) * 100%). */
+
+  .tier-why-glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .tier-why-glow--a {
+    width: 540px; height: 540px;
+    top: -120px; right: -120px;
+    background: radial-gradient(circle, rgba(98, 166, 219, 0.18), transparent 70%);
+  }
+  .tier-why-glow--b {
+    width: 460px; height: 460px;
+    bottom: -160px; left: -100px;
+    background: radial-gradient(circle, rgba(38, 79, 160, 0.22), transparent 70%);
+  }
+
+  .tier-why h2 {
+    margin: 1rem 0 2rem;
+    font-size: clamp(2rem, 4vw, 3rem);
+    text-wrap: balance;
+  }
+  .tier-why-body { display: flex; flex-direction: column; gap: 1.5rem; }
+  .tier-why-body p {
+    color: var(--ink);
+    opacity: 0.85;
+    font-size: 1.1rem;
+    line-height: 1.65;
+  }
+  .tier-why-body :global(.hl) { color: var(--bp-light); font-weight: 500; }
+
+  /* Cascade paragraphs in one-by-one, longer than the default 0.08s. */
+  .tier-why-body > p[data-reveal]:nth-child(1) { --reveal-delay: 0s; }
+  .tier-why-body > p[data-reveal]:nth-child(2) { --reveal-delay: 0.28s; }
+  .tier-why-body > p[data-reveal]:nth-child(3) { --reveal-delay: 0.56s; }
+  .tier-why-body > p[data-reveal]:nth-child(4) { --reveal-delay: 0.84s; }
+</style>

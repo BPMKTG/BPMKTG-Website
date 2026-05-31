@@ -1,0 +1,191 @@
+---
+import type { Tier } from '../../data/tiers';
+
+interface Props { tier: Tier; }
+const { tier } = Astro.props;
+---
+<section class="tier-addons" id="addons">
+  <div class="container">
+    <header class="tier-section-head">
+      <p class="label" data-reveal="left">{tier.addOns.eyebrow}</p>
+      <h2 data-reveal>{tier.addOns.headline}</h2>
+    </header>
+
+    <div class="tier-addons-grid" data-reveal-group>
+      {tier.addOns.items.map((a, i) => (
+        <article class="tier-addon card-trace card-inner-glow" data-reveal data-scroll-focus>
+          <div class="tier-addon-head">
+            <span class="tier-addon-num" data-icon-pop>{String(i + 1).padStart(2, '0')}</span>
+            {a.price && <span class="tier-addon-price">{a.price}</span>}
+          </div>
+          <h3>{a.title}</h3>
+          <p>{a.body}</p>
+        </article>
+      ))}
+    </div>
+
+    {tier.addOns.nextStep && (
+      <article class="tier-next-step card-trace card-inner-glow" data-reveal data-scroll-focus>
+        <p class="tier-next-eyebrow" data-icon-pop>Next Step — Tier {tier.addOns.nextStep.number}</p>
+        <h3>{tier.addOns.nextStep.name}</h3>
+        <p class="tier-next-desc">{tier.addOns.nextStep.description}</p>
+        <ul class="tier-next-bullets">
+          {tier.addOns.nextStep.bullets.map(b => <li>{b}</li>)}
+        </ul>
+        <a href={tier.addOns.nextStep.href} class="button">
+          See Tier {tier.addOns.nextStep.number}
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+      </article>
+    )}
+  </div>
+</section>
+
+<style>
+  .tier-addons { padding: 5rem 0; position: relative; isolation: isolate; }
+  .tier-section-head { max-width: 60ch; margin-bottom: 3rem; }
+  .tier-section-head h2 { margin-top: 1rem; text-wrap: balance; }
+
+  .tier-addons-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+  .tier-addon {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.5rem 1.5rem 1.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.3s ease;
+  }
+  .tier-addon:hover {
+    border-color: rgba(98, 166, 219, 0.4);
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px -22px rgba(0, 0, 0, 0.6);
+  }
+  .tier-addon::before {
+    content: "";
+    position: absolute; inset: -1px -1px auto -1px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--bp-blue), transparent);
+    opacity: 0.55;
+  }
+  .tier-addon-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .tier-addon-num {
+    font-family: var(--font-display);
+    color: var(--bp-blue);
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+  }
+  .tier-addon-price {
+    color: var(--bp-orange);
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+  .tier-addon h3 {
+    color: var(--ink);
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    font-size: 0.98rem;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    margin: 0;
+  }
+  .tier-addon p { color: var(--muted); font-size: 0.92rem; line-height: 1.55; }
+
+  /* Next-tier feature card — same dark-glass language as a featured
+     OfferStack tier, scaled down to fit inline with the add-ons grid.
+     --trace-color overrides the default blue ring to bp-light so this
+     card reads as the standout next step. */
+  .tier-next-step {
+    background:
+      linear-gradient(140deg, rgba(38, 79, 160, 0.18), rgba(10, 10, 15, 0.55)),
+      var(--card-elev);
+    border: 1px solid rgba(98, 166, 219, 0.4);
+    border-radius: var(--radius-lg);
+    padding: 2.25rem 2.25rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    --trace-color: var(--bp-light);
+    --inner-glow-color: rgba(179, 224, 246, 0.22);
+  }
+  .tier-next-step:hover {
+    border-color: rgba(98, 166, 219, 0.7);
+    transform: translateY(-3px);
+    box-shadow: 0 24px 50px -24px rgba(0, 0, 0, 0.6);
+  }
+  .tier-next-eyebrow {
+    font-family: var(--font-display);
+    color: var(--bp-light);
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .tier-next-step h3 {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 2.4vw, 1.9rem);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    margin: 0;
+  }
+  .tier-next-desc {
+    color: var(--ink);
+    opacity: 0.85;
+    font-size: 1rem;
+    line-height: 1.55;
+    max-width: 60ch;
+  }
+  .tier-next-bullets {
+    list-style: none;
+    margin: 0.25rem 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem 1rem;
+  }
+  .tier-next-bullets li {
+    color: var(--bp-light);
+    font-size: 0.92rem;
+    padding-left: 1.1rem;
+    position: relative;
+  }
+  .tier-next-bullets li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0.55rem;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--bp-blue);
+    box-shadow: 0 0 8px var(--bp-blue);
+  }
+  .tier-next-step .button { align-self: flex-start; margin-top: 0.5rem; }
+
+  @media (max-width: 980px) { .tier-addons-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px) {
+    .tier-addons-grid { grid-template-columns: 1fr; }
+    .tier-next-bullets { grid-template-columns: 1fr; }
+    .tier-next-step { padding: 1.75rem 1.5rem; }
+  }
+</style>

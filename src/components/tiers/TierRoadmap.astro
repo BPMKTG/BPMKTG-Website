@@ -1,0 +1,100 @@
+---
+import type { Tier } from '../../data/tiers';
+
+interface Props { tier: Tier; }
+const { tier } = Astro.props;
+---
+<section class="tier-process" id="process">
+  <div class="container">
+    <header class="tier-section-head">
+      <p class="label" data-reveal="left">{tier.howItWorks.eyebrow}</p>
+      <h2 data-reveal>{tier.howItWorks.headline}</h2>
+    </header>
+
+    <ol class="tier-steps">
+      {tier.howItWorks.steps.map((s, i) => (
+        <li class="tier-step card-trace card-inner-glow" data-reveal data-scroll-focus>
+          <span class="tier-step-num" data-icon-pop>{String(i + 1).padStart(2, '0')}</span>
+          <div class="tier-step-body">
+            <h3>{s.title}</h3>
+            <p>{s.body}</p>
+          </div>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
+
+<style>
+  .tier-process { padding: 5rem 0; position: relative; isolation: isolate; }
+  .tier-section-head { max-width: 60ch; margin-bottom: 3rem; }
+  .tier-section-head h2 { margin-top: 1rem; text-wrap: balance; }
+
+  .tier-steps {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    max-width: 920px;
+  }
+  .tier-step {
+    background: rgba(18, 19, 28, 0.78);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.5rem 1.75rem;
+    display: grid;
+    grid-template-columns: 5rem 1fr;
+    gap: 1.25rem;
+    align-items: start;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.3s ease;
+  }
+  .tier-step:hover {
+    border-color: rgba(98, 166, 219, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 20px 40px -22px rgba(0, 0, 0, 0.6);
+  }
+  .tier-step-num {
+    font-family: var(--font-display);
+    color: var(--bp-blue);
+    font-weight: 800;
+    font-size: 1.9rem;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .tier-step-body h3 {
+    color: var(--ink);
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+    margin: 0 0 0.5rem;
+    line-height: 1.2;
+  }
+  .tier-step-body p { color: var(--muted); font-size: 0.96rem; line-height: 1.55; }
+
+  /* Cascade-in from the left with a spring — same easing/timing as
+     the homepage Roadmap step entrance so this section reads as
+     a sibling, not a sequel. */
+  .tier-steps > .tier-step[data-reveal] {
+    transform: translateX(-32px) translateY(0);
+    transition:
+      opacity 0.9s cubic-bezier(0.34, 1.42, 0.5, 1) var(--reveal-delay, 0s),
+      transform 0.9s cubic-bezier(0.34, 1.42, 0.5, 1) var(--reveal-delay, 0s);
+  }
+  .tier-steps > .tier-step[data-reveal].is-in {
+    transform: translateX(0) translateY(0);
+  }
+  .tier-steps > .tier-step:nth-child(1) { --reveal-delay: 0s; }
+  .tier-steps > .tier-step:nth-child(2) { --reveal-delay: 0.12s; }
+  .tier-steps > .tier-step:nth-child(3) { --reveal-delay: 0.24s; }
+  .tier-steps > .tier-step:nth-child(4) { --reveal-delay: 0.36s; }
+  .tier-steps > .tier-step:nth-child(5) { --reveal-delay: 0.48s; }
+
+  @media (max-width: 640px) {
+    .tier-step { grid-template-columns: 1fr; gap: 0.6rem; padding: 1.25rem 1.25rem; }
+  }
+</style>

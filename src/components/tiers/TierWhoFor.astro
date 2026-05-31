@@ -1,0 +1,78 @@
+---
+import type { Tier } from '../../data/tiers';
+
+interface Props { tier: Tier; }
+const { tier } = Astro.props;
+---
+<section class="tier-who" id="who">
+  <div class="container">
+    <header class="tier-section-head">
+      <p class="label" data-reveal="left">{tier.whoFor.eyebrow}</p>
+      <h2 data-reveal>{tier.whoFor.headline}</h2>
+    </header>
+
+    <div class="tier-who-grid" data-reveal-group>
+      {tier.whoFor.cards.map((c, i) => (
+        <article class="tier-who-card card-trace card-inner-glow" data-reveal data-scroll-focus>
+          <span class="tier-who-num" data-icon-pop>{String(i + 1).padStart(2, '0')}</span>
+          <h3>{c.title}</h3>
+          <p>{c.body}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .tier-who { padding: 5rem 0 4rem; position: relative; isolation: isolate; }
+  .tier-section-head { max-width: 60ch; margin-bottom: 3rem; }
+  .tier-section-head h2 { margin-top: 1rem; text-wrap: balance; }
+
+  .tier-who-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  .tier-who-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .tier-who-card:hover {
+    border-color: rgba(98, 166, 219, 0.4);
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px -22px rgba(0, 0, 0, 0.6);
+  }
+  .tier-who-card::before {
+    content: "";
+    position: absolute; inset: -1px -1px auto -1px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--bp-blue), transparent);
+    opacity: 0.55;
+  }
+  .tier-who-num {
+    font-family: var(--font-display);
+    color: var(--bp-blue);
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+  }
+  .tier-who-card h3 {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+  }
+  .tier-who-card p { color: var(--muted); font-size: 0.95rem; line-height: 1.55; }
+
+  @media (max-width: 760px) { .tier-who-grid { grid-template-columns: 1fr; } }
+</style>

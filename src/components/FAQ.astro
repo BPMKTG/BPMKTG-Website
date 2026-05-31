@@ -1,9 +1,21 @@
 ---
-// Objection-handling FAQ. Pre-handles the 7 most common doubts artists raise
-// before they ever get on a call, in the order they typically show up after
-// seeing pricing. Lifted from the brand IOF "Objections + Solutions" doc and
-// adapted for web tone.
-const faqs = [
+// Objection-handling FAQ. Defaults to the homepage's 7 universal questions
+// but accepts overrides via props so the same accordion can be reused on
+// tier pages without duplicating any CSS / animation / scoped behavior.
+//
+// Pass faqs / eyebrow / headline / lede / footnote to customize. Anything
+// omitted falls back to the homepage defaults.
+interface FaqItem { q: string; a: string; }
+interface Props {
+  faqs?: FaqItem[];
+  eyebrow?: string;
+  headline?: string;   // HTML allowed — rendered with set:html
+  lede?: string;
+  footnote?: string;   // HTML allowed; pass null to hide
+  showFootnote?: boolean;
+}
+
+const defaultFaqs: FaqItem[] = [
   {
     q: "Can't I just do this myself?",
     a: "You can. Plenty of artists do — and most of them stay stuck. The difference isn't effort, it's having a system behind the effort. DIY is slow and inconsistent because every post, every show, every release starts from zero. We build the system so growth compounds instead of starting over every time."
@@ -33,18 +45,22 @@ const faqs = [
     a: "Most artists aren't lacking money — they're lacking a system that turns attention into growth. Right now you're already investing time, energy, and footage into content that isn't converting. We don't add a cost — we fix wasted effort and turn it into a growth multiplier. Bring it up on the call and we'll map the math to your numbers."
   },
 ];
+
+const {
+  faqs = defaultFaqs,
+  eyebrow = 'Common Questions',
+  headline = 'Before you book,<br/><span class="glow-blue">here\'s what most artists ask.</span>',
+  lede = 'Real questions we hear on strategy calls. Real answers — same as we\'d give you over a coffee.',
+  footnote = 'Still wondering something specific? <a href="#book">Bring it up on the call</a> — that\'s what it\'s for.',
+  showFootnote = true,
+} = Astro.props;
 ---
 <section class="faq" id="faq">
   <div class="container">
     <header class="faq-head">
-      <p class="label" data-reveal="left">Common Questions</p>
-      <h2 data-reveal>
-        Before you book,<br/>
-        <span class="glow-blue">here's what most artists ask.</span>
-      </h2>
-      <p class="lede" data-reveal>
-        Real questions we hear on strategy calls. Real answers — same as we'd give you over a coffee.
-      </p>
+      <p class="label" data-reveal="left">{eyebrow}</p>
+      <h2 data-reveal set:html={headline}></h2>
+      <p class="lede" data-reveal>{lede}</p>
     </header>
 
     <div class="faq-list" data-reveal-group>
@@ -64,9 +80,9 @@ const faqs = [
       ))}
     </div>
 
-    <p class="faq-footnote" data-reveal>
-      Still wondering something specific? <a href="#book">Bring it up on the call</a> — that's what it's for.
-    </p>
+    {showFootnote && footnote && (
+      <p class="faq-footnote" data-reveal set:html={footnote}></p>
+    )}
   </div>
 </section>
 

@@ -1,0 +1,164 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import type { Tier } from '../../data/tiers';
+
+interface Props {
+  tier: Tier;
+  bgImage: ImageMetadata;
+}
+const { tier, bgImage } = Astro.props;
+---
+<section class="tier-hero">
+  <div class="tier-hero-bg" data-parallax-bg data-scale-bg data-scale-start="1" data-scale-end="1.18" aria-hidden="true">
+    <Image
+      src={bgImage}
+      alt=""
+      width={2400}
+      height={1600}
+      format="webp"
+      quality={84}
+      loading="eager"
+    />
+  </div>
+  <div class="tier-hero-overlay" aria-hidden="true"></div>
+  <div class="tier-hero-grid" aria-hidden="true"></div>
+
+  <div class="container tier-hero-inner">
+    <span class="tier-hero-num" aria-hidden="true">{tier.number}</span>
+
+    <div class="tier-hero-content">
+      <p class="label" data-reveal="left">{tier.hero.eyebrow}</p>
+      <h1 data-reveal set:html={tier.hero.headline}></h1>
+      <p class="tier-hero-sub" data-reveal>{tier.hero.sub}</p>
+
+      <div class="tier-hero-price" data-reveal>
+        <span class="tier-price-num">{tier.price}</span>
+        <span class="tier-price-note">{tier.priceNote}</span>
+      </div>
+
+      <div class="tier-hero-ctas" data-reveal-group>
+        <a href={tier.hero.primaryCta.href} class="button accent" data-reveal>
+          {tier.hero.primaryCta.label}
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+        <a href={tier.hero.secondaryCta.href} class="button ghost" data-reveal>
+          {tier.hero.secondaryCta.label}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .tier-hero {
+    position: relative;
+    overflow: hidden;
+    min-height: clamp(620px, 86vh, 900px);
+    display: flex;
+    align-items: center;
+    isolation: isolate;
+  }
+  .tier-hero-bg {
+    position: absolute;
+    inset: -10% 0;
+    z-index: 0;
+  }
+  .tier-hero-bg :global(img) {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center 40%;
+  }
+  .tier-hero-overlay {
+    position: absolute; inset: 0; z-index: 1;
+    background:
+      linear-gradient(180deg, rgba(10,10,15,0.45) 0%, rgba(10,10,15,0.6) 50%, rgba(10,10,15,0.95) 100%),
+      radial-gradient(60% 60% at 80% 20%, rgba(38, 79, 160, 0.22), transparent 70%);
+  }
+  .tier-hero-grid {
+    position: absolute; inset: 0; z-index: 1;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(70% 70% at 50% 30%, #000 30%, transparent 100%);
+  }
+
+  .tier-hero-inner {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    padding: 5rem 1.5rem;
+    max-width: var(--max-width);
+  }
+
+  /* Big faded tier number — same language as the founder numbers on /about */
+  .tier-hero-num {
+    position: absolute;
+    top: -1rem;
+    right: 1.5rem;
+    font-family: var(--font-display);
+    font-size: clamp(8rem, 18vw, 18rem);
+    font-weight: 900;
+    line-height: 0.85;
+    color: rgba(98, 166, 219, 0.14);
+    text-shadow: 0 0 60px rgba(98, 166, 219, 0.15);
+    letter-spacing: -0.05em;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .tier-hero-content { max-width: 60ch; position: relative; z-index: 2; }
+  .tier-hero h1 {
+    margin: 1rem 0 1.5rem;
+    max-width: 22ch;
+    text-shadow: 0 4px 30px rgba(0,0,0,0.65);
+  }
+  .tier-hero-sub {
+    color: var(--ink);
+    opacity: 0.88;
+    font-size: 1.15rem;
+    max-width: 60ch;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.6);
+  }
+  .tier-hero-price {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    display: flex;
+    align-items: baseline;
+    gap: 0.85rem;
+    max-width: 60ch;
+    flex-wrap: wrap;
+  }
+  .tier-price-num {
+    font-family: var(--font-display);
+    font-size: clamp(2.1rem, 3.6vw, 2.85rem);
+    font-weight: 800;
+    color: var(--bp-light);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .tier-price-note {
+    color: var(--muted);
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .tier-hero-ctas {
+    margin-top: 1.75rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 600px) {
+    .tier-hero-num {
+      font-size: 7rem;
+      top: -0.5rem;
+      right: 0.75rem;
+      opacity: 0.85;
+    }
+  }
+</style>

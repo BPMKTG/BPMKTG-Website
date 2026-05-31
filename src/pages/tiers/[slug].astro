@@ -1,0 +1,35 @@
+---
+import type { ImageMetadata } from 'astro';
+import TierPage from '../../components/tiers/TierPage.astro';
+import { tiers } from '../../data/tiers';
+
+// Imports outside getStaticPaths so Astro's image pipeline can still
+// optimize them. The hero-bgs map itself has to live INSIDE
+// getStaticPaths because Astro evaluates that function in its own
+// scope at build time.
+import tier01Hero from '../../assets/images/hero/hero-1-excision-magenta-713.jpg';
+
+// ─────────────────────────────────────────────────────────────
+// Adding a new tier:
+//   1. Add an entry to src/data/tiers.ts
+//   2. Import its hero photo above
+//   3. Register it in heroBgs below
+// getStaticPaths only emits routes for tiers that have BOTH a data
+// entry and a hero bg, so tier-02/03/04 drafts can sit in tiers.ts
+// without accidentally going live.
+// ─────────────────────────────────────────────────────────────
+export async function getStaticPaths() {
+  const heroBgs: Record<string, ImageMetadata> = {
+    'tier-01': tier01Hero,
+  };
+  return Object.values(tiers)
+    .filter(tier => tier.slug in heroBgs)
+    .map(tier => ({
+      params: { slug: tier.slug },
+      props: { tier, heroBg: heroBgs[tier.slug] },
+    }));
+}
+
+const { tier, heroBg } = Astro.props;
+---
+<TierPage tier={tier} heroBg={heroBg} />
