@@ -1,18 +1,26 @@
 ---
-import type { Tier } from '../../data/tiers';
+import type { TierCard } from '../../data/tiers';
 
-interface Props { tier: Tier; }
-const { tier } = Astro.props;
+// Generic 2-col audience-card grid. Used by all tier pages for "Who
+// It's For" AND by the Event Media page for both "What We Capture"
+// and "Who It's For" — same visual pattern, different copy.
+interface Props {
+  eyebrow: string;
+  headline: string;
+  cards: TierCard[];
+  id?: string;
+}
+const { eyebrow, headline, cards, id = 'who' } = Astro.props;
 ---
-<section class="tier-who" id="who">
+<section class="tier-who" id={id}>
   <div class="container">
     <header class="tier-section-head">
-      <p class="label" data-reveal="left">{tier.whoFor.eyebrow}</p>
-      <h2 data-reveal>{tier.whoFor.headline}</h2>
+      <p class="label" data-reveal="left">{eyebrow}</p>
+      <h2 data-reveal>{headline}</h2>
     </header>
 
     <div class="tier-who-grid" data-reveal-group>
-      {tier.whoFor.cards.map((c, i) => (
+      {cards.map((c, i) => (
         <article class="tier-who-card card-trace card-inner-glow" data-reveal data-scroll-focus>
           <span class="tier-who-num" data-icon-pop>{String(i + 1).padStart(2, '0')}</span>
           <h3>{c.title}</h3>

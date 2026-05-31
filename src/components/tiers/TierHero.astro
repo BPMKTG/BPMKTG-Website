@@ -1,27 +1,50 @@
 ---
-// Note: bgImage is intentionally NOT used anymore — the hero is now a
-// fully custom HUD background (inline SVG + CSS layers), not a photo
-// hero. The prop is kept on the interface to avoid breaking the route's
-// getStaticPaths contract; future tiers can still pass it if they go
-// back to a photo bg.
-import type { ImageMetadata } from 'astro';
-import type { Tier } from '../../data/tiers';
+// Generic offer hero — used by Tier 01-04 and Event Media. All copy
+// driven by props; the HUD background and offer-card structure stay
+// constant across pages.
+interface OfferCta { label: string; href: string; }
+interface OfferHighlight { value: string; unit: string; }
 
 interface Props {
-  tier: Tier;
-  bgImage?: ImageMetadata;
-}
-const { tier } = Astro.props;
+  // HUD marker (top-left big outlined chrome)
+  markerLabel: string;     // "Tier" or "Live"
+  markerNumber: string;    // "01" / "LV" / etc.
 
-// Offer-card highlights derive from the tier data so they stay in sync
-// if the deliverable list changes. Keeps the data file as the single
-// source of truth without duplicating numbers into the hero.
-const offerHighlights: { value: string; unit: string }[] = [
-  { value: tier.whatYouGet.cards.length.toString(), unit: 'deliverables' },
-  { value: '60–90',  unit: 'min strategy call' },
-  { value: '7–10',   unit: 'day turnaround' },
-  { value: '5–15',   unit: 'repurposed clips' },
-];
+  // Hero text
+  eyebrow: string;
+  name: string;             // H1
+  headline: string;         // HTML allowed for the .highlight span
+  sub: string;
+  pills: string[];
+  primaryCta: OfferCta;
+  secondaryCta: OfferCta;
+
+  // Right-side offer card
+  shortName: string;
+  price: string;
+  priceNote: string;
+  offerHighlights: OfferHighlight[];
+  offerCardCta: OfferCta;
+  offerCardFootLabel: string;
+}
+
+const {
+  markerLabel,
+  markerNumber,
+  eyebrow,
+  name,
+  headline,
+  sub,
+  pills,
+  primaryCta,
+  secondaryCta,
+  shortName,
+  price,
+  priceNote,
+  offerHighlights,
+  offerCardCta,
+  offerCardFootLabel,
+} = Astro.props;
 
 // Tick positions derived once at SSR time so the markup stays clean.
 const topTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
@@ -98,54 +121,54 @@ const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
        reads as part of the interface chrome. -->
   <div class="tier-hud-marker" aria-hidden="true">
     <span class="tier-hud-bar"></span>
-    <span class="tier-hud-marker-label">Tier</span>
-    <span class="tier-hud-marker-number">{tier.number}</span>
+    <span class="tier-hud-marker-label">{markerLabel}</span>
+    <span class="tier-hud-marker-number">{markerNumber}</span>
   </div>
 
   <div class="container tier-hero-inner">
     <div class="tier-hero-layout">
       <!-- LEFT: info stack -->
       <div class="tier-hero-left">
-        <p class="label" data-reveal="left">{tier.hero.eyebrow}</p>
+        <p class="label" data-reveal="left">{eyebrow}</p>
 
-        <h1 id="tier-hero-title" data-reveal>{tier.name}</h1>
+        <h1 id="tier-hero-title" data-reveal>{name}</h1>
 
-        <p class="tier-hero-positioning" data-reveal set:html={tier.hero.headline}></p>
+        <p class="tier-hero-positioning" data-reveal set:html={headline}></p>
 
-        <p class="tier-hero-sub" data-reveal>{tier.hero.sub}</p>
+        <p class="tier-hero-sub" data-reveal>{sub}</p>
 
         <ul class="tier-hero-pills" data-reveal-group>
-          {tier.hero.pills.map(p => (
+          {pills.map(p => (
             <li class="tier-hero-pill" data-reveal>{p}</li>
           ))}
         </ul>
 
         <div class="tier-hero-ctas" data-reveal>
-          <a href={tier.hero.primaryCta.href} class="button accent">
-            {tier.hero.primaryCta.label}
+          <a href={primaryCta.href} class="button accent">
+            {primaryCta.label}
             <span class="arrow" aria-hidden="true">→</span>
           </a>
-          <a href={tier.hero.secondaryCta.href} class="button ghost">
-            {tier.hero.secondaryCta.label}
+          <a href={secondaryCta.href} class="button ghost">
+            {secondaryCta.label}
           </a>
         </div>
       </div>
 
       <!-- RIGHT: premium offer card -->
-      <aside class="tier-offer-card" data-reveal aria-label={`${tier.name} summary card`}>
+      <aside class="tier-offer-card" data-reveal aria-label={`${name} summary card`}>
         <header class="tier-offer-head">
-          <span class="tier-offer-num">{tier.number}</span>
+          <span class="tier-offer-num">{markerNumber}</span>
           <div class="tier-offer-id">
             <p class="tier-offer-label">Offer</p>
-            <p class="tier-offer-name">{tier.shortName}</p>
+            <p class="tier-offer-name">{shortName}</p>
           </div>
         </header>
 
         <div class="tier-offer-divider" aria-hidden="true"></div>
 
         <div class="tier-offer-price">
-          <span class="tier-offer-price-num">{tier.price}</span>
-          <span class="tier-offer-price-note">{tier.priceNote}</span>
+          <span class="tier-offer-price-num">{price}</span>
+          <span class="tier-offer-price-note">{priceNote}</span>
         </div>
 
         <ul class="tier-offer-highlights">
@@ -157,12 +180,12 @@ const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
           ))}
         </ul>
 
-        <a href={tier.hero.primaryCta.href} class="button accent tier-offer-cta">
-          Reserve Your Session
+        <a href={offerCardCta.href} class="button accent tier-offer-cta">
+          {offerCardCta.label}
           <span class="arrow" aria-hidden="true">→</span>
         </a>
 
-        <p class="tier-offer-foot">Strategy-first · Foundation tier</p>
+        <p class="tier-offer-foot">{offerCardFootLabel}</p>
       </aside>
     </div>
   </div>

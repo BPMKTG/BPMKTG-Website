@@ -1,18 +1,26 @@
 ---
-import type { Tier } from '../../data/tiers';
+import type { TierStep } from '../../data/tiers';
 
-interface Props { tier: Tier; }
-const { tier } = Astro.props;
+// Generic numbered-step list with the spring slide-in cascade.
+// Used for "How It Works" on tier pages and "Turnaround / Workflow"
+// on the Event Media page.
+interface Props {
+  eyebrow: string;
+  headline: string;
+  steps: TierStep[];
+  id?: string;
+}
+const { eyebrow, headline, steps, id = 'process' } = Astro.props;
 ---
-<section class="tier-process" id="process">
+<section class="tier-process" id={id}>
   <div class="container">
     <header class="tier-section-head">
-      <p class="label" data-reveal="left">{tier.howItWorks.eyebrow}</p>
-      <h2 data-reveal>{tier.howItWorks.headline}</h2>
+      <p class="label" data-reveal="left">{eyebrow}</p>
+      <h2 data-reveal>{headline}</h2>
     </header>
 
     <ol class="tier-steps">
-      {tier.howItWorks.steps.map((s, i) => (
+      {steps.map((s, i) => (
         <li class="tier-step card-trace card-inner-glow" data-reveal data-scroll-focus>
           <span class="tier-step-num" data-icon-pop>{String(i + 1).padStart(2, '0')}</span>
           <div class="tier-step-body">

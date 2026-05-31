@@ -1,0 +1,56 @@
+---
+import Layout from '../layouts/Layout.astro';
+import TierHero from '../components/tiers/TierHero.astro';
+import TierWhoFor from '../components/tiers/TierWhoFor.astro';
+import TierWhatYouGet from '../components/tiers/TierWhatYouGet.astro';
+import TierRoadmap from '../components/tiers/TierRoadmap.astro';
+import FAQ from '../components/FAQ.astro';
+import BookCall from '../components/BookCall.astro';
+import { eventMedia as em } from '../data/event-media';
+---
+<Layout
+  title={`${em.name} — Blueprint Marketing`}
+  description={`${em.name}: ${em.positioning}`}
+>
+  <TierHero
+    markerLabel={em.hero.markerLabel}
+    markerNumber={em.number}
+    eyebrow={em.hero.eyebrow}
+    name={em.name}
+    headline={em.hero.headline}
+    sub={em.hero.sub}
+    pills={em.hero.pills}
+    primaryCta={em.hero.primaryCta}
+    secondaryCta={em.hero.secondaryCta}
+    shortName={em.shortName}
+    price={em.price}
+    priceNote={em.priceNote}
+    offerHighlights={em.hero.offerHighlights}
+    offerCardCta={em.hero.offerCardCta}
+    offerCardFootLabel={em.hero.offerCardFootLabel}
+  />
+
+  <!-- Event Media reorders the standard sections:
+       What We Capture (broad categories)  → reuses TierWhoFor's 2-col grid
+       Coverage Formats (production cuts)  → reuses TierWhatYouGet's 3-col grid
+       Deliverable Examples (packages)     → reuses TierWhatYouGet
+       Workflow (turnaround steps)         → reuses TierRoadmap
+       Who It's For (audience)             → reuses TierWhoFor
+       FAQ + BookCall                      → same as tiers -->
+
+  <TierWhoFor {...em.whatWeCapture} id="capture" />
+  <TierWhatYouGet {...em.coverageFormats} id="formats" />
+  <TierWhatYouGet {...em.deliverableExamples} id="packages" />
+  <TierRoadmap {...em.workflow} id="workflow" />
+  <TierWhoFor {...em.whoFor} id="who" />
+
+  <FAQ
+    eyebrow={em.faq.eyebrow}
+    headline={em.faq.headline}
+    lede={em.faq.lede}
+    faqs={em.faq.items}
+    footnote={`Scope question we didn't cover? <a href="#book">Bring it to the call</a>.`}
+  />
+
+  <BookCall />
+</Layout>

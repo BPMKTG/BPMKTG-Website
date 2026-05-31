@@ -155,10 +155,17 @@ const tilesLB = tilesLBRaw;
         with the artists shaping the scene. The portfolio you're scrolling
         through is the proof.
       </p>
+      <div class="hero-ctas" data-reveal>
+        <a href="/event-media" class="button accent">
+          Request Event Coverage
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+        <a href="#access" class="button ghost">See the work</a>
+      </div>
     </div>
   </section>
 
-  <section class="featured-block">
+  <section class="featured-block" id="access">
     <div class="container">
       <p class="label" data-reveal="left">Access</p>
       <h2 data-reveal>Where most cameras don't get to stand.</h2>
@@ -339,6 +346,12 @@ const tilesLB = tilesLBRaw;
     max-width: 56ch;
     font-size: 1.1rem;
     text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  }
+  .hero-ctas {
+    margin-top: 1.75rem;
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
   }
 
   .featured-block { padding: 5rem 0 2rem; }

@@ -1,6 +1,11 @@
 ---
+// Each tier card links to its dedicated /tiers/<slug> page. Card copy
+// stays as the homepage's at-a-glance summary; the tier pages own the
+// deep-dive + booking flow.
 const tiers = [
   {
+    slug: 'tier-01',
+    tierNumber: '01',
     tag: 'Tier 01 · Entry',
     name: 'Growth Blueprint Session™',
     price: '$1,000',
@@ -20,6 +25,8 @@ const tiers = [
     featured: false,
   },
   {
+    slug: 'tier-02',
+    tierNumber: '02',
     tag: 'Tier 02 · Consistency',
     name: 'Content Engine Starter™',
     price: '$1,000',
@@ -39,6 +46,8 @@ const tiers = [
     featured: false,
   },
   {
+    slug: 'tier-03',
+    tierNumber: '03',
     tag: 'Tier 03 · Most Picked',
     name: 'Fan Growth Engine™',
     price: '$3,000',
@@ -60,6 +69,8 @@ const tiers = [
     featured: true,
   },
   {
+    slug: 'tier-04',
+    tierNumber: '04',
     tag: 'Tier 04 · Infrastructure',
     name: 'Artist Growth Infrastructure™',
     price: '$10,000',
@@ -128,8 +139,8 @@ const tiers = [
             {t.deliverables.map(d => (<li>{d}</li>))}
           </ul>
 
-          <a href="#book" class={`tier-cta ${t.featured ? 'button accent' : 'button ghost'}`}>
-            {t.featured ? 'Book a strategy call' : 'Get details'}
+          <a href={`/tiers/${t.slug}`} class={`tier-cta ${t.featured ? 'button accent' : 'button ghost'}`}>
+            {t.featured ? `Open Tier ${t.tierNumber}` : `See Tier ${t.tierNumber}`}
             <span class="arrow" aria-hidden="true">→</span>
           </a>
         </article>

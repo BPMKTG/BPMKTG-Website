@@ -1,5 +1,4 @@
 ---
-import type { ImageMetadata } from 'astro';
 import Layout from '../../layouts/Layout.astro';
 import TierHero from './TierHero.astro';
 import TierWhoFor from './TierWhoFor.astro';
@@ -12,18 +11,33 @@ import type { Tier } from '../../data/tiers';
 
 interface Props {
   tier: Tier;
-  heroBg: ImageMetadata;
 }
-const { tier, heroBg } = Astro.props;
+const { tier } = Astro.props;
 ---
 <Layout
   title={`Tier ${tier.number} — ${tier.name} — Blueprint Marketing`}
   description={`${tier.name}: ${tier.positioning}`}
 >
-  <TierHero tier={tier} bgImage={heroBg} />
-  <TierWhoFor tier={tier} />
-  <TierWhatYouGet tier={tier} />
-  <TierRoadmap tier={tier} />
+  <TierHero
+    markerLabel={tier.hero.markerLabel}
+    markerNumber={tier.number}
+    eyebrow={tier.hero.eyebrow}
+    name={tier.name}
+    headline={tier.hero.headline}
+    sub={tier.hero.sub}
+    pills={tier.hero.pills}
+    primaryCta={tier.hero.primaryCta}
+    secondaryCta={tier.hero.secondaryCta}
+    shortName={tier.shortName}
+    price={tier.price}
+    priceNote={tier.priceNote}
+    offerHighlights={tier.hero.offerHighlights}
+    offerCardCta={tier.hero.offerCardCta}
+    offerCardFootLabel={tier.hero.offerCardFootLabel}
+  />
+  <TierWhoFor {...tier.whoFor} id="who" />
+  <TierWhatYouGet {...tier.whatYouGet} id="deliverables" />
+  <TierRoadmap {...tier.howItWorks} id="process" />
   <TierAddOns tier={tier} />
   <FAQ
     eyebrow={tier.faq.eyebrow}

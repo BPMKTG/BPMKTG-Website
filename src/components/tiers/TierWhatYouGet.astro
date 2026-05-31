@@ -1,19 +1,28 @@
 ---
-import type { Tier } from '../../data/tiers';
+import type { TierCard } from '../../data/tiers';
 
-interface Props { tier: Tier; }
-const { tier } = Astro.props;
+// Generic 3-col deliverable-card grid. Used for "What's Included" on
+// tier pages and for "Coverage Formats" + "Deliverable Examples" on
+// the Event Media page.
+interface Props {
+  eyebrow: string;
+  headline: string;
+  sub?: string;
+  cards: TierCard[];
+  id?: string;
+}
+const { eyebrow, headline, sub, cards, id = 'deliverables' } = Astro.props;
 ---
-<section class="tier-deliv" id="deliverables">
+<section class="tier-deliv" id={id}>
   <div class="container">
     <header class="tier-section-head wide">
-      <p class="label" data-reveal="left">{tier.whatYouGet.eyebrow}</p>
-      <h2 data-reveal>{tier.whatYouGet.headline}</h2>
-      <p class="tier-section-sub" data-reveal>{tier.whatYouGet.sub}</p>
+      <p class="label" data-reveal="left">{eyebrow}</p>
+      <h2 data-reveal>{headline}</h2>
+      {sub && <p class="tier-section-sub" data-reveal>{sub}</p>}
     </header>
 
     <div class="tier-deliv-grid" data-reveal-group>
-      {tier.whatYouGet.cards.map((c, i) => (
+      {cards.map((c, i) => (
         <article class="tier-deliv-card card-trace card-inner-glow" data-reveal data-scroll-focus>
           <span class="tier-deliv-num" data-icon-pop>{String(i + 1).padStart(2, '0')}</span>
           <h3>{c.title}</h3>
