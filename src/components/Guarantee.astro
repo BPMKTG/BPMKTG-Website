@@ -11,7 +11,7 @@ const sub = [
       <div class="card-inner">
         <p class="label" data-reveal="left">The Guarantee</p>
         <h2 data-reveal>
-          If we don't deliver consistent, high-quality content and a clear growth system in <span class="highlight">30&nbsp;days</span>, we work for free until we do.
+          If we don't deliver consistent, high-quality content and a clear growth system in <span class="highlight" data-shimmer>30&nbsp;days</span>, we work for free until we do.
         </h2>
 
         <div class="sub-grid" data-reveal-group>
@@ -40,6 +40,36 @@ const sub = [
       var(--card-elev);
     border: 1px solid rgba(98, 166, 219, 0.3);
     overflow: hidden;
+    /* Dramatic dual-color breathing — cycles between blue and orange
+       over 4s. Border + shadow + a glow halo all pulse together. */
+    animation: guaranteeBreath 4s ease-in-out infinite;
+    transition: border-color 0.35s ease, box-shadow 0.35s ease;
+  }
+  .card:hover {
+    border-color: rgba(98, 166, 219, 0.7);
+    box-shadow:
+      0 0 0 1px rgba(98, 166, 219, 0.5),
+      0 30px 70px -30px rgba(38, 79, 160, 0.6),
+      inset 0 0 40px -10px rgba(98, 166, 219, 0.18);
+  }
+  @keyframes guaranteeBreath {
+    0%, 100% {
+      border-color: rgba(38, 79, 160, 0.5);
+      box-shadow:
+        0 0 0 1px rgba(38, 79, 160, 0.25),
+        0 20px 60px -30px rgba(38, 79, 160, 0.45),
+        inset 0 0 60px -20px rgba(38, 79, 160, 0.25);
+    }
+    50% {
+      border-color: rgba(227, 112, 59, 0.5);
+      box-shadow:
+        0 0 0 1px rgba(227, 112, 59, 0.25),
+        0 20px 60px -30px rgba(227, 112, 59, 0.45),
+        inset 0 0 60px -20px rgba(227, 112, 59, 0.2);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card { animation: none; }
   }
   .card-inner { position: relative; z-index: 2; }
   .glow {

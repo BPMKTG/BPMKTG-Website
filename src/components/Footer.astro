@@ -26,6 +26,7 @@ const cols = [
 ];
 ---
 <footer class="site-footer">
+  <div class="footer-particles" aria-hidden="true" data-count="9" data-dur-base="22" data-dur-spread="14"></div>
   <div class="container footer-grid">
     <div class="brand-col">
       <img src="/brand/logo-white.svg" alt="Blueprint Marketing" class="brand-logo" />
@@ -58,6 +59,9 @@ const cols = [
     background: var(--bg-2);
     border-top: 1px solid var(--line);
     padding: 5rem 0 2rem;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
   }
   .footer-grid {
     display: grid;
@@ -65,7 +69,10 @@ const cols = [
     gap: 2rem;
     padding-bottom: 3rem;
     border-bottom: 1px solid var(--line);
+    position: relative;
+    z-index: 2;
   }
+  .footer-foot { position: relative; z-index: 2; }
   .brand-logo { width: 220px; max-width: 80%; margin-bottom: 1rem; }
   .tagline { color: var(--muted); margin-bottom: 1.5rem; max-width: 30ch; font-size: 0.95rem; }
   .col h4 {
@@ -78,8 +85,51 @@ const cols = [
     font-weight: 700;
   }
   .col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
-  .col a { color: var(--ink); opacity: 0.72; font-size: 0.9rem; transition: color 0.15s, opacity 0.15s; }
+  .col a {
+    color: var(--ink);
+    opacity: 0.72;
+    font-size: 0.9rem;
+    position: relative;
+    display: inline-block;
+    padding-bottom: 3px;
+    transition: color 0.2s ease, opacity 0.2s ease;
+  }
   .col a:hover { color: var(--bp-light); opacity: 1; }
+
+  /* Underline that slides in left-to-right on hover, slides back out on
+     mouse leave. Two transitions: scaleX in from origin-left on hover,
+     then transform-origin flips to right and scales back out on leave. */
+  .col a::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 1px;
+    background: var(--bp-blue);
+    box-shadow: 0 0 8px rgba(98, 166, 219, 0.6);
+    transform: scaleX(0);
+    transform-origin: right center;
+    transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  .col a:hover::after {
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+
+  /* Connect column = social links — distinct brand-color glow per icon.
+     Targets the column at index 3 (Connect: Instagram/TikTok/YouTube/X). */
+  .col:last-child a {
+    transition: color 0.25s ease, opacity 0.2s ease, text-shadow 0.3s ease;
+  }
+  .col:last-child li:nth-child(1) a:hover { color: #ff4d8b; text-shadow: 0 0 12px rgba(255, 77, 139, 0.7); }  /* Instagram pink */
+  .col:last-child li:nth-child(2) a:hover { color: #4dd9d9; text-shadow: 0 0 12px rgba(77, 217, 217, 0.7); }  /* TikTok cyan */
+  .col:last-child li:nth-child(3) a:hover { color: #ff3b3b; text-shadow: 0 0 12px rgba(255, 59, 59, 0.7); }   /* YouTube red */
+  .col:last-child li:nth-child(4) a:hover { color: #ffffff; text-shadow: 0 0 12px rgba(255, 255, 255, 0.7); } /* X white */
+  .col:last-child li:nth-child(5) a:hover { color: var(--bp-light); text-shadow: 0 0 12px rgba(179, 224, 246, 0.7); } /* Email */
+  .col:last-child li:nth-child(1) a:hover::after { background: #ff4d8b; box-shadow: 0 0 8px rgba(255, 77, 139, 0.6); }
+  .col:last-child li:nth-child(2) a:hover::after { background: #4dd9d9; box-shadow: 0 0 8px rgba(77, 217, 217, 0.6); }
+  .col:last-child li:nth-child(3) a:hover::after { background: #ff3b3b; box-shadow: 0 0 8px rgba(255, 59, 59, 0.6); }
+  .col:last-child li:nth-child(4) a:hover::after { background: #ffffff; box-shadow: 0 0 8px rgba(255, 255, 255, 0.6); }
+  .col:last-child li:nth-child(5) a:hover::after { background: var(--bp-light); box-shadow: 0 0 8px rgba(179, 224, 246, 0.6); }
 
   .footer-foot {
     display: flex;

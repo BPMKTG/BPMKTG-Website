@@ -644,6 +644,28 @@ p { margin: 0; color: var(--muted); }
   100% { transform: translateY(-110vh)   translateX(var(--drift, 0px)); opacity: 0; }
 }
 
+/* Footer particles — same animation but smaller, slower, lower opacity.
+   Container is populated by initCtaParticles (generalised). */
+.footer-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.footer-particles span {
+  position: absolute;
+  width: 2px; height: 2px;
+  background: var(--bp-blue);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(98, 166, 219, 0.6);
+  opacity: 0;
+  animation: ctaFloat var(--dur, 22s) linear infinite;
+  animation-delay: var(--delay, 0s);
+  left: var(--x, 50%);
+  top: 105%;
+}
+
 /* ──────── Footer accents ──────── */
 .site-footer { position: relative; }
 .site-footer::before {
@@ -860,6 +882,200 @@ p { margin: 0; color: var(--muted); }
   animation-timing-function: cubic-bezier(.2, .7, .3, 1);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   POLISH PASS — opt-in utilities for cards, icons, underlines
+   All additive: existing components only get them if you add the
+   class or data-attr. Nothing here changes default rendering.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Animated clockwise border trace. Apply .card-trace to any card.
+   --trace-color overrides the line color per-card (default: bp-blue).
+   Uses @property so the conic-gradient angle is actually animatable.
+   Falls back gracefully (no trace) in browsers without @property. */
+@property --trace-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.card-trace { position: relative; }
+.card-trace::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--trace-angle, 0deg),
+    transparent 0deg,
+    var(--trace-color, var(--bp-blue)) 50deg,
+    var(--trace-color, var(--bp-blue)) 130deg,
+    transparent 200deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+          mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 3;
+}
+.card-trace:hover::after,
+.card-trace:focus-visible::after,
+.card-trace.is-focus::after {
+  opacity: 1;
+  animation: cardTrace 2.4s linear infinite;
+}
+@keyframes cardTrace { to { --trace-angle: 360deg; } }
+
+/* Inner glow companion to .card-trace. Pairs naturally; gives the
+   "hover lift" cards a premium soft inner light without overwhelming. */
+.card-inner-glow:hover,
+.card-inner-glow:focus-visible,
+.card-inner-glow.is-focus {
+  box-shadow:
+    0 24px 50px -28px rgba(0, 0, 0, 0.75),
+    inset 0 0 32px -10px var(--inner-glow-color, rgba(98, 166, 219, 0.28));
+}
+
+/* Icon pop entry. Apply [data-icon-pop] to the icon element inside any
+   [data-reveal] container. Pops on reveal with a slight overshoot. */
+[data-icon-pop] {
+  opacity: 0;
+  transform: scale(0.45);
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+[data-reveal].is-in [data-icon-pop],
+[data-reveal-group].is-in [data-icon-pop] {
+  animation: iconPop 0.85s cubic-bezier(0.34, 1.42, 0.5, 1) forwards;
+  animation-delay: var(--icon-pop-delay, 0.18s);
+}
+@keyframes iconPop {
+  0%   { opacity: 0; transform: scale(0.45); }
+  60%  { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Slow continuous pulse on hover for icons inside .card-trace cards. */
+.card-trace:hover [data-icon-pop],
+.card-trace.is-focus [data-icon-pop] {
+  animation: iconPulse 2.2s ease-in-out infinite;
+}
+@keyframes iconPulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%      { transform: scale(1.08); opacity: 0.92; }
+}
+
+/* Title underline that draws on reveal. Apply [data-title-underline]
+   to a heading. Reveal-triggered: parent [data-reveal] must hit .is-in. */
+[data-title-underline] {
+  position: relative;
+  padding-bottom: 0.6rem;
+}
+[data-title-underline]::after {
+  content: "";
+  position: absolute;
+  left: 0; bottom: 0;
+  height: 2px;
+  width: 0;
+  background: linear-gradient(90deg, var(--bp-blue), var(--bp-light), transparent);
+  box-shadow: 0 0 8px rgba(98, 166, 219, 0.4);
+  transition: width 0.95s cubic-bezier(0.2, 0.7, 0.3, 1) 0.35s;
+}
+[data-reveal].is-in [data-title-underline]::after,
+[data-reveal-group].is-in [data-title-underline]::after,
+[data-reveal].is-in[data-title-underline]::after {
+  width: 100%;
+}
+
+/* Stat underline — draws once initCounters fires .is-counted on .stat.
+   Element <span class="stat-underline" aria-hidden></span> inside .stat. */
+.stat-underline {
+  display: block;
+  height: 2px;
+  width: 0;
+  margin-top: 0.5rem;
+  background: linear-gradient(90deg, var(--bp-blue), var(--bp-light), transparent);
+  box-shadow: 0 0 10px rgba(98, 166, 219, 0.5);
+  transition: width 0.85s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.stat.is-counted .stat-underline { width: 65%; }
+
+/* Stat label fade-up after the counter finishes. */
+.stat .stat-label,
+.stat .stat-sub {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.55s cubic-bezier(0.2, 0.7, 0.3, 1),
+    transform 0.55s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.stat.is-counted .stat-label,
+.stat.is-counted .stat-sub {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0.2s;
+}
+.stat.is-counted .stat-sub { transition-delay: 0.35s; }
+
+/* Shimmer sweep — applied once on reveal to draw the eye to a phrase.
+   Apply [data-shimmer]. Sweeps a light streak diagonally once. */
+@keyframes shimmerSweep {
+  0%   { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+  20%  { opacity: 0.95; }
+  100% { transform: translateX(220%)  skewX(-18deg); opacity: 0; }
+}
+[data-shimmer] {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+[data-shimmer]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 100%
+  );
+  transform: translateX(-120%) skewX(-18deg);
+  pointer-events: none;
+  z-index: 1;
+}
+[data-reveal].is-in [data-shimmer]::before,
+[data-reveal-group].is-in [data-shimmer]::before,
+[data-reveal].is-in[data-shimmer]::before {
+  animation: shimmerSweep 1.6s cubic-bezier(0.2, 0.7, 0.3, 1) 0.5s 1 forwards;
+}
+
+/* Subtle slow shimmer that moves across a card surface continuously.
+   Apply [data-surface-shimmer] to a card. Adds a fixed-position light
+   wash that slowly drifts. Layered so the cosmos still shows through. */
+@keyframes surfaceShimmer {
+  0%, 100% { background-position: -200% 0; }
+  50%      { background-position:  200% 0; }
+}
+[data-surface-shimmer] {
+  position: relative;
+  background-image: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(98, 166, 219, 0.06) 50%,
+    transparent 70%
+  );
+  background-size: 220% 100%;
+  animation: surfaceShimmer 9s ease-in-out infinite;
+}
+
 /* Reduced motion: kill everything */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -871,6 +1087,6 @@ p { margin: 0; color: var(--muted); }
   }
   .glitch::before, .glitch::after { display: none; }
   .text-neon { color: var(--bp-blue); text-shadow: 0 0 12px rgba(98,166,219,0.5); }
-  .hero-particles, .cta-particles { display: none; }
+  .hero-particles, .cta-particles, .footer-particles { display: none; }
 }
 

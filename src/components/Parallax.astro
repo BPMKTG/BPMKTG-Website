@@ -56,6 +56,7 @@ const frames = [
             <strong>{f.tag}</strong>
             <em>{f.venue}</em>
           </span>
+          <span class="meter-pct" aria-hidden="true"></span>
         </button>
       ))}
     </div>
@@ -209,24 +210,67 @@ const frames = [
     padding: 0;
   }
   .meter-bar {
-    height: 2px;
-    background: rgba(255,255,255,0.18);
+    height: 4px;
+    background: rgba(255,255,255,0.14);
     border-radius: 999px;
     overflow: hidden;
     display: block;
+    position: relative;
   }
   .meter-fill {
     display: block;
     height: 100%;
     width: 0%;
-    background: var(--bp-blue);
+    background: linear-gradient(90deg, var(--bp-deep), var(--bp-blue) 70%, var(--bp-light));
     transition: width 0.4s ease;
+    position: relative;
+  }
+  /* Bright leading-edge glow that travels with the fill. */
+  .meter-fill::after {
+    content: "";
+    position: absolute;
+    right: -4px; top: 50%;
+    transform: translateY(-50%);
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--bp-light);
+    box-shadow: 0 0 12px var(--bp-blue),
+                0 0 22px rgba(98, 166, 219, 0.6);
+    opacity: 0;
+    transition: opacity 0.2s ease;
   }
   .meter-btn.is-active .meter-fill {
     width: 100%;
     animation: meterFill 5s linear forwards;
   }
+  .meter-btn.is-active .meter-fill::after { opacity: 1; }
   @keyframes meterFill { from { width: 0%; } to { width: 100%; } }
+
+  /* Percentage counter alongside the meter — uses @property to animate
+     an integer that the ::after content reads via counter(). Only ticks
+     while a meter button is active. */
+  .meter-pct {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    color: rgba(179, 224, 246, 0.4);
+    margin-top: 0.15rem;
+    font-variant-numeric: tabular-nums;
+    --m-pct: 0;
+    counter-reset: m-pct var(--m-pct);
+  }
+  .meter-pct::after { content: counter(m-pct) "%"; }
+  .meter-btn.is-active .meter-pct {
+    color: var(--bp-light);
+    animation: pctCount 5s linear forwards;
+  }
+  @property --m-pct { syntax: '<integer>'; initial-value: 0; inherits: false; }
+  @keyframes pctCount { from { --m-pct: 0; } to { --m-pct: 100; } }
+  @media (prefers-reduced-motion: reduce) {
+    .meter-pct { --m-pct: 100; }
+    .meter-btn.is-active .meter-pct { animation: none; }
+  }
 
   .meter-text { display: flex; flex-direction: column; gap: 0.1rem; }
   .meter-text strong {

@@ -37,8 +37,8 @@ const diffs = [
 
     <div class="diff-grid" data-reveal-group>
       {diffs.map((d, i) => (
-        <article class="diff" data-reveal data-scroll-focus>
-          <span class="diff-num">{String(i + 1).padStart(2, '0')}</span>
+        <article class="diff card-trace card-inner-glow" data-reveal data-scroll-focus>
+          <span class="diff-num" data-icon-pop>{String(i + 1).padStart(2, '0')}</span>
           <h3>{d.title}</h3>
           <p>{d.body}</p>
         </article>
@@ -72,6 +72,19 @@ const diffs = [
     overflow: hidden;
   }
   .diff:hover { border-color: rgba(98, 166, 219, 0.4); transform: translateY(-2px); }
+
+  /* Each differentiator gets its own trace + inner-glow color so the row
+     reads as five distinct ideas, not five interchangeable cards. */
+  .diff:nth-child(1) { --trace-color: #62a6db; --inner-glow-color: rgba(98, 166, 219, 0.28); }  /* Bass music    — blue */
+  .diff:nth-child(2) { --trace-color: #e3703b; --inner-glow-color: rgba(227, 112, 59, 0.25); }  /* Systems       — orange */
+  .diff:nth-child(3) { --trace-color: #a070ff; --inner-glow-color: rgba(160, 112, 255, 0.22); } /* Full-funnel   — purple */
+  .diff:nth-child(4) { --trace-color: #4dd9d9; --inner-glow-color: rgba(77, 217, 217, 0.22); }  /* Creator net   — cyan */
+  .diff:nth-child(5) { --trace-color: #f5f7ff; --inner-glow-color: rgba(245, 247, 255, 0.18); } /* Integrity     — white */
+  /* Match the diff-num accent to the card's own color too. */
+  .diff:nth-child(2) .diff-num { color: var(--bp-orange); }
+  .diff:nth-child(3) .diff-num { color: #a070ff; }
+  .diff:nth-child(4) .diff-num { color: #4dd9d9; }
+  .diff:nth-child(5) .diff-num { color: #f5f7ff; }
   .diff::before {
     content: "";
     position: absolute;

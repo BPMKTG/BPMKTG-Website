@@ -33,7 +33,7 @@ const stats = [
 
     <div class="stat-grid" data-reveal-group>
       {stats.map(s => (
-        <article class="stat" data-reveal>
+        <article class="stat card-trace" data-reveal data-scroll-focus>
           <span class="stat-value" data-counter={s.value}>{s.value}</span>
           <span class="stat-underline" aria-hidden="true"></span>
           <p class="stat-label">{s.label}</p>
@@ -55,6 +55,15 @@ const stats = [
     width: 100%; height: 100%;
     object-fit: cover;
     object-position: center;
+    /* Slow Ken Burns layered on top of the parallax/scale transforms
+       applied to .bg. Image transform stacks independently from the
+       wrapper's. Reduced motion handled by the global media block. */
+    animation: statsKenBurns 30s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  @keyframes statsKenBurns {
+    0%   { transform: scale(1.03) translate3d(0, 0, 0); transform-origin: 30% 40%; }
+    100% { transform: scale(1.1)  translate3d(-1%, 1%, 0); transform-origin: 70% 60%; }
   }
   .bg-overlay {
     position: absolute; inset: 0;

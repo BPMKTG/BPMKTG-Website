@@ -60,9 +60,18 @@ function parseCounter(target: string) {
   return { prefix: m[1], value: parseFloat(m[2]), suffix: m[3] };
 }
 
-function formatCounterValue(v: number, decimals: number, prefix: string, suffix: string) {
+// Detect leading-zero padding ("01", "02", "007") so the count-up
+// animation preserves the original width. Returns 0 when no padding.
+function leadingZeroDigits(target: string) {
+  const intPart = target.replace(/^[^\d.-]*/, '').match(/^[\d]+/)?.[0] || '';
+  return intPart.length > 1 && intPart.startsWith('0') ? intPart.length : 0;
+}
+
+function formatCounterValue(v: number, decimals: number, prefix: string, suffix: string, minDigits = 0) {
   if (decimals > 0) return prefix + v.toFixed(decimals) + suffix;
-  return prefix + Math.round(v).toLocaleString('en-US') + suffix;
+  const rounded = Math.round(v);
+  if (minDigits > 0) return prefix + rounded.toString().padStart(minDigits, '0') + suffix;
+  return prefix + rounded.toLocaleString('en-US') + suffix;
 }
 
 function animateCounter(el: HTMLElement) {
@@ -71,6 +80,7 @@ function animateCounter(el: HTMLElement) {
   const parsed = parseCounter(target);
   if (!parsed) return;
   const decimals = (target.split('.')[1] || '').replace(/[^\d]/g, '').length;
+  const minDigits = leadingZeroDigits(target);
   const dur = 1600;
   const t0 = performance.now();
 
@@ -78,11 +88,11 @@ function animateCounter(el: HTMLElement) {
     const t = Math.min(1, (now - t0) / dur);
     const eased = 1 - Math.pow(1 - t, 3);
     const v = parsed.value * eased;
-    el.textContent = formatCounterValue(v, decimals, parsed.prefix, parsed.suffix);
+    el.textContent = formatCounterValue(v, decimals, parsed.prefix, parsed.suffix, minDigits);
     if (t < 1) requestAnimationFrame(frame);
     else {
       el.textContent = target;
-      const wrap = el.closest('.stat, .price');
+      const wrap = el.closest('.stat, .price, .founder-photo');
       if (wrap) wrap.classList.add('is-counted');
     }
   };
@@ -98,7 +108,8 @@ function initCounters() {
     const p = parseCounter(target);
     if (!p) { el.textContent = target; return; }
     const decimals = (target.split('.')[1] || '').replace(/[^\d]/g, '').length;
-    el.textContent = formatCounterValue(0, decimals, p.prefix, p.suffix);
+    const minDigits = leadingZeroDigits(target);
+    el.textContent = formatCounterValue(0, decimals, p.prefix, p.suffix, minDigits);
     el.setAttribute('data-mx-counter', '1');
   });
   if (reduce()) {
@@ -468,17 +479,23 @@ function initRoadmapLine() {
 // ─────────────────────────────────────────────────────────────
 function initCtaParticles() {
   if (reduce()) return;
-  const host = document.querySelector<HTMLElement>('.cta-particles');
-  if (!host || host.children.length) return;
-  const COUNT = 18;
-  for (let i = 0; i < COUNT; i++) {
-    const s = document.createElement('span');
-    s.style.setProperty('--x', `${Math.random() * 100}%`);
-    s.style.setProperty('--dur', `${10 + Math.random() * 10}s`);
-    s.style.setProperty('--delay', `${-Math.random() * 12}s`);
-    s.style.setProperty('--drift', `${(Math.random() - 0.5) * 80}px`);
-    s.style.transform = `scale(${0.7 + Math.random() * 1.2})`;
-    host.appendChild(s);
+  // Both BookCall CTA and Footer use the same particle pattern. Per-host
+  // tuning via data-attributes: data-count, data-dur-base, data-dur-spread.
+  const hosts = document.querySelectorAll<HTMLElement>('.cta-particles, .footer-particles');
+  for (const host of hosts) {
+    if (host.children.length) continue; // idempotent
+    const count     = parseInt(host.dataset.count     || '18', 10);
+    const durBase   = parseInt(host.dataset.durBase   || '10', 10);
+    const durSpread = parseInt(host.dataset.durSpread || '10', 10);
+    for (let i = 0; i < count; i++) {
+      const s = document.createElement('span');
+      s.style.setProperty('--x', `${Math.random() * 100}%`);
+      s.style.setProperty('--dur', `${durBase + Math.random() * durSpread}s`);
+      s.style.setProperty('--delay', `${-Math.random() * 12}s`);
+      s.style.setProperty('--drift', `${(Math.random() - 0.5) * 80}px`);
+      s.style.transform = `scale(${0.7 + Math.random() * 1.2})`;
+      host.appendChild(s);
+    }
   }
 }
 
@@ -662,6 +679,56 @@ function initScrollFocus() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Vision-section scroll-progress line
+//   A thin vertical accent line on the left of an [data-vision-line]
+//   element. Its inner --fill is the section's scroll progress (0–1)
+//   computed from the section's bounding rect, so the line "draws"
+//   downward as you read through the section.
+// ─────────────────────────────────────────────────────────────
+function initVisionLine() {
+  const lines = document.querySelectorAll<HTMLElement>('[data-vision-line]:not([data-mx-vline])');
+  if (!lines.length) return;
+  if (reduce()) {
+    lines.forEach(l => l.style.setProperty('--fill', '1'));
+    return;
+  }
+
+  const watched = Array.from(lines).map(line => {
+    line.setAttribute('data-mx-vline', '1');
+    const section = (line.closest('[data-vision-section]') ?? line.parentElement) as HTMLElement;
+    return { line, section };
+  });
+
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    const vh = window.innerHeight;
+    for (const { line, section } of watched) {
+      if (!section) continue;
+      const r = section.getBoundingClientRect();
+      // Progress = 0 when section's top is at viewport-bottom, 1 when
+      // section's bottom hits viewport-top. Clamp.
+      const total = r.height + vh;
+      const traversed = vh - r.top;
+      const p = Math.max(0, Math.min(1, traversed / total));
+      line.style.setProperty('--fill', p.toFixed(3));
+    }
+  };
+  const onScroll = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(update);
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+  update();
+  onCleanup(() => {
+    window.removeEventListener('scroll', onScroll);
+    window.removeEventListener('resize', onScroll);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
 // Init / re-init
 // ─────────────────────────────────────────────────────────────
 function init() {
@@ -677,6 +744,7 @@ function init() {
   initCtaParticles();
   initLightboxArrows();
   initScrollFocus();
+  initVisionLine();
 }
 
 // Bootstrap: rely on `astro:page-load` (fires on initial load AND on every

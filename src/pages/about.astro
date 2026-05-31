@@ -66,11 +66,13 @@ const principles = [
   </section>
 
   <!-- ─────────── Vision / Manifesto ─────────── -->
-  <section class="vision bp-texture">
+  <section class="vision bp-texture" data-vision-section>
     <div class="vision-glow vision-glow--a" aria-hidden="true"></div>
     <div class="vision-glow vision-glow--b" aria-hidden="true"></div>
 
     <div class="container vision-inner">
+      <span class="vision-line" data-vision-line aria-hidden="true"></span>
+
       <p class="label" data-reveal="left">The Vision</p>
       <h2 data-reveal>Where art meets <span class="glow-blue">infrastructure.</span></h2>
 
@@ -108,8 +110,8 @@ const principles = [
       </header>
 
       <div class="mvv-grid" data-reveal-group>
-        <article class="mvv-card mission" data-reveal data-scroll-focus>
-          <p class="mvv-eyebrow">Mission</p>
+        <article class="mvv-card mission card-trace card-inner-glow" data-reveal data-scroll-focus data-surface-shimmer>
+          <p class="mvv-eyebrow" data-icon-pop>Mission</p>
           <p class="mvv-body">
             To empower artists, labels, and music professionals with honest, effective, and
             results-driven marketing that <em>amplifies their vision and elevates their impact</em> —
@@ -117,8 +119,8 @@ const principles = [
           </p>
         </article>
 
-        <article class="mvv-card vision" data-reveal data-scroll-focus>
-          <p class="mvv-eyebrow">Vision</p>
+        <article class="mvv-card vision card-trace card-inner-glow" data-reveal data-scroll-focus data-surface-shimmer>
+          <p class="mvv-eyebrow" data-icon-pop>Vision</p>
           <p class="mvv-body">
             To become the most trusted creative partner for artists, labels, and music brands in
             EDM and bass — <em>setting a new standard for values-based marketing</em> in an industry
@@ -126,8 +128,8 @@ const principles = [
           </p>
         </article>
 
-        <article class="mvv-card values" data-reveal data-scroll-focus>
-          <p class="mvv-eyebrow">Values</p>
+        <article class="mvv-card values card-trace card-inner-glow" data-reveal data-scroll-focus data-surface-shimmer>
+          <p class="mvv-eyebrow" data-icon-pop>Values</p>
           <ul class="mvv-values">
             <li><strong>Honesty</strong> — no inflated metrics, no unrealistic promises, no hidden costs.</li>
             <li><strong>Integrity</strong> — we don't take clients we can't help, and we don't pretend otherwise.</li>
@@ -154,8 +156,8 @@ const principles = [
         {founders.map((f, i) => (
           <article class={`founder-row ${i % 2 === 1 ? 'reversed' : ''}`} data-reveal data-scroll-focus>
             <div class="founder-photo">
-              <span class="founder-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-              <div class="photo-frame">
+              <span class="founder-num" data-counter={String(i + 1).padStart(2, '0')} aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+              <div class="photo-frame card-trace card-inner-glow">
                 <Image
                   src={f.photo}
                   alt={f.name}
@@ -189,8 +191,8 @@ const principles = [
 
       <div class="principles-grid" data-reveal-group>
         {principles.map((p, i) => (
-          <article class="principle" data-reveal data-scroll-focus>
-            <span class="principle-num">{String(i + 1).padStart(2, '0')}</span>
+          <article class="principle card-trace card-inner-glow" data-reveal data-scroll-focus data-surface-shimmer>
+            <span class="principle-num" data-icon-pop>{String(i + 1).padStart(2, '0')}</span>
             <h3>{p.title}</h3>
             <p>{p.body}</p>
           </article>
@@ -284,7 +286,38 @@ const principles = [
     position: relative;
     z-index: 2;
     max-width: 820px;
+    padding-left: 1.5rem; /* room for the scroll-progress line */
   }
+  /* Vertical scroll-progress line on the left edge of the vision text.
+     Height is driven by initVisionLine in motion.client.ts via --fill. */
+  .vision-line {
+    position: absolute;
+    left: 0; top: 0;
+    width: 2px;
+    height: calc(var(--fill, 0) * 100%);
+    background: linear-gradient(180deg, var(--bp-blue), var(--bp-light));
+    box-shadow: 0 0 12px rgba(98, 166, 219, 0.55);
+    border-radius: 2px;
+    pointer-events: none;
+    transition: height 0.08s linear; /* tiny smoothing so scroll-driven rAF doesn't look choppy */
+  }
+  /* Faint vertical track behind the live fill so it reads as a line, not a comet. */
+  .vision-inner::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0;
+    width: 2px;
+    height: 100%;
+    background: rgba(98, 166, 219, 0.1);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  /* Longer per-paragraph stagger inside the vision body — cascade reads
+     as a manifesto, not a fan-out. Beats the global 0.08s default. */
+  .vision-body > p[data-reveal]:nth-child(1) { --reveal-delay: 0s; }
+  .vision-body > p[data-reveal]:nth-child(2) { --reveal-delay: 0.28s; }
+  .vision-body > p[data-reveal]:nth-child(3) { --reveal-delay: 0.56s; }
+  .vision-body > p[data-reveal]:nth-child(4) { --reveal-delay: 0.84s; }
   .vision-glow {
     position: absolute;
     border-radius: 50%;
@@ -352,6 +385,11 @@ const principles = [
     opacity: 0.55;
   }
   .mvv-card.values::before { background: linear-gradient(90deg, transparent, var(--bp-orange), transparent); }
+  /* Distinct trace + inner-glow colors per card — Mission blue, Vision
+     blue-light, Values orange to match the existing top bar. */
+  .mvv-card.mission { --trace-color: var(--bp-blue);   --inner-glow-color: rgba(98, 166, 219, 0.28); }
+  .mvv-card.vision  { --trace-color: var(--bp-light);  --inner-glow-color: rgba(179, 224, 246, 0.22); }
+  .mvv-card.values  { --trace-color: var(--bp-orange); --inner-glow-color: rgba(227, 112, 59, 0.25); }
   .mvv-eyebrow {
     font-family: var(--font-display);
     color: var(--bp-blue);
@@ -464,6 +502,10 @@ const principles = [
     pointer-events: none;
     z-index: 0;
     text-shadow: 0 0 30px rgba(98, 166, 219, 0.12);
+    /* Reserve width for both digits so the count from "0" -> "01"
+       doesn't reflow the layout while animating. */
+    display: inline-block;
+    min-width: 2ch;
   }
   .founder-row.reversed .founder-num {
     left: auto;
@@ -488,6 +530,18 @@ const principles = [
     object-fit: cover;
     display: block;
     transition: transform 0.7s cubic-bezier(.2,.7,.3,1);
+  }
+  /* One-time Ken Burns on scroll-in: photo eases from scale 1.12 to 1
+     over 2s and holds. Hover :scale(1.04) override still wins after. */
+  .founder-row[data-reveal].is-in .photo-frame :global(img) {
+    animation: founderKB 2.2s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+  }
+  @keyframes founderKB {
+    from { transform: scale(1.12); }
+    to   { transform: scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .founder-row[data-reveal].is-in .photo-frame :global(img) { animation: none; transform: none; }
   }
   .photo-glow {
     position: absolute;
@@ -566,6 +620,26 @@ const principles = [
     transform: translateY(-3px);
     box-shadow: 0 20px 40px -22px rgba(0, 0, 0, 0.6);
   }
+
+  /* Alternating slide-in directions on reveal — odd from left, even
+     from right. Higher specificity than the global translateY default. */
+  .principle[data-reveal]:nth-child(odd)        { transform: translateX(-34px) translateY(0); }
+  .principle[data-reveal]:nth-child(even)       { transform: translateX( 34px) translateY(0); }
+  .principle[data-reveal].is-in                  { transform: translateX(0)    translateY(0); }
+  /* Hover icon — distinct micro-motion per principle. */
+  .principle .principle-num {
+    display: inline-block;
+    transform-origin: center;
+    transition: transform 0.5s cubic-bezier(0.34, 1.42, 0.5, 1), color 0.3s ease;
+  }
+  .principle:nth-child(1):hover .principle-num,
+  .principle:nth-child(1).is-focus .principle-num { transform: scale(1.18) rotate(-8deg); color: var(--bp-light); }
+  .principle:nth-child(2):hover .principle-num,
+  .principle:nth-child(2).is-focus .principle-num { transform: scale(1.18) rotate( 8deg); color: var(--bp-light); }
+  .principle:nth-child(3):hover .principle-num,
+  .principle:nth-child(3).is-focus .principle-num { transform: scale(1.22);                color: var(--bp-orange); }
+  .principle:nth-child(4):hover .principle-num,
+  .principle:nth-child(4).is-focus .principle-num { transform: translateY(-3px) scale(1.14); color: var(--bp-light); }
   .principle::before {
     content: "";
     position: absolute;

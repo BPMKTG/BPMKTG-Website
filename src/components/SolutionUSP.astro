@@ -19,9 +19,9 @@ const pillars = [
 
     <div class="pillars" data-reveal-group>
       {pillars.map((p, i) => (
-        <article class="pillar" data-reveal>
-          <span class="pillar-step">0{i + 1}</span>
-          <h3>{p.title}</h3>
+        <article class="pillar card-trace card-inner-glow" data-reveal data-scroll-focus>
+          <span class="pillar-step" data-icon-pop>0{i + 1}</span>
+          <h3 data-title-underline>{p.title}</h3>
           <p>{p.body}</p>
         </article>
       ))}
