@@ -40,6 +40,7 @@ export interface Tier {
     eyebrow: string;
     headline: string;   // HTML allowed — use <span class="highlight blue"> for accent
     sub: string;
+    pills: string[];    // 3–5 short at-a-glance value points shown below the sub
     primaryCta: TierCta;
     secondaryCta: TierCta;
   };
@@ -99,11 +100,18 @@ const tier01: Tier = {
   hero: {
     eyebrow: 'Tier 01 — Growth Blueprint Session™',
     headline:
-      'Find out what\'s actually working —<br/><span class="highlight blue">and what\'s leaving fans on the table.</span>',
+      'A clean starting point —<br/><span class="highlight blue">before you build bigger.</span>',
     sub:
-      'A focused, one-time session that audits your content, your platforms, and your show footage — then maps a 2–4 week plan you can run yourself.',
+      "Not more random content — a real plan behind the content. A one-time audit + strategy session that turns what you've already created into a 2–4 week roadmap you can run yourself.",
+    pills: [
+      '6 deliverables',
+      '60–90 min live session',
+      '7–10 day turnaround',
+      'No retainer',
+      'Show footage included',
+    ],
     primaryCta: { label: 'Book Your Session', href: '#book' },
-    secondaryCta: { label: 'Back to All Tiers', href: '/#offers' },
+    secondaryCta: { label: 'Back to All Offers', href: '/#offers' },
   },
 
   whoFor: {

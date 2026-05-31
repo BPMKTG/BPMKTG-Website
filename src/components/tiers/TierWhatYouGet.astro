@@ -25,11 +25,13 @@ const { tier } = Astro.props;
 </section>
 
 <style>
-  .tier-deliv { padding: 5rem 0; position: relative; isolation: isolate; }
-  .tier-section-head { max-width: 60ch; margin-bottom: 3rem; }
+  /* This is the centerpiece of a tier page — keep card density high,
+     but tighten outer breathing room. */
+  .tier-deliv { padding: 4rem 0; position: relative; isolation: isolate; }
+  .tier-section-head { max-width: 60ch; margin-bottom: 2.25rem; }
   .tier-section-head.wide { max-width: 70ch; }
-  .tier-section-head h2 { margin-top: 1rem; text-wrap: balance; }
-  .tier-section-sub { color: var(--ink); opacity: 0.78; font-size: 1.05rem; margin-top: 1rem; max-width: 60ch; }
+  .tier-section-head h2 { margin-top: 0.85rem; text-wrap: balance; }
+  .tier-section-sub { color: var(--ink); opacity: 0.78; font-size: 1rem; margin-top: 0.85rem; max-width: 60ch; }
 
   .tier-deliv-grid {
     display: grid;

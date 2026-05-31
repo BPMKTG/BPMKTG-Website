@@ -24,9 +24,12 @@ const { tier } = Astro.props;
 </section>
 
 <style>
-  .tier-who { padding: 5rem 0 4rem; position: relative; isolation: isolate; }
-  .tier-section-head { max-width: 60ch; margin-bottom: 3rem; }
-  .tier-section-head h2 { margin-top: 1rem; text-wrap: balance; }
+  /* Tighter spacing than the homepage equivalents — tier pages are
+     conversion pages, not cinematic experiences. Same visual language,
+     denser pacing. */
+  .tier-who { padding: 4rem 0 3rem; position: relative; isolation: isolate; }
+  .tier-section-head { max-width: 60ch; margin-bottom: 2.25rem; }
+  .tier-section-head h2 { margin-top: 0.85rem; text-wrap: balance; }
 
   .tier-who-grid {
     display: grid;

@@ -10,14 +10,14 @@ interface Props {
 const { tier, bgImage } = Astro.props;
 ---
 <section class="tier-hero">
-  <div class="tier-hero-bg" data-parallax-bg data-scale-bg data-scale-start="1" data-scale-end="1.18" aria-hidden="true">
+  <div class="tier-hero-bg" data-parallax-bg data-scale-bg data-scale-start="1" data-scale-end="1.08" aria-hidden="true">
     <Image
       src={bgImage}
       alt=""
       width={2400}
       height={1600}
       format="webp"
-      quality={84}
+      quality={82}
       loading="eager"
     />
   </div>
@@ -32,36 +32,47 @@ const { tier, bgImage } = Astro.props;
       <h1 data-reveal set:html={tier.hero.headline}></h1>
       <p class="tier-hero-sub" data-reveal>{tier.hero.sub}</p>
 
-      <div class="tier-hero-price" data-reveal>
-        <span class="tier-price-num">{tier.price}</span>
-        <span class="tier-price-note">{tier.priceNote}</span>
-      </div>
+      <ul class="tier-hero-pills" data-reveal-group>
+        {tier.hero.pills.map(p => (
+          <li class="tier-hero-pill" data-reveal>{p}</li>
+        ))}
+      </ul>
 
-      <div class="tier-hero-ctas" data-reveal-group>
-        <a href={tier.hero.primaryCta.href} class="button accent" data-reveal>
-          {tier.hero.primaryCta.label}
-          <span class="arrow" aria-hidden="true">→</span>
-        </a>
-        <a href={tier.hero.secondaryCta.href} class="button ghost" data-reveal>
-          {tier.hero.secondaryCta.label}
-        </a>
+      <div class="tier-hero-foot" data-reveal>
+        <div class="tier-hero-price">
+          <span class="tier-price-num">{tier.price}</span>
+          <span class="tier-price-note">{tier.priceNote}</span>
+        </div>
+
+        <div class="tier-hero-ctas">
+          <a href={tier.hero.primaryCta.href} class="button accent">
+            {tier.hero.primaryCta.label}
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+          <a href={tier.hero.secondaryCta.href} class="button ghost">
+            {tier.hero.secondaryCta.label}
+          </a>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
 <style>
+  /* Compact, conversion-focused hero. Not a cinematic intro — this is
+     the offer ticket. Everything a prospect needs to answer "what is
+     this / who / what do I get / cost / next step" reads above the fold. */
   .tier-hero {
     position: relative;
     overflow: hidden;
-    min-height: clamp(620px, 86vh, 900px);
+    min-height: clamp(440px, 65vh, 620px);
     display: flex;
     align-items: center;
     isolation: isolate;
   }
   .tier-hero-bg {
     position: absolute;
-    inset: -10% 0;
+    inset: -8% 0;
     z-index: 0;
   }
   .tier-hero-bg :global(img) {
@@ -72,8 +83,8 @@ const { tier, bgImage } = Astro.props;
   .tier-hero-overlay {
     position: absolute; inset: 0; z-index: 1;
     background:
-      linear-gradient(180deg, rgba(10,10,15,0.45) 0%, rgba(10,10,15,0.6) 50%, rgba(10,10,15,0.95) 100%),
-      radial-gradient(60% 60% at 80% 20%, rgba(38, 79, 160, 0.22), transparent 70%);
+      linear-gradient(180deg, rgba(10,10,15,0.55) 0%, rgba(10,10,15,0.68) 50%, rgba(10,10,15,0.92) 100%),
+      radial-gradient(60% 60% at 80% 20%, rgba(38, 79, 160, 0.18), transparent 70%);
   }
   .tier-hero-grid {
     position: absolute; inset: 0; z-index: 1;
@@ -88,21 +99,22 @@ const { tier, bgImage } = Astro.props;
     position: relative;
     z-index: 2;
     width: 100%;
-    padding: 5rem 1.5rem;
+    padding: 3rem 1.5rem;
     max-width: var(--max-width);
   }
 
-  /* Big faded tier number — same language as the founder numbers on /about */
+  /* Tier number peek — smaller than the original cinematic version
+     so it accents the hero rather than dominates it. */
   .tier-hero-num {
     position: absolute;
-    top: -1rem;
+    top: -0.5rem;
     right: 1.5rem;
     font-family: var(--font-display);
-    font-size: clamp(8rem, 18vw, 18rem);
+    font-size: clamp(5rem, 10vw, 9rem);
     font-weight: 900;
     line-height: 0.85;
     color: rgba(98, 166, 219, 0.14);
-    text-shadow: 0 0 60px rgba(98, 166, 219, 0.15);
+    text-shadow: 0 0 40px rgba(98, 166, 219, 0.12);
     letter-spacing: -0.05em;
     pointer-events: none;
     z-index: 1;
@@ -110,30 +122,63 @@ const { tier, bgImage } = Astro.props;
 
   .tier-hero-content { max-width: 60ch; position: relative; z-index: 2; }
   .tier-hero h1 {
-    margin: 1rem 0 1.5rem;
+    margin: 0.85rem 0 1rem;
     max-width: 22ch;
-    text-shadow: 0 4px 30px rgba(0,0,0,0.65);
+    font-size: clamp(2rem, 4.4vw, 3.5rem);
+    text-shadow: 0 4px 30px rgba(0,0,0,0.6);
   }
   .tier-hero-sub {
     color: var(--ink);
-    opacity: 0.88;
-    font-size: 1.15rem;
+    opacity: 0.86;
+    font-size: 1.02rem;
+    line-height: 1.55;
     max-width: 60ch;
-    text-shadow: 0 2px 14px rgba(0,0,0,0.6);
+    text-shadow: 0 2px 14px rgba(0,0,0,0.55);
   }
-  .tier-hero-price {
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid rgba(255,255,255,0.14);
+
+  /* Quick-value pills — at-a-glance "what's in the box". Same chip
+     language as the brand's existing badges (orange creed pill,
+     30-day guarantee pill) but in the cool palette to defer to CTAs. */
+  .tier-hero-pills {
+    list-style: none;
+    margin: 1.25rem 0 0;
+    padding: 0;
     display: flex;
-    align-items: baseline;
-    gap: 0.85rem;
-    max-width: 60ch;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+  .tier-hero-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.85rem;
+    background: rgba(98, 166, 219, 0.07);
+    border: 1px solid rgba(98, 166, 219, 0.28);
+    border-radius: 999px;
+    color: var(--bp-light);
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
+    backdrop-filter: blur(6px);
+  }
+
+  /* Bottom row of the hero — price + CTAs side-by-side on desktop,
+     stacked on mobile. Single data-reveal so they enter as one unit. */
+  .tier-hero-foot {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
     flex-wrap: wrap;
   }
+  .tier-hero-price { display: flex; align-items: baseline; gap: 0.7rem; }
   .tier-price-num {
     font-family: var(--font-display);
-    font-size: clamp(2.1rem, 3.6vw, 2.85rem);
+    font-size: clamp(1.8rem, 3vw, 2.4rem);
     font-weight: 800;
     color: var(--bp-light);
     letter-spacing: -0.02em;
@@ -142,23 +187,19 @@ const { tier, bgImage } = Astro.props;
   .tier-price-note {
     color: var(--muted);
     font-family: var(--font-display);
-    font-size: 0.78rem;
-    letter-spacing: 0.18em;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
   }
   .tier-hero-ctas {
-    margin-top: 1.75rem;
     display: flex;
-    gap: 0.75rem;
+    gap: 0.6rem;
     flex-wrap: wrap;
   }
 
-  @media (max-width: 600px) {
-    .tier-hero-num {
-      font-size: 7rem;
-      top: -0.5rem;
-      right: 0.75rem;
-      opacity: 0.85;
-    }
+  @media (max-width: 760px) {
+    .tier-hero { min-height: clamp(520px, 75vh, 720px); }
+    .tier-hero-num { font-size: 6rem; top: -0.25rem; right: 0.75rem; opacity: 0.8; }
+    .tier-hero-foot { flex-direction: column; align-items: flex-start; gap: 1rem; }
   }
 </style>
