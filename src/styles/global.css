@@ -26,7 +26,13 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html, body {
+/* The dark base lives on <html> only. <body> must stay transparent so
+   the SpaceBackground canvas (position: fixed; z-index: -1) is visible —
+   negative-z-index fixed elements paint inside html's stacking context,
+   between html's background and body's background. If body has its own
+   opaque background-color, it covers the canvas entirely (the bug we
+   hit: site looked dark with no stars). */
+html {
   margin: 0;
   padding: 0;
   background: var(--bg);
@@ -38,10 +44,11 @@ html, body {
 }
 
 body {
-  /* Deep-space nebula clouds (fixed across scroll). Very subtle blue + purple
-     gradients painted as the root background. The SpaceBackground canvas
-     sits above this and paints stars + shooting stars; content sits above
-     the canvas. */
+  margin: 0;
+  padding: 0;
+  /* Background-color MUST stay unset (default transparent) so the canvas
+     shows through. Only the subtle nebula gradients paint here, on top
+     of the canvas — they're 6–10% opacity, so stars read clearly. */
   background-image:
     radial-gradient(55% 45% at 18% 12%, rgba(38, 79, 160, 0.10),  transparent 60%),
     radial-gradient(50% 45% at 82% 72%, rgba(120, 60, 180, 0.08), transparent 65%),
