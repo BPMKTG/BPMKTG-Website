@@ -450,7 +450,7 @@ const tier03: Tier = {
         '20–40+ short-form videos / month',
         'Show-day multicam capture',
         'Email + SMS fan capture system',
-        'From $5,000 / month',
+        'From $10,000 / month',
       ],
     },
   },
@@ -478,7 +478,7 @@ const tier04: Tier = {
   number: '04',
   name: 'Artist Growth Infrastructure™',
   shortName: 'Growth Infrastructure',
-  price: 'Starting at $5,000',
+  price: '$10,000',
   priceNote: 'per month · 6-month commitment',
   positioning: 'The complete growth machine — built around your career.',
 
@@ -506,6 +506,7 @@ const tier04: Tier = {
     ],
     offerCardCta: { label: 'Talk to Us', href: CALENDLY_URL },
     offerCardFootLabel: 'Full partnership · Infrastructure tier',
+    pif: { amount: '$50,000', save: '$10,000' },
   },
 
   whoFor: {
@@ -589,7 +590,7 @@ const tier04: Tier = {
     lede: 'The questions we walk through with management before any Tier 04 engagement signs.',
     items: [
       { q: 'How does this work alongside my manager / label?',         a: "Tier 04 is built to plug into existing teams, not replace them. We become the content + campaign + capture arm; management owns strategic + business decisions; the label owns release positioning. We coordinate on a shared calendar — explicit lanes, no overlap, no friction." },
-      { q: 'Why $5,000 as the starting price?',                        a: 'Tier 04 covers infrastructure that operationally costs Blueprint that much to run — on-site capture, multi-platform production, paid management, fan-funnel ops, performance intelligence. Pricing scales above $5K based on capture volume + tour cadence + campaign overlap.' },
+      { q: 'Why $10,000 as the starting price?',                        a: 'Tier 04 covers infrastructure that operationally costs Blueprint that much to run — on-site capture, multi-platform production, paid management, fan-funnel ops, performance intelligence. Pricing scales above $10K based on capture volume + tour cadence + campaign overlap.' },
       { q: 'What about exclusivity?',                                  a: "We don't lock you into exclusivity, but Tier 04 is intensive enough that we cap how many artists are running at this tier simultaneously. We'll be honest about availability." },
       { q: 'Is there a path to a longer-term arrangement?',            a: 'Yes — annual partnerships are the standard renewal mode. 6 months is the minimum to deploy the infrastructure; the system compounds significantly in months 7–12 once it\'s been tuned to your audience.' },
       { q: 'Can you handle a single major release at this tier?',      a: "Yes — many Tier 04 engagements anchor around a single major release cycle. We scope the 6-month engagement around the cycle (pre-release build → release activation → post-release sustainment)." },
