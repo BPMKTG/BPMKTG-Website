@@ -1,5 +1,5 @@
 ---
-import { CALENDLY_URL } from '../config/cta';
+import { CALENDLY_URL, INSTAGRAM_URL, TIKTOK_URL, YOUTUBE_URL, X_URL, CONTACT_EMAIL } from '../config/cta';
 const year = new Date().getFullYear();
 
 const cols = [
@@ -16,13 +16,14 @@ const cols = [
     { label: 'Tier 02 — Content Engine',           href: '/tiers/tier-02' },
     { label: 'Tier 03 — Fan Growth Engine',        href: '/tiers/tier-03' },
     { label: 'Tier 04 — Growth Infrastructure',    href: '/tiers/tier-04' },
+    { label: 'Event Media',                        href: '/event-media' },
   ]},
   { heading: 'Connect', links: [
-    { label: 'Instagram', href: '#' },
-    { label: 'TikTok',    href: '#' },
-    { label: 'YouTube',   href: '#' },
-    { label: 'X / Twitter', href: '#' },
-    { label: 'Email',     href: 'mailto:hello@blueprintmkt.com' },
+    { label: 'Instagram',   href: INSTAGRAM_URL, external: true },
+    { label: 'TikTok',      href: TIKTOK_URL,    external: true },
+    { label: 'YouTube',     href: YOUTUBE_URL,   external: true },
+    { label: 'X / Twitter', href: X_URL,         external: true },
+    { label: 'Email',       href: `mailto:${CONTACT_EMAIL}` },
   ]},
 ];
 ---
@@ -30,9 +31,12 @@ const cols = [
   <div class="footer-particles" aria-hidden="true" data-count="9" data-dur-base="22" data-dur-spread="14"></div>
   <div class="container footer-grid">
     <div class="brand-col">
-      <img src="/brand/logo-white.svg" alt="Blueprint Marketing" class="brand-logo" />
+      <a href="/" class="brand-link" aria-label="Blueprint Marketing home">
+        <img src="/brand/logo-white.svg"  alt="Blueprint Marketing" class="brand-logo brand-logo--stacked" />
+        <img src="/brand/logo-header.svg" alt="Blueprint Marketing" class="brand-logo brand-logo--wordmark" />
+      </a>
       <p class="tagline">Amplifying and elevating your story.</p>
-      <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="button">Book a strategy call
+      <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="button brand-cta">Book a Strategy Call
         <span class="arrow" aria-hidden="true">→</span>
       </a>
     </div>
@@ -42,7 +46,12 @@ const cols = [
         <h4>{col.heading}</h4>
         <ul>
           {col.links.map(link => (
-            <li><a href={link.href}>{link.label}</a></li>
+            <li>
+              {('external' in link && link.external)
+                ? <a href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
+                : <a href={link.href}>{link.label}</a>
+              }
+            </li>
           ))}
         </ul>
       </div>
@@ -74,8 +83,26 @@ const cols = [
     z-index: 2;
   }
   .footer-foot { position: relative; z-index: 2; }
+
+  /* Brand column — explicit left-alignment so the CTA sits directly under
+     the tagline instead of floating against the grid baseline. */
+  .brand-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+  .brand-link { display: inline-flex; align-items: center; line-height: 0; }
   .brand-logo { width: 220px; max-width: 80%; margin-bottom: 1rem; }
-  .tagline { color: var(--muted); margin-bottom: 1.5rem; max-width: 30ch; font-size: 0.95rem; }
+  .brand-logo--wordmark { display: none; }
+  .tagline {
+    color: var(--muted);
+    margin: 0 0 1.5rem;
+    max-width: 30ch;
+    font-size: 0.95rem;
+  }
+  .brand-cta { align-self: flex-start; }
+
   .col h4 {
     color: var(--ink);
     font-family: var(--font-display);
@@ -117,15 +144,15 @@ const cols = [
   }
 
   /* Connect column = social links — distinct brand-color glow per icon.
-     Targets the column at index 3 (Connect: Instagram/TikTok/YouTube/X). */
+     Targets the last column (Connect). */
   .col:last-child a {
     transition: color 0.25s ease, opacity 0.2s ease, text-shadow 0.3s ease;
   }
-  .col:last-child li:nth-child(1) a:hover { color: #ff4d8b; text-shadow: 0 0 12px rgba(255, 77, 139, 0.7); }  /* Instagram pink */
-  .col:last-child li:nth-child(2) a:hover { color: #4dd9d9; text-shadow: 0 0 12px rgba(77, 217, 217, 0.7); }  /* TikTok cyan */
-  .col:last-child li:nth-child(3) a:hover { color: #ff3b3b; text-shadow: 0 0 12px rgba(255, 59, 59, 0.7); }   /* YouTube red */
-  .col:last-child li:nth-child(4) a:hover { color: #ffffff; text-shadow: 0 0 12px rgba(255, 255, 255, 0.7); } /* X white */
-  .col:last-child li:nth-child(5) a:hover { color: var(--bp-light); text-shadow: 0 0 12px rgba(179, 224, 246, 0.7); } /* Email */
+  .col:last-child li:nth-child(1) a:hover { color: #ff4d8b; text-shadow: 0 0 12px rgba(255, 77, 139, 0.7); }
+  .col:last-child li:nth-child(2) a:hover { color: #4dd9d9; text-shadow: 0 0 12px rgba(77, 217, 217, 0.7); }
+  .col:last-child li:nth-child(3) a:hover { color: #ff3b3b; text-shadow: 0 0 12px rgba(255, 59, 59, 0.7); }
+  .col:last-child li:nth-child(4) a:hover { color: #ffffff; text-shadow: 0 0 12px rgba(255, 255, 255, 0.7); }
+  .col:last-child li:nth-child(5) a:hover { color: var(--bp-light); text-shadow: 0 0 12px rgba(179, 224, 246, 0.7); }
   .col:last-child li:nth-child(1) a:hover::after { background: #ff4d8b; box-shadow: 0 0 8px rgba(255, 77, 139, 0.6); }
   .col:last-child li:nth-child(2) a:hover::after { background: #4dd9d9; box-shadow: 0 0 8px rgba(77, 217, 217, 0.6); }
   .col:last-child li:nth-child(3) a:hover::after { background: #ff3b3b; box-shadow: 0 0 8px rgba(255, 59, 59, 0.6); }
@@ -144,5 +171,16 @@ const cols = [
   }
 
   @media (max-width: 880px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 480px) { .footer-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 480px) {
+    .footer-grid { grid-template-columns: 1fr; }
+    /* Swap the stacked icon mark for the horizontal wordmark on phones —
+       sits cleaner above the tagline at narrow widths. */
+    .brand-logo--stacked  { display: none; }
+    .brand-logo--wordmark {
+      display: block;
+      width: auto;
+      height: 30px;
+      max-width: 80%;
+    }
+  }
 </style>

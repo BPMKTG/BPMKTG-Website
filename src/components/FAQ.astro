@@ -1,8 +1,17 @@
 ---
 import { Image } from 'astro:assets';
-import masonBts from '../assets/images/about-us/mason-bts.jpg';
 import { CALENDLY_URL } from '../config/cta';
+import btsImage from '../assets/images/about-us/mason-bts.jpg';
 
+// Objection-handling FAQ. Defaults to the homepage's 7 universal questions
+// but accepts overrides via props so the same accordion can be reused on
+// tier pages without duplicating any CSS / animation / scoped behavior.
+//
+// Pass faqs / eyebrow / headline / lede / footnote to customize. Anything
+// omitted falls back to the homepage defaults.
+//
+// `showBtsImage` mounts the BTS photo to the LEFT of the questions
+// on desktop (homepage uses true; tier + event pages default to false).
 interface FaqItem { q: string; a: string; }
 interface Props {
   faqs?: FaqItem[];
@@ -11,6 +20,7 @@ interface Props {
   lede?: string;
   footnote?: string;
   showFootnote?: boolean;
+  showBtsImage?: boolean;
 }
 
 const defaultFaqs: FaqItem[] = [
@@ -48,9 +58,10 @@ const {
   faqs = defaultFaqs,
   eyebrow = 'Common Questions',
   headline = 'Before you book,<br/><span class="glow-blue">here\'s what most artists ask.</span>',
-  lede = 'Real questions we hear on strategy calls. Real answers — same as we\'d give you over a coffee.',
+  lede = 'Real questions we hear on strategy calls. Real answers — same as we\'d give you over a coffee or joint. Whichever you\'re into.',
   footnote = `Still wondering something specific? <a href="${CALENDLY_URL}" target="_blank" rel="noopener noreferrer">Bring it up on the call</a> — that's what it's for.`,
   showFootnote = true,
+  showBtsImage = false,
 } = Astro.props;
 ---
 <section class="faq" id="faq">
@@ -61,10 +72,25 @@ const {
       <p class="lede" data-reveal>{lede}</p>
     </header>
 
-    <div class="faq-body">
-      <div class="faq-list" data-reveal-group>
+    <div class={`faq-body ${showBtsImage ? 'has-bts' : ''}`}>
+      {showBtsImage && (
+        <div class="faq-bts" data-reveal aria-hidden="true">
+          <Image
+            src={btsImage}
+            alt=""
+            width={900}
+            height={1200}
+            format="webp"
+            quality={82}
+            loading="lazy"
+          />
+          <div class="faq-bts-glow" aria-hidden="true"></div>
+        </div>
+      )}
+
+      <div class="faq-list" data-reveal-group data-faq-list>
         {faqs.map((f, i) => (
-          <details class="faq-item" data-reveal data-scroll-focus>
+          <details class="faq-item" data-reveal data-scroll-focus open={i === 0}>
             <summary>
               <span class="faq-num">{String(i + 1).padStart(2, '0')}</span>
               <span class="faq-q">{f.q}</span>
@@ -78,16 +104,6 @@ const {
           </details>
         ))}
       </div>
-
-      <div class="faq-photo" data-reveal="right">
-        <Image
-          src={masonBts}
-          alt="Mason behind the scenes"
-          class="faq-photo-img"
-          widths={[480, 800]}
-          sizes="(max-width: 900px) 100vw, 420px"
-        />
-      </div>
     </div>
 
     {showFootnote && footnote && (
@@ -95,6 +111,31 @@ const {
     )}
   </div>
 </section>
+
+<script>
+  // Accordion mode: only one FAQ item can be open at a time. Listens for
+  // the native `toggle` event on every <details> inside a [data-faq-list]
+  // container and closes the others when one is opened.
+  const initFaqAccordion = () => {
+    const lists = document.querySelectorAll<HTMLElement>('[data-faq-list]:not([data-mx-faq])');
+    lists.forEach(list => {
+      list.setAttribute('data-mx-faq', '1');
+      const items = list.querySelectorAll<HTMLDetailsElement>('.faq-item');
+      items.forEach(d => {
+        d.addEventListener('toggle', () => {
+          if (!d.open) return;
+          items.forEach(other => {
+            if (other !== d && other.open) other.open = false;
+          });
+        });
+      });
+    });
+  };
+
+  document.addEventListener('astro:page-load', initFaqAccordion);
+  if (document.readyState !== 'loading') initFaqAccordion();
+  else document.addEventListener('DOMContentLoaded', initFaqAccordion, { once: true });
+</script>
 
 <style>
   .faq { padding: 5rem 0; position: relative; overflow: hidden; isolation: isolate; }
@@ -110,11 +151,42 @@ const {
     font-size: 1.05rem;
   }
 
+  /* Two-column layout when the BTS image is shown. The image column is
+     vertically CENTERED with the whole grid (align-items: center) so it
+     reads as a section-level visual, not a sidebar pinned to question #1. */
   .faq-body {
     display: grid;
-    grid-template-columns: 1fr 420px;
-    gap: 3rem;
-    align-items: start;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .faq-body.has-bts {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 2.5rem;
+    align-items: center;
+  }
+
+  .faq-bts {
+    position: relative;
+    aspect-ratio: 4 / 5;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--card);
+    box-shadow: 0 24px 50px -28px rgba(0, 0, 0, 0.7);
+  }
+  .faq-bts :global(img) {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  /* Subtle blue light leak at the bottom of the BTS photo — matches the
+     atmospheric tone of the rest of the section. */
+  .faq-bts-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(80% 50% at 50% 100%, rgba(98, 166, 219, 0.18), transparent 60%);
+    mix-blend-mode: screen;
   }
 
   .faq-list {
@@ -212,8 +284,7 @@ const {
     line-height: 1.3;
     transition: color 0.25s ease;
   }
-  /* Question text turns blue on hover before a click. Color only — the
-     larger card hover handles outline. */
+  /* Question text turns blue on hover before a click. */
   .faq-item:hover summary .faq-q,
   summary:hover .faq-q { color: var(--bp-blue); }
 
@@ -221,7 +292,6 @@ const {
     color: var(--bp-light);
     opacity: 0.7;
     flex-shrink: 0;
-    /* Springy easing — overshoot then settle, instead of linear ease. */
     transition: transform 0.55s cubic-bezier(0.34, 1.42, 0.5, 1),
                 opacity 0.3s ease,
                 color 0.25s ease;
@@ -239,20 +309,45 @@ const {
     max-width: 70ch;
   }
 
+  /* Footnote restyled as a calm centered body line. Link uses bp-blue
+     with an underline that's the same color rather than a hard chip. */
   .faq-footnote {
-    margin-top: 2.5rem;
+    margin-top: 2.75rem;
     text-align: center;
     color: var(--muted);
     font-size: 0.95rem;
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    max-width: 60ch;
+    margin-left: auto;
+    margin-right: auto;
   }
   .faq-footnote a {
-    color: var(--bp-light);
-    border-bottom: 1px solid currentColor;
-    padding-bottom: 1px;
-    transition: color 0.15s;
+    color: var(--bp-blue);
+    text-decoration: underline;
+    text-decoration-color: rgba(98, 166, 219, 0.5);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    transition: color 0.2s ease, text-decoration-color 0.2s ease;
+    border-bottom: none;
+    padding-bottom: 0;
   }
-  .faq-footnote a:hover { color: var(--bp-blue); }
+  .faq-footnote a:hover {
+    color: var(--bp-light);
+    text-decoration-color: var(--bp-light);
+  }
 
+  @media (max-width: 900px) {
+    .faq-body.has-bts {
+      grid-template-columns: 1fr;
+      gap: 1.75rem;
+    }
+    .faq-bts {
+      aspect-ratio: 16 / 10;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+  }
   @media (max-width: 600px) {
     .faq-q { font-size: 0.92rem; }
     .faq-a { padding-left: 1.25rem; padding-right: 1.25rem; }

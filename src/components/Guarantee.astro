@@ -11,7 +11,7 @@ const sub = [
       <div class="card-inner">
         <p class="label" data-reveal="left">The Guarantee</p>
         <h2 data-reveal>
-          If we don't deliver consistent, high-quality content and a clear growth system in <span class="highlight" data-shimmer>30&nbsp;days</span>, we work for free until we do.
+          If we don't deliver consistent, high-quality content and a clear growth system in <span class="guarantee-30">30&nbsp;days</span>, we work for free until we do.
         </h2>
 
         <div class="sub-grid" data-reveal-group>
@@ -106,6 +106,22 @@ const sub = [
     margin-bottom: 0.4rem;
   }
   .sub p { color: var(--ink); opacity: 0.78; font-size: 0.92rem; }
+
+  /* "30 days" — slow breathing orange glow on the text itself. No
+     movement, no sweep, just a calm 3s pulse on the text-shadow. */
+  .guarantee-30 {
+    color: var(--bp-orange);
+    font-weight: 700;
+    text-shadow: 0 0 12px rgba(227, 112, 59, 0.35);
+    animation: guarantee30Glow 3s ease-in-out infinite;
+  }
+  @keyframes guarantee30Glow {
+    0%, 100% { text-shadow: 0 0 8px  rgba(227, 112, 59, 0.25); }
+    50%      { text-shadow: 0 0 22px rgba(227, 112, 59, 0.7); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .guarantee-30 { animation: none; text-shadow: 0 0 12px rgba(227, 112, 59, 0.4); }
+  }
 
   @media (max-width: 760px) {
     .sub-grid { grid-template-columns: 1fr; }

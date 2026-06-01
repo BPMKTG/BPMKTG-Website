@@ -1,5 +1,5 @@
 ---
-import { Image } from 'astro:assets';
+import { Image, getImage } from 'astro:assets';
 import masonPhoto   from '../assets/images/about-us/mason-celum.jpg';
 import claytonPhoto from '../assets/images/about-us/clayton-ward.jpg';
 
@@ -7,6 +7,14 @@ const founders = [
   { photo: masonPhoto,   name: 'Mason Celum',  role: 'Founder & CEO' },
   { photo: claytonPhoto, name: 'Clayton Ward', role: 'Co-Founder & CTO' },
 ];
+
+// Larger renditions for the lightbox so the click-to-open shot is sharp.
+const foundersLB = await Promise.all(
+  founders.map(async f => ({
+    ...f,
+    full: (await getImage({ src: f.photo, width: 1400, format: 'webp', quality: 86 })).src,
+  }))
+);
 ---
 <section class="about-tease" id="about-tease">
   <div class="container tease-grid">
@@ -17,9 +25,8 @@ const founders = [
         <span class="glow-blue">inside the scene.</span>
       </h2>
       <p class="lede" data-reveal>
-        Blueprint isn't run by suits guessing at trends. It's built by a
-        photographer and an editor who live in this culture — and decided to
-        build the system the artists deserved.
+        Blueprint isn't run by suits guessing at trends. It's built by 2 friends
+        who live in this culture, and decided to build the system the artists deserved.
       </p>
       <a href="/about" class="tease-link" data-reveal>
         Read our story
@@ -32,8 +39,16 @@ const founders = [
     </div>
 
     <div class="tease-portraits" data-reveal-group>
-      {founders.map(f => (
-        <a href="/about" class="portrait" data-reveal="scale" aria-label={`Meet ${f.name}`}>
+      {foundersLB.map(f => (
+        <button
+          type="button"
+          class="portrait"
+          data-reveal="scale"
+          data-tease-portrait
+          data-full={f.full}
+          data-caption={`${f.name} — ${f.role}`}
+          aria-label={`Open portrait of ${f.name}`}
+        >
           <span class="portrait-photo">
             <Image
               src={f.photo}
@@ -49,11 +64,62 @@ const founders = [
             <strong>{f.name}</strong>
             <span>{f.role}</span>
           </span>
-        </a>
+        </button>
       ))}
     </div>
   </div>
+
+  <!-- Lightweight lightbox for the founder portraits. Same dialog pattern
+       used on /portfolio; scoped here so the homepage doesn't depend on
+       portfolio internals. -->
+  <dialog class="tease-lightbox" data-tease-lightbox aria-label="Portrait">
+    <button type="button" class="tease-lb-close" data-tease-lb-close aria-label="Close">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <figure>
+      <img data-tease-lb-img alt="" />
+      <figcaption data-tease-lb-caption></figcaption>
+    </figure>
+  </dialog>
 </section>
+
+<script>
+  // Founder portrait lightbox — opens on click, closes on backdrop /
+  // close button / Escape. Idempotent across view transitions.
+  const initTeaseLB = () => {
+    const dialog = document.querySelector<HTMLDialogElement>('[data-tease-lightbox]');
+    const img    = dialog?.querySelector<HTMLImageElement>('[data-tease-lb-img]');
+    const cap    = dialog?.querySelector<HTMLElement>('[data-tease-lb-caption]');
+    const close  = dialog?.querySelector<HTMLButtonElement>('[data-tease-lb-close]');
+    const portraits = document.querySelectorAll<HTMLButtonElement>('[data-tease-portrait]');
+    if (!dialog || !img || !cap || !portraits.length) return;
+    if (dialog.dataset.teaseInit) return;
+    dialog.dataset.teaseInit = '1';
+
+    const open = (btn: HTMLButtonElement) => {
+      const full = btn.dataset.full ?? '';
+      const caption = btn.dataset.caption ?? '';
+      img.src = full;
+      img.alt = caption;
+      cap.textContent = caption;
+      if (!dialog.open) dialog.showModal();
+    };
+    const closeLB = () => { if (dialog.open) dialog.close(); };
+
+    portraits.forEach(btn => btn.addEventListener('click', () => open(btn)));
+    close?.addEventListener('click', closeLB);
+    dialog.addEventListener('click', (e) => {
+      // Click on the dialog backdrop (not the inner figure) closes.
+      if (e.target === dialog) closeLB();
+    });
+  };
+
+  document.addEventListener('astro:page-load', initTeaseLB);
+  if (document.readyState !== 'loading') initTeaseLB();
+  else document.addEventListener('DOMContentLoaded', initTeaseLB, { once: true });
+</script>
 
 <style>
   .about-tease { padding: 5rem 0; position: relative; overflow: hidden; isolation: isolate; }
@@ -105,13 +171,20 @@ const founders = [
     gap: 1.25rem;
   }
   .portrait {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    text-align: left;
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
     color: inherit;
     text-decoration: none;
     cursor: pointer;
+    font: inherit;
   }
+  .portrait:focus-visible { outline: 2px solid var(--bp-blue); outline-offset: 4px; border-radius: 16px; }
   .portrait-photo {
     display: block;
     aspect-ratio: 4 / 5;
@@ -160,5 +233,63 @@ const founders = [
   @media (prefers-reduced-motion: reduce) {
     .portrait-photo :global(img),
     .tease-link .arrow { transition: none; }
+  }
+
+  /* ─── Portrait lightbox ─── */
+  .tease-lightbox {
+    border: none;
+    padding: 0;
+    margin: auto;
+    background: transparent;
+    max-width: min(640px, 90vw);
+    max-height: 90vh;
+    color: var(--ink);
+    overflow: visible;
+  }
+  .tease-lightbox::backdrop {
+    background: rgba(6, 6, 14, 0.85);
+    backdrop-filter: blur(16px);
+  }
+  .tease-lightbox figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .tease-lightbox img {
+    width: 100%;
+    height: auto;
+    max-height: 80vh;
+    object-fit: contain;
+    border-radius: 14px;
+    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
+  }
+  .tease-lightbox figcaption {
+    color: var(--bp-light);
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .tease-lb-close {
+    position: fixed;
+    top: 1.25rem; right: 1.25rem;
+    appearance: none;
+    background: transparent;
+    border: 1px solid rgba(98, 166, 219, 0.4);
+    border-radius: 999px;
+    width: 44px; height: 44px;
+    color: var(--bp-light);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+  .tease-lb-close:hover {
+    background: rgba(98, 166, 219, 0.14);
+    border-color: rgba(98, 166, 219, 0.7);
+    transform: rotate(90deg);
   }
 </style>

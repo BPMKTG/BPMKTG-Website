@@ -87,7 +87,7 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
 
             <div class="cta-row" data-reveal-group>
               <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="button accent" data-reveal>
-                Book a Free Strategy Call
+                Book a Strategy Call
                 <span class="arrow" aria-hidden="true">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                     <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -106,6 +106,9 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
                 </div>
               ))}
             </div>
+            <p class="stats-source" data-reveal>
+              Sources: IMS Business Report 2025 · Chartmetric 2025 · Luminate 2024
+            </p>
           </div>
         </div>
       </div>
@@ -390,6 +393,17 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     opacity: 0.78;
     text-transform: uppercase;
     letter-spacing: 0.12em;
+  }
+  /* Small, discreet attribution line below the stat row. */
+  .stats-source {
+    margin-top: 0.85rem;
+    color: var(--ink);
+    opacity: 0.4;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    max-width: 720px;
+    font-family: var(--font-sans);
+    font-weight: 400;
   }
 
   .scroll-cue { display: none; }

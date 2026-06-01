@@ -3,7 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import BookCall from '../components/BookCall.astro';
 import { Image } from 'astro:assets';
 
-import heroBg       from '../assets/images/portfolio/crowd-grimefest.jpg';
+import heroBg       from '../assets/images/carousel/carousel-wooliees-silo.jpg';
 import masonPhoto   from '../assets/images/about-us/mason-celum.jpg';
 import claytonPhoto from '../assets/images/about-us/clayton-ward.jpg';
 
@@ -59,7 +59,7 @@ const principles = [
         We don't just market music — <em>we live and breathe the culture.</em>
       </p>
       <p class="lede" data-reveal>
-        Built by photographers and editors who live inside the bass music scene —
+        Built by two friends who live inside the bass music scene —
         for the artists ready to turn their work into something that compounds.
       </p>
     </div>
@@ -106,7 +106,7 @@ const principles = [
     <div class="container">
       <header class="mvv-head">
         <p class="label" data-reveal="left">What We Stand For</p>
-        <h2 data-reveal>Mission, vision, values.<br/><span class="glow-blue">In our own words.</span></h2>
+        <h2 data-reveal>Mission, vision, <span class="glow-blue">values.</span></h2>
       </header>
 
       <div class="mvv-grid" data-reveal-group>
@@ -148,7 +148,7 @@ const principles = [
         <h2 data-reveal>The two people<br/>behind the system.</h2>
         <p class="founders-creed" data-reveal>
           <span class="creed-tick" aria-hidden="true"></span>
-          <em>Your wins are our wins.</em> Partnership, not delivery queue.
+          <em>Your wins are our wins.</em><span class="creed-divider"> </span><span class="creed-tail">Partnership, not delivery queue.</span>
         </p>
       </header>
 
@@ -496,14 +496,14 @@ const principles = [
     font-family: var(--font-display);
     font-size: clamp(5rem, 10vw, 9rem);
     font-weight: 900;
-    color: rgba(98, 166, 219, 0.18);
+    color: rgba(98, 166, 219, 0.25);
     line-height: 1;
     letter-spacing: -0.04em;
     pointer-events: none;
     /* In FRONT of the photo so the full numeral reads — the low-alpha
        blue creates a subtle overlay rather than being clipped behind. */
     z-index: 2;
-    text-shadow: 0 0 30px rgba(98, 166, 219, 0.12);
+    text-shadow: 0 0 30px rgba(98, 166, 219, 0.18);
   }
   .founder-row.reversed .founder-num {
     left: auto;
@@ -676,6 +676,21 @@ const principles = [
     .founder-rows { gap: 4.5rem; }
     .founder-num { top: -1.75rem; font-size: 5rem; }
     .principles-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  /* Mobile: creed pill stacks the two halves vertically. */
+  @media (max-width: 620px) {
+    .founders-creed {
+      align-items: flex-start;
+      flex-direction: row;
+      flex-wrap: wrap;
+      padding: 0.65rem 1rem;
+      border-radius: 18px;
+      max-width: 32ch;
+    }
+    .founders-creed .creed-divider { display: none; }
+    .founders-creed em,
+    .founders-creed .creed-tail { display: block; width: 100%; }
+    .founders-creed .creed-tail { margin-top: 0.2rem; }
   }
   @media (max-width: 540px) {
     .principles-grid { grid-template-columns: 1fr; }

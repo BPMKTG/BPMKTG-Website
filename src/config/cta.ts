@@ -11,6 +11,17 @@
 
 export const CALENDLY_URL = '[CALENDLY-URL]';
 
+// ─────────────────────────────────────────────────────────────
+// Footer / contact constants — single source of truth.
+// Replace each `[…-URL]` / `[NEW-EMAIL]` placeholder with the real
+// destination and every footer + relevant CTA picks it up.
+// ─────────────────────────────────────────────────────────────
+export const INSTAGRAM_URL = '[INSTAGRAM-URL]';
+export const TIKTOK_URL    = '[TIKTOK-URL]';
+export const YOUTUBE_URL   = '[YOUTUBE-URL]';
+export const X_URL         = '[X-URL]';
+export const CONTACT_EMAIL = '[NEW-EMAIL]';
+
 // HTML-attribute helpers — every booking CTA should also open in a
 // new tab with safe relationship attributes. Use these together:
 //
