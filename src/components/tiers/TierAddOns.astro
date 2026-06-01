@@ -11,6 +11,27 @@ const { tier } = Astro.props;
       <h2 data-reveal>{tier.addOns.headline}</h2>
     </header>
 
+    {tier.addOns.featured && (
+      <article class="tier-addon-featured card-trace card-inner-glow" data-reveal data-scroll-focus>
+        <div class="tier-addon-featured-body">
+          <p class="tier-addon-featured-eyebrow" data-icon-pop>{tier.addOns.featured.eyebrow}</p>
+          <h3>{tier.addOns.featured.title}</h3>
+          <p class="tier-addon-featured-desc">{tier.addOns.featured.body}</p>
+          {tier.addOns.featured.bullets && (
+            <ul class="tier-addon-featured-bullets">
+              {tier.addOns.featured.bullets.map(b => <li>{b}</li>)}
+            </ul>
+          )}
+        </div>
+        <div class="tier-addon-featured-cta">
+          <a href={tier.addOns.featured.ctaHref} class="button accent">
+            {tier.addOns.featured.ctaLabel}
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </article>
+    )}
+
     <div class="tier-addons-grid" data-reveal-group>
       {tier.addOns.items.map((a, i) => (
         <article class="tier-addon card-trace card-inner-glow" data-reveal data-scroll-focus>
@@ -45,6 +66,89 @@ const { tier } = Astro.props;
   .tier-addons { padding: 4rem 0; position: relative; isolation: isolate; }
   .tier-section-head { max-width: 60ch; margin-bottom: 2.25rem; }
   .tier-section-head h2 { margin-top: 0.85rem; text-wrap: balance; }
+
+  /* ─── Featured add-on (Event Media) ─── */
+  .tier-addon-featured {
+    position: relative;
+    background:
+      linear-gradient(140deg, rgba(227, 112, 59, 0.16), rgba(10, 10, 15, 0.55)),
+      var(--card-elev);
+    border: 1px solid rgba(227, 112, 59, 0.42);
+    border-radius: var(--radius-lg);
+    padding: 2rem 2rem 1.75rem;
+    margin-bottom: 1.75rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2rem;
+    align-items: center;
+    overflow: hidden;
+    transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    --trace-color: var(--bp-orange);
+    --inner-glow-color: rgba(227, 112, 59, 0.28);
+  }
+  .tier-addon-featured:hover {
+    border-color: rgba(227, 112, 59, 0.7);
+    transform: translateY(-3px);
+    box-shadow: 0 28px 60px -28px rgba(0, 0, 0, 0.7);
+  }
+  .tier-addon-featured-body { display: flex; flex-direction: column; gap: 0.7rem; min-width: 0; }
+  .tier-addon-featured-eyebrow {
+    margin: 0;
+    font-family: var(--font-display);
+    color: var(--bp-orange);
+    font-weight: 700;
+    font-size: 0.74rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  .tier-addon-featured h3 {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 2.4vw, 1.9rem);
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  .tier-addon-featured-desc {
+    color: var(--ink);
+    opacity: 0.85;
+    font-size: 1rem;
+    line-height: 1.55;
+    max-width: 60ch;
+  }
+  .tier-addon-featured-bullets {
+    list-style: none;
+    margin: 0.35rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem 1rem;
+  }
+  .tier-addon-featured-bullets li {
+    color: var(--bp-light);
+    font-size: 0.92rem;
+    padding-left: 1.1rem;
+    position: relative;
+  }
+  .tier-addon-featured-bullets li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0.55rem;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--bp-orange);
+    box-shadow: 0 0 8px var(--bp-orange);
+  }
+  .tier-addon-featured-cta { display: flex; }
+  @media (max-width: 760px) {
+    .tier-addon-featured {
+      grid-template-columns: 1fr;
+      padding: 1.75rem 1.5rem 1.5rem;
+    }
+    .tier-addon-featured-bullets { grid-template-columns: 1fr; }
+    .tier-addon-featured-cta .button { width: 100%; justify-content: center; }
+  }
 
   .tier-addons-grid {
     display: grid;

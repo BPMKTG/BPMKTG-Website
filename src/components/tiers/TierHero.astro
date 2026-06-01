@@ -26,6 +26,9 @@ interface Props {
   offerHighlights: OfferHighlight[];
   offerCardCta: OfferCta;
   offerCardFootLabel: string;
+  // Optional paid-in-full sub-line shown below the price block in the
+  // offer card. Renders "or {amount} paid-in-full · saves {save}".
+  pif?: { amount: string; save: string };
 }
 
 const {
@@ -44,6 +47,7 @@ const {
   offerHighlights,
   offerCardCta,
   offerCardFootLabel,
+  pif,
 } = Astro.props;
 
 // Tick positions derived once at SSR time so the markup stays clean.
@@ -171,6 +175,12 @@ const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
           <span class="tier-offer-price-note">{priceNote}</span>
         </div>
 
+        {pif && (
+          <p class="tier-offer-pif">
+            or <strong>{pif.amount}</strong> paid-in-full · <em>saves {pif.save}</em>
+          </p>
+        )}
+
         <ul class="tier-offer-highlights">
           {offerHighlights.map(h => (
             <li>
@@ -288,9 +298,11 @@ const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
     font-weight: 900;
     line-height: 0.85;
     letter-spacing: -0.05em;
-    /* Outlined number — transparent fill + light blue stroke */
+    /* Outlined number — transparent fill + light blue stroke. Alpha
+       lowered (was 0.55) so the big watermark recedes behind the
+       hero copy instead of fighting the headline for attention. */
     color: transparent;
-    -webkit-text-stroke: 1.5px rgba(98, 166, 219, 0.55);
+    -webkit-text-stroke: 1.5px rgba(98, 166, 219, 0.22);
     margin-left: 0.25rem;
   }
 
@@ -483,7 +495,9 @@ const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
     margin: 0;
     padding: 0;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* minmax(0, 1fr) so a single long word (e.g. "turnaround") can't
+       push its column past the card's edge on narrow viewports. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem 0.85rem;
   }
   .tier-offer-highlights li {
@@ -492,6 +506,9 @@ const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
     gap: 0.1rem;
     padding-left: 0.75rem;
     border-left: 1px solid rgba(98, 166, 219, 0.25);
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
   .tier-offer-highlights strong {
     font-family: var(--font-display);
@@ -506,6 +523,19 @@ const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
     font-size: 0.74rem;
     line-height: 1.25;
   }
+
+  /* Paid-in-full sub-line under the price block. Subtle so the headline
+     price stays the dominant number; orange accent on the "saves" tail
+     matches the brand's existing PIF wording style on the homepage. */
+  .tier-offer-pif {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.4;
+    font-family: var(--font-sans);
+  }
+  .tier-offer-pif strong { color: var(--bp-light); font-weight: 700; }
+  .tier-offer-pif em     { color: var(--bp-orange); font-style: normal; font-weight: 700; }
 
   .tier-offer-cta { align-self: stretch; justify-content: center; }
   .tier-offer-foot {

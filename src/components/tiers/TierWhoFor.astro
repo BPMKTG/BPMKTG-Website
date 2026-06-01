@@ -16,7 +16,7 @@ const { eyebrow, headline, cards, id = 'who' } = Astro.props;
   <div class="container">
     <header class="tier-section-head">
       <p class="label" data-reveal="left">{eyebrow}</p>
-      <h2 data-reveal>{headline}</h2>
+      <h2 data-reveal set:html={headline}></h2>
     </header>
 
     <div class="tier-who-grid" data-reveal-group>

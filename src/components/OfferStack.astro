@@ -73,9 +73,12 @@ const tiers = [
     tierNumber: '04',
     tag: 'Tier 04 · Infrastructure',
     name: 'Artist Growth Infrastructure™',
-    price: '$10,000',
+    // Tier 04 is scoped per-engagement; "Starting at $5,000" is the
+    // honest floor. PIF dropped because pricing is no longer a flat
+    // monthly number — what gets discounted depends on the scope.
+    price: 'From $5,000',
     cadence: '/month · 6-mo',
-    pif: { amount: '$50,000', save: '$10,000' },
+    pif: null,
     positioning: 'Not just marketing — your entire growth infrastructure, managed.',
     buying: 'A complete growth machine: content → conversion → revenue.',
     deliverables: [
