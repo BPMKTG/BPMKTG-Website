@@ -762,7 +762,12 @@ function initVisionLine() {
 // Pure DOM event listeners; no observers, no rAF.
 // ─────────────────────────────────────────────────────────────
 function initMediaLoading() {
-  // Only tag media that ISN'T already loaded — otherwise we'd briefly
+  // IMAGES ONLY. Videos are intentionally excluded — the hover-preview
+  // videos in FilmTile / BrandMessage / OnFilm have their own opacity
+  // lifecycle driven by :hover state, and a data-mx-loaded force to
+  // opacity:1 would override their natural hidden state.
+  //
+  // Only tag images that ISN'T already loaded — otherwise we'd briefly
   // flash already-decoded images to opacity:0 between the attribute
   // being added and the next paint. Already-loaded media stays at its
   // natural opacity:1 (no CSS rule applies).
@@ -778,24 +783,6 @@ function initMediaLoading() {
     };
     img.addEventListener('load',  finish);
     img.addEventListener('error', finish);
-  });
-
-  // Hover-preview videos (FilmTile, BrandMessage) — tag only the ones
-  // that aren't first-frame ready yet, fade them in on loadeddata.
-  const vids = document.querySelectorAll<HTMLVideoElement>('video:not([data-mx-loading])');
-  vids.forEach(v => {
-    if (v.dataset.mxLoaded === '1') return;
-    if (v.readyState >= 2) return; // already has first frame
-    v.setAttribute('data-mx-loading', '1');
-    const finish = () => {
-      v.setAttribute('data-mx-loaded', '1');
-      v.removeEventListener('loadeddata', finish);
-      v.removeEventListener('canplay',    finish);
-      v.removeEventListener('error',      finish);
-    };
-    v.addEventListener('loadeddata', finish);
-    v.addEventListener('canplay',    finish);
-    v.addEventListener('error',      finish);
   });
 }
 

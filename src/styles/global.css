@@ -1078,28 +1078,21 @@ p { margin: 0; color: var(--muted); }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   Media loading state
-   Every <img> / <video> tagged by initMediaLoading() starts faintly
-   dim with a soft skeleton tint, then fades to full opacity once the
-   resource is decoded / first-framed. Makes slow first-visit loads
-   read as "loading" instead of "broken".
+   Media loading state — IMAGES ONLY.
+   Videos are intentionally excluded so hover-preview videos
+   (FilmTile, BrandMessage, OnFilm) keep their :hover-driven
+   opacity lifecycle without being force-opened by data-mx-loaded.
    ═══════════════════════════════════════════════════════════════ */
-img[data-mx-loading],
-video[data-mx-loading] {
+img[data-mx-loading] {
   opacity: 0;
   transition: opacity 0.45s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
-img[data-mx-loading][data-mx-loaded],
-video[data-mx-loading][data-mx-loaded] {
+img[data-mx-loading][data-mx-loaded] {
   opacity: 1;
 }
-/* Hover-preview videos override their own visibility via JS — keep
-   them from fighting the fade when they're playing in a hover state. */
-video[data-mx-loading].is-playing { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
-  img[data-mx-loading],
-  video[data-mx-loading] {
+  img[data-mx-loading] {
     opacity: 1;
     transition: none;
   }
