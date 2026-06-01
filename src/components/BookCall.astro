@@ -1,5 +1,5 @@
 ---
-import { CALENDLY_URL } from '../config/cta';
+import { CALENDLY_URL, CONTACT_EMAIL } from '../config/cta';
 
 const steps = [
   { title: 'Book the call',          body: 'Free, 30 minutes, no pitch deck — pick a slot that works.' },
@@ -31,8 +31,8 @@ const steps = [
           Book a Strategy Call
           <span class="arrow" aria-hidden="true">→</span>
         </a>
-        <a href="mailto:hello@blueprintmkt.com" class="button ghost">
-          hello@blueprintmkt.com
+        <a href={`mailto:${CONTACT_EMAIL}`} class="button ghost">
+          {CONTACT_EMAIL}
         </a>
       </div>
 

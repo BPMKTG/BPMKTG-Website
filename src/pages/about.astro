@@ -12,13 +12,13 @@ const founders = [
     photo: masonPhoto,
     name: 'Mason Celum',
     role: 'Founder & CEO — Strategy, Systems & Client Relations',
-    bio: `Mason is a Texas-based EDM photographer, strategist, and the founder of Blueprint Marketing. After years embedded in the bass music scene — shooting headline sets, festival floors, and backstage moments with artists like Martin Garrix, Excision, and Flux Pavilion — he saw the same problem everywhere: incredible artists with no real system behind their growth. Blueprint was built to fix that. Mason leads client strategy, offer development, and the growth systems that power every partnership.`,
+    bio: `Mason is a Texas-based EDM photographer, strategist, and the founder of Blueprint Marketing. After more than a decade of content creation and years embedded in the bass music scene — shooting headline sets, festival floors, and backstage moments with artists like Martin Garrix, Excision, and Flux Pavilion — he saw the same problem everywhere: incredible artists with no real system behind their growth. Blueprint was built to fix that. Mason leads vision, client strategy, and every growth system that powers Blueprint's partnerships.`,
   },
   {
     photo: claytonPhoto,
     name: 'Clayton Ward',
-    role: 'Co-Founder & CTO — Content, Production & Operations',
-    bio: `Clayton is Blueprint's technical architect. He designs and manages the systems, workflows, reporting dashboards, and operational infrastructure that allow Blueprint to deliver consistent, scalable results. While Mason leads on the creative and strategy side, Clayton builds the backend systems that make everything run — turning Blueprint from an agency into a growth machine.`,
+    role: 'Co-Founder & CTO — Systems, Automation & Operations',
+    bio: `Clayton is Blueprint's technical architect. He designs and manages the CRM systems, automation workflows, reporting dashboards, and operational infrastructure that allow Blueprint to deliver consistent, scalable results. While Mason leads on the creative and strategy side, Clayton builds the backend systems that make everything run — turning Blueprint from an agency into a growth machine.`,
   },
 ];
 
@@ -260,6 +260,30 @@ const principles = [
     margin: 0 0 1.25rem;
     max-width: 56ch;
     text-shadow: 0 2px 14px rgba(0,0,0,0.6);
+    /* Prevent any character from forcing horizontal overflow on narrow
+       viewports — the em + letter-spacing can otherwise push past the
+       container on small phones. */
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+  }
+  /* Mobile sizing for the about-hero — tighten the headline, tagline,
+     lede + container padding so nothing overflows the viewport on
+     narrow phones. */
+  @media (max-width: 600px) {
+    .about-hero .hero-inner { padding: 4rem 1.25rem; }
+    .about-hero h1 {
+      font-size: clamp(1.75rem, 8vw, 2.4rem);
+      letter-spacing: -0.01em;
+      max-width: 18ch;
+    }
+    .about-hero .hero-tagline {
+      font-size: 0.92rem;
+      letter-spacing: 0.03em;
+      line-height: 1.45;
+      margin-bottom: 1rem;
+    }
+    .about-hero .lede { font-size: 1rem; line-height: 1.5; }
   }
   .about-hero .hero-tagline em {
     color: #fff;
@@ -677,20 +701,24 @@ const principles = [
     .founder-num { top: -1.75rem; font-size: 5rem; }
     .principles-grid { grid-template-columns: repeat(2, 1fr); }
   }
-  /* Mobile: creed pill stacks the two halves vertically. */
-  @media (max-width: 620px) {
+  /* Mobile: creed pill stacks two distinct lines. flex-direction: column
+     puts the tick on top, then "Your wins are our wins." then "Partner-
+     ship, not delivery queue." Each on its own line. */
+  @media (max-width: 760px) {
     .founders-creed {
+      display: flex;
+      flex-direction: column;
       align-items: flex-start;
-      flex-direction: row;
-      flex-wrap: wrap;
-      padding: 0.65rem 1rem;
+      gap: 0.35rem;
+      padding: 0.8rem 1.1rem;
       border-radius: 18px;
       max-width: 32ch;
+      text-align: left;
     }
+    .founders-creed .creed-tick    { margin-bottom: 0.15rem; }
     .founders-creed .creed-divider { display: none; }
     .founders-creed em,
-    .founders-creed .creed-tail { display: block; width: 100%; }
-    .founders-creed .creed-tail { margin-top: 0.2rem; }
+    .founders-creed .creed-tail { display: block; line-height: 1.35; }
   }
   @media (max-width: 540px) {
     .principles-grid { grid-template-columns: 1fr; }
