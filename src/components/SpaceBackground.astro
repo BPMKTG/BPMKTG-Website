@@ -8,7 +8,7 @@
 //
 // Idempotent across view transitions via a flag on the canvas element.
 ---
-<canvas class="space-canvas" aria-hidden="true"></canvas>
+<canvas class="space-canvas" aria-hidden="true" transition:persist="space-bg"></canvas>
 
 <script>
   const initSpace = () => {

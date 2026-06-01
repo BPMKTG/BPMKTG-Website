@@ -2,6 +2,7 @@
 // Brand Message Video — homepage section under the Artist Marquee.
 import { Image } from 'astro:assets';
 import bmvPoster from '../assets/images/thumbnails/BMV v1 Horizontal.jpg';
+import { CALENDLY_URL } from '../config/cta';
 
 const vimeoId: string | null = '1196578279';   // Brand Message Video (Vimeo)
 const videoSrc: string | null = null;          // self-hosted fallback: '/videos/brand-message.mp4'
@@ -54,7 +55,7 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
   </div>
 
   <div class="container bmv-cta" data-reveal>
-      <a href="#book" class="button">
+      <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="button">
         Skip the video, book the call
         <span class="arrow" aria-hidden="true">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">

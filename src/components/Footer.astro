@@ -1,4 +1,5 @@
 ---
+import { CALENDLY_URL } from '../config/cta';
 const year = new Date().getFullYear();
 
 const cols = [
@@ -7,7 +8,6 @@ const cols = [
     { label: 'Offers',       href: '/#offers' },
     { label: 'Why Blueprint',href: '/#why' },
     { label: 'In The Field', href: '/portfolio' },
-    { label: 'Event Media',  href: '/event-media' },
     { label: 'About',        href: '/about' },
     { label: 'Guarantee',    href: '/#guarantee' },
   ]},
@@ -32,7 +32,7 @@ const cols = [
     <div class="brand-col">
       <img src="/brand/logo-white.svg" alt="Blueprint Marketing" class="brand-logo" />
       <p class="tagline">Amplifying and elevating your story.</p>
-      <a href="#book" class="button">Book a strategy call
+      <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="button">Book a strategy call
         <span class="arrow" aria-hidden="true">→</span>
       </a>
     </div>

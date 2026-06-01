@@ -7,6 +7,7 @@ import TierRoadmap from '../components/tiers/TierRoadmap.astro';
 import FAQ from '../components/FAQ.astro';
 import BookCall from '../components/BookCall.astro';
 import { eventMedia as em } from '../data/event-media';
+import { CALENDLY_URL } from '../config/cta';
 ---
 <Layout
   title={`${em.name} — Blueprint Marketing`}
@@ -49,7 +50,7 @@ import { eventMedia as em } from '../data/event-media';
     headline={em.faq.headline}
     lede={em.faq.lede}
     faqs={em.faq.items}
-    footnote={`Scope question we didn't cover? <a href="#book">Bring it to the call</a>.`}
+    footnote={`Scope question we didn't cover? <a href="${CALENDLY_URL}" target="_blank" rel="noopener noreferrer">Bring it to the call</a>.`}
   />
 
   <BookCall />

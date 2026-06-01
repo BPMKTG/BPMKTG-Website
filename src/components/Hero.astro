@@ -1,5 +1,6 @@
 ---
 import { Image } from 'astro:assets';
+import { CALENDLY_URL } from '../config/cta';
 // Poster == the video's actual first frame (extracted from hero-montage.mp4),
 // so there's no visual jump when the video starts playing over it.
 import hero from '../assets/images/hero/hero-montage-poster.jpg';
@@ -85,7 +86,7 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
             </p>
 
             <div class="cta-row" data-reveal-group>
-              <a href="#book" class="button accent" data-reveal>
+              <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="button accent" data-reveal>
                 Book a Free Strategy Call
                 <span class="arrow" aria-hidden="true">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">

@@ -1,3 +1,5 @@
+import { CALENDLY_URL } from '../config/cta';
+
 // ─────────────────────────────────────────────────────────────
 // Tier page data
 //
@@ -94,7 +96,7 @@ const tier01: Tier = {
       '7–10 day turnaround',
       'No monthly retainer',
     ],
-    primaryCta: { label: 'Book Your Session', href: '#book' },
+    primaryCta: { label: 'Book Your Session', href: CALENDLY_URL },
     secondaryCta: { label: 'Back to All Offers', href: '/#offers' },
     markerLabel: 'Tier',
     offerHighlights: [
@@ -103,7 +105,7 @@ const tier01: Tier = {
       { value: '7–10',  unit: 'day turnaround' },
       { value: '5–15',  unit: 'repurposed clips' },
     ],
-    offerCardCta: { label: 'Reserve Your Session', href: '#book' },
+    offerCardCta: { label: 'Reserve Your Session', href: CALENDLY_URL },
     offerCardFootLabel: 'Strategy-first · Foundation tier',
   },
 
@@ -208,7 +210,7 @@ const tier02: Tier = {
       '3-month commitment',
       'Recurring execution',
     ],
-    primaryCta: { label: 'Start Your Engine', href: '#book' },
+    primaryCta: { label: 'Start Your Engine', href: CALENDLY_URL },
     secondaryCta: { label: 'Back to All Offers', href: '/#offers' },
     markerLabel: 'Tier',
     offerHighlights: [
@@ -217,7 +219,7 @@ const tier02: Tier = {
       { value: '3',     unit: 'month minimum' },
       { value: 'Live',  unit: 'monthly direction' },
     ],
-    offerCardCta: { label: 'Start the Engine', href: '#book' },
+    offerCardCta: { label: 'Start the Engine', href: CALENDLY_URL },
     offerCardFootLabel: 'Recurring rollout · Momentum tier',
   },
 
@@ -322,7 +324,7 @@ const tier03: Tier = {
       'Brand positioning',
       'Performance tracking',
     ],
-    primaryCta: { label: 'Talk to Us', href: '#book' },
+    primaryCta: { label: 'Talk to Us', href: CALENDLY_URL },
     secondaryCta: { label: 'Back to All Offers', href: '/#offers' },
     markerLabel: 'Tier',
     offerHighlights: [
@@ -331,7 +333,7 @@ const tier03: Tier = {
       { value: 'Show',  unit: 'content mapping' },
       { value: 'Monthly', unit: 'growth report' },
     ],
-    offerCardCta: { label: 'Start the Engine', href: '#book' },
+    offerCardCta: { label: 'Start the Engine', href: CALENDLY_URL },
     offerCardFootLabel: 'Campaign infrastructure · Growth tier',
   },
 
@@ -436,7 +438,7 @@ const tier04: Tier = {
       'Fan funnel + capture',
       'Brand systems',
     ],
-    primaryCta: { label: 'Talk to Us', href: '#book' },
+    primaryCta: { label: 'Talk to Us', href: CALENDLY_URL },
     secondaryCta: { label: 'Back to All Offers', href: '/#offers' },
     markerLabel: 'Tier',
     offerHighlights: [
@@ -445,7 +447,7 @@ const tier04: Tier = {
       { value: 'Multi',  unit: 'platform distro' },
       { value: 'Funnel', unit: 'fan capture system' },
     ],
-    offerCardCta: { label: 'Talk to Us', href: '#book' },
+    offerCardCta: { label: 'Talk to Us', href: CALENDLY_URL },
     offerCardFootLabel: 'Full partnership · Infrastructure tier',
   },
 

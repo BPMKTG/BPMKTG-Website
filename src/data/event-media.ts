@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import type { TierCard, TierStep, TierFaqItem, TierCta, TierOfferHighlight } from './tiers';
+import { CALENDLY_URL } from '../config/cta';
 
 export interface EventMedia {
   slug: 'event-media';
@@ -63,7 +64,7 @@ export const eventMedia: EventMedia = {
       'Vertical + horizontal',
       'Per-event pricing',
     ],
-    primaryCta: { label: 'Request Coverage', href: '#book' },
+    primaryCta: { label: 'Request Coverage', href: CALENDLY_URL },
     secondaryCta: { label: 'See Field Work', href: '/portfolio' },
     markerLabel: 'Live',
     offerHighlights: [
@@ -72,7 +73,7 @@ export const eventMedia: EventMedia = {
       { value: '40–80',     unit: 'photos / show' },
       { value: 'Custom',    unit: 'scope quote' },
     ],
-    offerCardCta: { label: 'Request Coverage', href: '#book' },
+    offerCardCta: { label: 'Request Coverage', href: CALENDLY_URL },
     offerCardFootLabel: 'Live coverage · Event-based',
   },
 

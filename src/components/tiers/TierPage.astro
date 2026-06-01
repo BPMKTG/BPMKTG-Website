@@ -8,6 +8,7 @@ import TierAddOns from './TierAddOns.astro';
 import FAQ from '../FAQ.astro';
 import BookCall from '../BookCall.astro';
 import type { Tier } from '../../data/tiers';
+import { CALENDLY_URL } from '../../config/cta';
 
 interface Props {
   tier: Tier;
@@ -44,7 +45,7 @@ const { tier } = Astro.props;
     headline={tier.faq.headline}
     lede={tier.faq.lede}
     faqs={tier.faq.items}
-    footnote={`Question we didn't cover? <a href="#book">Bring it up on the call</a> — that's what it's for.`}
+    footnote={`Question we didn't cover? <a href="${CALENDLY_URL}" target="_blank" rel="noopener noreferrer">Bring it up on the call</a> — that's what it's for.`}
   />
   <BookCall />
 </Layout>

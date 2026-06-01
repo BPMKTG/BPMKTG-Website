@@ -1,4 +1,6 @@
 ---
+import { CALENDLY_URL } from '../config/cta';
+
 // Objection-handling FAQ. Defaults to the homepage's 7 universal questions
 // but accepts overrides via props so the same accordion can be reused on
 // tier pages without duplicating any CSS / animation / scoped behavior.
@@ -51,7 +53,7 @@ const {
   eyebrow = 'Common Questions',
   headline = 'Before you book,<br/><span class="glow-blue">here\'s what most artists ask.</span>',
   lede = 'Real questions we hear on strategy calls. Real answers — same as we\'d give you over a coffee.',
-  footnote = 'Still wondering something specific? <a href="#book">Bring it up on the call</a> — that\'s what it\'s for.',
+  footnote = `Still wondering something specific? <a href="${CALENDLY_URL}" target="_blank" rel="noopener noreferrer">Bring it up on the call</a> — that's what it's for.`,
   showFootnote = true,
 } = Astro.props;
 ---

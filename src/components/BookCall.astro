@@ -1,4 +1,6 @@
 ---
+import { CALENDLY_URL } from '../config/cta';
+
 const steps = [
   { title: 'Book the call',          body: 'Free, 30 minutes, no pitch deck — pick a slot that works.' },
   { title: 'Discovery + audit',      body: 'We dig into your content, audience, and growth gaps so the conversation is specific to you.' },
@@ -25,7 +27,7 @@ const steps = [
       </p>
 
       <div class="cta-row" data-reveal>
-        <a href="https://calendly.com/mc-media-marketing" class="button" target="_blank" rel="noopener">
+        <a href={CALENDLY_URL} class="button" target="_blank" rel="noopener noreferrer">
           Book your strategy call
           <span class="arrow" aria-hidden="true">→</span>
         </a>

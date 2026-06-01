@@ -1,10 +1,11 @@
 ---
+import { CALENDLY_URL } from '../config/cta';
+
 const navItems = [
   { href: '/#process',     label: 'How It Works' },
   { href: '/#offers',      label: 'Offers' },
   { href: '/#why',         label: 'Why Blueprint' },
   { href: '/portfolio',    label: 'In The Field' },
-  { href: '/event-media',  label: 'Event Media' },
   { href: '/about',        label: 'About' },
 ];
 
@@ -26,7 +27,7 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
       </ul>
     </nav>
 
-    <a href="#book" class="cta-link button">
+    <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="cta-link button">
       Book a Call
       <span class="arrow" aria-hidden="true">→</span>
     </a>
@@ -45,64 +46,98 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
     </button>
   </div>
 
-  <!-- Mobile fullscreen menu sheet -->
-  <div class="mobile-nav" id="mobile-nav" data-mobile-nav hidden>
-    <nav aria-label="Mobile primary">
+  <!-- Mobile fullscreen menu — overlay, large centered links, prominent X close -->
+  <div class="mobile-nav" id="mobile-nav" data-mobile-nav hidden role="dialog" aria-modal="true" aria-label="Site navigation">
+    <div class="mobile-nav-head">
+      <a href="/" class="mobile-brand" data-nav-link aria-label="Blueprint Marketing home">
+        <img src="/brand/logo-header.svg" alt="Blueprint Marketing" />
+      </a>
+      <button
+        type="button"
+        class="mobile-close"
+        aria-label="Close menu"
+        data-nav-close
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <nav class="mobile-nav-body" aria-label="Mobile primary">
       <ul>
         {navItems.map(item => (
           <li>
-            <a href={item.href} class:list={[{ active: path === item.href }]} data-nav-link>{item.label}</a>
+            <a href={item.href} class:list={[{ active: path === item.href }]} data-nav-link>
+              <span class="link-bullet" aria-hidden="true"></span>
+              <span class="link-text">{item.label}</span>
+            </a>
           </li>
         ))}
-        <li class="cta-li">
-          <a href="#book" class="button accent" data-nav-link>
-            Book a Call
-            <span class="arrow" aria-hidden="true">→</span>
-          </a>
-        </li>
       </ul>
+
+      <div class="mobile-cta-row">
+        <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="button accent mobile-cta" data-nav-link>
+          Book a Call
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+      </div>
     </nav>
   </div>
 </header>
 
 <script>
+  // Mobile nav: idempotent across view transitions + reduced motion safe.
+  // The header element itself is re-rendered on every page navigation
+  // (Astro ClientRouter swaps the body), so we re-init on astro:page-load.
   const init = () => {
     const toggle = document.querySelector<HTMLButtonElement>('[data-nav-toggle]');
     const sheet  = document.querySelector<HTMLElement>('[data-mobile-nav]');
-    if (!toggle || !sheet || toggle.dataset.navInit) return;
+    const close  = document.querySelector<HTMLButtonElement>('[data-nav-close]');
+    if (!toggle || !sheet) return;
+    if (toggle.dataset.navInit) return;
     toggle.dataset.navInit = '1';
 
-    const open = () => {
+    const openMenu = () => {
       sheet.hidden = false;
-      // Allow display:flex to take effect before adding the class for transition
       requestAnimationFrame(() => sheet.classList.add('is-open'));
       toggle.classList.add('is-open');
       toggle.setAttribute('aria-expanded', 'true');
       toggle.setAttribute('aria-label', 'Close menu');
       document.body.style.overflow = 'hidden';
     };
-    const close = () => {
+    const closeMenu = () => {
       sheet.classList.remove('is-open');
       toggle.classList.remove('is-open');
       toggle.setAttribute('aria-expanded', 'false');
       toggle.setAttribute('aria-label', 'Open menu');
       document.body.style.overflow = '';
-      // Wait for transition before hiding
-      window.setTimeout(() => { if (!sheet.classList.contains('is-open')) sheet.hidden = true; }, 280);
+      window.setTimeout(() => {
+        if (!sheet.classList.contains('is-open')) sheet.hidden = true;
+      }, 280);
     };
+
     toggle.addEventListener('click', () => {
-      sheet.classList.contains('is-open') ? close() : open();
+      sheet.classList.contains('is-open') ? closeMenu() : openMenu();
     });
-    // Close on link click (so jumping to a homepage anchor doesn't leave menu open)
+    close?.addEventListener('click', closeMenu);
     sheet.querySelectorAll<HTMLAnchorElement>('[data-nav-link]').forEach(a => {
-      a.addEventListener('click', close);
+      a.addEventListener('click', closeMenu);
     });
-    // Close on Escape
+    // Tap on overlay backdrop (anywhere outside the .mobile-nav-body)
+    sheet.addEventListener('click', (e) => {
+      if (e.target === sheet) closeMenu();
+    });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && sheet.classList.contains('is-open')) close();
+      if (e.key === 'Escape' && sheet.classList.contains('is-open')) closeMenu();
     });
   };
 
+  // Always close any open menu BEFORE the page swaps so we never carry
+  // body-scroll-lock or stale classes across navigations.
+  document.addEventListener('astro:before-swap', () => {
+    document.body.style.overflow = '';
+  });
   document.addEventListener('astro:page-load', init);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init, { once: true });
@@ -184,48 +219,148 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
   .nav-toggle.is-open .bar:nth-child(2) { opacity: 0; }
   .nav-toggle.is-open .bar:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
 
-  /* ── Mobile sheet ── */
+  /* ─── Mobile fullscreen menu ───
+     Full-bleed dark overlay, prominent close X, large centered link list.
+     Uses 100dvh (with svh fallback) so the iOS toolbar doesn't crop the
+     content. Body inside is the click target for backdrop dismissal. */
   .mobile-nav {
     position: fixed;
     inset: 0;
     z-index: 55;
-    background: rgba(10, 10, 15, 0.96);
-    backdrop-filter: blur(18px);
-    padding: 5rem 1.5rem 2rem;
+    background: rgba(6, 6, 14, 0.97);
+    backdrop-filter: blur(20px) saturate(120%);
     opacity: 0;
-    transform: translateY(-8px);
-    transition: opacity 0.28s cubic-bezier(.2,.7,.3,1), transform 0.28s cubic-bezier(.2,.7,.3,1);
+    transition: opacity 0.3s cubic-bezier(.2,.7,.3,1);
     display: flex;
     flex-direction: column;
+    height: 100svh;
+    height: 100dvh;
     overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .mobile-nav[hidden] { display: none; }
-  .mobile-nav.is-open { opacity: 1; transform: translateY(0); }
-  .mobile-nav nav { width: 100%; }
-  .mobile-nav ul {
+  .mobile-nav.is-open { opacity: 1; }
+
+  /* Subtle grid overlay so it doesn't read as a flat dark wash —
+     reuses the same HUD aesthetic as the rest of the site. */
+  .mobile-nav::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image:
+      linear-gradient(rgba(98, 166, 219, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(98, 166, 219, 0.05) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(80% 80% at 50% 40%, #000 50%, transparent 100%);
+    pointer-events: none;
+  }
+  /* Soft blue glow anchored to the top-right — gives the overlay depth */
+  .mobile-nav::after {
+    content: "";
+    position: absolute;
+    top: -150px; right: -150px;
+    width: 480px; height: 480px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(38, 79, 160, 0.30), transparent 70%);
+    filter: blur(60px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .mobile-nav-head {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .mobile-brand img { height: 30px; width: auto; }
+  .mobile-close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid rgba(98, 166, 219, 0.35);
+    border-radius: 999px;
+    width: 44px; height: 44px;
+    color: var(--bp-light);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+  .mobile-close:hover {
+    background: rgba(98, 166, 219, 0.12);
+    border-color: rgba(98, 166, 219, 0.65);
+    transform: rotate(90deg);
+  }
+
+  .mobile-nav-body {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2rem 1.75rem 3rem;
+    gap: 2rem;
+    min-height: 0; /* allow flex children to shrink + scroll */
+  }
+  .mobile-nav-body ul {
     list-style: none;
     margin: 0; padding: 0;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
   }
-  .mobile-nav a {
-    display: block;
-    padding: 1rem 0.5rem;
+  .mobile-nav-body a {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 1.1rem 0.5rem;
     color: var(--ink);
     font-family: var(--font-display);
-    font-size: 1.4rem;
-    font-weight: 700;
+    font-size: clamp(1.6rem, 5.5vw, 2.2rem);
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.02em;
-    border-bottom: 1px solid var(--line);
+    letter-spacing: 0.01em;
+    line-height: 1;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    transition: color 0.2s ease, padding-left 0.25s ease;
   }
-  .mobile-nav a.active { color: var(--bp-light); }
-  .mobile-nav .cta-li { margin-top: 1.5rem; }
-  .mobile-nav .cta-li a {
-    border: none;
+  .mobile-nav-body a:hover,
+  .mobile-nav-body a:focus-visible {
+    color: var(--bp-light);
+    padding-left: 1rem;
+  }
+  .mobile-nav-body a.active { color: var(--bp-light); }
+  .mobile-nav-body a.active .link-bullet { background: var(--bp-blue); box-shadow: 0 0 12px var(--bp-blue); }
+  .link-bullet {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: rgba(98, 166, 219, 0.35);
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: background 0.25s ease, box-shadow 0.25s ease;
+  }
+  .link-text { display: inline-block; }
+
+  .mobile-cta-row {
+    margin-top: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(98, 166, 219, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .mobile-cta {
+    justify-content: center;
     text-align: center;
     font-size: 0.95rem;
+    padding: 1rem 1.25rem;
   }
 
   @media (max-width: 980px) {
@@ -233,4 +368,10 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
     .nav-toggle { display: flex; align-items: center; justify-content: center; flex-direction: column; }
   }
   @media (max-width: 520px) { .cta-link { display: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-nav { transition: none; }
+    .mobile-close { transition: none; }
+    .mobile-close:hover { transform: none; }
+    .mobile-nav-body a { transition: none; }
+  }
 </style>

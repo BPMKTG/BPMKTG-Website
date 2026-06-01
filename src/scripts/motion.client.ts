@@ -216,18 +216,35 @@ function initGlitch() {
 function initCursor() {
   if (!finePointer() || reduce()) return;
 
-  // Re-use the cursor element if it survived the view transition; otherwise
-  // create it once. Either way, listeners get re-bound fresh on each init.
+  // Persist the cursor element across view transitions so it doesn't
+  // disappear during the body swap. transition:persist is set declaratively
+  // via the data attribute below — Astro reads that during the swap.
   let cursor = document.querySelector<HTMLElement>('.bp-cursor');
   if (!cursor) {
     cursor = document.createElement('div');
     cursor.className = 'bp-cursor';
     cursor.setAttribute('aria-hidden', 'true');
+    cursor.setAttribute('data-astro-transition-persist', 'bp-cursor');
     document.body.appendChild(cursor);
   }
   const node = cursor;
 
-  let tx = -100, ty = -100, x = -100, y = -100, raf = 0, running = true;
+  // Restore last known cursor state from a window cache so the cursor
+  // doesn't snap to (-100, -100) after a navigation. Cache is written
+  // by the onCleanup below so position survives the swap.
+  const win = window as unknown as {
+    __bpCursorTx?: number; __bpCursorTy?: number;
+    __bpCursorX?: number;  __bpCursorY?: number;
+  };
+  let tx = win.__bpCursorTx ?? -100;
+  let ty = win.__bpCursorTy ?? -100;
+  let x  = win.__bpCursorX  ?? tx;
+  let y  = win.__bpCursorY  ?? ty;
+  // If the cursor element survived, keep its visual position consistent
+  // with the restored state so there is no visible jump on the new page.
+  if (x !== -100) node.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+
+  let raf = 0, running = true;
   const onMove = (e: PointerEvent) => { tx = e.clientX; ty = e.clientY; };
   const onDown = () => node.classList.add('is-click');
   const onUp   = () => node.classList.remove('is-click');
@@ -242,11 +259,18 @@ function initCursor() {
   document.addEventListener('pointerup', onUp);
   document.addEventListener('pointerover', onOver);
 
+  // Lerp factor tuned higher (was 0.28) for snappier trackpad response.
+  // 0.55 catches up ~98% within 4 frames — still smoothed, but feels
+  // close-to-native on both mouse and trackpad.
+  const LERP = 0.55;
   const tick = () => {
     if (!running) return;
-    x += (tx - x) * 0.28;
-    y += (ty - y) * 0.28;
-    node.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    // Hidden-tab guard: don't waste a frame painting an invisible cursor.
+    if (!document.hidden) {
+      x += (tx - x) * LERP;
+      y += (ty - y) * LERP;
+      node.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    }
     raf = requestAnimationFrame(tick);
   };
   raf = requestAnimationFrame(tick);
@@ -258,6 +282,9 @@ function initCursor() {
     document.removeEventListener('pointerdown', onDown);
     document.removeEventListener('pointerup', onUp);
     document.removeEventListener('pointerover', onOver);
+    // Persist last position across the swap so the new init restores it.
+    win.__bpCursorTx = tx; win.__bpCursorTy = ty;
+    win.__bpCursorX  = x;  win.__bpCursorY  = y;
   });
 }
 
@@ -729,6 +756,50 @@ function initVisionLine() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Media loading fade-in — applies a graceful opacity transition to
+// images and hover-preview videos as their resources finish loading.
+// Without this, slow-loading media reads as "broken" on first visit.
+// Pure DOM event listeners; no observers, no rAF.
+// ─────────────────────────────────────────────────────────────
+function initMediaLoading() {
+  // Only tag media that ISN'T already loaded — otherwise we'd briefly
+  // flash already-decoded images to opacity:0 between the attribute
+  // being added and the next paint. Already-loaded media stays at its
+  // natural opacity:1 (no CSS rule applies).
+  const imgs = document.querySelectorAll<HTMLImageElement>('img:not([data-mx-loading])');
+  imgs.forEach(img => {
+    if (img.dataset.mxLoaded === '1') return;
+    if (img.complete && img.naturalWidth > 0) return; // already decoded
+    img.setAttribute('data-mx-loading', '1');
+    const finish = () => {
+      img.setAttribute('data-mx-loaded', '1');
+      img.removeEventListener('load',  finish);
+      img.removeEventListener('error', finish);
+    };
+    img.addEventListener('load',  finish);
+    img.addEventListener('error', finish);
+  });
+
+  // Hover-preview videos (FilmTile, BrandMessage) — tag only the ones
+  // that aren't first-frame ready yet, fade them in on loadeddata.
+  const vids = document.querySelectorAll<HTMLVideoElement>('video:not([data-mx-loading])');
+  vids.forEach(v => {
+    if (v.dataset.mxLoaded === '1') return;
+    if (v.readyState >= 2) return; // already has first frame
+    v.setAttribute('data-mx-loading', '1');
+    const finish = () => {
+      v.setAttribute('data-mx-loaded', '1');
+      v.removeEventListener('loadeddata', finish);
+      v.removeEventListener('canplay',    finish);
+      v.removeEventListener('error',      finish);
+    };
+    v.addEventListener('loadeddata', finish);
+    v.addEventListener('canplay',    finish);
+    v.addEventListener('error',      finish);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
 // Init / re-init
 // ─────────────────────────────────────────────────────────────
 function init() {
@@ -745,6 +816,7 @@ function init() {
   initLightboxArrows();
   initScrollFocus();
   initVisionLine();
+  initMediaLoading();
 }
 
 // Bootstrap: rely on `astro:page-load` (fires on initial load AND on every
