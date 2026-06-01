@@ -138,7 +138,10 @@ const steps = [
     list-style: none;
     margin: 0; padding: 0;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    /* minmax(0, 1fr) — without min: 0, grid items use their
+       intrinsic min-content width (longest unbreakable word) which
+       made the cards visibly unequal whenever one had a longer phrase. */
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 1rem;
     counter-reset: ps;
   }
@@ -152,6 +155,8 @@ const steps = [
     flex-direction: column;
     gap: 0.55rem;
     position: relative;
+    min-width: 0;
+    overflow-wrap: break-word;
     transition: border-color 0.25s ease, transform 0.25s ease;
   }
   .process-step:hover {
@@ -183,7 +188,7 @@ const steps = [
   }
 
   @media (max-width: 980px) {
-    .process-steps { grid-template-columns: repeat(2, 1fr); }
+    .process-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 560px) {
     .process-steps { grid-template-columns: 1fr; }

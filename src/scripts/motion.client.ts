@@ -123,7 +123,10 @@ function initCounters() {
         io.unobserve(entry.target);
       }
     }
-  }, { threshold: 0.5 });
+    // Lower threshold + rootMargin so the 3-col MarketStats grid fires
+    // reliably even when each stat-value is only partially scrolled in.
+    // The earlier 0.5 threshold meant the bottom row sometimes missed.
+  }, { threshold: 0.25, rootMargin: '0px 0px -5% 0px' });
   els.forEach(el => io.observe(el));
   onCleanup(() => io.disconnect());
 }
@@ -514,6 +517,19 @@ function initCtaParticles() {
     const count     = parseInt(host.dataset.count     || '18', 10);
     const durBase   = parseInt(host.dataset.durBase   || '10', 10);
     const durSpread = parseInt(host.dataset.durSpread || '10', 10);
+    // Set --rise to the host's own pixel height so particles travel
+    // the full section regardless of viewport. Was a fixed -110vh in
+    // CSS, which on tall mobile sections left a gap at the top.
+    const setRise = () => {
+      const h = host.offsetHeight || 600;
+      host.style.setProperty('--rise', `${h + 100}px`);
+    };
+    setRise();
+    // Re-measure on resize so the particle path keeps up with the
+    // current section height on rotation / responsive breakpoints.
+    const onResize = () => setRise();
+    window.addEventListener('resize', onResize, { passive: true });
+    onCleanup(() => window.removeEventListener('resize', onResize));
     for (let i = 0; i < count; i++) {
       const s = document.createElement('span');
       s.style.setProperty('--x', `${Math.random() * 100}%`);

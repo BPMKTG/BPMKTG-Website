@@ -50,7 +50,15 @@ const stats = [
     padding: 6rem 0;
     overflow: hidden;
   }
-  .bg { position: absolute; inset: 0; z-index: 0; }
+  .bg {
+    position: absolute; inset: 0; z-index: 0;
+    /* Promote the parallax+scale wrapper to its own compositor layer
+       so the JS-driven transforms here don't fight with AboutTease's
+       transforms when scrolling between the two sections. */
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
   .bg :global(img) {
     width: 100%; height: 100%;
     object-fit: cover;
@@ -60,6 +68,8 @@ const stats = [
        wrapper's. Reduced motion handled by the global media block. */
     animation: statsKenBurns 30s ease-in-out infinite alternate;
     will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
   @keyframes statsKenBurns {
     0%   { transform: scale(1.03) translate3d(0, 0, 0); transform-origin: 30% 40%; }

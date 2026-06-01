@@ -313,7 +313,17 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
     object-position: center 55%;
   }
   .hero-poster { animation: heroKenBurns 36s ease-in-out infinite alternate; transform-origin: center 55%; }
-  .hero-video { z-index: 1; }
+  /* Dark bg + GPU layer hint. The bg prevents the editor backdrop's
+     white pixels from peeking through any sub-pixel rounding gap at
+     the video's bottom edge once the cinematic zoom-out lands. The
+     translateZ(0) keeps the video on its own compositing layer so
+     it doesn't repaint with surrounding parallax sections. */
+  .hero-video {
+    z-index: 1;
+    background: #060614;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
   @keyframes heroKenBurns {
     0%   { transform: scale(1.03); }
     100% { transform: scale(1.12) translate(-1%, -1%); }

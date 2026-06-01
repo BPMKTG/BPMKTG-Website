@@ -66,37 +66,13 @@ const {
 ---
 <section class="faq" id="faq">
   <div class="container">
+    <header class="faq-head">
+      <p class="label" data-reveal="left">{eyebrow}</p>
+      <h2 data-reveal set:html={headline}></h2>
+      <p class="lede" data-reveal>{lede}</p>
+    </header>
+
     <div class={`faq-body ${showBtsImage ? 'has-bts' : ''}`}>
-      <!-- LEFT column: header + accordion. Wrapped together so the
-           right-side BTS photo vertically centers against the WHOLE
-           combined block (header + list), not just the question list. -->
-      <div class="faq-main">
-        <header class="faq-head">
-          <p class="label" data-reveal="left">{eyebrow}</p>
-          <h2 data-reveal set:html={headline}></h2>
-          <p class="lede" data-reveal>{lede}</p>
-        </header>
-
-        <div class="faq-list" data-reveal-group data-faq-list>
-          {faqs.map((f, i) => (
-            <details class="faq-item" data-reveal data-scroll-focus open={i === 0}>
-              <summary>
-                <span class="faq-num">{String(i + 1).padStart(2, '0')}</span>
-                <span class="faq-q">{f.q}</span>
-                <span class="faq-chev" aria-hidden="true">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </span>
-              </summary>
-              <div class="faq-a"><p>{f.a}</p></div>
-            </details>
-          ))}
-        </div>
-      </div>
-
-      <!-- RIGHT column: BTS photo, centered vertically against the
-           combined header + list height via align-items: center. -->
       {showBtsImage && (
         <div class="faq-bts" data-reveal aria-hidden="true">
           <Image
@@ -111,6 +87,23 @@ const {
           <div class="faq-bts-glow" aria-hidden="true"></div>
         </div>
       )}
+
+      <div class="faq-list" data-reveal-group data-faq-list>
+        {faqs.map((f, i) => (
+          <details class="faq-item" data-reveal data-scroll-focus open={i === 0}>
+            <summary>
+              <span class="faq-num">{String(i + 1).padStart(2, '0')}</span>
+              <span class="faq-q">{f.q}</span>
+              <span class="faq-chev" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </summary>
+            <div class="faq-a"><p>{f.a}</p></div>
+          </details>
+        ))}
+      </div>
     </div>
 
     {showFootnote && footnote && (
@@ -149,7 +142,7 @@ const {
 
   .faq-head {
     max-width: 60ch;
-    margin-bottom: 2.5rem;
+    margin-bottom: 3rem;
   }
   .faq-head h2 { margin: 1rem 0 1rem; text-wrap: balance; }
   .faq-head .lede {
@@ -158,24 +151,18 @@ const {
     font-size: 1.05rem;
   }
 
-  /* Single-column when no BTS. Two-column with the BTS on the RIGHT
-     when has-bts: the left column wraps header + accordion together,
-     align-items: center vertically centers the BTS against that whole
-     combined block (not just the question list). */
+  /* Two-column layout when the BTS image is shown — image on the LEFT,
+     questions on the right. align-items: center keeps the photo visually
+     centered with the question list rather than pinned to question #1. */
   .faq-body {
     display: grid;
     grid-template-columns: 1fr;
     gap: 0;
   }
   .faq-body.has-bts {
-    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-    gap: 3rem;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 2.5rem;
     align-items: center;
-  }
-  .faq-main {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
   }
 
   .faq-bts {
@@ -355,10 +342,11 @@ const {
       grid-template-columns: 1fr;
       gap: 1.75rem;
     }
-    /* Order swap so the BTS appears ABOVE the questions on mobile,
-       even though the markup keeps faq-main first for desktop layout. */
-    .faq-body.has-bts .faq-bts  { order: 0; aspect-ratio: 16 / 10; max-width: 520px; margin: 0 auto; }
-    .faq-body.has-bts .faq-main { order: 1; }
+    .faq-bts {
+      aspect-ratio: 16 / 10;
+      max-width: 520px;
+      margin: 0 auto;
+    }
   }
   @media (max-width: 600px) {
     .faq-q { font-size: 0.92rem; }

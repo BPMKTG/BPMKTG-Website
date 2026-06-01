@@ -638,10 +638,13 @@ p { margin: 0; color: var(--muted); }
   top: 105%;
 }
 @keyframes ctaFloat {
-  0%   { transform: translateY(0)        translateX(0); opacity: 0; }
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
   8%   { opacity: 1; }
   92%  { opacity: 0.8; }
-  100% { transform: translateY(-110vh)   translateX(var(--drift, 0px)); opacity: 0; }
+  /* --rise is set in JS to the host's own height + buffer so particles
+     traverse the entire section regardless of viewport. Fallback for
+     hosts that don't get JS-init (or before measurement). */
+  100% { transform: translateY(calc(-1 * var(--rise, 110vh))) translateX(var(--drift, 0px)); opacity: 0; }
 }
 
 /* Footer particles — same animation but smaller, slower, lower opacity.

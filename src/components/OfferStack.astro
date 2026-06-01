@@ -81,7 +81,7 @@ const tiers = [
     deliverables: [
       'Everything in Tier 03',
       '20–40+ short-form videos / month',
-      'Show-day capture (or via creator network)',
+      'Show-day capture included monthly (add-on for lower tiers)',
       'Multi-platform distribution (Reels, TikTok, Shorts)',
       'Link-in-bio funnel + email + SMS capture',
       'Release + show + merch campaigns',
@@ -126,11 +126,9 @@ const tiers = [
           <div class="price">
             <span class="price-num" data-counter={t.price}>{t.price}</span>
             <span class="price-cadence">{t.cadence}</span>
-            {t.pif && (
-              <span class="price-pif">
-                or <strong>{t.pif.amount}</strong> paid-in-full · <em>saves {t.pif.save}</em>
-              </span>
-            )}
+            {t.pif
+              ? <span class="price-pif">or <strong>{t.pif.amount}</strong> paid-in-full · <em>saves {t.pif.save}</em></span>
+              : <span class="price-pif price-pif--spacer" aria-hidden="true">&nbsp;</span>}
           </div>
 
           <p class="buying">{t.buying}</p>
