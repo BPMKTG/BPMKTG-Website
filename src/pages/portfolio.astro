@@ -221,8 +221,8 @@ const tilesLB = tilesLBRaw;
         <h2 data-reveal>Festival floors, headline sets,<br/><span class="glow-blue">and everything between.</span></h2>
       </header>
 
-      <div class="masonry">
-        {tilesLB.map(tile => (
+      <div class="masonry" data-masonry>
+        {tilesLB.map((tile, i) => (
           <button
             class="tile"
             type="button"
@@ -230,6 +230,7 @@ const tilesLB = tilesLBRaw;
             data-orientation={tile.orient}
             data-full={tile.full}
             data-caption={`${tile.caption} — ${tile.tag}`}
+            data-mobile-deferred={i >= 20 ? '1' : undefined}
             aria-label={`Open larger view: ${tile.caption}`}
           >
             <span class="img-wrap">
@@ -250,6 +251,20 @@ const tilesLB = tilesLBRaw;
           </button>
         ))}
       </div>
+
+      {tilesLB.length > 20 && (
+        <div class="load-more-wrap" data-load-more-wrap>
+          <button type="button" class="load-more" data-load-more>
+            <span class="load-more-label">Load More</span>
+            <span class="load-more-count">+{tilesLB.length - 20} photos</span>
+            <span class="arrow" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   </section>
 
@@ -260,6 +275,16 @@ const tilesLB = tilesLBRaw;
         <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
     </button>
+    <button type="button" class="lightbox-arrow lightbox-prev" data-lightbox-prev aria-label="Previous photo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <button type="button" class="lightbox-arrow lightbox-next" data-lightbox-next aria-label="Next photo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
     <figure>
       <img alt="" data-lightbox-img />
       <figcaption data-lightbox-caption></figcaption>
@@ -267,17 +292,38 @@ const tilesLB = tilesLBRaw;
   </dialog>
 
   <script>
-    const dialog = document.querySelector<HTMLDialogElement>('[data-lightbox]');
-    const img = dialog?.querySelector<HTMLImageElement>('[data-lightbox-img]');
-    const cap = dialog?.querySelector<HTMLElement>('[data-lightbox-caption]');
+    const dialog  = document.querySelector<HTMLDialogElement>('[data-lightbox]');
+    const img     = dialog?.querySelector<HTMLImageElement>('[data-lightbox-img]');
+    const cap     = dialog?.querySelector<HTMLElement>('[data-lightbox-caption]');
+    const prevBtn = dialog?.querySelector<HTMLButtonElement>('[data-lightbox-prev]');
+    const nextBtn = dialog?.querySelector<HTMLButtonElement>('[data-lightbox-next]');
 
-    const openers = document.querySelectorAll<HTMLElement>('[data-lightbox-open]');
+    // Ordered list of every photo opener in DOM order (Access cards first,
+    // then the full gallery tiles). Arrow nav + swipe cycle through this
+    // list. Built once on init; tiles hidden behind the mobile Load More
+    // are still in the DOM so they're already in the array.
+    const openers = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-lightbox-open]')
+    );
+    let current = -1;
 
-    const open = (full: string, caption: string) => {
+    const showAt = (idx: number) => {
+      if (!openers.length || !img || !cap) return;
+      // Wrap around at both ends so navigation is continuous.
+      const n = openers.length;
+      const next = ((idx % n) + n) % n;
+      current = next;
+      const btn = openers[next];
+      img.src = btn.dataset.full || '';
+      img.alt = btn.dataset.caption || '';
+      cap.textContent = btn.dataset.caption || '';
+    };
+
+    const open = (btn: HTMLElement) => {
       if (!dialog || !img || !cap) return;
-      img.src = full;
-      img.alt = caption;
-      cap.textContent = caption;
+      const idx = openers.indexOf(btn);
+      current = idx >= 0 ? idx : 0;
+      showAt(current);
       if (typeof dialog.showModal === 'function') dialog.showModal();
       else dialog.setAttribute('open', '');
       document.body.style.overflow = 'hidden';
@@ -285,26 +331,73 @@ const tilesLB = tilesLBRaw;
       const cursor = document.querySelector<HTMLElement>('.bp-cursor');
       if (cursor) dialog.appendChild(cursor);
     };
+
     const close = () => {
       if (!dialog) return;
-      // Move custom cursor back to body before closing
       const cursor = document.querySelector<HTMLElement>('.bp-cursor');
       if (cursor) document.body.appendChild(cursor);
       if (typeof dialog.close === 'function') dialog.close();
       else dialog.removeAttribute('open');
       document.body.style.overflow = '';
       if (img) img.removeAttribute('src');
+      current = -1;
     };
 
-    openers.forEach(btn => btn.addEventListener('click', () => {
-      open(btn.dataset.full || '', btn.dataset.caption || '');
-    }));
+    const next = () => showAt(current + 1);
+    const prev = () => showAt(current - 1);
+
+    openers.forEach(btn => btn.addEventListener('click', () => open(btn)));
 
     dialog?.querySelector('[data-lightbox-close]')?.addEventListener('click', close);
+    prevBtn?.addEventListener('click', (e) => { e.stopPropagation(); prev(); });
+    nextBtn?.addEventListener('click', (e) => { e.stopPropagation(); next(); });
+
+    // Backdrop click closes — but only when clicking the dialog itself,
+    // not its inner figure / buttons.
     dialog?.addEventListener('click', (e) => {
       if (e.target === dialog) close();
     });
     dialog?.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+
+    // Keyboard arrow nav + Escape (Escape handled by cancel above).
+    document.addEventListener('keydown', (e) => {
+      if (!dialog?.open) return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+    });
+
+    // Touch swipe — pointerdown captures start X, pointerup measures
+    // horizontal delta. >50px swipe navigates; smaller deltas are
+    // treated as taps and ignored.
+    let touchStartX = 0;
+    let touchActive = false;
+    dialog?.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return;
+      touchStartX = e.clientX;
+      touchActive = true;
+    });
+    dialog?.addEventListener('pointerup', (e) => {
+      if (!touchActive || e.pointerType !== 'touch') return;
+      touchActive = false;
+      const dx = e.clientX - touchStartX;
+      if (Math.abs(dx) < 50) return;
+      if (dx < 0) next();
+      else prev();
+    });
+    dialog?.addEventListener('pointercancel', () => { touchActive = false; });
+
+    // ─── Load More (mobile only) ───
+    // Reveals the deferred gallery tiles. CSS handles the hide/show via
+    // the .is-expanded class on .masonry. The button removes itself once
+    // clicked. Navigation through openers already includes the hidden
+    // tiles, so arrow/swipe nav works even before tapping Load More.
+    const loadMore = document.querySelector<HTMLButtonElement>('[data-load-more]');
+    const masonry  = document.querySelector<HTMLElement>('[data-masonry]');
+    const loadMoreWrap = document.querySelector<HTMLElement>('[data-load-more-wrap]');
+    loadMore?.addEventListener('click', () => {
+      masonry?.classList.add('is-expanded');
+      if (loadMoreWrap) loadMoreWrap.hidden = true;
+    });
   </script>
 
   <BookCall />
@@ -397,11 +490,24 @@ const tilesLB = tilesLBRaw;
     background: var(--card);
     position: relative;
     display: block;
+    /* Pin the rounded-corner mask to its own compositor layer so the
+       border-radius clip doesn't repaint while the image scales on
+       hover. Without this, Chrome briefly drops the radius and the
+       corners square off mid-transition. */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    isolation: isolate;
+    will-change: transform;
   }
   .feat-card .img-wrap :global(img) {
     width: 100%; height: 100%;
     object-fit: cover;
     transition: transform 0.5s ease;
+    /* Same hint on the image itself — keeps the scale animation on
+       its own layer so the parent's clip is preserved. */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: transform;
   }
   .feat-card:hover .img-wrap :global(img),
   .feat-card:focus-visible .img-wrap :global(img) { transform: scale(1.05); }
@@ -621,6 +727,104 @@ const tilesLB = tilesLBRaw;
     background: var(--bp-orange);
     border-color: var(--bp-orange);
     transform: scale(1.05);
+  }
+
+  /* ─── Prev / Next arrows (lightbox nav) ─── */
+  .lightbox-arrow {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(15, 17, 25, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(98, 166, 219, 0.35);
+    color: var(--bp-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease,
+                transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  .lightbox-prev { left: 1.5rem; }
+  .lightbox-next { right: 1.5rem; }
+  .lightbox-arrow:hover,
+  .lightbox-arrow:focus-visible {
+    background: rgba(38, 79, 160, 0.85);
+    border-color: rgba(98, 166, 219, 0.75);
+    color: #fff;
+    box-shadow: 0 0 22px -2px rgba(98, 166, 219, 0.55);
+    transform: translateY(-50%) scale(1.06);
+  }
+  .lightbox-prev:hover,
+  .lightbox-prev:focus-visible { transform: translateY(-50%) translateX(-3px) scale(1.06); }
+  .lightbox-next:hover,
+  .lightbox-next:focus-visible { transform: translateY(-50%) translateX(3px) scale(1.06); }
+
+  @media (max-width: 600px) {
+    .lightbox-arrow { width: 44px; height: 44px; }
+    .lightbox-prev  { left: 0.75rem; }
+    .lightbox-next  { right: 0.75rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lightbox-arrow,
+    .lightbox-close { transition: background 0.15s, border-color 0.15s; }
+    .lightbox-arrow:hover,
+    .lightbox-prev:hover,
+    .lightbox-next:hover { transform: translateY(-50%); }
+  }
+
+  /* ─── Load More (mobile only) ───
+     Hides deferred gallery tiles below the first 20 until tapped. */
+  .load-more-wrap {
+    display: none;
+    margin: 2rem 0 0;
+    text-align: center;
+  }
+  .load-more {
+    appearance: none;
+    background: rgba(18, 19, 28, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(98, 166, 219, 0.4);
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 0.95rem 1.5rem;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+  .load-more:hover {
+    background: rgba(38, 79, 160, 0.25);
+    border-color: rgba(98, 166, 219, 0.7);
+    color: var(--bp-light);
+  }
+  .load-more-count {
+    color: var(--bp-light);
+    font-weight: 700;
+    opacity: 0.85;
+  }
+  .load-more .arrow {
+    display: inline-flex;
+    color: var(--bp-light);
+    transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  .load-more:hover .arrow { transform: translateY(2px); }
+
+  /* Mobile-only visibility: only the first 20 gallery tiles render
+     until .is-expanded flips on. Both at the tile and load-more level. */
+  @media (max-width: 760px) {
+    .masonry:not(.is-expanded) .tile[data-mobile-deferred] { display: none; }
+    .load-more-wrap { display: block; }
   }
 
   /* Each breakpoint is its own min/max range so the nth-child patterns
