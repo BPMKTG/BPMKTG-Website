@@ -128,8 +128,8 @@ const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
        the top-left of the section, NOT inside the content grid, so it
        reads as part of the interface chrome. -->
   <div class="tier-hud-marker" aria-hidden="true">
-    <span class="tier-hud-bar"></span>
-    <span class="tier-hud-marker-label">{markerLabel}</span>
+    {markerLabel && <span class="tier-hud-bar"></span>}
+    {markerLabel && <span class="tier-hud-marker-label">{markerLabel}</span>}
     <span class="tier-hud-marker-number">{markerNumber}</span>
   </div>
 

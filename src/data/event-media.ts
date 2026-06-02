@@ -68,8 +68,8 @@ export const eventMedia: EventMedia = {
     secondaryCta: { label: 'See Field Work', href: '/portfolio' },
     markerLabel: 'Live',
     offerHighlights: [
-      { value: '48-hr',     unit: 'recap delivery' },
-      { value: '2–3',       unit: 'camera multicam' },
+      { value: '48-hr',     unit: 'delivery' },
+      { value: '3–6',       unit: 'camera multicam' },
       { value: '40–80',     unit: 'photos / show' },
       { value: 'Custom',    unit: 'scope quote' },
     ],
@@ -94,12 +94,13 @@ export const eventMedia: EventMedia = {
     sub:
       "You don't pick one format. We capture once and deliver across every cut your rollout calls for.",
     cards: [
-      { title: 'Recap edit',           body: '60–120 second hero recap. Cinematic pacing, music-synced. The piece that defines the show in retrospect.' },
+      { title: 'Recap Edit / After Movie', body: '30–120 second hero recap. Cinematic pacing, music-synced. The piece that defines the show in retrospect.' },
       { title: 'Multicam moments',     body: 'Individual standout drops + transitions captured from multiple angles. Reusable as standalone content for weeks after the show.' },
       { title: 'Vertical social cuts', body: 'TikTok / Reels / Shorts cuts optimized for first-3-second hook. Captioned, formatted, ready to schedule.' },
       { title: 'Photography pack',     body: 'Editorial-quality photos — performance, backstage, crowd, environment. High-res for press, web-ready for socials.' },
       { title: 'Backstage capture',    body: "Documentary-style backstage capture — the moments fans don't see. The footage that builds connection, not just reach." },
       { title: 'Tour cutdowns',        body: 'Once a tour wraps, we cut a season-style recap. Becomes the press piece and the "what we just did" content for the next announce.' },
+      { title: 'Press Photos',         body: 'Dedicated editorial press galleries — print-ready, rights-cleared selects formatted for media outlets and promoters.', badge: 'Coming Soon' },
     ],
   },
 
@@ -109,9 +110,9 @@ export const eventMedia: EventMedia = {
     sub:
       'Packages flex around scope. These are the three patterns we run most often.',
     cards: [
-      { title: 'Festival recap package',  body: 'One hero recap (60–120s) + 5 multicam moments + 8 vertical social cuts + photo pack (60+ images). Most-requested format. 48-hour delivery on the social cuts; full pack within 5 days.' },
+      { title: 'Festival recap package',  body: 'One hero recap (30–120s) + 5 multicam moments + 8 vertical social cuts + photo pack (60+ images). Most-requested format. 48-hour delivery.' },
       { title: 'Tour content package',    body: 'Per-city coverage rolling into a tour-end cutdown. Nightly social drops + per-show recap + cumulative tour piece. Multi-event engagement, larger scope.' },
-      { title: 'Single-show package',     body: 'One-night coverage with recap + multicam moments + vertical cuts + photos. 48-hour delivery on the social cuts; full pack within 5 days of show.' },
+      { title: 'Single-show package',     body: 'One-night coverage with recap + multicam moments + vertical cuts + photos. 48-hour delivery.' },
     ],
   },
 
@@ -143,9 +144,9 @@ export const eventMedia: EventMedia = {
     headline: 'Logistics and turnaround —<br/><span class="glow-blue">answered straight.</span>',
     lede: "The ones we hear before every event engagement. If yours isn't here, ask on the call.",
     items: [
-      { q: 'How fast is the 48-hour delivery?',                            a: "48 hours is the standard for single-event recaps and the first wave of vertical social cuts. Larger scopes — tour cutdowns, multi-day festival packages — run longer; the timeline is quoted up front before the engagement starts." },
+      { q: 'How fast is the delivery?',                                    a: "48 hours is the standard for single-event recaps and the first wave of vertical social cuts. Larger scopes — tour cutdowns, multi-day festival packages — run longer; the timeline is quoted up front before the engagement starts." },
       { q: 'Do you travel? Multi-day tours?',                              a: 'Yes. We travel for single shows, festival weekends, and full tours. Tour engagements include per-city coverage rolling into a tour-end cutdown piece. Travel costs quoted in the engagement.' },
-      { q: 'How many cameras / what counts as "multicam"?',                a: 'Typical festival/headline coverage is 2–3 cameras: a wide locked-off main, a roaming POV, and a dedicated drop camera. Larger productions scale up. We bring our own gear unless venue restrictions.' },
+      { q: 'How many cameras / what counts as "multicam"?',                a: 'Typical festival/headline coverage is 3+ cameras: a wide locked-off main, a roaming POV, and a dedicated drop camera. Larger productions scale up. We bring our own gear unless venue restrictions.' },
       { q: 'Do you handle photography too, or just video?',                a: 'Both. Editorial-quality photos are included in every package — performance, backstage, crowd, environment. Photo deliverables are typically 40–80 selects per show, high-res for press + web-ready for socials.' },
       { q: 'Can I just hire you for photos? Or just recaps?',              a: "Yes — packages are modular. Photo-only, recap-only, or full coverage. Pricing scales accordingly. Bring your scope to the call and we'll quote it." },
       { q: 'Is this connected to the Blueprint tiers?',                    a: "Event Media is a separate offering — it's not bundled into the tier retainers by default. That said, Tier 03 and Tier 04 clients often add Event Media for major festivals or tour runs. We coordinate the rollout so the event content feeds the broader growth system." },

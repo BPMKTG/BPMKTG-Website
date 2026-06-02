@@ -12,7 +12,9 @@ import { CALENDLY_URL } from '../config/cta';
 // ─────────────────────────────────────────────────────────────
 
 export interface TierCta { label: string; href: string; }
-export interface TierCard { title: string; body: string; }
+// `badge` optionally renders a small chip on the card (e.g. "Coming Soon")
+// and dims the card to signal it's a future/unavailable item.
+export interface TierCard { title: string; body: string; badge?: string; }
 export interface TierStep { title: string; body: string; }
 export interface TierFaqItem { q: string; a: string; }
 export interface TierAddOn {
@@ -110,7 +112,8 @@ const tier01: Tier = {
     ],
     primaryCta: { label: 'Book Your Session', href: CALENDLY_URL },
     secondaryCta: { label: 'Back to All Offers', href: '/#offers' },
-    markerLabel: 'Tier',
+    // Empty so the hero background watermark shows only the number (no "TIER").
+    markerLabel: '',
     offerHighlights: [
       { value: '6',     unit: 'deliverables' },
       { value: '60–90', unit: 'min strategy call' },
@@ -166,6 +169,20 @@ const tier01: Tier = {
   addOns: {
     eyebrow: 'Add-ons & Next Step',
     headline: 'Scale it up — or take it for a run first.',
+    featured: {
+      eyebrow: 'Featured Add-on',
+      title: 'Event Media',
+      body:
+        'Add on-site multicam + photo coverage at a festival, headline show, or release event. The footage feeds straight into your Blueprint roadmap — turning one night into weeks of content you can run yourself.',
+      bullets: [
+        '48-hour recap delivery',
+        'Multicam + photo coverage',
+        'Same crew, same brand alignment',
+        'Per-event scope quoted',
+      ],
+      ctaLabel: 'See Event Media',
+      ctaHref: '/event-media',
+    },
     items: [
       { title: 'Extra clip pack',                  body: '+10 additional short-form clips repurposed from your footage drive. Useful if you have a lot of material and want runway past the initial plan.', price: '+$500' },
       { title: 'One month of posting management',  body: 'We run the 2–4 week plan for you instead of handing it off — scheduling, captioning, posting, and reporting. A clean bridge into monthly.',        price: '+$750' },
@@ -228,7 +245,7 @@ const tier02: Tier = {
     ],
     primaryCta: { label: 'Start Your Engine', href: CALENDLY_URL },
     secondaryCta: { label: 'Back to All Offers', href: '/#offers' },
-    markerLabel: 'Tier',
+    markerLabel: '',
     offerHighlights: [
       { value: '8–12',  unit: 'videos / month' },
       { value: '1',     unit: 'strategy call / mo' },
@@ -358,7 +375,7 @@ const tier03: Tier = {
     ],
     primaryCta: { label: 'Talk to Us', href: CALENDLY_URL },
     secondaryCta: { label: 'Back to All Offers', href: '/#offers' },
-    markerLabel: 'Tier',
+    markerLabel: '',
     offerHighlights: [
       { value: '15–25', unit: 'videos / month' },
       { value: '6',     unit: 'month commitment' },
@@ -491,7 +508,7 @@ const tier04: Tier = {
     ],
     primaryCta: { label: 'Talk to Us', href: CALENDLY_URL },
     secondaryCta: { label: 'Back to All Offers', href: '/#offers' },
-    markerLabel: 'Tier',
+    markerLabel: '',
     offerHighlights: [
       { value: '20–40+', unit: 'videos / month' },
       { value: 'Show',   unit: 'day capture' },

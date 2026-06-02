@@ -23,8 +23,11 @@ const { eyebrow, headline, sub, cards, id = 'deliverables' } = Astro.props;
 
     <div class="tier-deliv-grid" data-reveal-group>
       {cards.map((c, i) => (
-        <article class="tier-deliv-card card-trace card-inner-glow" data-reveal data-scroll-focus>
-          <span class="tier-deliv-num" data-icon-pop>{String(i + 1).padStart(2, '0')}</span>
+        <article class:list={["tier-deliv-card card-trace card-inner-glow", { "is-soon": c.badge }]} data-reveal data-scroll-focus>
+          <div class="tier-deliv-top">
+            <span class="tier-deliv-num" data-icon-pop>{String(i + 1).padStart(2, '0')}</span>
+            {c.badge && <span class="tier-deliv-badge">{c.badge}</span>}
+          </div>
           <h3>{c.title}</h3>
           <p>{c.body}</p>
         </article>
@@ -71,6 +74,12 @@ const { eyebrow, headline, sub, cards, id = 'deliverables' } = Astro.props;
     background: linear-gradient(90deg, transparent, var(--bp-blue), transparent);
     opacity: 0.55;
   }
+  .tier-deliv-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
   .tier-deliv-num {
     font-family: var(--font-display);
     color: var(--bp-blue);
@@ -78,6 +87,25 @@ const { eyebrow, headline, sub, cards, id = 'deliverables' } = Astro.props;
     font-size: 0.78rem;
     letter-spacing: 0.18em;
   }
+  /* "Coming Soon" chip + dimmed treatment for not-yet-available cards. */
+  .tier-deliv-badge {
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--bp-light);
+    background: rgba(98, 166, 219, 0.12);
+    border: 1px solid rgba(98, 166, 219, 0.45);
+    border-radius: 999px;
+    padding: 0.28rem 0.6rem;
+    white-space: nowrap;
+  }
+  .tier-deliv-card.is-soon {
+    opacity: 0.62;
+    border-style: dashed;
+  }
+  .tier-deliv-card.is-soon::before { opacity: 0.25; }
   .tier-deliv-card h3 {
     color: var(--ink);
     font-family: var(--font-display);
