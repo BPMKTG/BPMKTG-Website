@@ -77,6 +77,11 @@ function formatCounterValue(v: number, decimals: number, prefix: string, suffix:
 function animateCounter(el: HTMLElement) {
   const target = el.dataset.counter;
   if (!target) return;
+  // Run-once guard: even if the element is observed/triggered more than once
+  // (re-init, overlapping observers), the count-up only ever fires a single
+  // time — prevents the value jumping back to 0 mid-animation.
+  if (el.dataset.mxCounted) return;
+  el.dataset.mxCounted = '1';
   const parsed = parseCounter(target);
   if (!parsed) return;
   const decimals = (target.split('.')[1] || '').replace(/[^\d]/g, '').length;
@@ -123,10 +128,10 @@ function initCounters() {
         io.unobserve(entry.target);
       }
     }
-    // Lower threshold + rootMargin so the 3-col MarketStats grid fires
-    // reliably even when each stat-value is only partially scrolled in.
-    // The earlier 0.5 threshold meant the bottom row sometimes missed.
-  }, { threshold: 0.25, rootMargin: '0px 0px -5% 0px' });
+    // Matched to the [data-reveal] observer's threshold/rootMargin (0.15 /
+    // -8%) so the number starts counting at the same moment its card +
+    // label/descriptor reveal — they animate in together, not staggered.
+  }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
   els.forEach(el => io.observe(el));
   onCleanup(() => io.disconnect());
 }
@@ -338,7 +343,12 @@ function initHeroParticles() {
   resize();
   window.addEventListener('resize', resize, { passive: true });
 
-  const COUNT = window.innerWidth < 700 ? 32 : 75;
+  // Mobile gets noticeably fewer dots and a tighter line-draw radius so the
+  // constellation effect reads as a subtle accent rather than a busy net.
+  // Desktop tuning is unchanged.
+  const isMobile = window.innerWidth < 700;
+  const COUNT = isMobile ? 16 : 75;
+  const LINK_DIST = isMobile ? 70 : 118;
   type P = { x: number; y: number; vx: number; vy: number; r: number; a: number };
   const ps: P[] = Array.from({ length: COUNT }, () => ({
     x: Math.random() * w,
@@ -368,8 +378,8 @@ function initHeroParticles() {
         const a = ps[i], b = ps[j];
         const dx = a.x - b.x, dy = a.y - b.y;
         const d2 = dx * dx + dy * dy;
-        if (d2 < 118 * 118) {
-          const alpha = (1 - Math.sqrt(d2) / 118) * 0.3;
+        if (d2 < LINK_DIST * LINK_DIST) {
+          const alpha = (1 - Math.sqrt(d2) / LINK_DIST) * 0.3;
           ctx.strokeStyle = `rgba(98, 166, 219, ${alpha})`;
           ctx.lineWidth = 1;
           ctx.beginPath();

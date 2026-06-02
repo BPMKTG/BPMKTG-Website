@@ -327,6 +327,10 @@ const tiers = [
     font-size: 0.78rem;
     color: var(--bp-light);
     line-height: 1.35;
+    /* Reserve two lines so the paid-in-full text (which wraps to 2 lines in
+       a narrow card) and Tier 1's empty spacer occupy the same height —
+       keeping the price + divider aligned across all four cards. */
+    min-height: calc(1.35em * 2);
   }
   .price-pif strong { color: var(--ink); font-weight: 700; }
   .price-pif em { font-style: normal; color: var(--bp-orange); font-weight: 700; }

@@ -41,6 +41,13 @@ const stats = [
         </article>
       ))}
     </div>
+
+    <p class="stats-source" data-reveal>
+      Sources:
+      <a href="https://www.internationalmusicsummit.com/business-report/" target="_blank" rel="noopener noreferrer">IMS Business Report 2025</a> ·
+      <a href="https://www.chartmetric.com" target="_blank" rel="noopener noreferrer">Chartmetric 2025</a> ·
+      <a href="https://luminatedata.com" target="_blank" rel="noopener noreferrer">Luminate 2024</a>
+    </p>
   </div>
 </section>
 
@@ -129,6 +136,19 @@ const stats = [
   }
   .stat-label { color: var(--ink); font-weight: 500; font-size: 0.98rem; }
   .stat-sub { color: var(--muted); font-size: 0.85rem; }
+
+  .stats-source {
+    margin-top: 1.25rem;
+    color: var(--dim);
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+  }
+  .stats-source a {
+    color: var(--muted);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  .stats-source a:hover { color: var(--bp-light); border-color: var(--bp-blue); }
 
   @media (max-width: 880px) {
     .stat-grid { grid-template-columns: repeat(2, 1fr); }

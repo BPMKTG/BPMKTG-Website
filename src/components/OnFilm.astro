@@ -155,30 +155,51 @@ const moments: FilmTileData[] = [
   // scroll/resize via rAF throttle. Pause when no tile is on-screen, or
   // when the tab is hidden.
   if (!hasHover && tiles.length) {
-    let activeTile: HTMLElement | null = null;
+    let activeTiles = new Set<HTMLElement>();
     let ticking = false;
+
+    // Play a single tile WITHOUT stopping the others (unlike play(), which
+    // calls stopAllExcept). The scroll logic manages its own active set, so
+    // it can run two row-mates at once without them cancelling each other.
+    const playTile = (tile: HTMLElement) => {
+      const video = tile.querySelector<HTMLVideoElement>('.hover-video');
+      if (!video) return;
+      video.play().catch(() => {});
+      video.classList.add('is-playing');
+      tile.classList.add('is-playing');
+    };
+
+    const clearAll = () => {
+      activeTiles.forEach(t => stop(t));
+      activeTiles.clear();
+    };
 
     const pickActive = () => {
       ticking = false;
-      if (document.hidden) {
-        if (activeTile) { stop(activeTile); activeTile = null; }
-        return;
-      }
+      if (document.hidden) { clearAll(); return; }
+
       const vhCenter = window.innerHeight / 2;
-      let best: { tile: HTMLElement; dist: number } | null = null;
+      const onscreen: { tile: HTMLElement; dist: number }[] = [];
       for (const t of tiles) {
         const r = t.getBoundingClientRect();
-        // Must be at least partially on screen
         if (r.bottom < 80 || r.top > window.innerHeight - 80) continue;
-        const center = r.top + r.height / 2;
-        const dist = Math.abs(center - vhCenter);
-        if (!best || dist < best.dist) best = { tile: t, dist };
+        onscreen.push({ tile: t, dist: Math.abs(r.top + r.height / 2 - vhCenter) });
       }
-      const next = best?.tile ?? null;
-      if (next === activeTile) return;
-      if (activeTile) stop(activeTile);
-      activeTile = next;
-      if (activeTile) play(activeTile);
+
+      // Activate EVERY tile in the row nearest the viewport center — i.e.
+      // all tiles within a tolerance of the minimum distance. In a 2-column
+      // grid the row-mates share a vertical center, so both columns play —
+      // not just the left one (which previously always won the tie).
+      const next = new Set<HTMLElement>();
+      if (onscreen.length) {
+        const min = Math.min(...onscreen.map(o => o.dist));
+        const ROW_TOL = 140; // px — covers same-row neighbors, not adjacent rows
+        for (const o of onscreen) if (o.dist <= min + ROW_TOL) next.add(o.tile);
+      }
+
+      activeTiles.forEach(t => { if (!next.has(t)) stop(t); });
+      next.forEach(t => { if (!activeTiles.has(t)) playTile(t); });
+      activeTiles = next;
     };
     const onScroll = () => {
       if (ticking) return;
@@ -188,7 +209,7 @@ const moments: FilmTileData[] = [
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll, { passive: true });
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden && activeTile) { stop(activeTile); activeTile = null; }
+      if (document.hidden) clearAll();
       else onScroll();
     });
     // Initial pick once layout settles

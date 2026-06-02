@@ -245,5 +245,15 @@ const frames = [
     .meter { grid-template-columns: 1fr; gap: 0.6rem; }
     .meter-bar { width: 80px; }
     .meter-btn { flex-direction: row; align-items: center; gap: 0.85rem; }
+
+    /* Mobile: zero the horizontal overhang so each full-bleed frame spans
+       exactly the viewport width and stays perfectly centered (the desktop
+       -2% side inset could read as a slight left bias on narrow screens).
+       Vertical overhang is kept for the parallax travel room. */
+    .img-wrap { inset: -10% 0; }
+    .img-wrap :global(img) { object-position: center center; }
+    .frame[data-frame="0"] .img-wrap :global(img) { object-position: center 100%; }
+    .frame[data-frame="1"] .img-wrap :global(img) { object-position: center 60%; }
+    .frame[data-frame="2"] .img-wrap :global(img) { object-position: center 55%; }
   }
 </style>

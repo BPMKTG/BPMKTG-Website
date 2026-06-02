@@ -65,6 +65,42 @@ const principles = [
     </div>
   </section>
 
+  <!-- ─────────── Built On Experience (MC Media Marketing history) ─────────── -->
+  <section class="authority">
+    <div class="container authority-inner">
+      <p class="label" data-reveal="left">Built On Experience</p>
+      <h2 data-reveal>Five years <span class="glow-blue">in the making.</span></h2>
+
+      <div class="authority-body">
+        <p data-reveal>
+          Blueprint didn't start from scratch. For over five years we operated as
+          <strong>MC Media Marketing</strong> — building growth systems for companies across the
+          country, from Texas to Florida to North Dakota.
+        </p>
+        <p data-reveal>
+          Every system, playbook, and instinct behind Blueprint was forged in real client work,
+          coast to coast. Blueprint is that half-decade of experience — now focused entirely on
+          the artists shaping electronic music.
+        </p>
+      </div>
+
+      <div class="authority-stats" data-reveal-group>
+        <div class="authority-stat card-trace card-inner-glow" data-reveal data-scroll-focus>
+          <span class="authority-num">5+</span>
+          <span class="authority-cap">Years building growth systems</span>
+        </div>
+        <div class="authority-stat card-trace card-inner-glow" data-reveal data-scroll-focus>
+          <span class="authority-num">50+</span>
+          <span class="authority-cap">Clients served across industries</span>
+        </div>
+        <div class="authority-stat card-trace card-inner-glow" data-reveal data-scroll-focus>
+          <span class="authority-num authority-num--text">Coast to Coast</span>
+          <span class="authority-cap">Texas · Florida · North Dakota &amp; beyond</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ─────────── Vision / Manifesto ─────────── -->
   <section class="vision bp-texture" data-vision-section>
     <div class="vision-glow vision-glow--a" aria-hidden="true"></div>
@@ -301,6 +337,60 @@ const principles = [
   /* ═══════════════════════════════════════════════
      VISION — atmospheric radial glows + texture
      ═══════════════════════════════════════════════ */
+  /* ─────────── Built On Experience / authority ─────────── */
+  .authority {
+    padding: 5rem 0 4rem;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .authority-inner { max-width: 880px; }
+  .authority h2 { margin: 1rem 0 1.5rem; text-wrap: balance; }
+  .authority-body {
+    display: grid;
+    gap: 1rem;
+    max-width: 60ch;
+  }
+  .authority-body p { color: var(--ink); opacity: 0.82; font-size: 1.05rem; line-height: 1.6; }
+  .authority-body strong { color: var(--bp-light); font-weight: 700; }
+
+  .authority-stats {
+    margin-top: 2.5rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  .authority-stat {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.75rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .authority-num {
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    font-weight: 800;
+    color: var(--bp-blue);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+  }
+  /* Text-style stat ("Coast to Coast") reads at a smaller size than the
+     numeric stats so it doesn't dominate. */
+  .authority-num--text { font-size: clamp(1.3rem, 2.2vw, 1.8rem); line-height: 1.1; }
+  .authority-cap { color: var(--muted); font-size: 0.88rem; line-height: 1.4; }
+
+  @media (max-width: 620px) {
+    .authority-stats { grid-template-columns: 1fr; gap: 0.6rem; }
+    .authority-stat { flex-direction: row; align-items: baseline; gap: 0.8rem; }
+    .authority-num { font-size: 1.5rem; }
+    .authority-num--text { font-size: 1.25rem; }
+  }
+
   .vision {
     padding: 6rem 0 7rem;
     position: relative;
@@ -717,8 +807,9 @@ const principles = [
     }
     .founders-creed .creed-tick    { margin-bottom: 0.15rem; }
     .founders-creed .creed-divider { display: none; }
-    .founders-creed em,
-    .founders-creed .creed-tail { display: block; line-height: 1.35; }
+    /* Mobile shows only "Your wins are our wins." — drop the secondary line. */
+    .founders-creed .creed-tail    { display: none; }
+    .founders-creed em { display: block; line-height: 1.35; }
   }
   @media (max-width: 540px) {
     .principles-grid { grid-template-columns: 1fr; }

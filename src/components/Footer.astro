@@ -142,21 +142,13 @@ const cols = [
     transform-origin: left center;
   }
 
-  /* Connect column = social links — distinct brand-color glow per icon.
-     Targets the last column (Connect). */
+  /* Connect column = social links — unified Blueprint-blue glow on hover
+     (replaces the per-platform brand colors). */
   .col:last-child a {
     transition: color 0.25s ease, opacity 0.2s ease, text-shadow 0.3s ease;
   }
-  .col:last-child li:nth-child(1) a:hover { color: #ff4d8b; text-shadow: 0 0 12px rgba(255, 77, 139, 0.7); }
-  .col:last-child li:nth-child(2) a:hover { color: #4dd9d9; text-shadow: 0 0 12px rgba(77, 217, 217, 0.7); }
-  .col:last-child li:nth-child(3) a:hover { color: #ff3b3b; text-shadow: 0 0 12px rgba(255, 59, 59, 0.7); }
-  .col:last-child li:nth-child(4) a:hover { color: #ffffff; text-shadow: 0 0 12px rgba(255, 255, 255, 0.7); }
-  .col:last-child li:nth-child(5) a:hover { color: var(--bp-light); text-shadow: 0 0 12px rgba(179, 224, 246, 0.7); }
-  .col:last-child li:nth-child(1) a:hover::after { background: #ff4d8b; box-shadow: 0 0 8px rgba(255, 77, 139, 0.6); }
-  .col:last-child li:nth-child(2) a:hover::after { background: #4dd9d9; box-shadow: 0 0 8px rgba(77, 217, 217, 0.6); }
-  .col:last-child li:nth-child(3) a:hover::after { background: #ff3b3b; box-shadow: 0 0 8px rgba(255, 59, 59, 0.6); }
-  .col:last-child li:nth-child(4) a:hover::after { background: #ffffff; box-shadow: 0 0 8px rgba(255, 255, 255, 0.6); }
-  .col:last-child li:nth-child(5) a:hover::after { background: var(--bp-light); box-shadow: 0 0 8px rgba(179, 224, 246, 0.6); }
+  .col:last-child a:hover { color: #62a6db; text-shadow: 0 0 12px rgba(98, 166, 219, 0.7); }
+  .col:last-child a:hover::after { background: #264fa0; box-shadow: 0 0 8px rgba(98, 166, 219, 0.6); }
 
   .footer-foot {
     display: flex;

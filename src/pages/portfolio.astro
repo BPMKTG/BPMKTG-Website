@@ -387,17 +387,28 @@ const tilesLB = tilesLBRaw;
     dialog?.addEventListener('pointercancel', () => { touchActive = false; });
 
     // ─── Load More (mobile only) ───
-    // Reveals the deferred gallery tiles. CSS handles the hide/show via
-    // the .is-expanded class on .masonry. The button removes itself once
-    // clicked. Navigation through openers already includes the hidden
-    // tiles, so arrow/swipe nav works even before tapping Load More.
-    const loadMore = document.querySelector<HTMLButtonElement>('[data-load-more]');
-    const masonry  = document.querySelector<HTMLElement>('[data-masonry]');
-    const loadMoreWrap = document.querySelector<HTMLElement>('[data-load-more-wrap]');
-    loadMore?.addEventListener('click', () => {
-      masonry?.classList.add('is-expanded');
-      if (loadMoreWrap) loadMoreWrap.hidden = true;
-    });
+    // Reveals the deferred gallery tiles by flipping .is-expanded on the
+    // masonry, then removes itself (everything is now visible). Bound on
+    // astro:page-load + idempotently so it re-attaches when the user
+    // navigates BACK to /portfolio via a view transition (the page's other
+    // listeners run once at parse; without re-binding here the button went
+    // dead after a navigation — the "doesn't always work" symptom).
+    const initLoadMore = () => {
+      const loadMore     = document.querySelector<HTMLButtonElement>('[data-load-more]');
+      const masonry      = document.querySelector<HTMLElement>('[data-masonry]');
+      const loadMoreWrap = document.querySelector<HTMLElement>('[data-load-more-wrap]');
+      if (!loadMore || !masonry) return;
+      if (loadMore.dataset.lmBound) return;   // idempotent across re-inits
+      loadMore.dataset.lmBound = '1';
+      loadMore.addEventListener('click', () => {
+        masonry.classList.add('is-expanded');
+        // All deferred tiles are now visible — retire the button entirely.
+        if (loadMoreWrap) loadMoreWrap.hidden = true;
+      });
+    };
+    document.addEventListener('astro:page-load', initLoadMore);
+    if (document.readyState !== 'loading') initLoadMore();
+    else document.addEventListener('DOMContentLoaded', initLoadMore, { once: true });
   </script>
 
   <BookCall />
@@ -899,7 +910,23 @@ const tilesLB = tilesLBRaw;
     .tile .caption span   { font-size: 0.65rem; }
   }
   @media (max-width: 1080px) { .featured-grid { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 760px)  { .featured-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; } }
+  @media (max-width: 760px)  {
+    .featured-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+    /* Round the Access photo corners on mobile to match desktop. The
+       desktop translateZ/will-change hint (added to keep the radius during
+       the hover scale) can make the child image escape the parent's rounded
+       clip on mobile, squaring the corners. Since there's no hover scale on
+       touch, drop the hint and give the image its own matching radius. */
+    .feat-card .img-wrap {
+      border-radius: 16px;
+      transform: none;
+      will-change: auto;
+    }
+    .feat-card .img-wrap :global(img) {
+      border-radius: 16px;
+      transform: none;
+    }
+  }
   @media (max-width: 480px)  {
     .featured-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
     .feat-card .hover-meta { padding: 1.4rem 0.5rem 0.55rem; }

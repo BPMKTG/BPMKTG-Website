@@ -1,4 +1,21 @@
 ---
+import { getImage } from 'astro:assets';
+
+// Per-artist photos for the clickable marquee names (existing asset library).
+import mgImg          from '../assets/images/portfolio/martingarrix-onstage-pyro.jpg';
+import excisionImg    from '../assets/images/hero/hero-1-excision-magenta-713.jpg';
+import subtronicsImg  from '../assets/images/portfolio/subtronics-dancefestopia.jpg';
+import fluxImg        from '../assets/images/carousel/carousel-flux-doctorp-rv.jpg';
+import atliensImg     from '../assets/images/portfolio/atliens-dft-sidestage.jpg';
+import wooliImg       from '../assets/images/portfolio/wooli-dft-pyro-lasers.jpg';
+import sanpachoImg    from '../assets/images/portfolio/sanpacho-silo.jpg';
+import alienparkImg   from '../assets/images/portfolio/alienpark-dft.jpg';
+import svddendeathImg from '../assets/images/portfolio/svddendeath-wickedoaks.jpg';
+import aheeImg        from '../assets/images/portfolio/ahee-dft.jpg';
+import neotekImg      from '../assets/images/portfolio/neotek-silo-onstage.jpg';
+import yookieImg      from '../assets/images/portfolio/yookie-grimefest-bassface.jpg';
+import allReasonImg   from '../assets/images/portfolio/allthereason-vulcangasco.jpg';
+
 const artists = [
   'Gabetoldmeto', 'Martin Garrix', 'Excision', 'Flux Pavilion', 'Subtronics',
   'Doctor P', 'Slander', 'Adventure Club', 'Crankdat', 'Kai Wachi',
@@ -12,6 +29,32 @@ const artists = [
   'LegendOfShellda',
 ];
 
+// Map of artist name → photo + caption for the names that open a lightbox.
+const artistMedia: Record<string, { img: ImageMetadata; caption: string }> = {
+  'Martin Garrix':  { img: mgImg,          caption: 'Martin Garrix — Wicked Oaks' },
+  'Excision':       { img: excisionImg,    caption: 'Excision — 713 Music Hall, Houston' },
+  'Subtronics':     { img: subtronicsImg,  caption: 'Subtronics — Dancefestopia' },
+  'Flux Pavilion':  { img: fluxImg,        caption: 'Flux Pavilion — Wicked Oaks' },
+  'ATLiens':        { img: atliensImg,     caption: 'ATLiens — Dancefestopia' },
+  'Wooli':          { img: wooliImg,       caption: 'Wooli — Dancefestopia' },
+  'San Pacho':      { img: sanpachoImg,    caption: 'San Pacho — Silo, Dallas' },
+  'Alien Park':     { img: alienparkImg,   caption: 'Alien Park — Dancefestopia' },
+  'Svdden Death':   { img: svddendeathImg, caption: 'Svdden Death — Wicked Oaks' },
+  'Ahee':           { img: aheeImg,        caption: 'AHEE — Dancefestopia' },
+  'Neotek':         { img: neotekImg,      caption: 'Neotek — Silo, Dallas' },
+  'Yookie':         { img: yookieImg,      caption: 'Yookie — Grimefest' },
+  'All The Reason': { img: allReasonImg,   caption: 'All The Reason — Vulcan Gas Co.' },
+};
+
+// Pre-generate optimized lightbox renditions for each clickable artist.
+const artistLB: Record<string, { full: string; caption: string }> = {};
+for (const [name, m] of Object.entries(artistMedia)) {
+  artistLB[name] = {
+    full: (await getImage({ src: m.img, width: 1400, format: 'webp', quality: 84 })).src,
+    caption: m.caption,
+  };
+}
+
 // Duplicate the list so the CSS animation can translate -50% for a seamless loop
 const trackList = [...artists, ...artists];
 ---
@@ -22,18 +65,55 @@ const trackList = [...artists, ...artists];
 
   <div class="marquee-track" data-reveal aria-hidden="true">
     <ul class="marquee-row" role="presentation">
-      {trackList.map((name, i) => (
+      {trackList.map((name) => {
+        const lb = artistLB[name];
+        return (
         <li class="marquee-item">
           <span class="sep" aria-hidden="true">
             <svg viewBox="0 0 12 12" width="10" height="10" fill="currentColor">
               <polygon points="2.5,1.5 10,6 2.5,10.5" />
             </svg>
           </span>
-          <span class="artist">{name}</span>
+          {lb ? (
+            <button
+              type="button"
+              class="artist artist--clickable"
+              data-artist-open
+              data-full={lb.full}
+              data-caption={lb.caption}
+              tabindex="-1"
+              aria-label={`View photo of ${name}`}
+            >
+              {name}
+              <span class="artist-info" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none">
+                  <circle cx="12" cy="12" r="9.5" stroke="currentColor" stroke-width="1.6"/>
+                  <circle cx="12" cy="7.6" r="1.25" fill="currentColor"/>
+                  <path d="M12 10.8v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+              </span>
+            </button>
+          ) : (
+            <span class="artist">{name}</span>
+          )}
         </li>
-      ))}
+        );
+      })}
     </ul>
   </div>
+
+  <!-- Artist photo lightbox — opens when a clickable marquee name is tapped. -->
+  <dialog class="artist-lightbox" data-artist-lightbox aria-label="Artist photo">
+    <button type="button" class="artist-lb-close" data-artist-lb-close aria-label="Close">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <figure>
+      <img data-artist-lb-img alt="" />
+      <figcaption data-artist-lb-caption></figcaption>
+    </figure>
+  </dialog>
 </section>
 
 <script>
@@ -98,6 +178,43 @@ const trackList = [...artists, ...artists];
   } else {
     init();
   }
+
+  // Artist photo lightbox — opens the tapped name's photo. Idempotent across
+  // view transitions; delegates clicks so the duplicated marquee copies all
+  // work without per-button rebinding.
+  const initArtistLB = () => {
+    const dialog = document.querySelector<HTMLDialogElement>('[data-artist-lightbox]');
+    const img    = dialog?.querySelector<HTMLImageElement>('[data-artist-lb-img]');
+    const cap    = dialog?.querySelector<HTMLElement>('[data-artist-lb-caption]');
+    const close  = dialog?.querySelector<HTMLButtonElement>('[data-artist-lb-close]');
+    if (!dialog || !img || !cap || dialog.dataset.albInit) return;
+    dialog.dataset.albInit = '1';
+
+    const closeLB = () => {
+      const cursor = document.querySelector<HTMLElement>('.bp-cursor');
+      if (cursor) document.body.appendChild(cursor);
+      if (dialog.open) dialog.close();
+    };
+
+    document.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-artist-open]');
+      if (!btn) return;
+      img.src = btn.dataset.full ?? '';
+      img.alt = btn.dataset.caption ?? '';
+      cap.textContent = btn.dataset.caption ?? '';
+      if (!dialog.open) dialog.showModal();
+      // Keep the custom cursor visible above the modal backdrop.
+      const cursor = document.querySelector<HTMLElement>('.bp-cursor');
+      if (cursor) dialog.appendChild(cursor);
+    });
+    close?.addEventListener('click', closeLB);
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) closeLB(); });
+    dialog.addEventListener('cancel', (e) => { e.preventDefault(); closeLB(); });
+  };
+
+  document.addEventListener('astro:page-load', initArtistLB);
+  if (document.readyState !== 'loading') initArtistLB();
+  else document.addEventListener('DOMContentLoaded', initArtistLB, { once: true });
 </script>
 
 <style>
@@ -170,6 +287,93 @@ const trackList = [...artists, ...artists];
     transition: color 0.2s;
   }
   .marquee-item:hover .artist { color: var(--bp-light); }
+
+  /* Clickable artist names — open a photo in the lightbox. The ⓘ icon stays
+     visible (also on touch) to signal the name is tappable. */
+  .artist--clickable {
+    appearance: none;
+    background: none;
+    border: none;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 0.2rem;
+    line-height: 1;
+  }
+  .artist-info {
+    color: var(--bp-blue);
+    opacity: 0.78;
+    margin-top: -0.15em;          /* sit at the top-right corner of the name */
+    display: inline-flex;
+    transition: opacity 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+  .artist--clickable:hover { color: var(--bp-light); }
+  .artist--clickable:hover .artist-info {
+    opacity: 1;
+    color: var(--bp-light);
+    transform: scale(1.12);
+  }
+
+  /* ── Artist photo lightbox ── */
+  .artist-lightbox {
+    border: none;
+    padding: 0;
+    margin: auto;
+    background: transparent;
+    max-width: min(640px, 92vw);
+    max-height: 90vh;
+    color: var(--ink);
+    overflow: visible;
+  }
+  .artist-lightbox::backdrop {
+    background: rgba(6, 6, 14, 0.85);
+    backdrop-filter: blur(16px);
+  }
+  .artist-lightbox figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .artist-lightbox img {
+    width: 100%;
+    height: auto;
+    max-height: 80vh;
+    object-fit: contain;
+    border-radius: 14px;
+    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
+  }
+  .artist-lightbox figcaption {
+    color: var(--bp-light);
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .artist-lb-close {
+    position: fixed;
+    top: 1.25rem; right: 1.25rem;
+    appearance: none;
+    background: transparent;
+    border: 1px solid rgba(98, 166, 219, 0.4);
+    border-radius: 999px;
+    width: 44px; height: 44px;
+    color: var(--bp-light);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+  .artist-lb-close:hover {
+    background: rgba(98, 166, 219, 0.14);
+    border-color: rgba(98, 166, 219, 0.7);
+    transform: rotate(90deg);
+  }
 
   .sep {
     color: var(--bp-orange);

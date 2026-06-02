@@ -80,7 +80,7 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
       btn.dataset.bmvBound = '1';
 
       // Hover preview: play the muted preview clip while the cursor's over
-      // the thumbnail; pause when it leaves. Skip on touch (no hover).
+      // the thumbnail; pause when it leaves.
       const preview = btn.querySelector<HTMLVideoElement>('.bmv-preview');
       if (preview && canHover) {
         const play = () => { preview.currentTime = 0; preview.play().catch(() => {}); };
@@ -89,6 +89,20 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
         btn.addEventListener('focus', play);
         btn.addEventListener('pointerleave', stop);
         btn.addEventListener('blur', stop);
+      } else if (preview) {
+        // Touch (no hover): autoplay the preview when the thumbnail is
+        // centered in view, and toggle `.is-previewing` so the CSS hides
+        // the play button during playback — mirroring the desktop hover.
+        const io = new IntersectionObserver(([entry]) => {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            preview.play().catch(() => {});
+            btn.classList.add('is-previewing');
+          } else {
+            preview.pause();
+            btn.classList.remove('is-previewing');
+          }
+        }, { threshold: [0, 0.6] });
+        io.observe(btn);
       }
 
       btn.addEventListener('click', () => {
@@ -256,6 +270,10 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
     justify-content: center;
     width: 76px;
     height: 76px;
+    /* Lock a 1:1 box and stop the column flex from squashing the height —
+       without these the button rendered as an oval in tight mobile space. */
+    aspect-ratio: 1 / 1;
+    flex-shrink: 0;
     border-radius: 50%;
     background: rgba(10, 10, 15, 0.55);
     border: 1px solid rgba(98, 166, 219, 0.4);
@@ -271,6 +289,11 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
     background: rgba(227, 112, 59, 0.18);
     border-color: var(--bp-orange);
   }
+
+  /* Touch: scroll-triggered preview (JS adds .is-previewing). Mirror the
+     desktop hover — fade the preview video in and hide the play button. */
+  .bmv-placeholder.is-previewing .bmv-preview { opacity: 1; }
+  .bmv-placeholder.is-previewing .bmv-play { opacity: 0; }
   .bmv-caption {
     color: #fff;
     font-family: var(--font-display);
@@ -297,7 +320,12 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
   .bmv-cta .button:hover { background: rgba(255,255,255,0.06); }
 
   @media (max-width: 700px) {
-    .bmv-play { width: 56px; height: 56px; }
-    .bmv-play svg { width: 42px; height: 42px; }
+    .bmv-play { width: 54px; height: 54px; }
+    .bmv-play svg { width: 38px; height: 38px; }
+    /* More breathing room top/bottom so the pill and subcaption don't crowd
+       the thumbnail's rounded edges; tighter gap keeps it all in frame. */
+    .bmv-content { padding: 2.25rem 1.5rem; gap: 0.85rem; }
+    .bmv-caption { font-size: 1.05rem; }
+    .bmv-subcaption { font-size: 0.82rem; }
   }
 </style>

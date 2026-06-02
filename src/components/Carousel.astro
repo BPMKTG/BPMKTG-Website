@@ -181,13 +181,16 @@ const shots = [
 
     // Edge-hover continuous scroll — speed scales with how close the
     // cursor is to the outer edge (slowest at 90px in, fastest at the
-    // edge itself). Both speed AND direction reset cleanly on leave so
-    // no in-flight rAF can keep scrolling after the cursor exits.
+    // edge itself). On leave the motion DECELERATES to a stop via friction
+    // instead of cutting out abruptly.
     let edgeRaf = 0;
     let edgeDir: 0 | 1 | -1 = 0;
     let edgeSpeed = 0;
+    let edgeDecel = false;   // true once the cursor has left and we're coasting
     const MIN_SPEED = 1.2;   // px / frame
     const MAX_SPEED = 9;     // px / frame at the very edge
+    const FRICTION  = 0.88;  // per-frame speed multiplier while decelerating
+    const STOP_EPS  = 0.18;  // speed below which we consider motion stopped
 
     // Distance from cursor to the OUTER edge of the zone. 0 = at edge,
     // up to zone.width away = furthest in. Mapped to speed via easing.
@@ -201,30 +204,12 @@ const shots = [
       return MIN_SPEED + eased * (MAX_SPEED - MIN_SPEED);
     };
 
-    const edgeTick = () => {
-      // Belt-and-braces: if either piece of state was cleared between
-      // the cancelAnimationFrame and this frame firing, bail out and
-      // do not schedule another frame.
-      if (!edgeDir || !edgeSpeed) { edgeRaf = 0; return; }
-      rail.scrollLeft += edgeDir * edgeSpeed;
-      edgeRaf = requestAnimationFrame(edgeTick);
-    };
-
-    const startEdge = (zone: HTMLElement, dir: 1 | -1, clientX: number) => {
-      edgeDir = dir;
-      edgeSpeed = computeSpeed(zone, dir, clientX);
-      pause();
-      rail.style.scrollBehavior = 'auto';
-      rail.style.scrollSnapType = 'none';
-      cancelAnimationFrame(edgeRaf);
-      edgeRaf = requestAnimationFrame(edgeTick);
-    };
-
-    const stopEdge = () => {
-      // Clear state FIRST, then cancel — any frame that fires between
-      // these calls will hit the bail in edgeTick().
+    // Final teardown once motion has fully stopped (or on a hard cancel):
+    // restore snap/scroll styles and queue auto-advance to resume.
+    const finalizeEdge = () => {
       edgeDir = 0;
       edgeSpeed = 0;
+      edgeDecel = false;
       cancelAnimationFrame(edgeRaf);
       edgeRaf = 0;
       // Snap is `proximity`, so re-enabling it won't force a yank to the
@@ -233,21 +218,49 @@ const shots = [
       // both styles immediately without any masking choreography.
       rail.style.scrollBehavior = '';
       rail.style.scrollSnapType = '';
-      userInteracted = true;
-      // Clear any previously-queued resume before scheduling a new one so
-      // rapid enter/leave cycles don't stack up multiple pending timers.
       window.clearTimeout(edgeResumeT);
       edgeResumeT = window.setTimeout(resume, 1500);
+    };
+
+    const edgeTick = () => {
+      if (!edgeDir) { edgeRaf = 0; return; }
+      rail.scrollLeft += edgeDir * edgeSpeed;
+      // Coasting phase: bleed the speed off with friction, then finalize
+      // once it's slow enough to read as a smooth stop.
+      if (edgeDecel) {
+        edgeSpeed *= FRICTION;
+        if (edgeSpeed < STOP_EPS) { finalizeEdge(); return; }
+      }
+      edgeRaf = requestAnimationFrame(edgeTick);
+    };
+
+    const startEdge = (zone: HTMLElement, dir: 1 | -1, clientX: number) => {
+      edgeDecel = false;          // re-engaging cancels any in-flight coast
+      edgeDir = dir;
+      edgeSpeed = computeSpeed(zone, dir, clientX);
+      pause();
+      window.clearTimeout(edgeResumeT);
+      rail.style.scrollBehavior = 'auto';
+      rail.style.scrollSnapType = 'none';
+      cancelAnimationFrame(edgeRaf);
+      edgeRaf = requestAnimationFrame(edgeTick);
+    };
+
+    // Cursor left the zone — start coasting to a stop rather than cutting out.
+    const stopEdge = () => {
+      if (!edgeDir) return;
+      edgeDecel = true;
+      userInteracted = true;
     };
 
     wrap.querySelectorAll<HTMLElement>('[data-rail-edge]').forEach(zone => {
       const dir: 1 | -1 = zone.dataset.railEdge === 'left' ? -1 : 1;
       zone.addEventListener('pointerenter', (e) => startEdge(zone, dir, e.clientX));
       zone.addEventListener('pointermove',  (e) => {
-        if (edgeDir === dir) edgeSpeed = computeSpeed(zone, dir, e.clientX);
+        if (edgeDir === dir && !edgeDecel) edgeSpeed = computeSpeed(zone, dir, e.clientX);
       });
       zone.addEventListener('pointerleave',  stopEdge);
-      zone.addEventListener('pointercancel', stopEdge);
+      zone.addEventListener('pointercancel', finalizeEdge);
     });
 
     // Defer the first auto-advance until the carousel enters the viewport,
