@@ -97,6 +97,7 @@ const shots = [
     let timer: number | null = null;
     let paused = false;
     let userInteracted = false;
+    let edgeResumeT = 0;  // tracks the post-edge-stop resume timer
 
     const tick = () => {
       if (paused) return;
@@ -108,7 +109,9 @@ const shots = [
     };
     const start = () => { stop(); if (!reduceMotion) timer = window.setInterval(tick, AUTO_MS); };
     const stop  = () => { if (timer !== null) { clearInterval(timer); timer = null; } };
-    const pause = () => { paused = true; stop(); };
+    // Cancel any pending edge-resume timer so hovering the rail mid-countdown
+    // doesn't unexpectedly restart auto-advance while the cursor is still there.
+    const pause = () => { paused = true; stop(); window.clearTimeout(edgeResumeT); edgeResumeT = 0; };
     const resume = () => { paused = false; if (!timer) start(); };
 
     // Buttons
@@ -233,7 +236,10 @@ const shots = [
       window.clearTimeout(snapRestoreT);
       snapRestoreT = window.setTimeout(() => { rail.style.scrollSnapType = ''; }, 80);
       userInteracted = true;
-      window.setTimeout(resume, 1500);
+      // Clear any previously-queued resume before scheduling a new one so
+      // rapid enter/leave cycles don't stack up multiple pending timers.
+      window.clearTimeout(edgeResumeT);
+      edgeResumeT = window.setTimeout(resume, 1500);
     };
 
     wrap.querySelectorAll<HTMLElement>('[data-rail-edge]').forEach(zone => {
