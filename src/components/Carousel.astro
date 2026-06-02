@@ -229,12 +229,16 @@ const shots = [
       edgeSpeed = 0;
       cancelAnimationFrame(edgeRaf);
       edgeRaf = 0;
-      rail.style.scrollBehavior = '';
-      // Defer snap restore one frame so the rail "lands" softly — if
-      // we flip snap back on in the same frame the scrollBy stopped
-      // in, the browser yanks to the nearest card and looks janky.
+      // Keep scroll-behavior smooth through the snap re-engagement so the
+      // browser animates to the nearest card instead of jumping to it.
+      // Clearing to '' (auto) before re-enabling snap is what caused the
+      // visible jump — the snap fires instantly with no animation.
+      rail.style.scrollBehavior = 'smooth';
       window.clearTimeout(snapRestoreT);
-      snapRestoreT = window.setTimeout(() => { rail.style.scrollSnapType = ''; }, 80);
+      snapRestoreT = window.setTimeout(() => {
+        rail.style.scrollSnapType = '';          // re-enable snap (animates smoothly)
+        window.setTimeout(() => { rail.style.scrollBehavior = ''; }, 450); // clear after card settles
+      }, 80);
       userInteracted = true;
       // Clear any previously-queued resume before scheduling a new one so
       // rapid enter/leave cycles don't stack up multiple pending timers.
