@@ -509,9 +509,8 @@ function initRoadmapLine() {
 // ─────────────────────────────────────────────────────────────
 function initCtaParticles() {
   if (reduce()) return;
-  // Both BookCall CTA and Footer use the same particle pattern. Per-host
-  // tuning via data-attributes: data-count, data-dur-base, data-dur-spread.
-  const hosts = document.querySelectorAll<HTMLElement>('.cta-particles, .footer-particles');
+  // Only BookCall CTA section gets particles — not the footer.
+  const hosts = document.querySelectorAll<HTMLElement>('.cta-particles');
   for (const host of hosts) {
     if (host.children.length) continue; // idempotent
     const count     = parseInt(host.dataset.count     || '18', 10);
