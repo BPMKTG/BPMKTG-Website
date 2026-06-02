@@ -802,6 +802,42 @@ function initMediaLoading() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Hero video source — set per viewport. Must run on every page-load
+// (not just first parse) so the video re-loads when the user navigates
+// BACK to the homepage via view transitions. Idempotent: skips if the
+// correct source is already applied so we don't restart a playing video.
+// ─────────────────────────────────────────────────────────────
+function initHeroVideo() {
+  const v = document.querySelector<HTMLVideoElement>('.hero-video');
+  if (!v) return;
+  const HORIZ = '/videos/hero-montage.mp4';
+  const VERT  = '/videos/hero-montage-vertical.mp4';
+  const mobile = window.matchMedia('(max-width: 980px)').matches;
+  const want = mobile ? VERT : HORIZ;
+
+  // play() must wait until the element can actually play — calling it
+  // synchronously right after load() rejects with AbortError (load() resets
+  // the media), and the autoplay attribute does not reliably re-fire after a
+  // manual src change. So we (re)attempt playback on canplay.
+  const tryPlay = () => { if (v.paused) v.play().catch(() => {}); };
+
+  // Already pointed at the right file — leave the source alone, just make
+  // sure it's playing (covers a paused-after-swap state).
+  const current = v.currentSrc || v.src;
+  if (current.indexOf(want) > -1) { tryPlay(); return; }
+
+  if (!v.dataset.mxHeroVideo) {
+    v.dataset.mxHeroVideo = '1';
+    v.addEventListener('canplay', tryPlay);
+    v.addEventListener('error', () => {
+      if ((v.currentSrc || v.src).indexOf('vertical') > -1) { v.src = HORIZ; v.load(); }
+    });
+  }
+  v.src = want;
+  v.load();
+}
+
+// ─────────────────────────────────────────────────────────────
 // Init / re-init
 // ─────────────────────────────────────────────────────────────
 function init() {
@@ -810,6 +846,7 @@ function init() {
   initTypewriter();
   initGlitch();
   initCursor();
+  initHeroVideo();
   initHeroParticles();
   initTilt();
   initRoadmapLine();
