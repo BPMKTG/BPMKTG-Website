@@ -186,7 +186,6 @@ const shots = [
     let edgeRaf = 0;
     let edgeDir: 0 | 1 | -1 = 0;
     let edgeSpeed = 0;
-    let snapRestoreT = 0;
     const MIN_SPEED = 1.2;   // px / frame
     const MAX_SPEED = 9;     // px / frame at the very edge
 
@@ -217,7 +216,6 @@ const shots = [
       pause();
       rail.style.scrollBehavior = 'auto';
       rail.style.scrollSnapType = 'none';
-      window.clearTimeout(snapRestoreT);
       cancelAnimationFrame(edgeRaf);
       edgeRaf = requestAnimationFrame(edgeTick);
     };
@@ -229,16 +227,12 @@ const shots = [
       edgeSpeed = 0;
       cancelAnimationFrame(edgeRaf);
       edgeRaf = 0;
-      // Keep scroll-behavior smooth through the snap re-engagement so the
-      // browser animates to the nearest card instead of jumping to it.
-      // Clearing to '' (auto) before re-enabling snap is what caused the
-      // visible jump — the snap fires instantly with no animation.
-      rail.style.scrollBehavior = 'smooth';
-      window.clearTimeout(snapRestoreT);
-      snapRestoreT = window.setTimeout(() => {
-        rail.style.scrollSnapType = '';          // re-enable snap (animates smoothly)
-        window.setTimeout(() => { rail.style.scrollBehavior = ''; }, 450); // clear after card settles
-      }, 80);
+      // Snap is `proximity`, so re-enabling it won't force a yank to the
+      // nearest card — it only snaps if the rail already came to rest near
+      // a snap point. That removes the jump entirely, so we can restore
+      // both styles immediately without any masking choreography.
+      rail.style.scrollBehavior = '';
+      rail.style.scrollSnapType = '';
       userInteracted = true;
       // Clear any previously-queued resume before scheduling a new one so
       // rapid enter/leave cycles don't stack up multiple pending timers.
@@ -307,7 +301,7 @@ const shots = [
     gap: 1rem;
     overflow-x: auto;
     overflow-y: hidden;
-    scroll-snap-type: x mandatory;
+    scroll-snap-type: x proximity;
     padding: 0.5rem 1.5rem 1rem;
     scroll-padding-left: 1.5rem;
     scrollbar-width: thin;
