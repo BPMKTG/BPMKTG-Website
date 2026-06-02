@@ -9,7 +9,7 @@
 //   "https://calendly.com/blueprint/strategy-call"
 // ─────────────────────────────────────────────────────────────
 
-export const CALENDLY_URL = '[CALENDLY-URL]';
+export const CALENDLY_URL = 'https://calendly.com/bpmktg/strategy-meeting';
 
 // ─────────────────────────────────────────────────────────────
 // Footer / contact constants — single source of truth.
