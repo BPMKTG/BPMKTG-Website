@@ -138,7 +138,7 @@ const tier01: Tier = {
 
   whatYouGet: {
     eyebrow: 'What You Get',
-    headline: 'Six deliverables. <span class="highlight">One focused session.</span>',
+    headline: 'Six deliverables. One focused session.',
     sub:
       'Everything below ships within 7–10 days of intake. The live delivery session is the moment we walk you through it.',
     cards: [
@@ -153,7 +153,7 @@ const tier01: Tier = {
 
   howItWorks: {
     eyebrow: 'How It Works',
-    headline: 'Five steps. <span class="glow-blue">About ten days end-to-end.</span>',
+    headline: 'Five steps. About ten days end-to-end.',
     steps: [
       { title: 'Intake',           body: 'We audit your current content and growth to find exactly where the opportunity is.' },
       { title: 'Audit & Analysis', body: "We pull data across every platform, watch your existing content, identify what's working and what's wasted. No assumptions, no templates." },
@@ -165,7 +165,7 @@ const tier01: Tier = {
 
   addOns: {
     eyebrow: 'Add-ons & Next Step',
-    headline: 'Scale it up — <span class="highlight">or take it for a run first.</span>',
+    headline: 'Scale it up — or take it for a run first.',
     items: [
       { title: 'Extra clip pack',                  body: '+10 additional short-form clips repurposed from your footage drive. Useful if you have a lot of material and want runway past the initial plan.', price: '+$500' },
       { title: 'One month of posting management',  body: 'We run the 2–4 week plan for you instead of handing it off — scheduling, captioning, posting, and reporting. A clean bridge into monthly.',        price: '+$750' },
@@ -253,7 +253,7 @@ const tier02: Tier = {
 
   whatYouGet: {
     eyebrow: 'What You Get',
-    headline: 'Monthly execution <span class="highlight">with strategy on top.</span>',
+    headline: 'Monthly execution with strategy on top.',
     sub:
       'Everything ships on a monthly cadence with light footage intake from you. The system runs whether you have a show that week or not.',
     cards: [
@@ -269,7 +269,7 @@ const tier02: Tier = {
 
   howItWorks: {
     eyebrow: 'How It Works',
-    headline: 'Repeats monthly. <span class="glow-blue">Adapts as the system learns.</span>',
+    headline: 'Repeats monthly. Adapts as the system learns.',
     steps: [
       { title: 'Onboarding',     body: 'Channel access, footage drive intake, brand voice intake, monthly-cadence calendar — all set up in the first 7 days.' },
       { title: 'Direction Set',  body: "Each month opens with the new direction: themes, formats, hooks, and the rough plan for the 8–12 pieces." },
@@ -281,7 +281,7 @@ const tier02: Tier = {
 
   addOns: {
     eyebrow: 'Add-ons & Next Step',
-    headline: 'Add the parts you need — <span class="highlight">or step up to Tier 03.</span>',
+    headline: 'Add the parts you need — or step up to Tier 03.',
     featured: {
       eyebrow: 'Featured Add-on',
       title: 'Event Media',
@@ -383,7 +383,7 @@ const tier03: Tier = {
 
   whatYouGet: {
     eyebrow: 'What You Get',
-    headline: 'Execution + campaign + <span class="highlight">positioning + tracking.</span>',
+    headline: 'Execution + campaign + positioning + tracking.',
     sub:
       'Everything in Tier 02, plus the systems that turn monthly content into a campaign machine — built around your shows, releases, and brand.',
     cards: [
@@ -402,7 +402,7 @@ const tier03: Tier = {
 
   howItWorks: {
     eyebrow: 'How It Works',
-    headline: 'Show + release calendars <span class="glow-blue">driving the whole engine.</span>',
+    headline: 'Show + release calendars driving the whole engine.',
     steps: [
       { title: 'Calendar Build',     body: 'We map the next 6 months: shows, releases, festival circuit, brand moments. The campaign calendar that drives every other deliverable.' },
       { title: 'System Deployment',  body: 'Tier 02 execution stack scaled up — onboarding, brand intake, footage pipelines, posting cadence, performance dashboards — all built around the calendar.' },
@@ -414,7 +414,7 @@ const tier03: Tier = {
 
   addOns: {
     eyebrow: 'Add-ons & Next Step',
-    headline: 'Layer the parts that fit — <span class="highlight">or scale to full partnership.</span>',
+    headline: 'Layer the parts that fit — or scale to full partnership.',
     featured: {
       eyebrow: 'Featured Add-on',
       title: 'Event Media',
@@ -516,7 +516,7 @@ const tier04: Tier = {
 
   whatYouGet: {
     eyebrow: 'What You Get',
-    headline: 'Everything in Tier 03 — <span class="highlight">plus capture, funnel, and amplification.</span>',
+    headline: 'Everything in Tier 03 — plus capture, funnel, and amplification.',
     sub:
       'The complete growth stack. Content + campaign + capture + conversion + revenue infrastructure, all coordinated as one operating system underneath your career.',
     cards: [
@@ -539,7 +539,7 @@ const tier04: Tier = {
 
   howItWorks: {
     eyebrow: 'How It Works',
-    headline: 'A 6-month build <span class="glow-blue">into a long-term operating system.</span>',
+    headline: 'A 6-month build into a long-term operating system.',
     steps: [
       { title: 'Foundation Audit',     body: 'Full audit of every existing channel, asset, system, and gap. We meet your team. We map what exists and what needs to be built.' },
       { title: 'System Deployment',    body: 'Months 1–2: capture pipelines, posting infrastructure, fan-funnel, brand system, distribution pipes, paid amplification accounts. Everything built before the engine runs.' },
@@ -551,7 +551,7 @@ const tier04: Tier = {
 
   addOns: {
     eyebrow: 'Add-ons & Custom Scope',
-    headline: 'Scope flexes around <span class="highlight">the year ahead of you.</span>',
+    headline: 'Scope flexes around the year ahead of you.',
     items: [
       { title: 'Tour-specific capture deployment', body: 'Dedicated on-site team for a full tour run — 5+ dates, daily capture, daily delivery, tour-end cutdown. Custom-quoted per tour.', price: 'Custom quote' },
       { title: 'Major release campaign overlay',   body: 'Album-cycle campaign overlay on top of base Tier 04 — coordinated paid pushes, PR coordination, sync opportunities. Built around a single release moment.', price: 'Custom quote' },

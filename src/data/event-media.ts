@@ -79,7 +79,7 @@ export const eventMedia: EventMedia = {
 
   whatWeCapture: {
     eyebrow: 'What We Capture',
-    headline: 'Built for the energy <span class="highlight">that doesn\'t replay itself.</span>',
+    headline: "Built for the energy that doesn't replay itself.",
     cards: [
       { title: 'Festival sets',     body: 'Main-stage, side-stage, and backstage capture across multicam setups. Drops, transitions, crowd moments — all timestamped and tagged for fast turnaround.' },
       { title: 'Headline tours',    body: 'Full tour coverage from venue arrival through closer. Backstage, soundcheck, fan moments, and post-show — your tour becomes a content calendar.' },
@@ -90,7 +90,7 @@ export const eventMedia: EventMedia = {
 
   coverageFormats: {
     eyebrow: 'Coverage Formats',
-    headline: 'One capture pass — <span class="glow-blue">every format your rollout needs.</span>',
+    headline: 'One capture pass — every format your rollout needs.',
     sub:
       "You don't pick one format. We capture once and deliver across every cut your rollout calls for.",
     cards: [
@@ -105,7 +105,7 @@ export const eventMedia: EventMedia = {
 
   deliverableExamples: {
     eyebrow: 'Deliverable Examples',
-    headline: 'What you actually receive — <span class="highlight">per engagement.</span>',
+    headline: 'What you actually receive — per engagement.',
     sub:
       'Packages flex around scope. These are the three patterns we run most often.',
     cards: [
@@ -117,7 +117,7 @@ export const eventMedia: EventMedia = {
 
   workflow: {
     eyebrow: 'Turnaround & Workflow',
-    headline: 'Show on Saturday. <span class="glow-blue">Content live in 48 hours.</span>',
+    headline: 'Show on Saturday. Content live in 48 hours.',
     steps: [
       { title: 'Pre-event Brief',       body: 'You send the show details: set times, key drops, expected guests, footage priorities. We send back a capture plan and shot list.' },
       { title: 'On-Site Capture',       body: 'Multicam team on-site through doors-to-closer. Photo + video. Backstage access if granted. Everything tagged in real time.' },
