@@ -894,6 +894,173 @@ Key design choices:
 
 ---
 
+## Session 13 — 2026-05-30 to 2026-06-02 — Tier ecosystem build-out, global polish + functional fixes, copy alignment passes
+
+A very long arc (~30 commits). Built the full offer-page ecosystem (Tier 01–04 + Event Media), shipped global polish + functional fixes, removed the blog, and ran multiple copy/UX alignment passes across every page. Site is now feature-complete on the offer side; remaining work is content (real Calendly URL, real social handles, testimonials, blog content if it comes back).
+
+### Arc 1 — Polish pass (commits `85ae4cf`, `19d1b0e`)
+
+Site-wide interactive polish, opt-in via classes / data-attrs so nothing changes on components that aren't tagged:
+
+- **`.card-trace`** — animated clockwise conic-gradient border on hover, `@property --trace-angle`. `--trace-color` overridable per card so each row of cards reads as distinct ideas.
+- **`.card-inner-glow`** — paired soft inset glow.
+- **`[data-icon-pop]`** — pop-in entry for icons inside `[data-reveal]` containers (scale + opacity).
+- **`[data-title-underline]`** — blue line draws under a heading on reveal.
+- **`.stat-underline`** — blue line draws under each stat once its counter finishes (`.is-counted` on parent `.stat`).
+- **`[data-shimmer]`** — one-time diagonal light sweep on reveal.
+- **`[data-surface-shimmer]`** — slow continuous wash across a card surface.
+
+Applied to: SolutionUSP pillars, ProblemSection pain cards, FAQ (springy chevron + blue accent line on open + question-hover color), WhyBlueprint (per-card colour identity — blue / orange / purple / cyan / white via `--trace-color`), MarketStats (counter completion → underline + label fade-up), Guarantee (later replaced with the calmer breathing-glow effect — see arc 5), AboutTease portraits, /about Vision (left scroll-progress line + paragraph cascade), /about MVV cards (per-card trace/glow + surface shimmer), /about Founders (numbered counter from 0 — later reverted), /about Principles (alternating slide-in + per-card hover icon + surface shimmer), Parallax meter (later reverted to the original thin line), Footer (slide-L→R nav link underline + 9-particle floating row + per-social brand-colour hover glows).
+
+**Polish revisions** (`19d1b0e`):
+- Removed the iconPulse scale loop on `.card-trace:hover [data-icon-pop]` and the per-principle rotate / scale transforms. Hover now only changes filter (brightness + colour-matched drop-shadow glow). No movement on enter, no re-entry tween on leave.
+- Founder number overlays: removed `data-counter` so 01 and 02 are static text. Bumped `.founder-num` z-index 0 → 2 so the numeral sits in front of the photo. Alpha 0.18 → 0.25 in later About batch.
+- Parallax meter reverted to the original 2px line + solid bp-blue fill. Removed leading-edge glow dot, gradient fill, `%` counter span, and the `@property --m-pct` machinery.
+
+### Arc 2 — Drop the 7th pain card (commit `5f5007f`)
+
+"I feel like I'm behind other artists." removed from ProblemSection — the only one without a concrete hook to a Blueprint deliverable. The orphan `.pain:nth-child(7) { grid-column: 1 / -1 }` rule deleted; the 6-card layout drops cleanly into 3×2 desktop / 2×3 tablet / 1×6 mobile.
+
+### Arc 3 — Tier ecosystem build-out (commits `15ff00a`, `a570a08`, `288c085`, `c754c82`)
+
+**Step 1 — Tier 01 architecture + first implementation (`15ff00a`):**
+- `src/data/tiers.ts` — typed `Tier` record. Centralised so page components stay structural.
+- `src/pages/tiers/[slug].astro` — dynamic route + `getStaticPaths`. `heroBgs` map lives **inside** `getStaticPaths` because Astro evaluates that function in its own scope at build time.
+- `src/components/tiers/TierPage.astro` — composer: Hero → WhoFor → WhatYouGet → Roadmap → Why → AddOns → FAQ → BookCall.
+- `TierHero / TierWhoFor / TierWhatYouGet / TierRoadmap / TierWhy / TierAddOns` — generic sections.
+- Refactored `FAQ.astro` to accept `faqs / eyebrow / headline / lede / footnote / showFootnote / showBtsImage` props with the original homepage data as defaults — backwards-compatible.
+
+**Step 2 — Refactor to focused conversion pacing (`a570a08`):**
+- Hero shrunk `clamp(620–900px)` → `clamp(440–620px)`; padding 5rem → 3rem.
+- Added 5 quick-value pills to hero data schema.
+- Dropped `TierWhy.astro` from composer (component file kept on disk for future).
+- Section padding tightened 5rem → 4rem; head margin-bottom 3rem → 2.25rem.
+
+**Step 3 — Hero split LEFT/RIGHT + custom HUD background (`288c085`):**
+- Full rewrite. Photo bg replaced with inline SVG HUD (corner brackets, orbital arcs, radar circle, edge ticks, sparse dots, bottom horizon line) + CSS gradient layers (deep-space base + magenta nebula glow bottom-right + blueprint grid).
+- Big outlined "TIER + number" marker top-left (later moved top-right in arc 8).
+- Split layout: info stack LEFT, premium offer card RIGHT.
+- Typography restraint pass — H1 clamp(1.55rem, 2.7vw, 2.25rem) (was clamp(2rem, 4.4vw, 3.5rem)).
+- Eyebrow rewritten "Tier 01 — Growth Blueprint Session™" → "Strategy & Foundation" so it doesn't duplicate H1.
+
+**Step 4 — Tier 02/03/04 + Event Media + global wiring + Blog removal (`c754c82`):**
+- Tier 02 (Content Engine Starter™), Tier 03 (Fan Growth Engine™), Tier 04 (Artist Growth Infrastructure™) fully populated in data.
+- `src/data/event-media.ts` + `src/pages/event-media.astro` — Event Media built by composing the same tier components with event-media-specific copy. Sections: Hero → WhatWeCapture (TierWhoFor with different data) → CoverageFormats (TierWhatYouGet) → DeliverableExamples (TierWhatYouGet) → Workflow (TierRoadmap) → WhoFor (TierWhoFor) → FAQ → BookCall.
+- **Component refactor** — TierWhoFor / TierWhatYouGet / TierRoadmap props simplified from `{ tier }` to direct section fields (`{ eyebrow, headline, cards, id? }` etc.) so Event Media can reuse them with different data shapes.
+- **Linking** — OfferStack tier CTAs route to `/tiers/<slug>`; Portfolio hero gets new "Request Event Coverage" CTA → `/event-media`; cross-tier "Next Step" cards link to the next tier page.
+- **Blog removed** — `src/pages/blog.astro` deleted; Header + Footer nav stripped of blog references.
+
+### Arc 4 — Global functional fixes (commits `269a9c7`, `5021f25`)
+
+- **`src/config/cta.ts`** — single source of truth for CTAs. Exports `CALENDLY_URL`, `INSTAGRAM_URL`, `TIKTOK_URL`, `YOUTUBE_URL`, `X_URL`, `CONTACT_EMAIL`. Every booking CTA across the site imports `CALENDLY_URL`. Original `[…-URL]` placeholders. **`CONTACT_EMAIL` is now `info@bpmktg.com`** (updated in About batch).
+- **SpaceBackground** canvas marked `transition:persist="space-bg"` so it survives view transitions instead of being torn down + re-created on every navigation. Eliminated the rAF re-init churn that was the likely "slows down after a few minutes" cause.
+- **Custom cursor** — created with `data-astro-transition-persist="bp-cursor"` → DOM survives swap. State (`tx/ty/x/y`) cached on `window` before swap and restored on init so the cursor doesn't snap to (-100, -100). Lerp factor `0.28 → 0.55` for snappier trackpad response. Hidden-tab guard inside `tick()`.
+- **Mobile nav rebuild** — full-screen overlay using `100dvh` (svh fallback), prominent X close button (44px hit target, blue accent ring, rotates on hover), centred link stack at `clamp(1.6rem, 5.5vw, 2.2rem)` with left-side bullets, slide-into-padding hover, soft blue glow + grid overlay backdrop. Closes on X / link / Escape / backdrop tap / `astro:before-swap`.
+- **`initMediaLoading()` in motion.client.ts** — images only (NOT videos — they have their own hover-driven opacity lifecycle). Tags only NOT-yet-loaded `<img>` with `data-mx-loading`; CSS rule fades in on `load` / `error`. Already-decoded media untouched. Makes slow first-visit loads feel graceful instead of broken. Video tagging was tried and reverted (`5021f25`) because it was overriding the hover-preview videos' default `opacity: 0`.
+- **Header / Footer** — Event Media removed from Header nav; only reachable from Portfolio hero CTA. Footer Site col also removed Event Media at this point (later moved into Footer Tiers col in arc 7).
+
+### Arc 5 — Copy / UX batches
+
+**Batch 2 — homepage + about + footer (`2afd756`):**
+- Hero CTA copy unified to "Book a Strategy Call" across Hero / Header / Footer / BookCall / BrandMessage.
+- Hero stats source attribution: "Sources: IMS Business Report 2025 · Chartmetric 2025 · Luminate 2024" at 0.68rem / 0.4 opacity.
+- Parallax headline "The growth system behind the artists everyone's watching" → "In the rooms where it happens."
+- SolutionUSP: "We don't manage your content" → "We don't just manage your content."
+- WhyBlueprint cards 1, 4, 5 rewritten (later card 4 changed again to introduce Blueprint Preferred™ name).
+- AboutTease copy "a photographer and an editor" → "2 friends"; portraits now open in an in-section `<dialog>` lightbox instead of linking to /about.
+- **Guarantee shimmer replaced with calm breathing glow** — `var(--bp-orange)` colour + pulsing text-shadow 8px → 22px over 3s ease-in-out infinite on the "30 days" span. No movement.
+- FAQ subheading "…over a coffee" → "…over a coffee or joint. Whichever you're into."; first item opens by default; **accordion mode** (only one open at a time, listens to native `toggle` events on `<details>` inside `[data-faq-list]`); footnote restyled as centred body line with bp-blue underlined link.
+- **FAQ BTS pic** — added via `showBtsImage` prop. After two layout iterations, final placement is **LEFT column (5fr image / 7fr questions) with `align-items: center`** so the image vertically centres against the question list. Stacks above the list at ≤900px. Subtle blue light-leak overlay. Image is `src/assets/images/about-us/mason-bts.jpg`. Homepage uses `<FAQ showBtsImage={true} />`; tier + event-media pages stay false.
+- About hero copy "Built by photographers and editors" → "Built by two friends"; bg swapped to `carousel-wooliees-silo.jpg`.
+- About MVV H2 dropped "In our own words."
+- Founder big 01 / 02 numbers alpha 0.18 → 0.25 (color + text-shadow).
+- Mobile creed pill stacks: switched to `flex-direction: column` at ≤760px after the wrap approach didn't reliably stack.
+- Footer: Tier 02/03/04 + Event Media all in the Tiers col (Event Media moved here from Site col); social URLs reference config constants; mobile (≤480px) swaps stacked icon mark for horizontal wordmark logo.
+
+**About batch (`454f821`):**
+- Mason bio updated with "more than a decade of content creation" phrasing + "leads vision, client strategy, and every growth system that powers Blueprint's partnerships."
+- Clayton bio rewritten to explicitly name CRM systems, automation workflows, reporting dashboards, operational infrastructure. Role: "Co-Founder & CTO — Systems, Automation & Operations". **Every reference to editing/content production removed.**
+- About hero mobile: added `@media (max-width: 600px)` block — `.hero-inner` padding 5rem 1.5rem → 4rem 1.25rem; h1 `clamp(1.75rem, 8vw, 2.4rem)` with `max-width: 18ch`; tagline `0.92rem`; lede `1rem`. Plus `overflow-wrap: break-word` defenses.
+- `CONTACT_EMAIL` finalized to `info@bpmktg.com`. Updated `BookCall.astro` to import + render `CONTACT_EMAIL` (the hardcoded `hello@blueprintmkt.com` was removed).
+
+**Tier alignment batch (`79a2043`) — biggest tier copy revision:**
+- Added optional `pif?: { amount, save }` to `Tier.hero` (Tier 01: $1,000 credit toward Tier 02, T02: $2,500/$500, T03: $15,000/$3,000). Renders below the price block in the offer card as "or {amount} paid-in-full · saves {save}" with bp-light strong + orange em.
+- Added optional `addOns.featured?: { eyebrow, title, body, bullets?, ctaLabel, ctaHref }` for a larger glass card rendered above the smaller items grid. Used by Tier 02 + Tier 03 to feature Event Media as an add-on (orange-bordered glass treatment).
+- TierWhoFor headline rendered as HTML (`set:html`) so each tier's Who-It's-For headline carries an orange `<span class="highlight">` accent word.
+- TierHero watermark stroke alpha 0.55 → 0.22 — recedes behind the H1.
+- `.tier-offer-highlights` grid → `repeat(2, minmax(0, 1fr))` + `min-width: 0` + `overflow-wrap: break-word` on each `<li>`. Fixes T01 "7-10 day turnaround" and T03 "brand positioning" hanging off the card.
+- **Blueprint Preferred™** introduced as the network name. WhyBlueprint card 4: "National creator network" → "Blueprint Preferred™". Tier 04 deliverables call out Blueprint Preferred™ on show-day capture + creator network access.
+- Tier 02 hero sub rewritten to drop the Tier 01 prerequisite implication: "The plug-and-play content system for artists who are ready to show up consistently and start building real momentum."
+- Tier 04 price: `$5,000+ → "Starting at $5,000"` and PIF dropped — **THEN immediately reverted** to `$10,000` + PIF `$50,000 / saves $10,000` (`2ef55b9`) per user follow-up.
+- Event Media: all delivery refs switched from "Same-week" to **48-hour delivery** (sub, pills, offerHighlights, workflow steps, FAQ q1). "B-stage" → "backstage" everywhere; workflow step 5 no longer mentions raws; whoFor card 3 Wicked Oaks → Electric Forest.
+
+**Tier consolidation batch (`1daf269`, `6261c11`) — final pass for the moment:**
+- **Hero background flip** per user reference: `.tier-hud-marker` left → right (top-right corner); SVG radar group `translate(1280, 290)` → `translate(320, 290)` (now on the left); orbital arcs `cx=-180` → `cx=1780` (sweeping from bottom-right). Layout: radar + orbits frame left/bottom, marker chrome sits top-right where it no longer overlaps the H1.
+- **Title paren cleanup** across every "What You Get" card on Tier 01-04. Parenthetical details moved into the body where they read instead of shouting in caps. E.g. "SHOW-DAY CAPTURE FOR SELECT EVENTS (OR COORDINATED VIA BLUEPRINT PREFERRED™ CREATOR NETWORK)" → title "Show-day capture via Blueprint Preferred™".
+- **Tier 03 price** $2,000+ → **$3,000**. PIF $15,000 / saves $3,000 stays consistent.
+- **Tier 03 What You Get consolidated 16 → 10 cards** (merged performance/iteration beats, reporting + strategy call, trend alignment + format deployment + editing, show + release planning). **NEW "Posting management + scheduling" card added to deliverables** (was in add-ons). Add-on slot replaced with **"Custom release / campaign page" at +$750 one-time**.
+- **Tier 04 What You Get consolidated 32 → 14 cards** (3 release/show campaigns → 1; 3 fan-funnel → 1; 3 paid amp → 1; 4 brand identity → 1; 5 tracking/trends → 1; 4 Blueprint Preferred / regional → 1). NEW "Posting + scheduling management" card explicitly added.
+- **Section headline accent system** — TierWhatYouGet / TierRoadmap / TierAddOns h2s switched to `set:html` so each section headline can carry a coloured accent span. **Then scaled back** (`6261c11`) per user feedback: accents now only on Hero + Who It's For + FAQ — the descriptive middle sections (whatYouGet / howItWorks / addOns / Event Media coverage sections) all read clean in white. Color punctuates rather than chatters.
+
+### Arc 6 — Functional fix batch (commit `5a9600a`)
+
+- **Carousel edge-hover scroll** — fixed glitchy stop (clears `edgeDir` AND `edgeSpeed` before `cancelAnimationFrame`, defers `scroll-snap` restore 80ms so the rail lands softly). **Added progressive speed**: `pointermove` measures distance to outer edge and maps through `t * t` ease-in from `MIN_SPEED 1.2 px/frame` at 90px in → `MAX_SPEED 9 px/frame` at 0px. `pointercancel` handled.
+- **OfferStack Tier 01 price alignment** — rendered same-class `.price-pif--spacer` (with `&nbsp;`, aria-hidden) for tiers without PIF, reserves the same vertical height across all four cards.
+- **MarketStats counter reliability** — `initCounters` IO threshold `0.5 → 0.25` with `rootMargin: '0px 0px -5% 0px'`. The 0.5 threshold meant bottom-row stats sometimes never reached 50% visibility. Lower threshold = every stat fires reliably.
+- **Compositor hints on MarketStats `.bg`** — `will-change: transform`, `transform: translateZ(0)`, `backface-visibility: hidden`. Stops parallax/scale/Ken Burns from fighting AboutTease transforms during scroll-between.
+- **Hero white-lines bug** — `.hero-video` got `background: #060614` + `transform: translateZ(0)` + `backface-visibility: hidden`. Dark bg covers any sub-pixel rounding gap at the video's bottom edge once the cinematic zoom-out lands.
+- **BookCall process equal widths** — `grid-template-columns: repeat(5, minmax(0, 1fr))` + `min-width: 0` + `overflow-wrap: break-word` on each `.process-step`. Same fix on the 2-col mobile breakpoint.
+- **BookCall mobile particles full-section** — `initCtaParticles` now sets `--rise` on the host to `${host.offsetHeight + 100}px`, re-measured on resize. `ctaFloat` keyframe uses `translateY(calc(-1 * var(--rise, 110vh)))`. Replaces the fixed `-110vh` that cropped particles halfway up tall mobile sections.
+- **BookCall card width second pass (`2a65a4b`)** — `.process` moved out of `.content` in markup so the 5-col grid no longer inherits `.content`'s `max-width: 720px`. Now uses container's full width up to 1040px. Fixes "Discovery + audit" wrapping awkwardly.
+
+### Arc 7 — Portfolio fixes (commit `91d1b8e`)
+
+- **Access cards rounded-corner flicker** — `.feat-card .img-wrap` and its inner `<img>` got `transform: translateZ(0)`, `backface-visibility: hidden`, `isolation: isolate`, `will-change: transform`. Pins the rounded-corner clip to its own layer so Chrome stops dropping the radius mid-hover.
+- **Lightbox arrows** — added prev/next `.lightbox-arrow.lightbox-prev / .lightbox-next` circular glass chips, blue accent border, fixed vertical-centred. Mobile bumps to 44px and pulls into edges.
+- **Navigation order** — `openers` built once from `document.querySelectorAll('[data-lightbox-open]')` in DOM order. Access cards (5) → gallery tiles (54). Continuous wrap at both ends.
+- **Keyboard** — ArrowLeft / ArrowRight while dialog open. **Touch swipe** — `pointerdown` captures clientX on touch only, `pointerup` measures delta; >50px navigates (left → next, right → prev); smaller deltas ignored as taps.
+- **Mobile Load More** — tiles with index ≥ 20 get `data-mobile-deferred`. At ≤760px, CSS hides those until `.is-expanded` flips on `.masonry`. New `.load-more-wrap` with "Load More +N photos" button below the grid (only ≤760px). Tap adds `.is-expanded` + hides button. **Deferred tiles are still in the DOM** so they're already in `openers` — arrow/swipe nav works through all 59 photos even before tapping Load More.
+
+### Decisions worth remembering for next session
+
+1. **Color punctuates, doesn't chatter.** Final accent policy: Hero + Who It's For + FAQ headlines get colored span. Every other section headline reads plain white. Same on Event Media. If you add new sections, default to white; only accent if there's a real emphasis reason.
+2. **`CONTACT_EMAIL` and `CALENDLY_URL` live in `src/config/cta.ts`.** Every CTA imports them. `[INSTAGRAM-URL] / [TIKTOK-URL] / [YOUTUBE-URL] / [X-URL]` placeholders still need real values. **Real Calendly URL still pending.**
+3. **Tier 04 stays at $10,000.** It was flipped to $5,000 then immediately flipped back. Future me: don't move it without the user explicitly asking.
+4. **Tier 03 is now $3,000.** PIF $15,000 / saves $3,000.
+5. **PIF schema**: `Tier.hero.pif?: { amount, save }`. T01 has the upgrade-credit pattern (`'$1,000 credit'` / `'toward Tier 02 within 30 days'`); T02/T03 have real PIF; T04 has standard 6-month-PIF math.
+6. **Featured add-on schema**: `Tier.addOns.featured?: { eyebrow, title, body, bullets?, ctaLabel, ctaHref }`. T02 + T03 use it to feature Event Media. Orange-bordered glass card rendered above the smaller items grid.
+7. **`TierWhy.astro` is on disk but unused.** Composer doesn't import it. If a future premium tier wants a manifesto block, it's the existing component to reach for.
+8. **Tier hero layout is now LEFT info / RIGHT offer card; HUD marker top-RIGHT; radar LEFT.** Per user reference image. Don't undo unless asked.
+9. **FAQ BTS pic** — `showBtsImage={true}` is on the homepage only. Image is `src/assets/images/about-us/mason-bts.jpg`. LEFT column (5fr / 7fr split with `align-items: center`).
+10. **Section headlines all use `set:html`** in TierWhoFor / TierWhatYouGet / TierRoadmap / TierAddOns and the Event Media equivalents (same components). FAQ headline already supported HTML.
+11. **Cursor + SpaceBackground both use `data-astro-transition-persist`** — they survive view transitions. The cursor also caches its position state on `window` so it doesn't snap on navigation. Lerp is 0.55 (was 0.28).
+12. **Image loading fade-in is image-only.** `initMediaLoading()` skips `<video>` because hover-preview videos have their own opacity lifecycle. Don't add videos back without testing FilmTile / BrandMessage hover state.
+13. **Blueprint Preferred™** is the official name for the creator network. Used in: WhyBlueprint card 4, Tier 04 deliverables. Don't call it "creator network" alone — always with the trademark.
+14. **Tier deliverable counts after consolidation**: T01 = 6, T02 = 7, T03 = 10 (was 16), T04 = 14 (was 32). T03 + T04 both explicitly include Posting Management in deliverables.
+
+### What's still queued (carryover for next session)
+
+1. **Real Calendly URL** — replace `[CALENDLY-URL]` in `src/config/cta.ts`. Single change, every CTA picks it up.
+2. **Real social handles** — replace `[INSTAGRAM-URL] / [TIKTOK-URL] / [YOUTUBE-URL] / [X-URL]` in the same file.
+3. **Artist testimonials** — content-gated, still deferred.
+4. **Blog** — fully removed from the site. Re-add (new design / new route) if/when content is ready.
+5. **Mobile testing** — site has been responsively tightened across multiple batches but no one has done a full device sweep. Especially: tier hero offer-card on narrow phones, FAQ BTS stacking, BookCall process steps at <600px, About founder rows.
+6. **Cinematic hero** — unchanged this session. Math constants + persistence behavior all still as documented in Session 12.
+
+### Final route map
+
+- `/` — homepage (Hero → Marquee → Problem → BrandMessage → Parallax → Solution → Roadmap → Carousel → OfferStack → FAQ → WhyBlueprint → AboutTease → MarketStats → Guarantee → BookCall)
+- `/about` — Hero → Vision → MVV → Founders → Principles → BookCall
+- `/portfolio` — Hero (with Event Coverage CTA) → Access → OnFilm → Gallery (54 tiles with lightbox + mobile Load More) → BookCall
+- `/event-media` — Hero (HUD bg, "LV" marker) → WhatWeCapture → CoverageFormats → DeliverableExamples → Workflow → WhoFor → FAQ → BookCall
+- `/tiers/tier-01` through `/tiers/tier-04` — all on the same `[slug].astro` dynamic route, all composed by `TierPage.astro`
+
+### Commits in session 13 (chronological, abbreviated)
+
+`85ae4cf` polish pass · `19d1b0e` polish revisions · `5f5007f` drop 7th pain card · `15ff00a` tier architecture + Tier 01 · `a570a08` tier pages refactor to focused pacing · `288c085` Tier 01 hero LEFT/RIGHT + HUD bg · `c754c82` Tier 02/03/04 + Event Media + Blog removal · `269a9c7` global fixes (cursor, mobile nav, CALENDLY_URL, media fade, transition:persist) · `5021f25` exclude videos from media fade · `50fe3e9` mason-bts.jpg added (user, PC) · `2afd756` Batch 2 (homepage + about + footer) · `db6271d` FAQ BTS centred against header + accordion · `5a9600a` carousel edge-scroll, offer alignment, market stats, hero white lines, book-call · `91d1b8e` portfolio lightbox arrows + swipe + load more · `454f821` About bios + mobile hero + creed + email finalised · `79a2043` Tier + Event Media alignment (Blueprint Preferred™, PIF, featured add-on, watermark) · `2ef55b9` Tier 04 revert to $10,000 · `2a65a4b` BookCall card width second pass · `1daf269` hero layout flip + Tier 3 = $3,000 + deliverable consolidation + paren cleanup + section accents · `6261c11` scale back headline accents.
+
+---
+
 ## Laptop handoff checklist
 
 Last-known good state: commit on `main` after this session is pushed. To continue on laptop:
