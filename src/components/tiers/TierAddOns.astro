@@ -8,7 +8,7 @@ const { tier } = Astro.props;
   <div class="container">
     <header class="tier-section-head">
       <p class="label" data-reveal="left">{tier.addOns.eyebrow}</p>
-      <h2 data-reveal>{tier.addOns.headline}</h2>
+      <h2 data-reveal set:html={tier.addOns.headline}></h2>
     </header>
 
     {tier.addOns.featured && (

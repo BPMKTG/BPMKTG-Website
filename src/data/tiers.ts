@@ -138,22 +138,22 @@ const tier01: Tier = {
 
   whatYouGet: {
     eyebrow: 'What You Get',
-    headline: 'Six deliverables. One focused session.',
+    headline: 'Six deliverables. <span class="highlight">One focused session.</span>',
     sub:
       'Everything below ships within 7–10 days of intake. The live delivery session is the moment we walk you through it.',
     cards: [
-      { title: 'Content Audit + Growth Breakdown',          body: "Every active platform, every recent post, every gap in your funnel — analyzed and documented. You see what's earning attention, what's invisible, and where the leak is." },
-      { title: "Performance Review (what's working vs not)", body: "What's actually working in your numbers, and what isn't. Engagement patterns, viewer drop-off, format performance, time-of-day data. The picture instead of the gut feeling." },
-      { title: 'Content Direction (EDM-specific ideas + formats)', body: 'A concrete set of formats, hooks, and ideas built for bass music — not generic creator advice. We know what plays in this scene and what gets scrolled past.' },
-      { title: 'Repurposing of existing footage (5–15 short-form clips)', body: '5 to 15 short-form clips edited from your existing footage. Drops, crowd reactions, b-roll, backstage — turned into content you can post immediately after the session.' },
-      { title: 'Platform Optimization (bio, profile, positioning tweaks)', body: 'Bio, link-in-bio, profile, pinned posts, cover photos, positioning copy — every front-page element tuned so first-time visitors convert into followers.' },
-      { title: '2–4 Week Posting Plan',                     body: 'A scheduled, sequenced content calendar with hooks, captions, posting times, and platform-specific formatting. You leave with something you can run yourself the next morning.' },
+      { title: 'Content Audit + Growth Breakdown', body: "Every active platform, every recent post, every gap in your funnel — analyzed and documented. You see what's earning attention, what's invisible, and where the leak is." },
+      { title: 'Performance Review',               body: "What's actually working in your numbers, and what isn't. Engagement patterns, viewer drop-off, format performance, time-of-day data. The picture instead of the gut feeling." },
+      { title: 'Content Direction',                body: 'EDM-specific ideas and formats — a concrete set of hooks, formats, and ideas built for bass music, not generic creator advice. We know what plays in this scene and what gets scrolled past.' },
+      { title: 'Repurposing of Existing Footage',  body: '5 to 15 short-form clips edited from your existing footage. Drops, crowd reactions, b-roll, backstage — turned into content you can post immediately after the session.' },
+      { title: 'Platform Optimization',            body: 'Bio, profile, link-in-bio, pinned posts, cover photos, positioning copy — every front-page element tuned so first-time visitors convert into followers.' },
+      { title: '2–4 Week Posting Plan',            body: 'A scheduled, sequenced content calendar with hooks, captions, posting times, and platform-specific formatting. You leave with something you can run yourself the next morning.' },
     ],
   },
 
   howItWorks: {
     eyebrow: 'How It Works',
-    headline: 'Five steps. About ten days end-to-end.',
+    headline: 'Five steps. <span class="glow-blue">About ten days end-to-end.</span>',
     steps: [
       { title: 'Intake',           body: 'We audit your current content and growth to find exactly where the opportunity is.' },
       { title: 'Audit & Analysis', body: "We pull data across every platform, watch your existing content, identify what's working and what's wasted. No assumptions, no templates." },
@@ -165,7 +165,7 @@ const tier01: Tier = {
 
   addOns: {
     eyebrow: 'Add-ons & Next Step',
-    headline: 'Scale it up — or take it for a run first.',
+    headline: 'Scale it up — <span class="highlight">or take it for a run first.</span>',
     items: [
       { title: 'Extra clip pack',                  body: '+10 additional short-form clips repurposed from your footage drive. Useful if you have a lot of material and want runway past the initial plan.', price: '+$500' },
       { title: 'One month of posting management',  body: 'We run the 2–4 week plan for you instead of handing it off — scheduling, captioning, posting, and reporting. A clean bridge into monthly.',        price: '+$750' },
@@ -253,23 +253,23 @@ const tier02: Tier = {
 
   whatYouGet: {
     eyebrow: 'What You Get',
-    headline: 'Monthly execution with strategy on top.',
+    headline: 'Monthly execution <span class="highlight">with strategy on top.</span>',
     sub:
       'Everything ships on a monthly cadence with light footage intake from you. The system runs whether you have a show that week or not.',
     cards: [
-      { title: '8–12 short-form videos/month',                       body: 'Edited, formatted, and ready for TikTok / Reels / Shorts. Built around your footage, your sound, your scene — not stock templates.' },
-      { title: 'Editing + formatting for TikTok/Reels',              body: 'Platform-native exports: aspect ratios, captions, hook placement, cover frames — all tuned for first-3-second hold.' },
-      { title: 'Monthly content direction (EDM-focused strategy)',    body: 'Each month gets a fresh direction tuned to what\'s working in the scene right now — hooks, formats, trends — applied to your specific brand.' },
-      { title: 'Ongoing content structure + posting guidance',        body: 'We give you the cadence — when to post, what to lead with, what to follow it with. The structure stays consistent month over month.' },
-      { title: '1 strategy call/month',                              body: "60 minutes monthly. Performance review, what's working, what's next. The recurring check-in that keeps the system honest." },
-      { title: 'Basic hook + caption guidance',                      body: 'Short-form lives or dies on the first 3 seconds. We hand you platform-specific hook and caption frameworks so the videos earn the scroll-stop.' },
-      { title: 'Light repurposing of show/content footage',          body: 'Footage you send us in any given month gets light editing into the monthly batch. Not show-day capture — but the bridge between Tier 01 and a full content team.' },
+      { title: '8–12 short-form videos/month',           body: 'Edited, formatted, and ready for TikTok, Reels, and Shorts. Built around your footage, your sound, your scene — not stock templates.' },
+      { title: 'Editing + formatting for TikTok/Reels',  body: 'Platform-native exports — aspect ratios, captions, hook placement, cover frames — all tuned for first-3-second hold.' },
+      { title: 'Monthly content direction',              body: 'EDM-focused strategy refreshed each month — hooks, formats, trends — applied to your specific brand so the system keeps adapting to where the scene is.' },
+      { title: 'Ongoing structure + posting guidance',   body: 'We give you the cadence — when to post, what to lead with, what to follow it with. The structure stays consistent month over month.' },
+      { title: '1 strategy call/month',                  body: "60 minutes monthly. Performance review, what's working, what's next. The recurring check-in that keeps the system honest." },
+      { title: 'Basic hook + caption guidance',          body: 'Short-form lives or dies on the first 3 seconds. We hand you platform-specific hook and caption frameworks so the videos earn the scroll-stop.' },
+      { title: 'Light footage repurposing',              body: 'Footage you send us in any given month gets light editing into the monthly batch. Not show-day capture — the bridge between Tier 01 and a full content team.' },
     ],
   },
 
   howItWorks: {
     eyebrow: 'How It Works',
-    headline: 'Repeats monthly. Adapts as the system learns.',
+    headline: 'Repeats monthly. <span class="glow-blue">Adapts as the system learns.</span>',
     steps: [
       { title: 'Onboarding',     body: 'Channel access, footage drive intake, brand voice intake, monthly-cadence calendar — all set up in the first 7 days.' },
       { title: 'Direction Set',  body: "Each month opens with the new direction: themes, formats, hooks, and the rough plan for the 8–12 pieces." },
@@ -281,7 +281,7 @@ const tier02: Tier = {
 
   addOns: {
     eyebrow: 'Add-ons & Next Step',
-    headline: 'Add the parts you need — or step up to Tier 03.',
+    headline: 'Add the parts you need — <span class="highlight">or step up to Tier 03.</span>',
     featured: {
       eyebrow: 'Featured Add-on',
       title: 'Event Media',
@@ -339,7 +339,7 @@ const tier03: Tier = {
   number: '03',
   name: 'Fan Growth Engine™',
   shortName: 'Fan Growth Engine',
-  price: '$2,000+',
+  price: '$3,000',
   priceNote: 'per month · 6-month commitment',
   positioning: 'Full content, distribution, and campaign coordination.',
 
@@ -383,32 +383,26 @@ const tier03: Tier = {
 
   whatYouGet: {
     eyebrow: 'What You Get',
-    headline: 'Execution + campaign + positioning + tracking.',
+    headline: 'Execution + campaign + <span class="highlight">positioning + tracking.</span>',
     sub:
       'Everything in Tier 02, plus the systems that turn monthly content into a campaign machine — built around your shows, releases, and brand.',
     cards: [
-      { title: '15–25 short-form videos/month',                 body: 'Volume bump that lets us run multiple narratives per month — release rollout, show content, brand positioning, and standalone hooks — without thinning quality.' },
-      { title: 'Show footage repurposing (1 → multiple assets)', body: 'Every show becomes weeks of content. One night, captured properly, turns into a recap, multiple drops, vertical cuts, BTS — all from the same footage pull.' },
-      { title: 'Editing + formatting for TikTok/Reels',          body: 'Platform-native exports for every piece: aspect ratios, captions, hook placement, cover frames — tuned for the first-3-second hold.' },
-      { title: 'Posting cadence + scheduling',                   body: 'We don\'t just hand off files. The cadence, scheduling, and posting flow is structured so the feed never goes quiet around big moments.' },
-      { title: 'Caption + hook writing + optimization',          body: 'Every video gets a written hook and caption tuned to the platform and the brand voice. Iterated on monthly based on what\'s converting.' },
-      { title: 'EDM-specific trend alignment',                   body: 'We watch the scene weekly. Trending sounds, breakout formats, recurring drops — applied to your content with EDM-native framing, not generic creator playbooks.' },
-      { title: 'Show-based content mapping',                     body: 'Pre-show, show-night, post-show content sequence designed so every show becomes a momentum spike, not a one-night peak.' },
-      { title: 'Release-based content planning',                 body: '6–12 week rollouts mapped per release: pre-save, teaser sequence, release day, post-release sustainment. Built so the algorithm sees the heat by drop day.' },
-      { title: 'Proven content format deployment (no guessing)', body: 'A library of formats that work in EDM specifically — deployed against your footage and brand. We test, we keep what compounds, we retire what doesn\'t.' },
-      { title: 'Brand positioning guidance',                     body: "Tone, visual identity, language, what your brand stands for in the scene. Less drift, more recognition. We refine as the system learns who's actually engaging." },
-      { title: 'Performance tracking (views, engagement, follower growth)', body: 'Weekly internal review, monthly client review. The numbers that matter, tracked across every platform, in one place.' },
-      { title: 'Identify winning content + double down',         body: 'When something pops, we don\'t move on. We extract the pattern and run it again — different angle, same hook structure — to compound the win.' },
-      { title: 'Iteration cycles to improve reach + retention',  body: 'Monthly tuning of hooks, formats, posting times, and caption structure based on the previous month\'s data. The system gets sharper every cycle.' },
-      { title: 'Monthly growth report (clear + actionable)',     body: 'What grew, what plateaued, what the data is actually saying. Structured so you can read it in 5 minutes and act on it.' },
-      { title: 'Key insights + next-step adjustments',           body: 'The "so what" layer of the report: the 2–3 concrete moves we\'re making next month based on what just happened.' },
-      { title: 'Monthly growth strategy call',                   body: 'Where the report turns into decisions. Performance review, calendar adjustment, what we double down on, what we shelve.' },
+      { title: '15–25 short-form videos/month',           body: 'Volume bump that lets us run multiple narratives per month — release rollout, show content, brand positioning, and standalone hooks — without thinning quality on any single thread.' },
+      { title: 'Show footage repurposing',                body: 'Every show becomes weeks of content. One night, captured properly, turns into a recap, multiple drops, vertical cuts, and BTS — all from the same footage pull. One asset becomes many.' },
+      { title: 'EDM-trend-aligned editing + formatting',  body: 'Platform-native exports for TikTok, Reels, and Shorts — captions, hook placement, cover frames — combined with weekly scene tracking so trending sounds and breakout formats get deployed with EDM-native framing, not generic creator playbooks.' },
+      { title: 'Posting management + scheduling',         body: "We don't just hand off files. The cadence, scheduling, posting flow, and platform timing are managed for you so the feed never goes quiet around big moments." },
+      { title: 'Caption + hook optimization',             body: 'Every video gets a written hook and caption tuned to the platform and the brand voice — and iterated on monthly based on what is converting against your audience specifically.' },
+      { title: 'Show + release campaign planning',        body: 'Pre-show / show-night / post-show sequences mapped against every show, plus 6–12 week release rollouts — pre-save, teaser, drop day, post-release sustainment — so the algorithm sees the heat by drop day.' },
+      { title: 'Brand positioning guidance',              body: "Tone, visual identity, language, what your brand stands for in the scene. Less drift, more recognition. We refine as the system learns who's actually engaging." },
+      { title: 'Performance tracking + reporting',        body: 'Weekly internal review, monthly client review. Views, engagement, follower growth tracked across every platform — surfaced in a monthly growth report that reads in 5 minutes and tells you what to act on.' },
+      { title: 'Winning-content iteration cycles',        body: "When something pops, we don't move on. We extract the pattern, run it again from a different angle, and tune hooks/formats/times each month based on the previous month's data — so the system gets sharper every cycle." },
+      { title: 'Monthly growth strategy call',            body: 'Where the report turns into decisions. Performance review, calendar adjustment, what we double down on, what we shelve. The recurring forum that keeps the campaign moving.' },
     ],
   },
 
   howItWorks: {
     eyebrow: 'How It Works',
-    headline: 'Show + release calendars driving the whole engine.',
+    headline: 'Show + release calendars <span class="glow-blue">driving the whole engine.</span>',
     steps: [
       { title: 'Calendar Build',     body: 'We map the next 6 months: shows, releases, festival circuit, brand moments. The campaign calendar that drives every other deliverable.' },
       { title: 'System Deployment',  body: 'Tier 02 execution stack scaled up — onboarding, brand intake, footage pipelines, posting cadence, performance dashboards — all built around the calendar.' },
@@ -420,7 +414,7 @@ const tier03: Tier = {
 
   addOns: {
     eyebrow: 'Add-ons & Next Step',
-    headline: 'Layer the parts that fit — or scale to full partnership.',
+    headline: 'Layer the parts that fit — <span class="highlight">or scale to full partnership.</span>',
     featured: {
       eyebrow: 'Featured Add-on',
       title: 'Event Media',
@@ -436,9 +430,9 @@ const tier03: Tier = {
       ctaHref: '/event-media',
     },
     items: [
-      { title: 'Email + SMS fan capture',  body: 'A Tier 04 feature available as an upgrade: link-in-bio funnel + email + SMS capture infrastructure. Builds the audience you own — separate from any platform.', price: '+$750 one-time' },
-      { title: 'Paid amplification',       body: 'Boost top-performing organic content + retarget engaged viewers. Layered onto the campaign calendar so spend follows momentum, not hope.',                       price: '+$500/mo + spend' },
-      { title: 'Posting management',       body: 'We handle the scheduling, posting, and reporting in addition to the editing + strategy. Useful when your team is full elsewhere.',                              price: '+$500/mo' },
+      { title: 'Email + SMS fan capture',         body: 'A Tier 04 feature available as an upgrade: link-in-bio funnel + email + SMS capture infrastructure. Builds the audience you own — separate from any platform.', price: '+$750 one-time' },
+      { title: 'Paid amplification',              body: 'Boost top-performing organic content + retarget engaged viewers. Layered onto the campaign calendar so spend follows momentum, not hope.',                       price: '+$500/mo + spend' },
+      { title: 'Custom release / campaign page',  body: 'A branded landing page tuned to a single release or campaign moment — pre-save links, ticket sales, fan capture, and a sequenced welcome flow in one place.',   price: '+$750 one-time' },
     ],
     nextStep: {
       number: '04',
@@ -522,48 +516,30 @@ const tier04: Tier = {
 
   whatYouGet: {
     eyebrow: 'What You Get',
-    headline: 'Everything in Tier 03 — plus capture, funnel, and amplification.',
+    headline: 'Everything in Tier 03 — <span class="highlight">plus capture, funnel, and amplification.</span>',
     sub:
       'The complete growth stack. Content + campaign + capture + conversion + revenue infrastructure, all coordinated as one operating system underneath your career.',
     cards: [
-      { title: 'Priority editing + faster turnaround',                                                 body: 'Your work jumps to the front of the queue. Edits land faster, revisions resolve faster, releases ship faster.' },
-      { title: '20–40+ short-form videos/month',                                                      body: 'High-volume output supporting multiple parallel campaigns — release, tour, brand, standalone — without thinning quality on any single thread.' },
-      { title: 'Show-day capture for select events (or coordinated via Blueprint Preferred™ creator network)', body: 'On-site multicam + photo coverage at your biggest moments — festivals, headlines, release events, tour dates. We staff it ourselves or coordinate through Blueprint Preferred™.' },
-      { title: 'Multi-platform distribution (Reels, TikTok, YouTube Shorts)',                          body: 'Each piece is platform-formatted, not just cross-posted. Same capture, three deliveries optimized for the platform that\'ll see them.' },
-      { title: 'High-impact moment strategy (drops, crowd reactions, viral hooks)',                    body: 'We don\'t cut everything equally. The moments designed to compound get prioritized: drops, reactions, breakout transitions, hook frames.' },
-      { title: 'Advanced posting + scheduling system',                                                 body: 'Multi-channel calendar with platform-specific cadence, posting times tuned to engagement windows, and automated handoff.' },
-      { title: 'Caption + hook optimization at scale',                                                 body: 'Every piece, every platform, tuned individually. Hooks tested, captions iterated based on retention curves.' },
-      { title: 'Cross-platform growth strategy',                                                       body: 'A single strategy spanning TikTok, Reels, Shorts, Spotify Canvas, Instagram Stories — coordinated so the platforms reinforce each other.' },
-      { title: 'Release + show hype campaigns',                                                        body: 'Full pre/mid/post campaign cycles built around your release calendar and tour dates. Coordinated waterfall, not isolated bursts.' },
-      { title: 'Audience expansion initiatives',                                                       body: 'Coordinated pushes designed to bring NEW audience in — not just maintain existing reach. Paid + organic working in lockstep.' },
-      { title: 'Link-in-bio funnel optimization',                                                      body: 'The link-in-bio becomes a real funnel — landing pages, capture forms, sequenced flows tied to whatever you\'re currently pushing.' },
-      { title: 'Email + SMS capture system',                                                          body: 'Owned-channel fan list with capture automations, segmentation by engagement, and broadcast tools for release / tour / merch drops.' },
-      { title: 'Fan funnel (content → opt-in → engagement)',                                          body: 'The infrastructure that turns followers into a fanbase you own. Content drives opt-in, opt-in drives engagement, engagement drives conversion.' },
-      { title: 'Release campaigns (music, merch, announcements)',                                      body: 'Full release-cycle execution: teaser sequence, drop-day takeover, post-release sustainment, fan-funnel conversion. Coordinated across every channel.' },
-      { title: 'Show promotion flows (drive ticket sales + attendance)',                              body: 'Pre-show ticket drive, week-of warm-up, day-of activation, post-show capture pipeline. Every show treated as a campaign.' },
-      { title: 'Basic automations (welcome flows, fan touchpoints)',                                   body: 'Welcome sequence, post-show follow-up, milestone drops — the automations that keep new fans engaged without manual work.' },
-      { title: 'Boost top-performing content',                                                         body: 'Best-performing organic content gets amplified. Spend follows what already proved itself, not gut.' },
-      { title: 'Retarget engaged viewers',                                                             body: 'Audiences that watched but didn\'t convert get pulled back in with the next layer. The funnel keeps working after the first impression.' },
-      { title: 'Campaigns for releases + shows',                                                       body: 'Paid layered on top of the organic campaign calendar. Release windows + tour weeks both get coordinated paid pushes.' },
-      { title: 'Budget guidance + performance tracking',                                               body: 'Monthly budget recommendation, weekly performance review, clear ROAS reporting on every spend cycle.' },
-      { title: 'Content + visual identity refinement',                                                 body: 'Ongoing brand identity work — visual, voice, tone, positioning. Not a one-time guide; a living system that evolves with the audience.' },
-      { title: 'Messaging alignment across platforms',                                                 body: 'Your story stays consistent — same artist, same brand, same voice — whether someone hits TikTok, Reels, or your link-in-bio.' },
-      { title: 'Stronger artist identity + differentiation',                                           body: 'The system actively builds the things that make you distinct in the scene — visual language, voice, narrative threads.' },
-      { title: 'Consistency across all touchpoints',                                                   body: 'Audio, visual, copy, posting cadence — all aligned. The brand reads the same everywhere a new fan finds you.' },
-      { title: 'Deep performance tracking',                                                            body: 'Content, campaigns, funnel, paid, revenue — every layer instrumented. Reporting designed for decisions, not vanity.' },
-      { title: 'Growth trend analysis',                                                                body: 'Monthly trend review across audience size, engagement quality, conversion rates, revenue. We see where the curve is bending before you do.' },
-      { title: 'Content pattern identification',                                                       body: 'When a format breaks out, we find the underlying pattern and apply it across other content threads. Wins compound across the catalog.' },
-      { title: 'Strategic recommendations + scaling decisions',                                        body: 'The quarterly strategic review where we recommend the next big move: expand here, hold here, sunset that, double down on this.' },
-      { title: 'Access to vetted photographers + videographers via Blueprint Preferred™',              body: 'The Blueprint Preferred™ creator network — vetted photographers and videographers we can deploy or coordinate with depending on the city and the scope.' },
-      { title: 'Regional content capture (reduce travel costs)',                                       body: 'Blueprint Preferred™ scales capture to wherever your tour is without flying our crew everywhere. Same brand consistency, lower overhead.' },
-      { title: 'Coordinated media execution',                                                          body: 'Whether we shoot it or Blueprint Preferred™ does, the brief, the brand alignment, and the post-production pipeline stay the same.' },
-      { title: 'Scalable content production system',                                                   body: 'The production pipeline scales with your tour schedule. More shows = more output, without proportional overhead on your end.' },
+      { title: 'Priority editing + faster turnaround',           body: 'Your work jumps to the front of the queue. Edits land faster, revisions resolve faster, releases ship faster than any lower tier.' },
+      { title: '20–40+ short-form videos/month',                body: 'High-volume output supporting multiple parallel campaigns — release, tour, brand, standalone — without thinning quality on any single thread.' },
+      { title: 'Show-day capture via Blueprint Preferred™',      body: 'On-site multicam + photo coverage at your biggest moments — festivals, headlines, release events, tour dates. We staff it ourselves or coordinate through Blueprint Preferred™ depending on the city and scope.' },
+      { title: 'Multi-platform distribution',                    body: 'Reels, TikTok, YouTube Shorts, Spotify Canvas, Instagram Stories — each piece is platform-formatted, not cross-posted. Same capture, multiple deliveries tuned to where the audience is.' },
+      { title: 'High-impact moment strategy',                    body: "We don't cut everything equally. Drops, crowd reactions, breakout transitions, and hook frames get prioritized — the moments designed to compound." },
+      { title: 'Posting + scheduling management',                body: 'Full social and posting management included — multi-channel calendar, platform-specific cadence, posting times tuned to engagement windows. We run the schedule end to end.' },
+      { title: 'Caption + hook optimization at scale',           body: 'Every piece, every platform, tuned individually. Hooks tested, captions iterated based on retention curves. Consistency across the catalog, not one-off tweaks.' },
+      { title: 'Cross-platform growth strategy',                 body: 'A single strategy spanning every channel — coordinated so the platforms reinforce each other. Audience expansion campaigns layered on top to bring new fans in, not just maintain reach.' },
+      { title: 'Release + show campaigns',                       body: 'Full release-cycle execution and show promotion flows — teaser, drop-day, sustainment, ticket drives, post-show pipelines. Every release and every show treated as a campaign, not a calendar entry.' },
+      { title: 'Email + SMS fan funnel',                         body: 'Link-in-bio funnel optimization, email + SMS capture system, sequenced welcome flows, and segmentation by engagement. The audience you own, separate from any platform.' },
+      { title: 'Paid amplification',                             body: 'Boost top-performing organic, retarget engaged viewers, run cold-audience prospecting against winning content. Spend follows data, not gut — with monthly budget guidance and clear ROAS reporting.' },
+      { title: 'Brand identity + messaging system',              body: 'Ongoing brand identity work — visual, voice, tone, positioning — refreshed as the audience evolves. Messaging stays consistent across every touchpoint so the brand reads the same everywhere a new fan finds you.' },
+      { title: 'Performance intelligence',                       body: 'Deep tracking across content, campaigns, funnel, paid, and revenue. Weekly internal review, monthly client review, quarterly strategic recommendations. Pattern identification + growth-trend analysis that catches the curve bending before it shows up in lagging metrics.' },
+      { title: 'Blueprint Preferred™ network access',            body: 'Vetted photographers and videographers across the U.S. — coordinated to wherever your tour is. Regional capture without flying our crew everywhere, same brand consistency, lower overhead. The production pipeline scales with your schedule.' },
     ],
   },
 
   howItWorks: {
     eyebrow: 'How It Works',
-    headline: 'A 6-month build into a long-term operating system.',
+    headline: 'A 6-month build <span class="glow-blue">into a long-term operating system.</span>',
     steps: [
       { title: 'Foundation Audit',     body: 'Full audit of every existing channel, asset, system, and gap. We meet your team. We map what exists and what needs to be built.' },
       { title: 'System Deployment',    body: 'Months 1–2: capture pipelines, posting infrastructure, fan-funnel, brand system, distribution pipes, paid amplification accounts. Everything built before the engine runs.' },
@@ -575,7 +551,7 @@ const tier04: Tier = {
 
   addOns: {
     eyebrow: 'Add-ons & Custom Scope',
-    headline: 'Scope flexes around the year ahead of you.',
+    headline: 'Scope flexes around <span class="highlight">the year ahead of you.</span>',
     items: [
       { title: 'Tour-specific capture deployment', body: 'Dedicated on-site team for a full tour run — 5+ dates, daily capture, daily delivery, tour-end cutdown. Custom-quoted per tour.', price: 'Custom quote' },
       { title: 'Major release campaign overlay',   body: 'Album-cycle campaign overlay on top of base Tier 04 — coordinated paid pushes, PR coordination, sync opportunities. Built around a single release moment.', price: 'Custom quote' },

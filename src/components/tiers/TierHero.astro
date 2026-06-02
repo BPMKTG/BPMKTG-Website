@@ -75,15 +75,19 @@ const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
       <path d="M 1536 876 L 1576 876 L 1576 836" />
     </g>
 
-    <!-- Wide orbital arcs sweeping from a center far to the bottom-left -->
+    <!-- Wide orbital arcs sweeping from a center far to the bottom-RIGHT
+         (flipped from previous bottom-left position to match the marker
+         moving to the top-right). -->
     <g class="hud-stroke hud-orbits" fill="none">
-      <circle cx="-180" cy="500" r="940" />
-      <circle cx="-180" cy="500" r="780" />
-      <circle cx="-180" cy="500" r="630" />
+      <circle cx="1780" cy="500" r="940" />
+      <circle cx="1780" cy="500" r="780" />
+      <circle cx="1780" cy="500" r="630" />
     </g>
 
-    <!-- Right-side radar: nested rings + crosshair + a single marker dot -->
-    <g class="hud-stroke hud-radar" fill="none" transform="translate(1280, 290)">
+    <!-- LEFT-side radar: nested rings + crosshair + a single marker dot
+         (moved here from the right to balance the layout after the
+         TIER/number marker moved to the top-right). -->
+    <g class="hud-stroke hud-radar" fill="none" transform="translate(320, 290)">
       <circle r="170" />
       <circle r="120" />
       <circle r="72" />
@@ -261,11 +265,11 @@ const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
     filter: drop-shadow(0 0 4px rgba(98, 166, 219, 0.6));
   }
 
-  /* ─── Big outlined "01 TIER" marker, top-left corner ─── */
+  /* ─── Big outlined "TIER + number" marker, top-RIGHT corner ─── */
   .tier-hud-marker {
     position: absolute;
     top: 2.5rem;
-    left: clamp(1.5rem, 4vw, 3.5rem);
+    right: clamp(1.5rem, 4vw, 3.5rem);
     z-index: 4;
     display: grid;
     grid-template-columns: auto auto auto;

@@ -17,7 +17,7 @@ const { eyebrow, headline, sub, cards, id = 'deliverables' } = Astro.props;
   <div class="container">
     <header class="tier-section-head wide">
       <p class="label" data-reveal="left">{eyebrow}</p>
-      <h2 data-reveal>{headline}</h2>
+      <h2 data-reveal set:html={headline}></h2>
       {sub && <p class="tier-section-sub" data-reveal>{sub}</p>}
     </header>
 
