@@ -161,15 +161,42 @@ const trackList = [...artists, ...artists];
 </section>
 
 <script>
-  // Marquee motion. Mobile/touch keeps the plain auto-scroll. Desktop drives
-  // the timeline manually so the cursor can do carousel-style edge-hover:
-  // near the right edge scrolls forward (faster toward the edge), near the
-  // left edge reverses, and the middle is the normal auto-scroll speed.
-  const init = () => {
-    document.querySelectorAll<HTMLElement>('.marquee').forEach(marquee => {
-      if (marquee.dataset.marqueeInit) return;
-      marquee.dataset.marqueeInit = '1';
+  // Marquee motion + media lightbox. Re-inits on every astro:page-load and
+  // fully tears down on astro:before-swap — listeners via one AbortController,
+  // plus the rAF loop, IntersectionObservers, the open lightbox, and the
+  // cursor are all released — so nothing accumulates across navigations.
+  let inited = false;
+  let ac: AbortController | null = null;
+  let raf = 0;
+  let ios: IntersectionObserver[] = [];
 
+  const cleanup = () => {
+    inited = false;
+    if (ac) { ac.abort(); ac = null; }
+    cancelAnimationFrame(raf); raf = 0;
+    ios.forEach(io => { try { io.disconnect(); } catch {} });
+    ios = [];
+    const dlg = document.querySelector<HTMLDialogElement>('[data-artist-lightbox]');
+    if (dlg) {
+      const media = dlg.querySelector<HTMLElement>('[data-artist-lb-media]');
+      if (media) media.innerHTML = '';
+      if (dlg.open) { try { dlg.close(); } catch {} }
+    }
+    const cursor = document.querySelector<HTMLElement>('.bp-cursor');
+    if (cursor && cursor.parentElement !== document.body) document.body.appendChild(cursor);
+  };
+
+  const init = () => {
+    if (inited) return;
+    const marquees = document.querySelectorAll<HTMLElement>('.marquee');
+    const dialog = document.querySelector<HTMLDialogElement>('[data-artist-lightbox]');
+    if (!marquees.length && !dialog) return;
+    inited = true;
+    ac = new AbortController();
+    const signal = ac.signal;
+
+    // ── Marquee motion ──
+    marquees.forEach(marquee => {
       const row = marquee.querySelector<HTMLElement>('.marquee-row');
       if (!row) return;
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -185,22 +212,28 @@ const trackList = [...artists, ...artists];
         { duration, iterations: Infinity, easing: 'linear' }
       );
       animation.pause();
+      // The WAAPI animation is cancelled in cleanup so a re-init never leaves
+      // a second timeline running on the same row.
+      const anim = animation;
+      const cancelAnim = () => { try { anim.cancel(); } catch {} };
 
       let visible = false;
       const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-      // ── Mobile / touch: unchanged auto-scroll, gated to visibility ──
+      // ── Mobile / touch: plain auto-scroll, gated to visibility ──
       if (!fine) {
         const applyState = () => {
           if (visible && !document.hidden) animation.play();
           else animation.pause();
         };
-        document.addEventListener('visibilitychange', applyState);
+        document.addEventListener('visibilitychange', applyState, { signal });
+        signal.addEventListener('abort', cancelAnim);
         const io = new IntersectionObserver(([entry]) => {
           visible = entry.isIntersecting;
           applyState();
         }, { threshold: 0.15 });
         io.observe(marquee);
+        ios.push(io);
         return;
       }
 
@@ -208,7 +241,7 @@ const trackList = [...artists, ...artists];
       const MAX = 7;          // peak speed multiplier at the very edge
       const EDGE_PX = 180;    // edge zone width (px) — reaches a bit further in
       const SLOW = 0.3;       // playback rate when hovering the middle zone
-      let rate = 1, targetRate = 1, raf = 0, last = 0;
+      let rate = 1, targetRate = 1, last = 0;
 
       const onMove = (e: PointerEvent) => {
         const r = marquee.getBoundingClientRect();
@@ -216,28 +249,28 @@ const trackList = [...artists, ...artists];
         const w = r.width || 1;
         const edgePx = Math.min(EDGE_PX, w * 0.35);
         if (x < edgePx) {
-          const t = 1 - x / edgePx;             // 0 inner → 1 at left edge
-          targetRate = -(0.6 + t * t * MAX);    // reverse, faster toward edge
+          const t = 1 - x / edgePx;
+          targetRate = -(0.6 + t * t * MAX);
         } else if (x > w - edgePx) {
-          const t = (x - (w - edgePx)) / edgePx; // 0 → 1 toward right edge
-          targetRate = 0.6 + t * t * MAX;        // forward, faster toward edge
+          const t = (x - (w - edgePx)) / edgePx;
+          targetRate = 0.6 + t * t * MAX;
         } else {
-          targetRate = SLOW;                     // hovering the middle: slow down
+          targetRate = SLOW;
         }
       };
-      // Pointer left the banner entirely → back to normal auto-scroll speed.
       const onLeave = () => { targetRate = 1; };
-      marquee.addEventListener('pointermove', onMove);
-      marquee.addEventListener('pointerleave', onLeave);
+      marquee.addEventListener('pointermove', onMove, { signal });
+      marquee.addEventListener('pointerleave', onLeave, { signal });
+      signal.addEventListener('abort', cancelAnim);
 
       const tick = (now: number) => {
         if (!last) last = now;
         const dt = now - last;
         last = now;
-        rate += (targetRate - rate) * 0.18;      // smooth ramp toward target
+        rate += (targetRate - rate) * 0.18;
         if (visible && !document.hidden) {
           let t = (animation.currentTime as number || 0) + dt * rate;
-          t = ((t % duration) + duration) % duration; // seamless wrap both ways
+          t = ((t % duration) + duration) % duration;
           animation.currentTime = t;
         }
         raf = requestAnimationFrame(tick);
@@ -248,73 +281,64 @@ const trackList = [...artists, ...artists];
         visible = entry.isIntersecting;
       }, { threshold: 0.15 });
       io.observe(marquee);
+      ios.push(io);
     });
-  };
 
-  document.addEventListener('astro:page-load', init);
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
-  } else {
-    init();
-  }
+    // ── Media lightbox (photo or vimeo video) ──
+    if (dialog) {
+      const media    = dialog.querySelector<HTMLElement>('[data-artist-lb-media]');
+      const cap      = dialog.querySelector<HTMLElement>('[data-artist-lb-caption]');
+      const closeBtn = dialog.querySelector<HTMLButtonElement>('[data-artist-lb-close]');
 
-  // Artist media lightbox — photo or vimeo video. Idempotent across view
-  // transitions; delegates clicks so the duplicated marquee copies all work.
-  const initArtistLB = () => {
-    const dialog   = document.querySelector<HTMLDialogElement>('[data-artist-lightbox]');
-    const media    = dialog?.querySelector<HTMLElement>('[data-artist-lb-media]');
-    const cap      = dialog?.querySelector<HTMLElement>('[data-artist-lb-caption]');
-    const closeBtn = dialog?.querySelector<HTMLButtonElement>('[data-artist-lb-close]');
-    if (!dialog || !media || !cap || dialog.dataset.albInit) return;
-    dialog.dataset.albInit = '1';
+      if (media && cap) {
+        // Emptying the container removes any <img>/<iframe> immediately — stops
+        // a playing Vimeo embed and prevents the previous asset from flashing.
+        const clear = () => { media.innerHTML = ''; };
 
-    // Emptying the container removes any <img>/<iframe> immediately — this
-    // both stops a playing Vimeo embed and prevents the previous asset from
-    // flashing when a new artist is opened or the lightbox is closed.
-    const clear = () => { media.innerHTML = ''; };
+        const closeLB = () => {
+          const cursor = document.querySelector<HTMLElement>('.bp-cursor');
+          if (cursor && cursor.parentElement !== document.body) document.body.appendChild(cursor);
+          clear();
+          if (dialog.open) dialog.close();
+        };
 
-    const closeLB = () => {
-      const cursor = document.querySelector<HTMLElement>('.bp-cursor');
-      if (cursor) document.body.appendChild(cursor);
-      clear();
-      if (dialog.open) dialog.close();
-    };
+        document.addEventListener('click', (e) => {
+          const btn = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-artist-open]');
+          if (!btn) return;
+          clear();
+          const vimeo = btn.dataset.vimeo;
+          if (vimeo) {
+            const iframe = document.createElement('iframe');
+            iframe.src = `https://player.vimeo.com/video/${vimeo}?autoplay=1&title=0&byline=0&portrait=0&dnt=1`;
+            iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+            iframe.setAttribute('allowfullscreen', '');
+            iframe.title = btn.dataset.caption || '';
+            media.appendChild(iframe);
+            media.dataset.kind = 'video';
+          } else {
+            const img = document.createElement('img');
+            img.src = btn.dataset.full || '';
+            img.alt = btn.dataset.caption || '';
+            media.appendChild(img);
+            media.dataset.kind = 'photo';
+          }
+          cap.textContent = btn.dataset.caption || '';
+          if (!dialog.open) dialog.showModal();
+          const cursor = document.querySelector<HTMLElement>('.bp-cursor');
+          if (cursor) dialog.appendChild(cursor);
+        }, { signal });
 
-    document.addEventListener('click', (e) => {
-      const btn = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-artist-open]');
-      if (!btn) return;
-      clear();   // wipe old content before loading the new asset (no flash)
-
-      const vimeo = btn.dataset.vimeo;
-      if (vimeo) {
-        const iframe = document.createElement('iframe');
-        iframe.src = `https://player.vimeo.com/video/${vimeo}?autoplay=1&title=0&byline=0&portrait=0&dnt=1`;
-        iframe.allow = 'autoplay; fullscreen; picture-in-picture';
-        iframe.setAttribute('allowfullscreen', '');
-        iframe.title = btn.dataset.caption || '';
-        media.appendChild(iframe);
-        media.dataset.kind = 'video';
-      } else {
-        const img = document.createElement('img');
-        img.src = btn.dataset.full || '';
-        img.alt = btn.dataset.caption || '';
-        media.appendChild(img);
-        media.dataset.kind = 'photo';
+        closeBtn?.addEventListener('click', closeLB, { signal });
+        dialog.addEventListener('click', (e) => { if (e.target === dialog) closeLB(); }, { signal });
+        dialog.addEventListener('cancel', (e) => { e.preventDefault(); closeLB(); }, { signal });
       }
-      cap.textContent = btn.dataset.caption || '';
-      if (!dialog.open) dialog.showModal();
-      const cursor = document.querySelector<HTMLElement>('.bp-cursor');
-      if (cursor) dialog.appendChild(cursor);
-    });
-
-    closeBtn?.addEventListener('click', closeLB);
-    dialog.addEventListener('click', (e) => { if (e.target === dialog) closeLB(); });
-    dialog.addEventListener('cancel', (e) => { e.preventDefault(); closeLB(); });
+    }
   };
 
-  document.addEventListener('astro:page-load', initArtistLB);
-  if (document.readyState !== 'loading') initArtistLB();
-  else document.addEventListener('DOMContentLoaded', initArtistLB, { once: true });
+  document.addEventListener('astro:before-swap', cleanup);
+  document.addEventListener('astro:page-load', init);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
 </script>
 
 <style>

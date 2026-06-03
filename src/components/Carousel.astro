@@ -86,20 +86,40 @@ const shots = [
 </section>
 
 <script>
-  // The carousel has NO auto-scroll and NO scroll-snap — it can rest at any
-  // arbitrary position. Scrolling comes only from: nav buttons, mouse drag,
-  // native touch swipe, and desktop edge-hover (which decelerates to a stop).
-  document.querySelectorAll<HTMLElement>('[data-rail]').forEach(rail => {
+  // Carousel: nav buttons, mouse drag, touch swipe, desktop edge-hover, and a
+  // paged auto-advance. Re-inits on every astro:page-load and fully tears down
+  // on astro:before-swap (listeners via AbortController, plus rAF / interval /
+  // IntersectionObserver) so nothing leaks or double-runs across navigations.
+  let inited = false;
+  let ac: AbortController | null = null;
+  let teardowns: Array<() => void> = [];
+
+  const cleanup = () => {
+    inited = false;
+    if (ac) { ac.abort(); ac = null; }
+    teardowns.forEach(fn => { try { fn(); } catch {} });
+    teardowns = [];
+  };
+
+  const init = () => {
+    if (inited) return;
+    const rails = document.querySelectorAll<HTMLElement>('[data-rail]');
+    if (!rails.length) return;
+    inited = true;
+    ac = new AbortController();
+    const signal = ac.signal;
+
+    rails.forEach(rail => {
     const wrap = rail.parentElement!;
     const step = () => Math.round(rail.clientWidth * 0.42);
 
     // ── Nav buttons ──
     wrap.querySelector('[data-rail-prev]')?.addEventListener('click', () => {
       rail.scrollBy({ left: -step() * 2, behavior: 'smooth' });
-    });
+    }, { signal });
     wrap.querySelector('[data-rail-next]')?.addEventListener('click', () => {
       rail.scrollBy({ left:  step() * 2, behavior: 'smooth' });
-    });
+    }, { signal });
 
     // ── Mouse drag-to-pan (touch uses native scroll) ──
     let dragging = false;
@@ -116,13 +136,13 @@ const shots = [
       rail.setPointerCapture(e.pointerId);
       rail.style.scrollBehavior = 'auto';
       rail.style.cursor = 'grabbing';
-    });
+    }, { signal });
     rail.addEventListener('pointermove', (e) => {
       if (!dragging) return;
       const dx = e.clientX - startX;
       if (Math.abs(dx) > 4) moved = true;
       rail.scrollLeft = startScroll - dx;
-    });
+    }, { signal });
     const endDrag = (e: PointerEvent) => {
       if (!dragging) return;
       dragging = false;
@@ -130,18 +150,15 @@ const shots = [
       rail.style.scrollBehavior = '';
       rail.style.cursor = '';
     };
-    rail.addEventListener('pointerup', endDrag);
-    rail.addEventListener('pointercancel', endDrag);
+    rail.addEventListener('pointerup', endDrag, { signal });
+    rail.addEventListener('pointercancel', endDrag, { signal });
 
     // Suppress click handlers if the user dragged
     rail.addEventListener('click', (e) => {
       if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; }
-    }, true);
+    }, { capture: true, signal });
 
     // ── Edge-hover continuous scroll (desktop) ──
-    // Speed scales with how close the cursor is to the outer edge. On leave
-    // the motion decelerates to a stop via friction and freezes there — no
-    // snapping to a card, no auto-advance.
     let edgeRaf = 0;
     let edgeDir: 0 | 1 | -1 = 0;
     let edgeSpeed = 0;
@@ -150,6 +167,7 @@ const shots = [
     const MAX_SPEED = 9;     // px / frame at the very edge
     const FRICTION  = 0.88;  // per-frame speed multiplier while decelerating
     const STOP_EPS  = 0.18;  // speed below which we consider motion stopped
+    teardowns.push(() => cancelAnimationFrame(edgeRaf));
 
     const computeSpeed = (zone: HTMLElement, dir: 1 | -1, clientX: number) => {
       const r = zone.getBoundingClientRect();
@@ -161,7 +179,6 @@ const shots = [
       return MIN_SPEED + eased * (MAX_SPEED - MIN_SPEED);
     };
 
-    // Stop the rAF and leave the rail frozen wherever it is.
     const finalizeEdge = () => {
       edgeDir = 0;
       edgeSpeed = 0;
@@ -174,8 +191,6 @@ const shots = [
     const edgeTick = () => {
       if (!edgeDir) { edgeRaf = 0; return; }
       rail.scrollLeft += edgeDir * edgeSpeed;
-      // Coasting phase: bleed the speed off with friction, then finalize
-      // once it's slow enough to read as a smooth stop.
       if (edgeDecel) {
         edgeSpeed *= FRICTION;
         if (edgeSpeed < STOP_EPS) { finalizeEdge(); return; }
@@ -184,7 +199,7 @@ const shots = [
     };
 
     const startEdge = (zone: HTMLElement, dir: 1 | -1, clientX: number) => {
-      edgeDecel = false;          // re-engaging cancels any in-flight coast
+      edgeDecel = false;
       edgeDir = dir;
       edgeSpeed = computeSpeed(zone, dir, clientX);
       rail.style.scrollBehavior = 'auto';
@@ -192,7 +207,6 @@ const shots = [
       edgeRaf = requestAnimationFrame(edgeTick);
     };
 
-    // Cursor left the zone — coast to a stop rather than cutting out.
     const stopEdge = () => {
       if (!edgeDir) return;
       edgeDecel = true;
@@ -200,30 +214,28 @@ const shots = [
 
     wrap.querySelectorAll<HTMLElement>('[data-rail-edge]').forEach(zone => {
       const dir: 1 | -1 = zone.dataset.railEdge === 'left' ? -1 : 1;
-      zone.addEventListener('pointerenter', (e) => startEdge(zone, dir, e.clientX));
+      zone.addEventListener('pointerenter', (e) => startEdge(zone, dir, e.clientX), { signal });
       zone.addEventListener('pointermove',  (e) => {
         if (edgeDir === dir && !edgeDecel) edgeSpeed = computeSpeed(zone, dir, e.clientX);
-      });
-      zone.addEventListener('pointerleave',  stopEdge);
-      zone.addEventListener('pointercancel', finalizeEdge);
+      }, { signal });
+      zone.addEventListener('pointerleave',  stopEdge, { signal });
+      zone.addEventListener('pointercancel', finalizeEdge, { signal });
     });
 
-    // ── Auto-scroll: advance a few photos every 3s ──
-    // A one-shot smooth scrollBy per tick (not a continuous rAF), so it never
-    // fights the edge-hover/drag scrolling. The tick is skipped entirely while
-    // the user is hovering, dragging, edge-scrolling, mid-touch, off-screen, or
-    // when the tab is hidden — so a smooth release is never interrupted.
+    // ── Auto-scroll: advance a few photos every 3s (paged smooth scrollBy) ──
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const AUTO_MS = 3000;
     const autoStep = () => Math.round(rail.clientWidth * 0.66); // ~a few photos
     let hovering = false;
     let touching = false;
+    let touchT = 0;
     let inView = true;
 
-    wrap.addEventListener('pointerenter', () => { hovering = true; });
-    wrap.addEventListener('pointerleave', () => { hovering = false; });
-    rail.addEventListener('touchstart', () => { touching = true; }, { passive: true });
-    rail.addEventListener('touchend',   () => { window.setTimeout(() => { touching = false; }, 2000); }, { passive: true });
+    wrap.addEventListener('pointerenter', () => { hovering = true; }, { signal });
+    wrap.addEventListener('pointerleave', () => { hovering = false; }, { signal });
+    rail.addEventListener('touchstart', () => { touching = true; }, { passive: true, signal });
+    rail.addEventListener('touchend',   () => { touchT = window.setTimeout(() => { touching = false; }, 2000); }, { passive: true, signal });
+    teardowns.push(() => clearTimeout(touchT));
 
     const autoTick = () => {
       if (hovering || touching || dragging || edgeDir || !inView || document.hidden) return;
@@ -238,9 +250,16 @@ const shots = [
     if (!reduceMotion) {
       const io = new IntersectionObserver(([e]) => { inView = e.isIntersecting; }, { threshold: 0 });
       io.observe(rail);
-      window.setInterval(autoTick, AUTO_MS);
+      const autoTimer = window.setInterval(autoTick, AUTO_MS);
+      teardowns.push(() => { io.disconnect(); clearInterval(autoTimer); });
     }
-  });
+    });
+  };
+
+  document.addEventListener('astro:before-swap', cleanup);
+  document.addEventListener('astro:page-load', init);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
 </script>
 
 <style>

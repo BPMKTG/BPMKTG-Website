@@ -63,57 +63,82 @@ const frames = [
 </section>
 
 <script>
-  const sections = document.querySelectorAll('[data-parallax]');
-  sections.forEach(section => {
-    const frames = Array.from(section.querySelectorAll('[data-frame]'));
-    const meters = Array.from(section.querySelectorAll('[data-meter]'));
-    const imgWraps = Array.from(section.querySelectorAll('[data-parallax-img]')) as HTMLElement[];
-    if (!frames.length) return;
+  // Re-initialises on every astro:page-load (initial load AND view-transition
+  // navigations) and tears everything down on astro:before-swap so nothing
+  // accumulates across navigations.
+  let inited = false;
+  let raf = 0;
+  let ac: AbortController | null = null;
+  let teardowns: Array<() => void> = [];
 
-    let current = 0;
-    const CYCLE_MS = 5000;
+  const cleanup = () => {
+    inited = false;
+    cancelAnimationFrame(raf); raf = 0;
+    if (ac) { ac.abort(); ac = null; }
+    teardowns.forEach(fn => { try { fn(); } catch {} });
+    teardowns = [];
+  };
 
-    const setActive = (idx: number) => {
-      current = idx;
-      frames.forEach((f, i) => f.classList.toggle('is-active', i === idx));
-      meters.forEach((m, i) => m.classList.toggle('is-active', i === idx));
-    };
+  const init = () => {
+    if (inited) return;
+    const sections = document.querySelectorAll('[data-parallax]');
+    if (!sections.length) return;
+    inited = true;
+    ac = new AbortController();
+    const signal = ac.signal;
 
-    let timer: number | null = null;
-    const start = () => { stop(); timer = window.setInterval(() => setActive((current + 1) % frames.length), CYCLE_MS); };
-    const stop  = () => { if (timer !== null) { clearInterval(timer); timer = null; } };
+    sections.forEach(section => {
+      const frames = Array.from(section.querySelectorAll('[data-frame]'));
+      const meters = Array.from(section.querySelectorAll('[data-meter]'));
+      const imgWraps = Array.from(section.querySelectorAll('[data-parallax-img]')) as HTMLElement[];
+      if (!frames.length) return;
 
-    meters.forEach((m, i) => m.addEventListener('click', () => { setActive(i); start(); }));
-    document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else start(); });
+      let current = 0;
+      const CYCLE_MS = 5000;
 
-    // Parallax: translate images on scroll. Range tuned so it never reveals an empty edge.
-    let ticking = false;
-    const update = () => {
-      ticking = false;
-      const rect = (section as HTMLElement).getBoundingClientRect();
-      const vh = window.innerHeight;
-      // Progress = -1 (section below view) → 0 (centered) → 1 (above view)
-      const progress = (vh / 2 - (rect.top + rect.height / 2)) / (vh / 2 + rect.height / 2);
-      const clamped = Math.max(-1, Math.min(1, progress));
-      const shift = clamped * 80; // px
-      imgWraps.forEach(w => { w.style.setProperty('--parallax-y', `${shift}px`); });
-    };
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(update);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    update();
+      const setActive = (idx: number) => {
+        current = idx;
+        frames.forEach((f, i) => f.classList.toggle('is-active', i === idx));
+        meters.forEach((m, i) => m.classList.toggle('is-active', i === idx));
+      };
 
-    // Respect reduced motion
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      stop();
-    } else {
-      start();
-    }
-  });
+      let timer: number | null = null;
+      const stop  = () => { if (timer !== null) { clearInterval(timer); timer = null; } };
+      const start = () => { stop(); timer = window.setInterval(() => setActive((current + 1) % frames.length), CYCLE_MS); };
+      teardowns.push(stop);
+
+      meters.forEach((m, i) => m.addEventListener('click', () => { setActive(i); start(); }, { signal }));
+      document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else start(); }, { signal });
+
+      // Parallax: translate images on scroll. Range tuned so it never reveals an empty edge.
+      let ticking = false;
+      const update = () => {
+        ticking = false;
+        const rect = (section as HTMLElement).getBoundingClientRect();
+        const vh = window.innerHeight;
+        const progress = (vh / 2 - (rect.top + rect.height / 2)) / (vh / 2 + rect.height / 2);
+        const clamped = Math.max(-1, Math.min(1, progress));
+        const shift = clamped * 80; // px
+        imgWraps.forEach(w => { w.style.setProperty('--parallax-y', `${shift}px`); });
+      };
+      const onScroll = () => {
+        if (ticking) return;
+        ticking = true;
+        raf = requestAnimationFrame(update);
+      };
+      window.addEventListener('scroll', onScroll, { passive: true, signal });
+      window.addEventListener('resize', onScroll, { signal });
+      update();
+
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) stop();
+      else start();
+    });
+  };
+
+  document.addEventListener('astro:before-swap', cleanup);
+  document.addEventListener('astro:page-load', init);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
 </script>
 
 <style>

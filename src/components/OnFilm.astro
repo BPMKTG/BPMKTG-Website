@@ -98,158 +98,180 @@ const moments: FilmTileData[] = [
 </dialog>
 
 <script>
-  // ── Activation: hover on desktop, scroll-into-view on touch ──
-  // Touch devices have no `:hover`, so we pick the tile closest to the
-  // viewport center as the "active" one and autoplay its preview. One tile
-  // plays at a time. On desktop (hover: hover), pointerenter/leave still
-  // drives playback like before.
-  const tiles = Array.from(document.querySelectorAll<HTMLElement>('[data-film-tile]'));
-  const hasHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  // On Film: hover/scroll-triggered preview playback + a Vimeo lightbox.
+  // Re-inits on every astro:page-load and fully tears down on before-swap
+  // (listeners via AbortController; timers, active videos, and any open
+  // lightbox + body scroll-lock released) so nothing leaks across navigations.
+  let inited = false;
+  let ac: AbortController | null = null;
+  let pickTimer = 0;
 
-  const stopAllExcept = (keep: HTMLVideoElement | null) => {
+  const stopAllVideos = () => {
     document.querySelectorAll<HTMLVideoElement>('.hover-video').forEach(v => {
-      if (v !== keep) {
-        v.pause();
-        v.currentTime = 0;
-        v.classList.remove('is-playing');
-        v.closest<HTMLElement>('[data-film-tile]')?.classList.remove('is-playing');
-      }
+      v.pause();
+      v.classList.remove('is-playing');
+      v.closest<HTMLElement>('[data-film-tile]')?.classList.remove('is-playing');
     });
   };
 
-  const play = (tile: HTMLElement) => {
-    const video = tile.querySelector<HTMLVideoElement>('.hover-video');
-    if (!video) return;
-    stopAllExcept(video);
-    video.play().catch(() => {});
-    video.classList.add('is-playing');
-    tile.classList.add('is-playing');
-  };
-  const stop = (tile: HTMLElement) => {
-    const video = tile.querySelector<HTMLVideoElement>('.hover-video');
-    if (!video) return;
-    video.pause();
-    video.currentTime = 0;
-    video.classList.remove('is-playing');
-    tile.classList.remove('is-playing');
-  };
-
-  tiles.forEach(tile => {
-    if (hasHover) {
-      const video = tile.querySelector<HTMLVideoElement>('.hover-video');
-      if (video) {
-        tile.addEventListener('pointerenter', () => play(tile));
-        tile.addEventListener('pointerleave', () => stop(tile));
-      }
+  const cleanup = () => {
+    inited = false;
+    if (ac) { ac.abort(); ac = null; }
+    clearTimeout(pickTimer); pickTimer = 0;
+    stopAllVideos();
+    // Release any open video lightbox + the body scroll lock.
+    const dlg = document.querySelector<HTMLDialogElement>('[data-vlb]');
+    if (dlg) {
+      const fr = dlg.querySelector<HTMLElement>('[data-vlb-frame]');
+      if (fr) fr.innerHTML = '';
+      if (dlg.open) { try { dlg.close(); } catch {} }
     }
+    document.body.style.overflow = '';
+    document.body.style.pointerEvents = '';
+  };
 
-    // Click → open video lightbox (works on touch and desktop)
-    const vimeoId = tile.dataset.vimeoId;
-    if (vimeoId) {
-      tile.addEventListener('click', () => {
-        openVideoLightbox(vimeoId, tile.dataset.caption || '');
+  const init = () => {
+    if (inited) return;
+    const tiles = Array.from(document.querySelectorAll<HTMLElement>('[data-film-tile]'));
+    const dialog = document.querySelector<HTMLDialogElement>('[data-vlb]');
+    if (!tiles.length && !dialog) return;
+    inited = true;
+    ac = new AbortController();
+    const signal = ac.signal;
+    const hasHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+    const frame = dialog?.querySelector<HTMLElement>('[data-vlb-frame]');
+    const capEl = dialog?.querySelector<HTMLElement>('[data-vlb-caption]');
+
+    const openVideoLightbox = (vimeoId: string, caption: string) => {
+      if (!dialog || !frame) return;
+      document.querySelectorAll<HTMLVideoElement>('.hover-video').forEach(v => v.pause());
+      frame.innerHTML = `<iframe
+        src="https://player.vimeo.com/video/${vimeoId}?autoplay=1&title=0&byline=0&portrait=0&dnt=1"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowfullscreen
+        title="${caption}"></iframe>`;
+      if (capEl) capEl.textContent = caption;
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+      document.body.style.overflow = 'hidden';
+      const cursor = document.querySelector<HTMLElement>('.bp-cursor');
+      if (cursor) dialog.appendChild(cursor);
+    };
+    const closeVideoLightbox = () => {
+      if (!dialog || !frame) return;
+      const cursor = document.querySelector<HTMLElement>('.bp-cursor');
+      if (cursor) document.body.appendChild(cursor);
+      if (typeof dialog.close === 'function') dialog.close();
+      else dialog.removeAttribute('open');
+      // Force-close any lingering open dialog + clear page-level locks.
+      document.querySelectorAll<HTMLDialogElement>('dialog[open]').forEach(d => {
+        try { d.close(); } catch { d.removeAttribute('open'); }
       });
-    }
-  });
+      document.body.style.overflow = '';
+      document.body.style.pointerEvents = '';
+      frame.innerHTML = ''; // Removes iframe → stops Vimeo playback
+    };
 
-  // Scroll-based playback for touch devices: pick whichever tile's center
-  // is closest to viewport center and play just that one. Re-evaluates on
-  // scroll/resize via rAF throttle. Pause when no tile is on-screen, or
-  // when the tab is hidden.
-  if (!hasHover && tiles.length) {
-    let activeTiles = new Set<HTMLElement>();
-    let ticking = false;
-
-    // Play a single tile WITHOUT stopping the others (unlike play(), which
-    // calls stopAllExcept). The scroll logic manages its own active set, so
-    // it can run two row-mates at once without them cancelling each other.
-    const playTile = (tile: HTMLElement) => {
+    const stopAllExcept = (keep: HTMLVideoElement | null) => {
+      document.querySelectorAll<HTMLVideoElement>('.hover-video').forEach(v => {
+        if (v !== keep) {
+          v.pause();
+          v.currentTime = 0;
+          v.classList.remove('is-playing');
+          v.closest<HTMLElement>('[data-film-tile]')?.classList.remove('is-playing');
+        }
+      });
+    };
+    const play = (tile: HTMLElement) => {
       const video = tile.querySelector<HTMLVideoElement>('.hover-video');
       if (!video) return;
+      stopAllExcept(video);
       video.play().catch(() => {});
       video.classList.add('is-playing');
       tile.classList.add('is-playing');
     };
-
-    const clearAll = () => {
-      activeTiles.forEach(t => stop(t));
-      activeTiles.clear();
+    const stop = (tile: HTMLElement) => {
+      const video = tile.querySelector<HTMLVideoElement>('.hover-video');
+      if (!video) return;
+      video.pause();
+      video.currentTime = 0;
+      video.classList.remove('is-playing');
+      tile.classList.remove('is-playing');
     };
 
-    const pickActive = () => {
-      ticking = false;
-      if (document.hidden) { clearAll(); return; }
-
-      const vhCenter = window.innerHeight / 2;
-      const onscreen: { tile: HTMLElement; dist: number }[] = [];
-      for (const t of tiles) {
-        const r = t.getBoundingClientRect();
-        if (r.bottom < 80 || r.top > window.innerHeight - 80) continue;
-        onscreen.push({ tile: t, dist: Math.abs(r.top + r.height / 2 - vhCenter) });
+    tiles.forEach(tile => {
+      if (hasHover) {
+        const video = tile.querySelector<HTMLVideoElement>('.hover-video');
+        if (video) {
+          tile.addEventListener('pointerenter', () => play(tile), { signal });
+          tile.addEventListener('pointerleave', () => stop(tile), { signal });
+        }
       }
-
-      // Activate EVERY tile in the row nearest the viewport center — i.e.
-      // all tiles within a tolerance of the minimum distance. In a 2-column
-      // grid the row-mates share a vertical center, so both columns play —
-      // not just the left one (which previously always won the tie).
-      const next = new Set<HTMLElement>();
-      if (onscreen.length) {
-        const min = Math.min(...onscreen.map(o => o.dist));
-        const ROW_TOL = 140; // px — covers same-row neighbors, not adjacent rows
-        for (const o of onscreen) if (o.dist <= min + ROW_TOL) next.add(o.tile);
+      const vimeoId = tile.dataset.vimeoId;
+      if (vimeoId) {
+        tile.addEventListener('click', () => openVideoLightbox(vimeoId, tile.dataset.caption || ''), { signal });
       }
-
-      activeTiles.forEach(t => { if (!next.has(t)) stop(t); });
-      next.forEach(t => { if (!activeTiles.has(t)) playTile(t); });
-      activeTiles = next;
-    };
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(pickActive);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll, { passive: true });
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) clearAll();
-      else onScroll();
     });
-    // Initial pick once layout settles
-    setTimeout(pickActive, 250);
-  }
 
-  // ── Video lightbox ──
-  const dialog = document.querySelector<HTMLDialogElement>('[data-vlb]');
-  const frame  = dialog?.querySelector<HTMLElement>('[data-vlb-frame]');
-  const capEl  = dialog?.querySelector<HTMLElement>('[data-vlb-caption]');
+    // Scroll-based playback for touch devices.
+    if (!hasHover && tiles.length) {
+      let activeTiles = new Set<HTMLElement>();
+      let ticking = false;
 
-  function openVideoLightbox(vimeoId: string, caption: string) {
-    if (!dialog || !frame) return;
-    document.querySelectorAll<HTMLVideoElement>('.hover-video').forEach(v => v.pause());
-    frame.innerHTML = `<iframe
-      src="https://player.vimeo.com/video/${vimeoId}?autoplay=1&title=0&byline=0&portrait=0&dnt=1"
-      allow="autoplay; fullscreen; picture-in-picture"
-      allowfullscreen
-      title="${caption}"></iframe>`;
-    if (capEl) capEl.textContent = caption;
-    if (typeof dialog.showModal === 'function') dialog.showModal();
-    else dialog.setAttribute('open', '');
-    document.body.style.overflow = 'hidden';
-    const cursor = document.querySelector<HTMLElement>('.bp-cursor');
-    if (cursor) dialog.appendChild(cursor);
-  }
-  function closeVideoLightbox() {
-    if (!dialog || !frame) return;
-    const cursor = document.querySelector<HTMLElement>('.bp-cursor');
-    if (cursor) document.body.appendChild(cursor);
-    if (typeof dialog.close === 'function') dialog.close();
-    else dialog.removeAttribute('open');
-    document.body.style.overflow = '';
-    frame.innerHTML = ''; // Removes iframe → stops Vimeo playback
-  }
-  dialog?.querySelector('[data-vlb-close]')?.addEventListener('click', closeVideoLightbox);
-  dialog?.addEventListener('click', (e) => { if (e.target === dialog) closeVideoLightbox(); });
-  dialog?.addEventListener('cancel', (e) => { e.preventDefault(); closeVideoLightbox(); });
+      const playTile = (tile: HTMLElement) => {
+        const video = tile.querySelector<HTMLVideoElement>('.hover-video');
+        if (!video) return;
+        video.play().catch(() => {});
+        video.classList.add('is-playing');
+        tile.classList.add('is-playing');
+      };
+      const clearAll = () => { activeTiles.forEach(t => stop(t)); activeTiles.clear(); };
+
+      const pickActive = () => {
+        ticking = false;
+        if (document.hidden) { clearAll(); return; }
+        const vhCenter = window.innerHeight / 2;
+        const onscreen: { tile: HTMLElement; dist: number }[] = [];
+        for (const t of tiles) {
+          const r = t.getBoundingClientRect();
+          if (r.bottom < 80 || r.top > window.innerHeight - 80) continue;
+          onscreen.push({ tile: t, dist: Math.abs(r.top + r.height / 2 - vhCenter) });
+        }
+        const next = new Set<HTMLElement>();
+        if (onscreen.length) {
+          const min = Math.min(...onscreen.map(o => o.dist));
+          const ROW_TOL = 140;
+          for (const o of onscreen) if (o.dist <= min + ROW_TOL) next.add(o.tile);
+        }
+        activeTiles.forEach(t => { if (!next.has(t)) stop(t); });
+        next.forEach(t => { if (!activeTiles.has(t)) playTile(t); });
+        activeTiles = next;
+      };
+      const onScroll = () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(pickActive);
+      };
+      window.addEventListener('scroll', onScroll, { passive: true, signal });
+      window.addEventListener('resize', onScroll, { passive: true, signal });
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) clearAll();
+        else onScroll();
+      }, { signal });
+      pickTimer = window.setTimeout(pickActive, 250);
+    }
+
+    // Video lightbox controls.
+    dialog?.querySelector('[data-vlb-close]')?.addEventListener('click', closeVideoLightbox, { signal });
+    dialog?.addEventListener('click', (e) => { if (e.target === dialog) closeVideoLightbox(); }, { signal });
+    dialog?.addEventListener('cancel', (e) => { e.preventDefault(); closeVideoLightbox(); }, { signal });
+  };
+
+  document.addEventListener('astro:before-swap', cleanup);
+  document.addEventListener('astro:page-load', init);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
 </script>
 
 <style>

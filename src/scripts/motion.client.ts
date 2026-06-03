@@ -382,6 +382,12 @@ function initHeroParticles() {
 
   let raf = 0, running = false;
   const draw = () => {
+    // Skip painting while a modal lightbox is open (avoids re-blurring a
+    // repainting canvas under the dialog's backdrop-filter every frame).
+    if (document.querySelector('dialog[open]')) {
+      if (running) raf = requestAnimationFrame(draw);
+      return;
+    }
     ctx.clearRect(0, 0, w, h);
 
     for (let i = 0; i < ps.length; i++) {
@@ -562,47 +568,9 @@ function initCtaParticles() {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// 10. Lightbox arrow-key navigation (page-specific but cheap to globalize)
-// ─────────────────────────────────────────────────────────────
-function initLightboxArrows() {
-  const dialog = document.querySelector<HTMLDialogElement>('[data-lightbox]');
-  if (!dialog) return;
-  const img = dialog.querySelector<HTMLImageElement>('[data-lightbox-img]');
-  const cap = dialog.querySelector<HTMLElement>('[data-lightbox-caption]');
-  if (!img || !cap) return;
-
-  let lastIdx = -1;
-
-  // Delegated click: any opener click records its index in the live opener
-  // list. Re-binding per-element click listeners on every init would stack
-  // handlers without easy cleanup; delegation sidesteps that.
-  const onClick = (e: Event) => {
-    const btn = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-lightbox-open]');
-    if (!btn) return;
-    const openers = Array.from(document.querySelectorAll<HTMLElement>('[data-lightbox-open]'));
-    lastIdx = openers.indexOf(btn);
-  };
-  const onKey = (e: KeyboardEvent) => {
-    if (!dialog.open) return;
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    e.preventDefault();
-    const openers = Array.from(document.querySelectorAll<HTMLElement>('[data-lightbox-open]'));
-    if (!openers.length) return;
-    const delta = e.key === 'ArrowRight' ? 1 : -1;
-    lastIdx = (lastIdx + delta + openers.length) % openers.length;
-    const btn = openers[lastIdx];
-    img.src = btn.dataset.full || '';
-    img.alt = btn.dataset.caption || '';
-    cap.textContent = btn.dataset.caption || '';
-  };
-  document.addEventListener('click', onClick);
-  document.addEventListener('keydown', onKey);
-  onCleanup(() => {
-    document.removeEventListener('click', onClick);
-    document.removeEventListener('keydown', onKey);
-  });
-}
+// 10. (removed) Lightbox arrow-key navigation — the portfolio page owns its
+//     own complete lightbox (open/close/arrow/swipe) in an inline script.
+//     A second global handler here double-fired arrow navigation and is gone.
 
 // ─────────────────────────────────────────────────────────────
 // 11. Background parallax + scroll-driven scale for full-bleed sections
@@ -873,7 +841,6 @@ function init() {
   initRoadmapLine();
   initBgScrollEffects();
   initCtaParticles();
-  initLightboxArrows();
   initScrollFocus();
   initVisionLine();
   initMediaLoading();
@@ -893,6 +860,21 @@ const safeInit = () => {
 document.addEventListener('astro:before-swap', () => {
   runCleanups();
   didInit = false;
+
+  // ── Global safety net ──────────────────────────────────────────────
+  // Catch-all that runs before EVERY navigation regardless of per-component
+  // cleanup: force-close any dialog still in the top layer and clear every
+  // page-level lock so a modal can never strand the next page with an
+  // un-clickable body (the root cause of the lightbox "freeze").
+  document.querySelectorAll<HTMLDialogElement>('dialog[open]').forEach(d => {
+    try { d.close(); } catch { d.removeAttribute('open'); }
+  });
+  const b = document.body, h = document.documentElement;
+  b.style.overflow = '';
+  b.style.paddingRight = '';
+  b.style.pointerEvents = '';
+  b.classList.remove('modal-open', 'lightbox-open', 'no-scroll');
+  h.classList.remove('modal-open', 'lightbox-open', 'no-scroll');
 });
 document.addEventListener('astro:page-load', safeInit);
 

@@ -67,33 +67,43 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
 </section>
 
 <script>
-  // Click-to-play: keep the branded poster, then swap in the autoplaying
-  // Vimeo player (branding stripped) on click. Idempotent across view
-  // transitions.
-  function initBMV() {
+  // Manifesto video: hover/scroll preview + click-to-load the Vimeo player.
+  // Re-inits on every astro:page-load; tears down on before-swap (listeners
+  // via AbortController + the preview IntersectionObserver) so nothing leaks.
+  let inited = false;
+  let ac: AbortController | null = null;
+  let ios: IntersectionObserver[] = [];
+
+  const cleanup = () => {
+    inited = false;
+    if (ac) { ac.abort(); ac = null; }
+    ios.forEach(io => { try { io.disconnect(); } catch {} });
+    ios = [];
+  };
+
+  const initBMV = () => {
+    if (inited) return;
+    const placeholders = document.querySelectorAll('[data-bmv-placeholder]');
+    if (!placeholders.length) return;
+    inited = true;
+    ac = new AbortController();
+    const signal = ac.signal;
     const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-    document.querySelectorAll('[data-bmv-placeholder]').forEach(el => {
+
+    placeholders.forEach(el => {
       const btn = el as HTMLButtonElement;
-      if (btn.dataset.bmvBound) return;
       const id = btn.getAttribute('data-bmv-vimeo');
       if (!id) return;                       // no video yet -> stays a poster
-      btn.dataset.bmvBound = '1';
 
-      // Hover preview: play the muted preview clip while the cursor's over
-      // the thumbnail; pause when it leaves.
       const preview = btn.querySelector<HTMLVideoElement>('.bmv-preview');
       if (preview && canHover) {
         const play = () => { preview.currentTime = 0; preview.play().catch(() => {}); };
         const stop = () => { preview.pause(); };
-        btn.addEventListener('pointerenter', play);
-        btn.addEventListener('focus', play);
-        btn.addEventListener('pointerleave', stop);
-        btn.addEventListener('blur', stop);
+        btn.addEventListener('pointerenter', play, { signal });
+        btn.addEventListener('focus', play, { signal });
+        btn.addEventListener('pointerleave', stop, { signal });
+        btn.addEventListener('blur', stop, { signal });
       } else if (preview) {
-        // Touch (no hover): autoplay the preview ONCE when the thumbnail is
-        // centered in view, then return to the static thumbnail. `.is-previewing`
-        // toggles the CSS that hides the play button + lifts the caption above
-        // the video's own subtitles during playback.
         preview.loop = false;   // mobile plays through once (no loop)
         const io = new IntersectionObserver(([entry]) => {
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
@@ -106,27 +116,27 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
           }
         }, { threshold: [0, 0.6] });
         io.observe(btn);
-        // When the single playthrough finishes, drop back to the thumbnail.
+        ios.push(io);
         preview.addEventListener('ended', () => {
           btn.classList.remove('is-previewing');
           preview.currentTime = 0;
-        });
+        }, { signal });
       }
 
       btn.addEventListener('click', () => {
         const iframe = document.createElement('iframe');
         iframe.className = 'bmv-player';
-        // Inline sizing: this element is created in JS so it carries no Astro
-        // scoped-style attribute, so the scoped .bmv-player CSS won't match it.
         iframe.style.cssText = 'display:block;width:100%;height:100%;border:0;background:#000;';
         iframe.src = `https://player.vimeo.com/video/${id}?autoplay=1&title=0&byline=0&portrait=0&dnt=1`;
         iframe.allow = 'autoplay; fullscreen; picture-in-picture';
         iframe.setAttribute('allowfullscreen', '');
         iframe.title = 'Blueprint Marketing — Brand Message';
         btn.replaceWith(iframe);
-      });
+      }, { signal });
     });
-  }
+  };
+
+  document.addEventListener('astro:before-swap', cleanup);
   document.addEventListener('astro:page-load', initBMV);
   if (document.readyState !== 'loading') initBMV();
   else document.addEventListener('DOMContentLoaded', initBMV, { once: true });

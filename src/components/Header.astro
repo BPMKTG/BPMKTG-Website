@@ -90,13 +90,25 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
   // Mobile nav: idempotent across view transitions + reduced motion safe.
   // The header element itself is re-rendered on every page navigation
   // (Astro ClientRouter swaps the body), so we re-init on astro:page-load.
+  let inited = false;
+  let ac: AbortController | null = null;
+
+  const cleanup = () => {
+    inited = false;
+    if (ac) { ac.abort(); ac = null; }
+    // Never carry the body-scroll-lock across a navigation.
+    document.body.style.overflow = '';
+  };
+
   const init = () => {
+    if (inited) return;
     const toggle = document.querySelector<HTMLButtonElement>('[data-nav-toggle]');
     const sheet  = document.querySelector<HTMLElement>('[data-mobile-nav]');
     const close  = document.querySelector<HTMLButtonElement>('[data-nav-close]');
     if (!toggle || !sheet) return;
-    if (toggle.dataset.navInit) return;
-    toggle.dataset.navInit = '1';
+    inited = true;
+    ac = new AbortController();
+    const signal = ac.signal;
 
     const openMenu = () => {
       sheet.hidden = false;
@@ -119,25 +131,20 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 
     toggle.addEventListener('click', () => {
       sheet.classList.contains('is-open') ? closeMenu() : openMenu();
-    });
-    close?.addEventListener('click', closeMenu);
+    }, { signal });
+    close?.addEventListener('click', closeMenu, { signal });
     sheet.querySelectorAll<HTMLAnchorElement>('[data-nav-link]').forEach(a => {
-      a.addEventListener('click', closeMenu);
+      a.addEventListener('click', closeMenu, { signal });
     });
-    // Tap on overlay backdrop (anywhere outside the .mobile-nav-body)
     sheet.addEventListener('click', (e) => {
       if (e.target === sheet) closeMenu();
-    });
+    }, { signal });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && sheet.classList.contains('is-open')) closeMenu();
-    });
+    }, { signal });
   };
 
-  // Always close any open menu BEFORE the page swaps so we never carry
-  // body-scroll-lock or stale classes across navigations.
-  document.addEventListener('astro:before-swap', () => {
-    document.body.style.overflow = '';
-  });
+  document.addEventListener('astro:before-swap', cleanup);
   document.addEventListener('astro:page-load', init);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init, { once: true });

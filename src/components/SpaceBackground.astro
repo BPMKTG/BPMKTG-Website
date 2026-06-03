@@ -177,6 +177,17 @@
 
     let lastT = 0;
     function frame(t: number) {
+      // Pause painting while the tab is hidden OR a modal lightbox is open.
+      // A repainting canvas behind a dialog's `backdrop-filter: blur` forces
+      // the compositor to re-blur the whole viewport every frame, which can
+      // lock up the page — so we hold the loop alive but skip the draw. The
+      // already-painted frame stays under the (now static) blurred backdrop.
+      if (document.hidden || document.querySelector('dialog[open]')) {
+        lastT = 0;                       // avoid a dt jump on resume
+        (canvas as any).__spaceRaf = requestAnimationFrame(frame);
+        return;
+      }
+
       const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
       lastT = t;
 
@@ -189,7 +200,7 @@
       }
       drawShoots(dt);
 
-      requestAnimationFrame(frame);
+      (canvas as any).__spaceRaf = requestAnimationFrame(frame);
     }
 
     if (reduced()) {
@@ -197,7 +208,10 @@
       ctx.clearRect(0, 0, W, H);
       drawStars();
     } else {
-      requestAnimationFrame(frame);
+      // Cancel any prior loop first (defensive — should never happen given the
+      // __spaceInit guard + transition:persist, but guarantees a single loop).
+      cancelAnimationFrame((canvas as any).__spaceRaf || 0);
+      (canvas as any).__spaceRaf = requestAnimationFrame(frame);
     }
   };
 

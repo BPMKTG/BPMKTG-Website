@@ -292,24 +292,46 @@ const tilesLB = tilesLBRaw;
   </dialog>
 
   <script>
-    // Full lightbox setup. Wrapped in an idempotent init bound to
-    // astro:page-load so the openers/dialog listeners re-attach after a
-    // view-transition navigation back to /portfolio — previously this ran
-    // once at module parse, so after navigating in the lightbox wouldn't
-    // open until a hard refresh.
+    // Photo lightbox. Re-inits on every astro:page-load and fully tears down
+    // on astro:before-swap: all listeners go through one AbortController, and
+    // cleanup also closes the dialog, clears the image, releases the body
+    // scroll-lock, and returns the custom cursor to <body> — so navigating
+    // away (even mid-open) never leaves a lock or a stale listener behind.
+    let lbInited = false;
+    let lbAc: AbortController | null = null;
+
+    const lbReleaseCursor = () => {
+      const cursor = document.querySelector<HTMLElement>('.bp-cursor');
+      if (cursor && cursor.parentElement !== document.body) document.body.appendChild(cursor);
+    };
+
+    const lbCleanup = () => {
+      lbInited = false;
+      if (lbAc) { lbAc.abort(); lbAc = null; }
+      lbReleaseCursor();
+      const dialog = document.querySelector<HTMLDialogElement>('[data-lightbox]');
+      if (dialog) {
+        const img = dialog.querySelector<HTMLImageElement>('[data-lightbox-img]');
+        if (img) img.removeAttribute('src');
+        if (dialog.open) { try { dialog.close(); } catch {} }
+      }
+      document.body.style.overflow = '';
+      document.body.style.pointerEvents = '';
+    };
+
     const initLightbox = () => {
+      if (lbInited) return;
       const dialog  = document.querySelector<HTMLDialogElement>('[data-lightbox]');
-      if (!dialog || dialog.dataset.lbInit) return;   // idempotent per DOM
-      dialog.dataset.lbInit = '1';
+      if (!dialog) return;
+      lbInited = true;
+      lbAc = new AbortController();
+      const signal = lbAc.signal;
 
       const img     = dialog.querySelector<HTMLImageElement>('[data-lightbox-img]');
       const cap     = dialog.querySelector<HTMLElement>('[data-lightbox-caption]');
       const prevBtn = dialog.querySelector<HTMLButtonElement>('[data-lightbox-prev]');
       const nextBtn = dialog.querySelector<HTMLButtonElement>('[data-lightbox-next]');
 
-      // Ordered list of every photo opener in DOM order (Access cards first,
-      // then the full gallery tiles). Tiles hidden behind the mobile Load More
-      // are still in the DOM so they're already in the array.
       const openers = Array.from(
         document.querySelectorAll<HTMLElement>('[data-lightbox-open]')
       );
@@ -339,11 +361,16 @@ const tilesLB = tilesLBRaw;
       };
 
       const close = () => {
-        const cursor = document.querySelector<HTMLElement>('.bp-cursor');
-        if (cursor) document.body.appendChild(cursor);
+        lbReleaseCursor();
         if (typeof dialog.close === 'function') dialog.close();
         else dialog.removeAttribute('open');
+        // Safety: force-close any dialog still flagged open so none can linger
+        // in the top layer intercepting clicks.
+        document.querySelectorAll<HTMLDialogElement>('dialog[open]').forEach(d => {
+          try { d.close(); } catch { d.removeAttribute('open'); }
+        });
         document.body.style.overflow = '';
+        document.body.style.pointerEvents = '';
         if (img) img.removeAttribute('src');
         current = -1;
       };
@@ -351,27 +378,21 @@ const tilesLB = tilesLBRaw;
       const next = () => showAt(current + 1);
       const prev = () => showAt(current - 1);
 
-      openers.forEach(btn => btn.addEventListener('click', () => open(btn)));
+      openers.forEach(btn => btn.addEventListener('click', () => open(btn), { signal }));
 
-      dialog.querySelector('[data-lightbox-close]')?.addEventListener('click', close);
-      prevBtn?.addEventListener('click', (e) => { e.stopPropagation(); prev(); });
-      nextBtn?.addEventListener('click', (e) => { e.stopPropagation(); next(); });
+      dialog.querySelector('[data-lightbox-close]')?.addEventListener('click', close, { signal });
+      prevBtn?.addEventListener('click', (e) => { e.stopPropagation(); prev(); }, { signal });
+      nextBtn?.addEventListener('click', (e) => { e.stopPropagation(); next(); }, { signal });
 
-      dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); });
-      dialog.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+      dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); }, { signal });
+      dialog.addEventListener('cancel', (e) => { e.preventDefault(); close(); }, { signal });
 
-      // Keyboard arrow nav. De-dupe across navigations: the document survives
-      // view-transition swaps, so remove any handler bound by a prior init
-      // before adding this one (otherwise it stacks + references a stale dialog).
-      const w = window as unknown as { __pfLbKey?: (e: KeyboardEvent) => void };
-      if (w.__pfLbKey) document.removeEventListener('keydown', w.__pfLbKey);
-      const onKey = (e: KeyboardEvent) => {
+      // Keyboard arrow nav — removed automatically on cleanup via the signal.
+      document.addEventListener('keydown', (e: KeyboardEvent) => {
         if (!dialog.open) return;
         if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
-      };
-      w.__pfLbKey = onKey;
-      document.addEventListener('keydown', onKey);
+      }, { signal });
 
       // Touch swipe — >50px horizontal navigates; smaller deltas are taps.
       let touchStartX = 0;
@@ -380,7 +401,7 @@ const tilesLB = tilesLBRaw;
         if (e.pointerType !== 'touch') return;
         touchStartX = e.clientX;
         touchActive = true;
-      });
+      }, { signal });
       dialog.addEventListener('pointerup', (e) => {
         if (!touchActive || e.pointerType !== 'touch') return;
         touchActive = false;
@@ -388,9 +409,10 @@ const tilesLB = tilesLBRaw;
         if (Math.abs(dx) < 50) return;
         if (dx < 0) next();
         else prev();
-      });
-      dialog.addEventListener('pointercancel', () => { touchActive = false; });
+      }, { signal });
+      dialog.addEventListener('pointercancel', () => { touchActive = false; }, { signal });
     };
+    document.addEventListener('astro:before-swap', lbCleanup);
     document.addEventListener('astro:page-load', initLightbox);
     if (document.readyState !== 'loading') initLightbox();
     else document.addEventListener('DOMContentLoaded', initLightbox, { once: true });

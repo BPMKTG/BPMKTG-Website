@@ -86,17 +86,36 @@ const foundersLB = await Promise.all(
 </section>
 
 <script>
-  // Founder portrait lightbox — opens on click, closes on backdrop /
-  // close button / Escape. Idempotent across view transitions.
+  // Founder portrait lightbox. Re-inits on every astro:page-load; tears down
+  // on before-swap (listeners via AbortController + releases the cursor and
+  // any open dialog) so nothing leaks across navigations.
+  let inited = false;
+  let ac: AbortController | null = null;
+
+  const releaseCursor = () => {
+    const cursor = document.querySelector<HTMLElement>('.bp-cursor');
+    if (cursor && cursor.parentElement !== document.body) document.body.appendChild(cursor);
+  };
+
+  const cleanup = () => {
+    inited = false;
+    if (ac) { ac.abort(); ac = null; }
+    releaseCursor();
+    const dlg = document.querySelector<HTMLDialogElement>('[data-tease-lightbox]');
+    if (dlg && dlg.open) { try { dlg.close(); } catch {} }
+  };
+
   const initTeaseLB = () => {
+    if (inited) return;
     const dialog = document.querySelector<HTMLDialogElement>('[data-tease-lightbox]');
     const img    = dialog?.querySelector<HTMLImageElement>('[data-tease-lb-img]');
     const cap    = dialog?.querySelector<HTMLElement>('[data-tease-lb-caption]');
     const close  = dialog?.querySelector<HTMLButtonElement>('[data-tease-lb-close]');
     const portraits = document.querySelectorAll<HTMLButtonElement>('[data-tease-portrait]');
     if (!dialog || !img || !cap || !portraits.length) return;
-    if (dialog.dataset.teaseInit) return;
-    dialog.dataset.teaseInit = '1';
+    inited = true;
+    ac = new AbortController();
+    const signal = ac.signal;
 
     const open = (btn: HTMLButtonElement) => {
       const full = btn.dataset.full ?? '';
@@ -105,27 +124,21 @@ const foundersLB = await Promise.all(
       img.alt = caption;
       cap.textContent = caption;
       if (!dialog.open) dialog.showModal();
-      // Move the custom cursor into the dialog so it renders in the modal's
-      // top layer — otherwise the cursor sits beneath the backdrop and
-      // appears to vanish. Same fix used by the portfolio lightbox.
       const cursor = document.querySelector<HTMLElement>('.bp-cursor');
       if (cursor) dialog.appendChild(cursor);
     };
     const closeLB = () => {
-      // Return the cursor to <body> before closing the dialog.
-      const cursor = document.querySelector<HTMLElement>('.bp-cursor');
-      if (cursor) document.body.appendChild(cursor);
+      releaseCursor();
       if (dialog.open) dialog.close();
     };
 
-    portraits.forEach(btn => btn.addEventListener('click', () => open(btn)));
-    close?.addEventListener('click', closeLB);
-    dialog.addEventListener('click', (e) => {
-      // Click on the dialog backdrop (not the inner figure) closes.
-      if (e.target === dialog) closeLB();
-    });
+    portraits.forEach(btn => btn.addEventListener('click', () => open(btn), { signal }));
+    close?.addEventListener('click', closeLB, { signal });
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) closeLB(); }, { signal });
+    dialog.addEventListener('cancel', (e) => { e.preventDefault(); closeLB(); }, { signal });
   };
 
+  document.addEventListener('astro:before-swap', cleanup);
   document.addEventListener('astro:page-load', initTeaseLB);
   if (document.readyState !== 'loading') initTeaseLB();
   else document.addEventListener('DOMContentLoaded', initTeaseLB, { once: true });
