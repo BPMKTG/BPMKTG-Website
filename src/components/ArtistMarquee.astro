@@ -45,51 +45,53 @@ const artists = [
 ];
 
 // Map of artist name → media. `img` opens a photo; `vimeo` opens a video.
-// Names omitted here render as plain text with no clickable behavior.
-const artistMedia: Record<string, { img?: ImageMetadata; vimeo?: string }> = {
-  'Gabetoldmeto':   { img: gabeImg },
-  'Martin Garrix':  { img: mgImg },
-  'Excision':       { img: excisionImg },
-  'Flux Pavilion':  { vimeo: '1130704802' },
-  'Subtronics':     { img: subtronicsImg },
-  'Doctor P':       { img: doctorpImg },
-  'Adventure Club': { img: adventureclubImg },
-  'Wooli':          { vimeo: '1122000651' },
-  'ATLiens':        { img: atliensImg },
-  'Kai Wachi':      { vimeo: '1122111561' },
-  'The Resistance': { img: theresistanceImg },
-  'Voyd':           { img: voydImg },
-  'Level Up':       { img: levelupImg },
-  'Dion Timmer':    { vimeo: '1194917343' },
-  'San Pacho':      { img: sanpachoImg },
-  'Beauz':          { vimeo: '1096994614' },
-  'Yookie':         { img: yookieImg },
-  'Ahee':           { vimeo: '1122005048' },
-  'Automhate':      { img: automhateImg },
-  'Alien Park':     { img: alienparkImg },
-  'Neotek':         { img: neotekImg },
-  'Lauren Mia':     { img: laurenmiaImg },
-  'Silver Panda':   { img: silverpandaImg },
-  'Perry Wayne':    { vimeo: '1122003672' },
-  'All The Reason': { img: allReasonImg },
-  'Blankface':      { vimeo: '1194847014' },
-  'Sqishi':         { img: sqishiImg },
-  'OG Nixin':       { img: ognixinImg },
-  'Izzy Vadim':     { img: izzyvadimImg },
-  'Rzrkt':          { img: rzrktImg },
-  'Skyvak':         { img: skyvakImg },
-  'Ophion':         { img: ophionImg },
-  'Destroyah':      { img: destroyahImg },
-  'Spira':          { img: spiraImg },
-  'LegendOfShellda':{ img: legendImg },
+// `loc` is the venue/event shown after the name in the lightbox caption
+// ("ARTIST — LOCATION", same as the portfolio). Empty loc = location still
+// needed from the client. Names omitted here render as plain text.
+const artistMedia: Record<string, { img?: ImageMetadata; vimeo?: string; loc: string }> = {
+  'Gabetoldmeto':   { img: gabeImg,          loc: 'Fluffy Cloud' },
+  'Martin Garrix':  { img: mgImg,            loc: 'Wicked Oaks' },
+  'Excision':       { img: excisionImg,      loc: '713 Music Hall, Houston' },
+  'Flux Pavilion':  { vimeo: '1130704802',   loc: 'Wicked Oaks' },
+  'Subtronics':     { img: subtronicsImg,    loc: 'Dancefestopia' },
+  'Doctor P':       { img: doctorpImg,       loc: 'Wicked Oaks' },
+  'Adventure Club': { img: adventureclubImg, loc: 'Silo, Dallas' },
+  'Wooli':          { vimeo: '1122000651',   loc: 'Silo, Dallas' },
+  'ATLiens':        { img: atliensImg,       loc: 'Dancefestopia' },
+  'Kai Wachi':      { vimeo: '1122111561',   loc: '' },
+  'The Resistance': { img: theresistanceImg, loc: 'Grimefest' },
+  'Voyd':           { img: voydImg,          loc: 'Wicked Oaks' },
+  'Level Up':       { img: levelupImg,       loc: 'Dancefestopia' },
+  'Dion Timmer':    { vimeo: '1194917343',   loc: '713 Music Hall, Houston' },
+  'San Pacho':      { img: sanpachoImg,      loc: 'Silo, Dallas' },
+  'Beauz':          { vimeo: '1096994614',   loc: '' },
+  'Yookie':         { img: yookieImg,        loc: 'Grimefest' },
+  'Ahee':           { vimeo: '1122005048',   loc: '' },
+  'Automhate':      { img: automhateImg,     loc: 'Grimefest' },
+  'Alien Park':     { img: alienparkImg,     loc: 'Silo, Dallas' },
+  'Neotek':         { img: neotekImg,        loc: 'Silo, Dallas' },
+  'Lauren Mia':     { img: laurenmiaImg,     loc: 'Silo, Dallas' },
+  'Silver Panda':   { img: silverpandaImg,   loc: 'Fluffy Cloud' },
+  'Perry Wayne':    { vimeo: '1122003672',   loc: '' },
+  'All The Reason': { img: allReasonImg,     loc: 'Vulcan Gas Co.' },
+  'Blankface':      { vimeo: '1194847014',   loc: 'Grimefest' },
+  'Sqishi':         { img: sqishiImg,        loc: 'Grimefest' },
+  'OG Nixin':       { img: ognixinImg,       loc: 'Grimefest' },
+  'Izzy Vadim':     { img: izzyvadimImg,     loc: 'Grimefest' },
+  'Rzrkt':          { img: rzrktImg,         loc: 'Vulcan Gas Co.' },
+  'Skyvak':         { img: skyvakImg,        loc: 'Ember Shores' },
+  'Ophion':         { img: ophionImg,        loc: 'Grimefest' },
+  'Destroyah':      { img: destroyahImg,     loc: '' },
+  'Spira':          { img: spiraImg,         loc: 'Toats, Austin' },
+  'LegendOfShellda':{ img: legendImg,        loc: 'Toats, Austin' },
 };
 
 // Pre-generate optimized lightbox renditions for photo entries; pass the
-// vimeo id straight through for video entries.
+// vimeo id straight through for video entries. Caption = "ARTIST — LOCATION".
 const artistLB: Record<string, { full?: string; vimeo?: string; caption: string }> = {};
 for (const [name, m] of Object.entries(artistMedia)) {
   artistLB[name] = {
-    caption: name,
+    caption: m.loc ? `${name} — ${m.loc}` : name,
     ...(m.img   ? { full: (await getImage({ src: m.img, width: 1400, format: 'webp', quality: 84 })).src } : {}),
     ...(m.vimeo ? { vimeo: m.vimeo } : {}),
   };
@@ -203,16 +205,15 @@ const trackList = [...artists, ...artists];
 
       // ── Desktop: manual timeline + edge-hover speed/direction control ──
       const MAX = 7;          // peak speed multiplier at the very edge
-      const EDGE_PX = 110;    // edge zone width (px) — close to the edge, like the carousel
+      const EDGE_PX = 180;    // edge zone width (px) — reaches a bit further in
+      const SLOW = 0.3;       // playback rate when hovering the middle zone
       let rate = 1, targetRate = 1, raf = 0, last = 0;
 
       const onMove = (e: PointerEvent) => {
         const r = marquee.getBoundingClientRect();
         const x = e.clientX - r.left;
         const w = r.width || 1;
-        // Fixed-width edge zones near each side (mirrors the carousel's 90px
-        // zones) rather than a wide % of the whole banner.
-        const edgePx = Math.min(EDGE_PX, w * 0.3);
+        const edgePx = Math.min(EDGE_PX, w * 0.35);
         if (x < edgePx) {
           const t = 1 - x / edgePx;             // 0 inner → 1 at left edge
           targetRate = -(0.6 + t * t * MAX);    // reverse, faster toward edge
@@ -220,9 +221,10 @@ const trackList = [...artists, ...artists];
           const t = (x - (w - edgePx)) / edgePx; // 0 → 1 toward right edge
           targetRate = 0.6 + t * t * MAX;        // forward, faster toward edge
         } else {
-          targetRate = 1;                        // normal auto-scroll
+          targetRate = SLOW;                     // hovering the middle: slow down
         }
       };
+      // Pointer left the banner entirely → back to normal auto-scroll speed.
       const onLeave = () => { targetRate = 1; };
       marquee.addEventListener('pointermove', onMove);
       marquee.addEventListener('pointerleave', onLeave);
