@@ -86,56 +86,22 @@ const shots = [
 </section>
 
 <script>
-  const AUTO_MS = 3000;
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
+  // The carousel has NO auto-scroll and NO scroll-snap — it can rest at any
+  // arbitrary position. Scrolling comes only from: nav buttons, mouse drag,
+  // native touch swipe, and desktop edge-hover (which decelerates to a stop).
   document.querySelectorAll<HTMLElement>('[data-rail]').forEach(rail => {
     const wrap = rail.parentElement!;
     const step = () => Math.round(rail.clientWidth * 0.42);
-    const maxScroll = () => rail.scrollWidth - rail.clientWidth - 4;
 
-    let timer: number | null = null;
-    let paused = false;
-    let userInteracted = false;
-    let edgeResumeT = 0;  // tracks the post-edge-stop resume timer
-
-    const tick = () => {
-      if (paused) return;
-      if (rail.scrollLeft >= maxScroll()) {
-        rail.scrollTo({ left: 0, behavior: 'smooth' });
-      } else {
-        rail.scrollBy({ left: step(), behavior: 'smooth' });
-      }
-    };
-    const start = () => { stop(); if (!reduceMotion) timer = window.setInterval(tick, AUTO_MS); };
-    const stop  = () => { if (timer !== null) { clearInterval(timer); timer = null; } };
-    // Cancel any pending edge-resume timer so hovering the rail mid-countdown
-    // doesn't unexpectedly restart auto-advance while the cursor is still there.
-    const pause = () => { paused = true; stop(); window.clearTimeout(edgeResumeT); edgeResumeT = 0; };
-    const resume = () => { paused = false; if (!timer) start(); };
-
-    // Buttons
+    // ── Nav buttons ──
     wrap.querySelector('[data-rail-prev]')?.addEventListener('click', () => {
-      userInteracted = true; pause();
       rail.scrollBy({ left: -step() * 2, behavior: 'smooth' });
-      window.setTimeout(resume, 2500);
     });
     wrap.querySelector('[data-rail-next]')?.addEventListener('click', () => {
-      userInteracted = true; pause();
       rail.scrollBy({ left:  step() * 2, behavior: 'smooth' });
-      window.setTimeout(resume, 2500);
     });
 
-    // Pause on hover (mouse)
-    rail.addEventListener('mouseenter', pause);
-    rail.addEventListener('mouseleave', resume);
-
-    // Pause when tab hidden
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) pause(); else if (!userInteracted) resume();
-    });
-
-    // Mouse drag-to-pan (touch uses native scroll-snap so we skip it)
+    // ── Mouse drag-to-pan (touch uses native scroll) ──
     let dragging = false;
     let startX = 0;
     let startScroll = 0;
@@ -150,7 +116,6 @@ const shots = [
       rail.setPointerCapture(e.pointerId);
       rail.style.scrollBehavior = 'auto';
       rail.style.cursor = 'grabbing';
-      pause();
     });
     rail.addEventListener('pointermove', (e) => {
       if (!dragging) return;
@@ -164,25 +129,19 @@ const shots = [
       try { rail.releasePointerCapture(e.pointerId); } catch {}
       rail.style.scrollBehavior = '';
       rail.style.cursor = '';
-      userInteracted = true;
-      window.setTimeout(resume, 2000);
     };
     rail.addEventListener('pointerup', endDrag);
     rail.addEventListener('pointercancel', endDrag);
 
-    // Suppress click handlers if user dragged
+    // Suppress click handlers if the user dragged
     rail.addEventListener('click', (e) => {
       if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; }
     }, true);
 
-    // Pause briefly on native touch scroll too
-    rail.addEventListener('touchstart', pause, { passive: true });
-    rail.addEventListener('touchend',   () => window.setTimeout(resume, 2000));
-
-    // Edge-hover continuous scroll — speed scales with how close the
-    // cursor is to the outer edge (slowest at 90px in, fastest at the
-    // edge itself). On leave the motion DECELERATES to a stop via friction
-    // instead of cutting out abruptly.
+    // ── Edge-hover continuous scroll (desktop) ──
+    // Speed scales with how close the cursor is to the outer edge. On leave
+    // the motion decelerates to a stop via friction and freezes there — no
+    // snapping to a card, no auto-advance.
     let edgeRaf = 0;
     let edgeDir: 0 | 1 | -1 = 0;
     let edgeSpeed = 0;
@@ -192,8 +151,6 @@ const shots = [
     const FRICTION  = 0.88;  // per-frame speed multiplier while decelerating
     const STOP_EPS  = 0.18;  // speed below which we consider motion stopped
 
-    // Distance from cursor to the OUTER edge of the zone. 0 = at edge,
-    // up to zone.width away = furthest in. Mapped to speed via easing.
     const computeSpeed = (zone: HTMLElement, dir: 1 | -1, clientX: number) => {
       const r = zone.getBoundingClientRect();
       const dist = dir === -1 ? (clientX - r.left) : (r.right - clientX);
@@ -204,22 +161,14 @@ const shots = [
       return MIN_SPEED + eased * (MAX_SPEED - MIN_SPEED);
     };
 
-    // Final teardown once motion has fully stopped (or on a hard cancel):
-    // restore snap/scroll styles and queue auto-advance to resume.
+    // Stop the rAF and leave the rail frozen wherever it is.
     const finalizeEdge = () => {
       edgeDir = 0;
       edgeSpeed = 0;
       edgeDecel = false;
       cancelAnimationFrame(edgeRaf);
       edgeRaf = 0;
-      // Snap is `proximity`, so re-enabling it won't force a yank to the
-      // nearest card — it only snaps if the rail already came to rest near
-      // a snap point. That removes the jump entirely, so we can restore
-      // both styles immediately without any masking choreography.
       rail.style.scrollBehavior = '';
-      rail.style.scrollSnapType = '';
-      window.clearTimeout(edgeResumeT);
-      edgeResumeT = window.setTimeout(resume, 1500);
     };
 
     const edgeTick = () => {
@@ -238,19 +187,15 @@ const shots = [
       edgeDecel = false;          // re-engaging cancels any in-flight coast
       edgeDir = dir;
       edgeSpeed = computeSpeed(zone, dir, clientX);
-      pause();
-      window.clearTimeout(edgeResumeT);
       rail.style.scrollBehavior = 'auto';
-      rail.style.scrollSnapType = 'none';
       cancelAnimationFrame(edgeRaf);
       edgeRaf = requestAnimationFrame(edgeTick);
     };
 
-    // Cursor left the zone — start coasting to a stop rather than cutting out.
+    // Cursor left the zone — coast to a stop rather than cutting out.
     const stopEdge = () => {
       if (!edgeDir) return;
       edgeDecel = true;
-      userInteracted = true;
     };
 
     wrap.querySelectorAll<HTMLElement>('[data-rail-edge]').forEach(zone => {
@@ -262,18 +207,6 @@ const shots = [
       zone.addEventListener('pointerleave',  stopEdge);
       zone.addEventListener('pointercancel', finalizeEdge);
     });
-
-    // Defer the first auto-advance until the carousel enters the viewport,
-    // then wait ~2.5s before the first scroll so the user gets to look first.
-    let started = false;
-    const io = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !started) {
-        started = true;
-        window.setTimeout(() => { tick(); start(); }, 2500);
-        io.unobserve(rail);
-      }
-    }, { threshold: 0.25 });
-    io.observe(rail);
   });
 </script>
 
@@ -314,7 +247,6 @@ const shots = [
     gap: 1rem;
     overflow-x: auto;
     overflow-y: hidden;
-    scroll-snap-type: x proximity;
     padding: 0.5rem 1.5rem 1rem;
     scroll-padding-left: 1.5rem;
     scrollbar-width: thin;
@@ -331,7 +263,6 @@ const shots = [
 
   .card {
     margin: 0;
-    scroll-snap-align: start;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;

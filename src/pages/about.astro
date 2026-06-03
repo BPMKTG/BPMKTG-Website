@@ -791,25 +791,9 @@ const principles = [
     .founder-num { top: -1.75rem; font-size: 5rem; }
     .principles-grid { grid-template-columns: repeat(2, 1fr); }
   }
-  /* Mobile: creed pill stacks two distinct lines. flex-direction: column
-     puts the tick on top, then "Your wins are our wins." then "Partner-
-     ship, not delivery queue." Each on its own line. */
+  /* Mobile: the creed pill is removed entirely. */
   @media (max-width: 760px) {
-    .founders-creed {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.35rem;
-      padding: 0.8rem 1.1rem;
-      border-radius: 18px;
-      max-width: 32ch;
-      text-align: left;
-    }
-    .founders-creed .creed-tick    { margin-bottom: 0.15rem; }
-    .founders-creed .creed-divider { display: none; }
-    /* Mobile shows only "Your wins are our wins." — drop the secondary line. */
-    .founders-creed .creed-tail    { display: none; }
-    .founders-creed em { display: block; line-height: 1.35; }
+    .founders-creed { display: none; }
   }
   @media (max-width: 540px) {
     .principles-grid { grid-template-columns: 1fr; }

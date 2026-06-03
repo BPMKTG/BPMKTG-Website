@@ -66,7 +66,8 @@ export const eventMedia: EventMedia = {
     ],
     primaryCta: { label: 'Request Coverage', href: CALENDLY_URL },
     secondaryCta: { label: 'See Field Work', href: '/portfolio' },
-    markerLabel: 'Live',
+    // Empty so the hero background watermark shows only the marker (no "LIVE").
+    markerLabel: '',
     offerHighlights: [
       { value: '48-hr',     unit: 'delivery' },
       { value: '3–6',       unit: 'camera multicam' },

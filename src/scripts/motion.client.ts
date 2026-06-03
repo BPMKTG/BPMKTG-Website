@@ -124,15 +124,26 @@ function initCounters() {
   const io = new IntersectionObserver(entries => {
     for (const entry of entries) {
       if (entry.isIntersecting) {
-        animateCounter(entry.target as HTMLElement);
+        // Animate every counter inside the intersecting target (the target is
+        // the counter's reveal-ancestor card, which may hold one counter).
+        const t = entry.target as HTMLElement;
+        const counters = t.matches('[data-counter]')
+          ? [t]
+          : Array.from(t.querySelectorAll<HTMLElement>('[data-counter]'));
+        counters.forEach(animateCounter);
         io.unobserve(entry.target);
       }
     }
-    // Matched to the [data-reveal] observer's threshold/rootMargin (0.15 /
-    // -8%) so the number starts counting at the same moment its card +
-    // label/descriptor reveal — they animate in together, not staggered.
   }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
-  els.forEach(el => io.observe(el));
+  // Observe each counter's nearest [data-reveal] ancestor (deduped) using the
+  // SAME threshold/rootMargin as the reveal observer. Both observers then fire
+  // for the same element in the same callback pass — so the number starts
+  // counting on the exact frame the card's label, descriptor, and trace-line
+  // reveal animation begins, not after. Falls back to the counter itself when
+  // it has no reveal ancestor.
+  const targets = new Set<HTMLElement>();
+  els.forEach(el => targets.add((el.closest('[data-reveal]') as HTMLElement) ?? el));
+  targets.forEach(t => io.observe(t));
   onCleanup(() => io.disconnect());
 }
 

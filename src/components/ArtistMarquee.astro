@@ -2,24 +2,39 @@
 import { getImage } from 'astro:assets';
 
 // Per-artist photos for the clickable marquee names (existing asset library).
-import mgImg          from '../assets/images/portfolio/martingarrix-onstage-pyro.jpg';
-import excisionImg    from '../assets/images/hero/hero-1-excision-magenta-713.jpg';
-import subtronicsImg  from '../assets/images/portfolio/subtronics-dancefestopia.jpg';
-import fluxImg        from '../assets/images/carousel/carousel-flux-doctorp-rv.jpg';
-import atliensImg     from '../assets/images/portfolio/atliens-dft-sidestage.jpg';
-import wooliImg       from '../assets/images/portfolio/wooli-dft-pyro-lasers.jpg';
-import sanpachoImg    from '../assets/images/portfolio/sanpacho-silo.jpg';
-import alienparkImg   from '../assets/images/portfolio/alienpark-dft.jpg';
-import svddendeathImg from '../assets/images/portfolio/svddendeath-wickedoaks.jpg';
-import aheeImg        from '../assets/images/portfolio/ahee-dft.jpg';
-import neotekImg      from '../assets/images/portfolio/neotek-silo-onstage.jpg';
-import yookieImg      from '../assets/images/portfolio/yookie-grimefest-bassface.jpg';
-import allReasonImg   from '../assets/images/portfolio/allthereason-vulcangasco.jpg';
+import gabeImg          from '../assets/images/client-banner/gabetoldmeto-fluffycloud.jpg';
+import mgImg            from '../assets/images/hero/hero-4-martingarrix-wickedoaks.jpg';
+import excisionImg      from '../assets/images/hero/hero-1-excision-magenta-713.jpg';
+import subtronicsImg    from '../assets/images/carousel/carousel-subtronics-levelup.jpg';
+import doctorpImg       from '../assets/images/carousel/carousel-flux-doctorp-rv.jpg';
+import adventureclubImg from '../assets/images/portfolio/adventureclub-silo.jpg';
+import atliensImg       from '../assets/images/carousel/carousel-atliens-sidestage.jpg';
+import theresistanceImg from '../assets/images/portfolio/portfolio-hero-theresistance-grimefest.jpg';
+import voydImg          from '../assets/images/backgrounds/bg-1-svddendeath-red-wickedoaks.jpg';
+import levelupImg       from '../assets/images/carousel/carousel-levelup-wide.jpg';
+import sanpachoImg      from '../assets/images/carousel/carousel-sanpacho-redlasers.jpg';
+import yookieImg        from '../assets/images/portfolio/yookie-grimefest-bassface.jpg';
+import automhateImg     from '../assets/images/portfolio/automhate-grimefest.jpg';
+import alienparkImg     from '../assets/images/hero/hero-2-alienpark-green-silo.jpg';
+import neotekImg        from '../assets/images/portfolio/neotek-silo-onstage.jpg';
+import laurenmiaImg     from '../assets/images/portfolio/laurenmia-fluffycloud-silo.jpg';
+import silverpandaImg   from '../assets/images/client-banner/silverpanda-fluffycloud.jpg';
+import allReasonImg     from '../assets/images/carousel/carousel-allthereason-graffiti.jpg';
+import sqishiImg        from '../assets/images/portfolio/blankface-b2b-sqishi-surprised-grimefest.jpg';
+import ognixinImg       from '../assets/images/portfolio/ognixin-grimefest.jpg';
+import izzyvadimImg     from '../assets/images/portfolio/izyyvadim-grimefest-smoking.jpg';
+import rzrktImg         from '../assets/images/portfolio/rzrkt-drinkurwater-vulcangasco.jpg';
+import skyvakImg        from '../assets/images/client-banner/skyvak-embershores.jpg';
+import ophionImg        from '../assets/images/client-banner/ophion-grimefest.jpg';
+import destroyahImg     from '../assets/images/client-banner/krazzb2bdestroyah-1.jpg';
+import spiraImg         from '../assets/images/portfolio/spira-toatsatx.jpg';
+import legendImg        from '../assets/images/portfolio/legendofshellda-toatsatx.jpg';
 
+// Ordered artist list. Names without a media entry below stay text-only.
 const artists = [
   'Gabetoldmeto', 'Martin Garrix', 'Excision', 'Flux Pavilion', 'Subtronics',
-  'Doctor P', 'Slander', 'Adventure Club', 'Crankdat', 'Kai Wachi',
-  'ATLiens', 'Wooli', 'The Resistance', 'Svdden Death', 'Voyd',
+  'Doctor P', 'Slander', 'Adventure Club', 'Wooli', 'ATLiens',
+  'Crankdat', 'Kai Wachi', 'The Resistance', 'Svdden Death', 'Voyd',
   'Space Laces', 'Level Up', 'Dion Timmer', 'San Pacho', 'Drinkurwater',
   'Inzo', 'Beauz', 'AlleyCvt', 'Yookie', 'Ahee',
   'Automhate', 'Alien Park', 'Neotek', 'Lauren Mia', 'Silver Panda',
@@ -29,29 +44,54 @@ const artists = [
   'LegendOfShellda',
 ];
 
-// Map of artist name → photo + caption for the names that open a lightbox.
-const artistMedia: Record<string, { img: ImageMetadata; caption: string }> = {
-  'Martin Garrix':  { img: mgImg,          caption: 'Martin Garrix — Wicked Oaks' },
-  'Excision':       { img: excisionImg,    caption: 'Excision — 713 Music Hall, Houston' },
-  'Subtronics':     { img: subtronicsImg,  caption: 'Subtronics — Dancefestopia' },
-  'Flux Pavilion':  { img: fluxImg,        caption: 'Flux Pavilion — Wicked Oaks' },
-  'ATLiens':        { img: atliensImg,     caption: 'ATLiens — Dancefestopia' },
-  'Wooli':          { img: wooliImg,       caption: 'Wooli — Dancefestopia' },
-  'San Pacho':      { img: sanpachoImg,    caption: 'San Pacho — Silo, Dallas' },
-  'Alien Park':     { img: alienparkImg,   caption: 'Alien Park — Dancefestopia' },
-  'Svdden Death':   { img: svddendeathImg, caption: 'Svdden Death — Wicked Oaks' },
-  'Ahee':           { img: aheeImg,        caption: 'AHEE — Dancefestopia' },
-  'Neotek':         { img: neotekImg,      caption: 'Neotek — Silo, Dallas' },
-  'Yookie':         { img: yookieImg,      caption: 'Yookie — Grimefest' },
-  'All The Reason': { img: allReasonImg,   caption: 'All The Reason — Vulcan Gas Co.' },
+// Map of artist name → media. `img` opens a photo; `vimeo` opens a video.
+// Names omitted here render as plain text with no clickable behavior.
+const artistMedia: Record<string, { img?: ImageMetadata; vimeo?: string }> = {
+  'Gabetoldmeto':   { img: gabeImg },
+  'Martin Garrix':  { img: mgImg },
+  'Excision':       { img: excisionImg },
+  'Flux Pavilion':  { vimeo: '1130704802' },
+  'Subtronics':     { img: subtronicsImg },
+  'Doctor P':       { img: doctorpImg },
+  'Adventure Club': { img: adventureclubImg },
+  'Wooli':          { vimeo: '1122000651' },
+  'ATLiens':        { img: atliensImg },
+  'Kai Wachi':      { vimeo: '1122111561' },
+  'The Resistance': { img: theresistanceImg },
+  'Voyd':           { img: voydImg },
+  'Level Up':       { img: levelupImg },
+  'Dion Timmer':    { vimeo: '1194917343' },
+  'San Pacho':      { img: sanpachoImg },
+  'Beauz':          { vimeo: '1096994614' },
+  'Yookie':         { img: yookieImg },
+  'Ahee':           { vimeo: '1122005048' },
+  'Automhate':      { img: automhateImg },
+  'Alien Park':     { img: alienparkImg },
+  'Neotek':         { img: neotekImg },
+  'Lauren Mia':     { img: laurenmiaImg },
+  'Silver Panda':   { img: silverpandaImg },
+  'Perry Wayne':    { vimeo: '1122003672' },
+  'All The Reason': { img: allReasonImg },
+  'Blankface':      { vimeo: '1194847014' },
+  'Sqishi':         { img: sqishiImg },
+  'OG Nixin':       { img: ognixinImg },
+  'Izzy Vadim':     { img: izzyvadimImg },
+  'Rzrkt':          { img: rzrktImg },
+  'Skyvak':         { img: skyvakImg },
+  'Ophion':         { img: ophionImg },
+  'Destroyah':      { img: destroyahImg },
+  'Spira':          { img: spiraImg },
+  'LegendOfShellda':{ img: legendImg },
 };
 
-// Pre-generate optimized lightbox renditions for each clickable artist.
-const artistLB: Record<string, { full: string; caption: string }> = {};
+// Pre-generate optimized lightbox renditions for photo entries; pass the
+// vimeo id straight through for video entries.
+const artistLB: Record<string, { full?: string; vimeo?: string; caption: string }> = {};
 for (const [name, m] of Object.entries(artistMedia)) {
   artistLB[name] = {
-    full: (await getImage({ src: m.img, width: 1400, format: 'webp', quality: 84 })).src,
-    caption: m.caption,
+    caption: name,
+    ...(m.img   ? { full: (await getImage({ src: m.img, width: 1400, format: 'webp', quality: 84 })).src } : {}),
+    ...(m.vimeo ? { vimeo: m.vimeo } : {}),
   };
 }
 
@@ -79,10 +119,11 @@ const trackList = [...artists, ...artists];
               type="button"
               class="artist artist--clickable"
               data-artist-open
-              data-full={lb.full}
+              data-full={lb.full ?? ''}
+              data-vimeo={lb.vimeo ?? ''}
               data-caption={lb.caption}
               tabindex="-1"
-              aria-label={`View photo of ${name}`}
+              aria-label={`${lb.vimeo ? 'Play video' : 'View photo'} of ${name}`}
             >
               {name}
               <span class="artist-info" aria-hidden="true">
@@ -102,23 +143,25 @@ const trackList = [...artists, ...artists];
     </ul>
   </div>
 
-  <!-- Artist photo lightbox — opens when a clickable marquee name is tapped. -->
-  <dialog class="artist-lightbox" data-artist-lightbox aria-label="Artist photo">
+  <!-- Artist media lightbox — opens a photo or video when a clickable name is tapped. -->
+  <dialog class="artist-lightbox" data-artist-lightbox aria-label="Artist media">
     <button type="button" class="artist-lb-close" data-artist-lb-close aria-label="Close">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
     </button>
     <figure>
-      <img data-artist-lb-img alt="" />
+      <div class="artist-lb-media" data-artist-lb-media></div>
       <figcaption data-artist-lb-caption></figcaption>
     </figure>
   </dialog>
 </section>
 
 <script>
-  // Web Animations API instead of CSS animation so hover can smoothly
-  // change playback rate WITHOUT jumping to a new playhead position.
+  // Marquee motion. Mobile/touch keeps the plain auto-scroll. Desktop drives
+  // the timeline manually so the cursor can do carousel-style edge-hover:
+  // near the right edge scrolls forward (faster toward the edge), near the
+  // left edge reverses, and the middle is the normal auto-scroll speed.
   const init = () => {
     document.querySelectorAll<HTMLElement>('.marquee').forEach(marquee => {
       if (marquee.dataset.marqueeInit) return;
@@ -138,35 +181,66 @@ const trackList = [...artists, ...artists];
         ],
         { duration, iterations: Infinity, easing: 'linear' }
       );
-
-      // Hold at frame 0 until the marquee actually enters the viewport,
-      // so the user sees the big names first instead of arriving mid-scroll.
       animation.pause();
 
-      let hovering = false;
       let visible = false;
+      const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-      const applyState = () => {
-        if (!visible) { animation.pause(); return; }
-        animation.play();
-        animation.updatePlaybackRate(hovering ? 0.3 : 1);
+      // ── Mobile / touch: unchanged auto-scroll, gated to visibility ──
+      if (!fine) {
+        const applyState = () => {
+          if (visible && !document.hidden) animation.play();
+          else animation.pause();
+        };
+        document.addEventListener('visibilitychange', applyState);
+        const io = new IntersectionObserver(([entry]) => {
+          visible = entry.isIntersecting;
+          applyState();
+        }, { threshold: 0.15 });
+        io.observe(marquee);
+        return;
+      }
+
+      // ── Desktop: manual timeline + edge-hover speed/direction control ──
+      const MAX = 7;       // peak speed multiplier at the very edge
+      const EDGE = 0.30;   // edge zone = 30% of width on each side
+      let rate = 1, targetRate = 1, raf = 0, last = 0;
+
+      const onMove = (e: PointerEvent) => {
+        const r = marquee.getBoundingClientRect();
+        const x = e.clientX - r.left;
+        const w = r.width || 1;
+        const edgePx = w * EDGE;
+        if (x < edgePx) {
+          const t = 1 - x / edgePx;             // 0 inner → 1 at left edge
+          targetRate = -(0.6 + t * t * MAX);    // reverse, faster toward edge
+        } else if (x > w - edgePx) {
+          const t = (x - (w - edgePx)) / edgePx; // 0 → 1 toward right edge
+          targetRate = 0.6 + t * t * MAX;        // forward, faster toward edge
+        } else {
+          targetRate = 1;                        // normal auto-scroll
+        }
       };
+      const onLeave = () => { targetRate = 1; };
+      marquee.addEventListener('pointermove', onMove);
+      marquee.addEventListener('pointerleave', onLeave);
 
-      // updatePlaybackRate keeps the current visual position and just changes
-      // how fast time advances — no jump.
-      marquee.addEventListener('pointerenter', () => { hovering = true;  applyState(); });
-      marquee.addEventListener('pointerleave', () => { hovering = false; applyState(); });
+      const tick = (now: number) => {
+        if (!last) last = now;
+        const dt = now - last;
+        last = now;
+        rate += (targetRate - rate) * 0.18;      // smooth ramp toward target
+        if (visible && !document.hidden) {
+          let t = (animation.currentTime as number || 0) + dt * rate;
+          t = ((t % duration) + duration) % duration; // seamless wrap both ways
+          animation.currentTime = t;
+        }
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
 
-      // Pause when tab is hidden so we don't burn cycles in the background
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) animation.pause();
-        else applyState();
-      });
-
-      // Only animate while the marquee is in view
       const io = new IntersectionObserver(([entry]) => {
         visible = entry.isIntersecting;
-        applyState();
       }, { threshold: 0.15 });
       io.observe(marquee);
     });
@@ -179,35 +253,56 @@ const trackList = [...artists, ...artists];
     init();
   }
 
-  // Artist photo lightbox — opens the tapped name's photo. Idempotent across
-  // view transitions; delegates clicks so the duplicated marquee copies all
-  // work without per-button rebinding.
+  // Artist media lightbox — photo or vimeo video. Idempotent across view
+  // transitions; delegates clicks so the duplicated marquee copies all work.
   const initArtistLB = () => {
-    const dialog = document.querySelector<HTMLDialogElement>('[data-artist-lightbox]');
-    const img    = dialog?.querySelector<HTMLImageElement>('[data-artist-lb-img]');
-    const cap    = dialog?.querySelector<HTMLElement>('[data-artist-lb-caption]');
-    const close  = dialog?.querySelector<HTMLButtonElement>('[data-artist-lb-close]');
-    if (!dialog || !img || !cap || dialog.dataset.albInit) return;
+    const dialog   = document.querySelector<HTMLDialogElement>('[data-artist-lightbox]');
+    const media    = dialog?.querySelector<HTMLElement>('[data-artist-lb-media]');
+    const cap      = dialog?.querySelector<HTMLElement>('[data-artist-lb-caption]');
+    const closeBtn = dialog?.querySelector<HTMLButtonElement>('[data-artist-lb-close]');
+    if (!dialog || !media || !cap || dialog.dataset.albInit) return;
     dialog.dataset.albInit = '1';
+
+    // Emptying the container removes any <img>/<iframe> immediately — this
+    // both stops a playing Vimeo embed and prevents the previous asset from
+    // flashing when a new artist is opened or the lightbox is closed.
+    const clear = () => { media.innerHTML = ''; };
 
     const closeLB = () => {
       const cursor = document.querySelector<HTMLElement>('.bp-cursor');
       if (cursor) document.body.appendChild(cursor);
+      clear();
       if (dialog.open) dialog.close();
     };
 
     document.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-artist-open]');
       if (!btn) return;
-      img.src = btn.dataset.full ?? '';
-      img.alt = btn.dataset.caption ?? '';
-      cap.textContent = btn.dataset.caption ?? '';
+      clear();   // wipe old content before loading the new asset (no flash)
+
+      const vimeo = btn.dataset.vimeo;
+      if (vimeo) {
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://player.vimeo.com/video/${vimeo}?autoplay=1&title=0&byline=0&portrait=0&dnt=1`;
+        iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.title = btn.dataset.caption || '';
+        media.appendChild(iframe);
+        media.dataset.kind = 'video';
+      } else {
+        const img = document.createElement('img');
+        img.src = btn.dataset.full || '';
+        img.alt = btn.dataset.caption || '';
+        media.appendChild(img);
+        media.dataset.kind = 'photo';
+      }
+      cap.textContent = btn.dataset.caption || '';
       if (!dialog.open) dialog.showModal();
-      // Keep the custom cursor visible above the modal backdrop.
       const cursor = document.querySelector<HTMLElement>('.bp-cursor');
       if (cursor) dialog.appendChild(cursor);
     });
-    close?.addEventListener('click', closeLB);
+
+    closeBtn?.addEventListener('click', closeLB);
     dialog.addEventListener('click', (e) => { if (e.target === dialog) closeLB(); });
     dialog.addEventListener('cancel', (e) => { e.preventDefault(); closeLB(); });
   };
@@ -288,8 +383,8 @@ const trackList = [...artists, ...artists];
   }
   .marquee-item:hover .artist { color: var(--bp-light); }
 
-  /* Clickable artist names — open a photo in the lightbox. The ⓘ icon stays
-     visible (also on touch) to signal the name is tappable. */
+  /* Clickable artist names — open a photo/video in the lightbox. The ⓘ icon
+     stays visible (also on touch) to signal the name is tappable. */
   .artist--clickable {
     appearance: none;
     background: none;
@@ -317,13 +412,13 @@ const trackList = [...artists, ...artists];
     transform: scale(1.12);
   }
 
-  /* ── Artist photo lightbox ── */
+  /* ── Artist media lightbox ── */
   .artist-lightbox {
     border: none;
     padding: 0;
     margin: auto;
     background: transparent;
-    max-width: min(640px, 92vw);
+    max-width: min(900px, 92vw);
     max-height: 90vh;
     color: var(--ink);
     overflow: visible;
@@ -338,12 +433,24 @@ const trackList = [...artists, ...artists];
     flex-direction: column;
     gap: 0.85rem;
   }
-  .artist-lightbox img {
+  .artist-lb-media img {
+    display: block;
     width: 100%;
+    max-width: 640px;
     height: auto;
     max-height: 80vh;
     object-fit: contain;
+    margin: 0 auto;
     border-radius: 14px;
+    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
+  }
+  .artist-lb-media iframe {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 0;
+    border-radius: 14px;
+    background: #000;
     box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
   }
   .artist-lightbox figcaption {

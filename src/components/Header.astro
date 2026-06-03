@@ -218,6 +218,9 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
   .nav-toggle.is-open .bar:nth-child(1) { transform: translateY(5px) rotate(45deg); }
   .nav-toggle.is-open .bar:nth-child(2) { opacity: 0; }
   .nav-toggle.is-open .bar:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
+  /* When the menu is open the overlay shows its own close (X) button, so
+     hide the burger to avoid two overlapping X's in the top-right corner. */
+  .nav-toggle.is-open { opacity: 0; pointer-events: none; }
 
   /* ─── Mobile fullscreen menu ───
      Full-bleed dark overlay, prominent close X, large centered link list.
