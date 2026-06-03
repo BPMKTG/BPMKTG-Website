@@ -323,6 +323,28 @@ const trackList = [...artists, ...artists];
     overflow: hidden;
     position: relative;
   }
+
+  /* Subtle blue glow on each side — hints that the edges are hover-scroll
+     zones (same affordance as the carousel edges). Strengthens slightly when
+     the banner is hovered. Pointer-events: none so it never blocks clicks. */
+  .marquee::before,
+  .marquee::after {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0;
+    width: clamp(70px, 12%, 180px);
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0.85;
+    transition: opacity 0.3s ease;
+  }
+  .marquee::before { left: 0;  background: linear-gradient(to right, rgba(98, 166, 219, 0.14), transparent); }
+  .marquee::after  { right: 0; background: linear-gradient(to left,  rgba(98, 166, 219, 0.14), transparent); }
+  .marquee:hover::before,
+  .marquee:hover::after { opacity: 1; }
+  @media (hover: none) {
+    .marquee::before, .marquee::after { display: none; }
+  }
   .marquee-label {
     text-align: center;
     margin-bottom: 1.25rem;
@@ -444,7 +466,7 @@ const trackList = [...artists, ...artists];
   @keyframes albFade { from { opacity: 0; } to { opacity: 1; } }
   .artist-lightbox figure {
     margin: 0;
-    max-width: min(94vw, 1100px);
+    max-width: min(94vw, 1600px);
     max-height: 90vh;
     display: flex;
     flex-direction: column;
@@ -454,10 +476,11 @@ const trackList = [...artists, ...artists];
   }
   .artist-lb-media { display: flex; align-items: center; justify-content: center; }
   /* :global() is required — the <img>/<iframe> are created in JS and so carry
-     no Astro scoped-cid attribute; the normal scoped selector wouldn't match. */
+     no Astro scoped-cid attribute; the normal scoped selector wouldn't match.
+     Sized to match the portfolio lightbox. */
   .artist-lb-media :global(img) {
-    max-width: min(94vw, 1000px);
-    max-height: 80vh;
+    max-width: min(94vw, 1600px);
+    max-height: 82vh;
     width: auto;
     height: auto;
     object-fit: contain;
@@ -465,9 +488,9 @@ const trackList = [...artists, ...artists];
     box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(98, 166, 219, 0.15);
   }
   .artist-lb-media :global(iframe) {
-    width: min(92vw, 1000px);
+    width: min(94vw, 1360px);
     aspect-ratio: 16 / 9;
-    max-height: 80vh;
+    max-height: 82vh;
     border: 0;
     border-radius: 12px;
     background: #000;
