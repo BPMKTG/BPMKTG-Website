@@ -83,16 +83,17 @@ const cols = [
   }
   .footer-foot { position: relative; z-index: 2; }
 
-  /* Brand column — explicit left-alignment so the CTA sits directly under
-     the tagline instead of floating against the grid baseline. */
+  /* Brand column — logo, tagline, and CTA stacked and centered over each
+     other (as a centered group within the column). */
   .brand-col {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    text-align: center;
     gap: 0;
   }
-  .brand-link { display: inline-flex; align-items: center; line-height: 0; }
-  .brand-logo { width: 220px; max-width: 80%; margin-bottom: 1rem; }
+  .brand-link { display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
+  .brand-logo { width: 150px; max-width: 100%; margin-bottom: 1rem; }
   .brand-logo--wordmark { display: none; }
   .tagline {
     color: var(--muted);
@@ -100,7 +101,7 @@ const cols = [
     max-width: 30ch;
     font-size: 0.95rem;
   }
-  .brand-cta { align-self: flex-start; }
+  .brand-cta { align-self: center; }
 
   .col h4 {
     color: var(--ink);
