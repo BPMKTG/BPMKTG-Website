@@ -7,8 +7,11 @@ interface OfferHighlight { value: string; unit: string; }
 
 interface Props {
   // HUD marker (top-left big outlined chrome)
-  markerLabel: string;     // "Tier" or "Live"
+  markerLabel: string;     // "Tier" or "Live" ("" hides the small label)
   markerNumber: string;    // "01" / "LV" / etc.
+  // When false, the big outlined number is omitted from the background
+  // watermark (the offer card still uses markerNumber). Defaults to true.
+  showMarkerNumber?: boolean;
 
   // Hero text
   eyebrow: string;
@@ -34,6 +37,7 @@ interface Props {
 const {
   markerLabel,
   markerNumber,
+  showMarkerNumber = true,
   eyebrow,
   name,
   headline,
@@ -130,7 +134,7 @@ const botTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
   <div class="tier-hud-marker" aria-hidden="true">
     {markerLabel && <span class="tier-hud-bar"></span>}
     {markerLabel && <span class="tier-hud-marker-label">{markerLabel}</span>}
-    <span class="tier-hud-marker-number">{markerNumber}</span>
+    {showMarkerNumber && <span class="tier-hud-marker-number">{markerNumber}</span>}
   </div>
 
   <div class="container tier-hero-inner">

@@ -101,7 +101,7 @@ export const eventMedia: EventMedia = {
       { title: 'Photography pack',     body: 'Editorial-quality photos — performance, backstage, crowd, environment. High-res for press, web-ready for socials.' },
       { title: 'Backstage capture',    body: "Documentary-style backstage capture — the moments fans don't see. The footage that builds connection, not just reach." },
       { title: 'Tour cutdowns',        body: 'Once a tour wraps, we cut a season-style recap. Becomes the press piece and the "what we just did" content for the next announce.' },
-      { title: 'Press Photos',         body: 'Dedicated editorial press galleries — print-ready, rights-cleared selects formatted for media outlets and promoters.', badge: 'Coming Soon' },
+      { title: 'Press Photos',         body: 'Dedicated editorial press galleries — print-ready, rights-cleared selects formatted for media outlets and promoters.' },
     ],
   },
 
@@ -119,7 +119,7 @@ export const eventMedia: EventMedia = {
 
   workflow: {
     eyebrow: 'Turnaround & Workflow',
-    headline: 'Show on Saturday. Content live in 48 hours.',
+    headline: 'Show on Friday. Content live by Sunday.',
     steps: [
       { title: 'Pre-event Brief',       body: 'You send the show details: set times, key drops, expected guests, footage priorities. We send back a capture plan and shot list.' },
       { title: 'On-Site Capture',       body: 'Multicam team on-site through doors-to-closer. Photo + video. Backstage access if granted. Everything tagged in real time.' },

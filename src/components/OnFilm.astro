@@ -10,6 +10,7 @@ import grimefestPoster    from '../assets/images/thumbnails/grimefest-recap.jpg'
 import wooliPoster        from '../assets/images/thumbnails/wooli-recap.jpg';
 import dftPoster          from '../assets/images/thumbnails/dancefestopia-recap.jpg';
 import martingarrixPoster from '../assets/images/thumbnails/martingarrix-recap.jpg';
+import alienparkCulturePoster from '../assets/images/portfolio/alienpark-culture.jpg';
 import excisionPoster     from '../assets/images/thumbnails/excision-moment.jpg';
 import blankfacePoster    from '../assets/images/portfolio/blankface-b2b-sqishi-surprised-grimefest.jpg';
 import izzyvadimPoster    from '../assets/images/thumbnails/izzyvadim-multicam.jpg';
@@ -38,8 +39,9 @@ const afterMovie: FilmTileData = {
 
 const recaps: FilmTileData[] = [
   { slug: 'wooli-silo-recap',     caption: 'Wooli',                          tag: 'Silo - Dallas', category: 'Recap', posterImg: wooliPoster,        preview: '/videos/previews/wooli-silo-recap.mp4',     vimeoId: '1122000651' },
-  { slug: 'dft-recap',            caption: 'Dancefestopia',                  tag: 'Festival',      category: 'Recap', posterImg: dftPoster,          preview: '/videos/previews/dft-recap.mp4',            vimeoId: '1122003465' },
-  { slug: 'martingarrix-recap',   caption: 'Martin Garrix',                  tag: 'Wicked Oaks',   category: 'Recap', posterImg: martingarrixPoster, preview: '/videos/previews/martingarrix-recap.mp4',   vimeoId: '1132975664' },
+  { slug: 'dft-recap',            caption: 'Dancefestopia',                  tag: 'Festival',      category: 'Recap',   posterImg: dftPoster,          preview: '/videos/previews/dft-recap.mp4',            vimeoId: '1122003465' },
+  { slug: 'alienpark-culture',    caption: 'Alien Park',                     tag: 'Alien Park',    category: 'Culture', posterImg: alienparkCulturePoster, preview: '/videos/previews/alienpark-hoverpreview.mp4', vimeoId: '1197870503' },
+  { slug: 'martingarrix-recap',   caption: 'Martin Garrix',                  tag: 'Wicked Oaks',   category: 'Recap',   posterImg: martingarrixPoster, preview: '/videos/previews/martingarrix-recap.mp4',   vimeoId: '1132975664' },
   { slug: 'grimefest-day2-recap', caption: 'Grimefest The Galactic Wars II', tag: 'Festival',      category: 'Recap', posterImg: grimefestPoster,    preview: '/videos/previews/grimefest-day2-recap.mp4', vimeoId: '1194846332' },
 ];
 
@@ -67,7 +69,7 @@ const moments: FilmTileData[] = [
     </div>
 
     <header class="sub-head">
-      <p class="sub-label" data-reveal="left">Recap Videos</p>
+      <p class="sub-label" data-reveal="left">Live Recaps</p>
     </header>
     <div class="film-grid film-grid--four" data-reveal-group>
       {recaps.map(item => <FilmTile {...item} />)}
@@ -278,7 +280,7 @@ const moments: FilmTileData[] = [
   .feature-block { margin-bottom: 1.25rem; }
 
   .film-grid { display: grid; gap: 1rem; }
-  .film-grid--four { grid-template-columns: repeat(4, 1fr); }
+  .film-grid--four { grid-template-columns: repeat(5, 1fr); } /* Live Recaps: 5 tiles */
   .film-grid--five { grid-template-columns: repeat(6, 1fr); }
 
   @media (max-width: 1080px) {
