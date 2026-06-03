@@ -207,6 +207,43 @@ const shots = [
       zone.addEventListener('pointerleave',  stopEdge);
       zone.addEventListener('pointercancel', finalizeEdge);
     });
+
+    // ── Gentle auto-scroll ──
+    // Slow continuous drift that ping-pongs at each end (no jump-to-start).
+    // It only advances while the rail is idle: paused during hover, drag,
+    // edge-hover scroll, touch interaction, off-screen, or a hidden tab — so
+    // it never fights the edge-hover/drag scrolling.
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let hovering = false;
+    let touching = false;
+    let inView = true;
+    let autoDir: 1 | -1 = 1;
+    const AUTO_SPEED = 0.35;   // px / frame — slow drift
+    const maxScroll = () => rail.scrollWidth - rail.clientWidth;
+
+    wrap.addEventListener('pointerenter', () => { hovering = true; });
+    wrap.addEventListener('pointerleave', () => { hovering = false; });
+    // Touch: pause while the finger's down + briefly after, so native swipes
+    // aren't fought by the drift.
+    rail.addEventListener('touchstart', () => { touching = true; }, { passive: true });
+    rail.addEventListener('touchend',   () => { window.setTimeout(() => { touching = false; }, 1500); }, { passive: true });
+
+    const autoTick = () => {
+      if (!hovering && !touching && !dragging && !edgeDir && inView && !document.hidden) {
+        const max = maxScroll();
+        if (max > 0) {
+          rail.scrollLeft += AUTO_SPEED * autoDir;
+          if (rail.scrollLeft >= max) autoDir = -1;
+          else if (rail.scrollLeft <= 0) autoDir = 1;
+        }
+      }
+      requestAnimationFrame(autoTick);
+    };
+    if (!reduceMotion) {
+      const io = new IntersectionObserver(([e]) => { inView = e.isIntersecting; }, { threshold: 0 });
+      io.observe(rail);
+      requestAnimationFrame(autoTick);
+    }
   });
 </script>
 

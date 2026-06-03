@@ -202,15 +202,17 @@ const trackList = [...artists, ...artists];
       }
 
       // ── Desktop: manual timeline + edge-hover speed/direction control ──
-      const MAX = 7;       // peak speed multiplier at the very edge
-      const EDGE = 0.30;   // edge zone = 30% of width on each side
+      const MAX = 7;          // peak speed multiplier at the very edge
+      const EDGE_PX = 110;    // edge zone width (px) — close to the edge, like the carousel
       let rate = 1, targetRate = 1, raf = 0, last = 0;
 
       const onMove = (e: PointerEvent) => {
         const r = marquee.getBoundingClientRect();
         const x = e.clientX - r.left;
         const w = r.width || 1;
-        const edgePx = w * EDGE;
+        // Fixed-width edge zones near each side (mirrors the carousel's 90px
+        // zones) rather than a wide % of the whole banner.
+        const edgePx = Math.min(EDGE_PX, w * 0.3);
         if (x < edgePx) {
           const t = 1 - x / edgePx;             // 0 inner → 1 at left edge
           targetRate = -(0.6 + t * t * MAX);    // reverse, faster toward edge
@@ -412,46 +414,62 @@ const trackList = [...artists, ...artists];
     transform: scale(1.12);
   }
 
-  /* ── Artist media lightbox ── */
+  /* ── Artist media lightbox ── (mirrors the portfolio photo/video lightbox:
+     full-viewport dialog that flex-centers a shrink-to-fit figure, so photos
+     of any orientation land at a consistent size and videos open large) */
   .artist-lightbox {
     border: none;
     padding: 0;
-    margin: auto;
+    margin: 0;
     background: transparent;
-    max-width: min(900px, 92vw);
-    max-height: 90vh;
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
     color: var(--ink);
     overflow: visible;
   }
   .artist-lightbox::backdrop {
-    background: rgba(6, 6, 14, 0.85);
+    background: rgba(6, 6, 14, 0.88);
     backdrop-filter: blur(16px);
   }
+  .artist-lightbox[open] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: albFade 0.25s ease;
+  }
+  @keyframes albFade { from { opacity: 0; } to { opacity: 1; } }
   .artist-lightbox figure {
     margin: 0;
+    max-width: min(94vw, 1100px);
+    max-height: 90vh;
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
   }
-  .artist-lb-media img {
-    display: block;
-    width: 100%;
-    max-width: 640px;
-    height: auto;
+  .artist-lb-media { display: flex; align-items: center; justify-content: center; }
+  /* :global() is required — the <img>/<iframe> are created in JS and so carry
+     no Astro scoped-cid attribute; the normal scoped selector wouldn't match. */
+  .artist-lb-media :global(img) {
+    max-width: min(94vw, 1000px);
     max-height: 80vh;
+    width: auto;
+    height: auto;
     object-fit: contain;
-    margin: 0 auto;
-    border-radius: 14px;
-    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
+    border-radius: 12px;
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(98, 166, 219, 0.15);
   }
-  .artist-lb-media iframe {
-    display: block;
-    width: 100%;
+  .artist-lb-media :global(iframe) {
+    width: min(92vw, 1000px);
     aspect-ratio: 16 / 9;
+    max-height: 80vh;
     border: 0;
-    border-radius: 14px;
+    border-radius: 12px;
     background: #000;
-    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(98, 166, 219, 0.2);
   }
   .artist-lightbox figcaption {
     color: var(--bp-light);

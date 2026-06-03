@@ -522,7 +522,7 @@ p { margin: 0; color: var(--muted); }
   box-shadow: 0 0 10px rgba(98, 166, 219, 0.6);
   transition: width 0.9s cubic-bezier(.2,.7,.3,1) 0.4s;
 }
-.stat.is-counted .stat-underline { width: 48px; }
+.stat.is-in .stat-underline { width: 48px; }
 
 /* ──────── Ken Burns slow zoom ──────── */
 @keyframes kenBurns {
@@ -1010,9 +1010,11 @@ p { margin: 0; color: var(--muted); }
   box-shadow: 0 0 10px rgba(98, 166, 219, 0.5);
   transition: width 0.85s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
-.stat.is-counted .stat-underline { width: 65%; }
+.stat.is-in .stat-underline { width: 65%; }
 
-/* Stat label fade-up after the counter finishes. */
+/* Stat label + descriptor fade up at the SAME moment the card reveals and the
+   number starts counting (keyed on .is-in, not .is-counted) — they animate in
+   together rather than waiting for the count to finish. */
 .stat .stat-label,
 .stat .stat-sub {
   opacity: 0;
@@ -1021,13 +1023,11 @@ p { margin: 0; color: var(--muted); }
     opacity 0.55s cubic-bezier(0.2, 0.7, 0.3, 1),
     transform 0.55s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
-.stat.is-counted .stat-label,
-.stat.is-counted .stat-sub {
+.stat.is-in .stat-label,
+.stat.is-in .stat-sub {
   opacity: 1;
   transform: translateY(0);
-  transition-delay: 0.2s;
 }
-.stat.is-counted .stat-sub { transition-delay: 0.35s; }
 
 /* Shimmer sweep — applied once on reveal to draw the eye to a phrase.
    Apply [data-shimmer]. Sweeps a light streak diagonally once. */
