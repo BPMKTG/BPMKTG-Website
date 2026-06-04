@@ -49,7 +49,10 @@
     }
 
     function resize() {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Cap at 1.5 (was 2): on a hi-DPI/large display a full-screen 2x canvas
+      // is a big constant texture; 1.5 frees GPU headroom for the gallery's
+      // images with no perceptible change to the tiny stars.
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       W = window.innerWidth;
       H = window.innerHeight;
       canvas.width = Math.floor(W * dpr);
