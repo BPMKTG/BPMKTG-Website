@@ -128,6 +128,7 @@ const moments: FilmTileData[] = [
     }
     document.body.style.overflow = '';
     document.body.style.pointerEvents = '';
+    document.body.classList.remove('lb-open');
   };
 
   const init = () => {
@@ -163,6 +164,9 @@ const moments: FilmTileData[] = [
       if (typeof dialog.showModal === 'function') dialog.showModal();
       else dialog.setAttribute('open', '');
       document.body.style.overflow = 'hidden';
+      // Free the gallery/canvas GPU textures behind the opaque backdrop while
+      // the video is up (same guard the photo lightbox uses).
+      document.body.classList.add('lb-open');
       const cursor = document.querySelector<HTMLElement>('.bp-cursor');
       if (cursor) dialog.appendChild(cursor);
     };
@@ -170,6 +174,7 @@ const moments: FilmTileData[] = [
       if (!dialog || !frame) return;
       const cursor = document.querySelector<HTMLElement>('.bp-cursor');
       if (cursor) document.body.appendChild(cursor);
+      document.body.classList.remove('lb-open');
       if (typeof dialog.close === 'function') dialog.close();
       else dialog.removeAttribute('open');
       // Force-close any lingering open dialog + clear page-level locks.
