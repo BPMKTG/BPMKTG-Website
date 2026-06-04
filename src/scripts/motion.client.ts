@@ -864,19 +864,41 @@ document.addEventListener('astro:before-swap', () => {
   // ── Global safety net ──────────────────────────────────────────────
   // Catch-all that runs before EVERY navigation regardless of per-component
   // cleanup: force-close any dialog still in the top layer and clear every
-  // page-level lock so a modal can never strand the next page with an
-  // un-clickable body (the root cause of the lightbox "freeze").
-  document.querySelectorAll<HTMLDialogElement>('dialog[open]').forEach(d => {
-    try { d.close(); } catch { d.removeAttribute('open'); }
+  // page-level lock so a modal can never strand the next page (the lightbox
+  // "freeze"). A <dialog> left in the top layer — even visually closed —
+  // blocks the view transition, so every dialog is hard-closed here.
+  document.querySelectorAll<HTMLDialogElement>('dialog').forEach(d => {
+    if (d.open) { try { d.close(); } catch { d.removeAttribute('open'); } }
   });
   const b = document.body, h = document.documentElement;
   b.style.overflow = '';
+  b.style.height = '';
   b.style.paddingRight = '';
   b.style.pointerEvents = '';
+  h.style.overflow = '';
   b.classList.remove('modal-open', 'lightbox-open', 'no-scroll');
   h.classList.remove('modal-open', 'lightbox-open', 'no-scroll');
 });
 document.addEventListener('astro:page-load', safeInit);
+
+// ── View-transition watchdog ───────────────────────────────────────────
+// If a navigation's view transition stalls (e.g. a compositor conflict) the
+// page can appear frozen. Arm a timer when a navigation starts and clear it
+// once the new page loads; if it ever elapses, fall back to a hard navigation
+// to the target URL so the user is never stuck.
+let navWatchdog = 0;
+let navTarget = '';
+document.addEventListener('astro:before-preparation', (e: Event) => {
+  navTarget = ((e as unknown as { to?: URL }).to)?.href ?? '';
+  clearTimeout(navWatchdog);
+  if (!navTarget) return;
+  navWatchdog = window.setTimeout(() => {
+    if (navTarget) window.location.assign(navTarget);
+  }, 3000);
+});
+const clearNavWatchdog = () => { clearTimeout(navWatchdog); navWatchdog = 0; navTarget = ''; };
+document.addEventListener('astro:page-load', clearNavWatchdog);
+document.addEventListener('astro:after-swap', () => { clearTimeout(navWatchdog); });
 
 if (document.readyState !== 'loading') {
   safeInit();
