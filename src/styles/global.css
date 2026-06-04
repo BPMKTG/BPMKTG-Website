@@ -1108,13 +1108,12 @@ img[data-mx-loading][data-mx-loaded] {
 /* ═══════════════════════════════════════════════════════════════
    Lightbox open → free GPU image-texture memory.
    When a photo/video lightbox is open, an opaque ::backdrop already
-   covers the whole page, so none of these are visible. Skipping their
-   rendering releases their decoded-image GPU textures (and the fixed
-   full-screen star-canvas texture), leaving the entire texture budget
-   for the single lightbox image. Closing the lightbox repaints them on
-   demand. This is the real fix for images turning black after heavy
-   gallery browsing — it was GPU texture exhaustion, never a JS leak
-   (JS heap stays ~2MB through the whole repro).
+   covers the whole page, so none of these are visible. `visibility:
+   hidden` stops them being painted (so the browser can release their
+   decoded-image GPU textures + the fixed full-screen star-canvas
+   texture) while KEEPING their layout boxes — so the page can't
+   scroll-jump when the lightbox closes (content-visibility:hidden
+   collapsed the sections to 0 height and yanked the scroll position).
    ═══════════════════════════════════════════════════════════════ */
 body.lb-open .portfolio-hero,
 body.lb-open .featured-block,
@@ -1122,7 +1121,7 @@ body.lb-open .on-film,
 body.lb-open .gallery-block,
 body.lb-open .site-footer,
 body.lb-open .space-canvas {
-  content-visibility: hidden;
+  visibility: hidden;
 }
 
 /* Reduced motion: kill everything */

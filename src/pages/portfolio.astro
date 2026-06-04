@@ -743,6 +743,10 @@ const tilesLB = tilesLBRaw;
     height: 100vh;
     color: #fff;
     overflow: visible;
+    /* Stop rapid clicks through photos from text/image-selecting the
+       lightbox (the blue highlight that was hard to clear). */
+    user-select: none;
+    -webkit-user-select: none;
   }
   .lightbox::backdrop {
     /* Solid dark overlay instead of backdrop-filter:blur — the blur over the
