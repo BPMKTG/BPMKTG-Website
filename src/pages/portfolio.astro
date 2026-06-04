@@ -359,6 +359,15 @@ const tilesLB = tilesLBRaw;
 
       const open = (btn: HTMLElement) => {
         if (!img || !cap) return;
+        // Tear down the video lightbox first — its Vimeo <iframe> is GPU-heavy,
+        // and leaving it loaded while opening a photo was the tipping point for
+        // image-memory exhaustion. Removing the iframe frees the video's memory.
+        const vlb = document.querySelector<HTMLDialogElement>('[data-vlb]');
+        if (vlb) {
+          const vframe = vlb.querySelector<HTMLElement>('[data-vlb-frame]');
+          if (vframe) vframe.innerHTML = '';
+          if (vlb.open) { try { vlb.close(); } catch {} }
+        }
         const idx = openers.indexOf(btn);
         current = idx >= 0 ? idx : 0;
         showAt(current);
@@ -730,8 +739,10 @@ const tilesLB = tilesLBRaw;
     overflow: visible;
   }
   .lightbox::backdrop {
-    background: rgba(5, 6, 12, 0.92);
-    backdrop-filter: blur(14px);
+    /* Solid dark overlay instead of backdrop-filter:blur — the blur over the
+       full viewport is very GPU-heavy and was a tipping point for image-memory
+       exhaustion; at this opacity the look is virtually identical. */
+    background: rgba(5, 6, 12, 0.96);
   }
   .lightbox[open] {
     display: flex;
