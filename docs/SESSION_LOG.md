@@ -1080,24 +1080,31 @@ Memory rule **"always push directly to main"** lives at `~/.claude/projects/C--U
 
 ---
 
-## ✅ RESOLVED — Portfolio lightbox "glitch" (GPU texture exhaustion) — 2026-06-04
+## ✅ RESOLVED — Portfolio lightbox "glitch" was a LOCAL GPU-DRIVER fault on one PC, NOT a site bug — 2026-06-04
 
-**Status: FIXED. Confirmed working on the live deployed site (verified in a fresh Incognito window, real Chrome, desktop).** Closed out in the session that finally reproduced + profiled it in real Chrome.
+**Status: CLOSED. The website is fine. The glitch was isolated to a single machine.** Do not re-chase this as a code bug.
 
-**Symptom recap:** On `/portfolio`, after browsing the gallery (and/or playing an On Film video), opening a photo made the lightbox image go **black (caption showed, image didn't)**, already-decoded gallery images **turned to dark placeholders**, and **internal/same-tab navigation died** while external `target="_blank"` links and scroll still worked. Hard refresh recovered it.
+**The real root cause:** a **GPU driver / hardware fault on one specific Windows PC** (the owner's custom-built desktop). On that PC the GPU context dropped under the portfolio's rendering load — lightbox/gallery images went **black**, the tab's compositor **wedged** (same-tab nav dead, external `target="_blank"` + scroll still worked), and a **hard refresh recovered** it. Classic per-tab GPU context loss from a flaky driver.
 
-**What it actually was = GPU decoded-image-texture exhaustion (NOT a JS leak, NOT the Vimeo iframe).** Real-Chrome profiling proved it: through the entire repro the JS heap stayed **~2 MB** (limit 4096 MB) and even *fell* after closing the video; `iframes` returned to 0 on close; broken-image count was 0 even when images were visibly black. So the images were valid in memory but the GPU couldn't paint them. The tell that it's a *compositor* failure, not mere eviction: **same-tab nav dead but new-tab/external links fine** = the tab's renderer/compositor was wedged, not just textures dropped. The video was only an accelerant — it reproduced with **no video at all**, just opening several photos.
+**How we proved it's the machine, not the code — the decisive evidence:**
+- Reproduced **only** on that one PC. Tested the identical repro on an **iMac, a Mac laptop, an M1 MacBook, and a *second* Windows PC → all flawless.**
+- On the failing PC it broke in **Chrome, Edge, AND Firefox.** Firefox uses a totally different engine + GPU stack than Chromium — three engines failing on one machine while four other devices are clean = a **system-level GPU driver/hardware problem**, not the site.
+- JS heap stayed ~2 MB throughout (not a leak); `iframes` returned to 0 on close (not the Vimeo player); broken-image count was 0 while images were visibly black (valid in memory, GPU just couldn't paint) — all consistent with a driver-level context loss, nothing the page code controls.
 
-**The fix (commits `d2b031b`, `1c0d70b`):** While any lightbox (photo or video) is open, JS adds `body.lb-open`; global CSS then sets **`visibility: hidden`** on `.portfolio-hero, .featured-block, .on-film, .gallery-block, .site-footer, .space-canvas`. The opaque `::backdrop` already covers them, so this is invisible — but it stops them being painted, letting Chrome **release their GPU image textures (and the full-screen star-canvas texture)** so the single lightbox photo always fits the budget. Closing repaints on demand. Also: lightbox source `getImage` width **1440→1200** (screen can't show more); `user-select:none` on both lightboxes (rapid click-through was text/image-selecting → sticky blue highlight).
-  - **Important:** first attempt used `content-visibility:hidden` here, which **collapsed each section to 0 height** → closing the lightbox yanked the scroll position to the footer. `visibility:hidden` keeps the layout box, so no scroll-jump. Don't switch it back.
+**Fix for the affected PC (not a code change):** update the GPU driver via a **clean/DDU reinstall**; immediate workaround is disabling browser GPU acceleration (Chrome → Settings → System → "Use graphics acceleration when available" → off → relaunch). If a clean driver reinstall doesn't resolve it, suspect GPU hardware (temps/VRAM/PSU).
 
-**Why every prior session failed to crack it — the real lesson:** the bug **only reproduces on the Cloudflare-served production build in a normal (cache-populated) browser.** It could NOT be reproduced on `localhost` — neither `astro dev` (4321) nor `astro preview` of the prod build (4322) triggers it on the same machine/Chrome/GPU (localhost's throttled HTTP/1.1 connections spread image decode out; Cloudflare's HTTP/2/3 floods it). And the headless preview never could (no real GPU pressure). **Debugging move that worked:** drive a `snap()` console probe in real Chrome to read heap/iframe/dialog/broken-image counts at each step → ruled out JS leak + iframe → confirmed GPU; then compared deployed-vs-localhost-vs-Incognito to isolate it. A "still glitches after deploy" report was actually a **cached/pre-deploy build** — always re-test the live site in **Incognito** to bust browser cache before concluding a fix failed.
+**Debugging lessons worth keeping (these were genuinely useful):**
+- Drive a `snap()`/`diag()` console probe in **real Chrome** to read heap / iframe / dialog / broken-image counts at the moment of failure — instantly separates JS leak vs. GPU vs. stuck-dialog.
+- **`localhost` (astro dev 4321, astro preview 4322, and even a hand-rolled local HTTP/2+TLS server) could not reproduce it** — only the real machine under real load did. Don't trust a clean localhost as proof a GPU issue is fixed.
+- After a deploy, **re-test the live site in Incognito** before concluding a fix failed — a "still glitches" report early on was just a cached/pre-deploy build.
+- When a "bug" resists every code fix and every environmental variable you can reproduce, **test on other physical devices early** — it can be hardware. We'd have saved hours by trying a second PC sooner.
+
+**Code that shipped during the hunt (harmless to keep, but based on the since-disproven "texture exhaustion" theory — safe to simplify post-launch):** commits `d2b031b` / `1c0d70b` added `body.lb-open` → `visibility:hidden` on the heavy sections + star canvas while a lightbox is open (invisible behind the opaque backdrop; verified no scroll-jump — do NOT switch it to `content-visibility:hidden`, that collapses section height and yanks scroll). Also lightbox source `getImage` width **1440→1200** (fine — screen can't show more) and `user-select:none` on both lightboxes (genuine fix for the sticky blue highlight on rapid click-through). None of this was what "fixed" the bug — the bug was never in the code.
 
 **Key files (current):**
-- Photo lightbox: inline `<script>` in `src/pages/portfolio.astro` (`initLightbox`/`lbCleanup`, toggles `body.lb-open`). `lightboxOf()` width=1200. Gallery `<Image width={800}>`, Access `<Image width={900}>`.
+- Photo lightbox: inline `<script>` in `src/pages/portfolio.astro` (`initLightbox`/`lbCleanup`, toggles `body.lb-open`). `lightboxOf()` width=1200.
 - Video lightbox: inline `<script>` in `src/components/OnFilm.astro` (`openVideoLightbox`/`closeVideoLightbox`, also toggles `body.lb-open`).
-- `body.lb-open` texture-release rule: `src/styles/global.css` just below the `img[data-mx-loading]` block.
-- SpaceBackground canvas: `src/components/SpaceBackground.astro` (full-screen, dpr cap 1.5, dialog-gated paint).
+- `body.lb-open` rule: `src/styles/global.css` just below the `img[data-mx-loading]` block.
 
 ---
 
