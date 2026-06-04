@@ -345,6 +345,11 @@ const tilesLB = tilesLBRaw;
         const btn = openers[next];
         img.src = btn.dataset.full || '';
         img.alt = btn.dataset.caption || '';
+        // Take the lightbox image out of the global fade-in system so it can
+        // never get stranded at opacity:0 (the `img[data-mx-loading]` rule):
+        // the modal manages its own visibility.
+        img.removeAttribute('data-mx-loading');
+        img.style.opacity = '1';
         cap.textContent = btn.dataset.caption || '';
       };
 
