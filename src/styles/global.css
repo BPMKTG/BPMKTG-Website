@@ -374,8 +374,12 @@ p { margin: 0; color: var(--muted); }
   html { cursor: auto; }
 }
 @media (pointer: fine) {
-  html:has(.bp-cursor) { cursor: none; }
-  html:has(.bp-cursor) a, html:has(.bp-cursor) button { cursor: none; }
+  /* When the custom cursor is active, hide the native cursor on EVERYTHING
+     (not just html/a/button) so it never shows on top of the crosshair —
+     covers images, the lightbox, cards, and elements that set their own
+     cursor (pointer / grab / etc.). */
+  html:has(.bp-cursor),
+  html:has(.bp-cursor) * { cursor: none !important; }
 }
 
 /* ──────── Button shimmer sweep ──────── */
