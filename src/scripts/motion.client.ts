@@ -259,12 +259,27 @@ function initCursor() {
   let ty = win.__bpCursorTy ?? -100;
   let x  = win.__bpCursorX  ?? tx;
   let y  = win.__bpCursorY  ?? ty;
-  // If the cursor element survived, keep its visual position consistent
-  // with the restored state so there is no visible jump on the new page.
-  if (x !== -100) node.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+
+  // Hide the cursor until the first real pointer move, then snap it straight
+  // to the pointer (no lerp) and fade it in. Navigation is a full page load,
+  // so we never know the true pointer position up front — without this the
+  // cursor would start at (-100,-100) and visibly slide in from the corner on
+  // every page change ("jumps away and back"). `ready` flips on first move.
+  let ready = x !== -100;
+  if (ready) node.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+  else node.style.opacity = '0';
 
   let raf = 0, running = true;
-  const onMove = (e: PointerEvent) => { tx = e.clientX; ty = e.clientY; };
+  const onMove = (e: PointerEvent) => {
+    tx = e.clientX; ty = e.clientY;
+    if (!ready) {
+      // First sighting of the pointer: place the cursor exactly there and reveal.
+      ready = true;
+      x = tx; y = ty;
+      node.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      node.style.opacity = '';
+    }
+  };
   const onDown = () => node.classList.add('is-click');
   const onUp   = () => node.classList.remove('is-click');
   const onOver = (e: Event) => {
