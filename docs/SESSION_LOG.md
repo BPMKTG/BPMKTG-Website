@@ -1080,4 +1080,36 @@ Memory rule **"always push directly to main"** lives at `~/.claude/projects/C--U
 
 ---
 
+## ⚠️ OPEN BUG — Portfolio lightbox "glitch" after playing a video (UNRESOLVED)
+
+**Symptom (real Chrome, deployed `bpmktg-website.pages.dev`, desktop):** On `/portfolio`, after **playing a video in the On Film lightbox** and then opening a **photo** in the gallery lightbox, the site "glitches": the lightbox photo shows its **caption but a black/empty image**, **already-loaded gallery images turn into empty dark placeholders**, and **internal navigation dies** (header/footer/logo/CTA links to other pages do nothing). What KEEPS working: hover-video previews, opening videos in lightbox, external Calendly links (`target="_blank"`), scrolling. The page is **not frozen** (main thread alive) — it's images + nav that break. Hard refresh recovers it. It's **progressive**: the more images that have decoded (the further you've scrolled), the sooner it trips. Latest report: it still happens specifically **after a video has been played** in the lightbox, even with all fixes below.
+
+**Diagnosis so far = GPU / decoded-image-texture memory exhaustion.** Chrome evicts/fails image textures under memory pressure (images render black) while text + the separate video decoder keep working. The Vimeo iframe (video player) is a big memory spike; playing one then decoding a photo tips it over.
+
+**What was already tried (all committed to `main`, all verified mechanically in the headless preview but NOT reproducible there — the offscreen preview pauses rAF/compositor and can't reproduce real GPU pressure):**
+1. `abece9a` — full lifecycle refactor: every component script (Carousel, OnFilm, Parallax, ArtistMarquee, BrandMessage, AboutTease, Header, portfolio lightbox) now inits on `astro:page-load` + re-inits, and tears down on `astro:before-swap` via one `AbortController` + tracked rAF/interval/IO. Canvas paint loops skip drawing while `dialog[open]`. Removed conflicting global `initLightboxArrows`. Global before-swap net closes dialogs + clears body/html locks. **Did NOT fix the freeze.**
+2. `7754a5f` — SpaceBackground canvas (transition:persist) hard-stops its rAF on before-swap, restarts on page-load (so it doesn't paint while a view transition moves/animates it). View-transition watchdog (3s → hard nav). **Got further but still broke.**
+3. `22d8fa6` — **Removed `<ClientRouter />` (Astro view transitions) entirely** from `Layout.astro`. Navigation is now full page load. This fixed all the cross-page failures. Lightbox img also opted out of the `img[data-mx-loading]{opacity:0}` fade system (force opacity:1) so a missed load can't hide it. **User confirmed "got a lot further" but it STILL glitches after heavy use.**
+4. `22787f7` — Memory reduction: gallery `.tile` got `content-visibility:auto` + `contain-intrinsic-size:auto 360px` (frees off-screen image decode; masonry layout verified stable — fixed grid-auto-rows so no collapse). Lightbox source `getImage` width **1800→1440**. SpaceBackground canvas DPR cap **2→1.5**. **User: "i think we fixed it!" then later it broke again specifically video→photo.**
+5. `a93ef70` — Replaced all four lightbox `::backdrop` `backdrop-filter: blur()` (full-viewport GPU filter) with solid dark overlays (~0.95–0.97 opacity, near-identical look). Photo & video lightboxes now **mutually exclusive**: opening a photo tears down the video `<iframe>` (frees video memory) + closes the video dialog; opening a video closes the photo dialog. **STILL glitches after playing a video.** ← current state
+
+**Key files:**
+- Photo lightbox: inline `<script>` in `src/pages/portfolio.astro` (initLightbox, lbCleanup). `lightboxOf()` width=1440 at top. Gallery `<Image width={800}>`, Access `<Image width={900}>`.
+- Video lightbox: inline `<script>` in `src/components/OnFilm.astro` (openVideoLightbox/closeVideoLightbox; iframe is `frame.innerHTML=...`/`''`).
+- SpaceBackground canvas: `src/components/SpaceBackground.astro` (transition:persist, dpr cap 1.5, dialog-gated paint).
+- Custom cursor + global net + watchdog + counters/reveal/etc: `src/scripts/motion.client.ts`.
+- Image fade CSS `img[data-mx-loading]`: `src/styles/global.css` ~line 1089. Custom-cursor hide-native rule ~line 376.
+
+**NEXT STEPS to try (in a real browser — must reproduce + profile, the headless preview CANNOT):**
+- **Profile GPU/memory in real Chrome**: DevTools → Performance/Memory + `chrome://gpu`, watch "GPU memory" while doing video→photo. Confirm texture exhaustion vs. a true leak.
+- The Vimeo iframe may not release GPU memory immediately on `innerHTML=''`. Try: on video close, also set the iframe `src=''` before removing, and/or wait a frame. Consider `dnt=1` already set.
+- Lower image memory further: gallery tile `width={800}→640`, Access `width={900}→700`, lightbox `1440→1200`. Add `content-visibility:auto` to On Film `.film-tile` + Access `.feat-card` too.
+- Consider NOT loading the full Vimeo player — use a lightweight facade (poster + play → only load iframe on explicit play), or `loading="lazy"` iframe, or limit to one iframe ever.
+- Check if the SpaceBackground canvas (still full-screen, persistent) can be made smaller or paused harder on the portfolio page specifically.
+- Verify there's no real JS leak: after the glitch, in console check `performance.memory`, count `<img>` with decoded data, `document.querySelectorAll('iframe').length`, any `dialog[open]`.
+
+**Reproduction recipe (give to next session):** Load `/portfolio` fresh → scroll most of the gallery → play a video in On Film lightbox → close → open a gallery photo. Observe black image + dead nav.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
