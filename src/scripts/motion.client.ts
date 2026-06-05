@@ -330,6 +330,10 @@ function initHeroParticles() {
   const heroEl = document.querySelector<HTMLElement>('.hero');
   if (!heroEl) return;
 
+  // Hero particle canvas is desktop-only — skip it entirely on phones so the
+  // canvas + its rAF loop never cost anything during mobile scrolling.
+  if (window.innerWidth < 700) return;
+
   // In the cinematic desktop hero the section is a tall (200vh) scroll
   // track, so host the canvas in the pinned 100vh stage instead — that way
   // the particles stay put and sized to the viewport. Decided by the same
@@ -369,12 +373,10 @@ function initHeroParticles() {
   resize();
   window.addEventListener('resize', resize, { passive: true });
 
-  // Mobile gets noticeably fewer dots and a tighter line-draw radius so the
-  // constellation effect reads as a subtle accent rather than a busy net.
-  // Desktop tuning is unchanged.
-  const isMobile = window.innerWidth < 700;
-  const COUNT = isMobile ? 16 : 75;
-  const LINK_DIST = isMobile ? 70 : 118;
+  // Desktop only past this point (mobile returned above). 20% fewer dots
+  // (75 -> 60) to lighten per-frame work with no perceptible change.
+  const COUNT = 60;
+  const LINK_DIST = 118;
   type P = { x: number; y: number; vx: number; vy: number; r: number; a: number };
   const ps: P[] = Array.from({ length: COUNT }, () => ({
     x: Math.random() * w,

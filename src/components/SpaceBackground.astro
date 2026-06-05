@@ -32,9 +32,11 @@
 
     function genStars() {
       // Density scales with viewport area so it never feels sparse on big
-      // screens or noisy on small ones. ~1 star per 5,500 px².
+      // screens or noisy on small ones. ~1 star per 5,500 px². Capped lower
+      // (desktop 400, mobile 150) to cut per-frame work — visually unchanged
+      // at typical viewport sizes, fewer stars only on very large displays.
       const area = W * H;
-      const target = Math.round(Math.min(isMobile() ? 220 : 600, area / 5500));
+      const target = Math.round(Math.min(isMobile() ? 150 : 400, area / 5500));
       stars = new Array(target);
       for (let i = 0; i < target; i++) {
         stars[i] = {

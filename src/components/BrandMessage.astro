@@ -35,7 +35,7 @@ const videoSrc: string | null = null;          // self-hosted fallback: '/videos
         >
           <Image class="bmv-poster" src={bmvPoster} alt="" widths={[640, 960, 1280]} sizes="(max-width: 920px) 90vw, 55vw" loading="lazy" />
           <span class="bmv-shade" aria-hidden="true"></span>
-          <video class="bmv-preview" muted playsinline loop preload="metadata" aria-hidden="true">
+          <video class="bmv-preview" muted playsinline loop preload="none" aria-hidden="true">
             <source src="/videos/previews/bmv-hoverpreview.mp4" type="video/mp4" />
           </video>
           <span class="bmv-content">

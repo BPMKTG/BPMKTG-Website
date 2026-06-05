@@ -58,7 +58,7 @@ const ariaLabel = `Play ${caption} ${category.toLowerCase()}`;
       <span class="placeholder-bg" aria-hidden="true"></span>
     )}
     {preview && (
-      <video class="hover-video" preload="metadata" muted playsinline loop>
+      <video class="hover-video" preload="none" muted playsinline loop>
         <source src={preview} type="video/mp4" />
       </video>
     )}

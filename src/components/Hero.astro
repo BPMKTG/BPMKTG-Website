@@ -47,11 +47,12 @@ const subhead = "Blueprint Marketing builds growth infrastructure for EDM artist
           format="webp"
           quality={84}
           loading="eager"
+          fetchpriority="high"
         />
         <!-- Video src is set per-viewport by initHeroVideo() in
              motion.client.ts — runs on every astro:page-load so the video
              also re-loads when navigating BACK to the homepage. -->
-        <video class="hero-video" autoplay muted loop playsinline preload="auto"></video>
+        <video class="hero-video" autoplay muted loop playsinline preload="metadata"></video>
         <div class="media-overlay" aria-hidden="true"></div>
         <div class="media-grid" aria-hidden="true"></div>
 
