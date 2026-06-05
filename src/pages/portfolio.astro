@@ -570,15 +570,11 @@ const tilesLB = tilesLBRaw;
     width: 100%; height: 100%;
     object-fit: cover;
     transition: transform 0.5s ease;
-    /* Same hint on the image itself — keeps the scale animation on
-       its own layer so the parent's clip is preserved. */
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    will-change: transform;
-    /* Round the image itself too. Safari does NOT clip a layer-promoted
-       child (this img is its own GPU layer) to the transformed parent's
-       border-radius, so without this the corners stay square on Mac while
-       Chrome/Windows clip fine. Matching the wrap's 16px radius fixes it. */
+    /* Round the image itself so corners are clipped on every browser — Safari
+       won't clip a child to a transformed parent's border-radius. The image is
+       deliberately NOT promoted to its own 3D layer (no translateZ/will-change/
+       backface here): a rounded promoted layer inside the parent's perspective
+       tilt made the tilt flicker on Safari. The parent keeps the tilt + clip. */
     border-radius: inherit;
   }
   .feat-card:hover .img-wrap :global(img),
