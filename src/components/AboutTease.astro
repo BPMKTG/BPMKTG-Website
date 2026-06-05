@@ -120,11 +120,17 @@ const foundersLB = await Promise.all(
     const open = (btn: HTMLButtonElement) => {
       const full = btn.dataset.full ?? '';
       const caption = btn.dataset.caption ?? '';
-      img.src = full;
       img.alt = caption;
-      img.removeAttribute('data-mx-loading');   // never let the fade trap hide it
-      img.style.opacity = '1';
       cap.textContent = caption;
+      img.removeAttribute('data-mx-loading');   // never let the fade trap hide it
+      // Hide the <img> until the NEW portrait has decoded, otherwise the
+      // previously-opened portrait (still decoded in this element) flashes for
+      // a frame before the correct one loads.
+      img.style.opacity = '0';
+      img.src = full;
+      img.decode()
+        .then(() => { img.style.opacity = '1'; })
+        .catch(() => { img.style.opacity = '1'; });   // show anyway if decode fails
       if (!dialog.open) dialog.showModal();
       const cursor = document.querySelector<HTMLElement>('.bp-cursor');
       if (cursor) dialog.appendChild(cursor);
@@ -287,6 +293,7 @@ const foundersLB = await Promise.all(
     object-fit: contain;
     border-radius: 14px;
     box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8);
+    transition: opacity 0.2s ease;   /* smooth fade-in once the portrait decodes */
   }
   .tease-lightbox figcaption {
     color: var(--bp-light);
