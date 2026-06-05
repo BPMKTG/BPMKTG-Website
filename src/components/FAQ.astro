@@ -161,17 +161,19 @@ const {
   .faq-body.has-bts {
     grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
     gap: 2.5rem;
-    /* stretch, not center: the photo fills the question column's height and
-       resizes smoothly as answers open/close — instead of being a fixed-size
-       box that jumps vertically to re-center on every toggle (read as a flash). */
-    align-items: stretch;
+    /* Top-anchor the photo (not center, not stretch): it's a constant size and
+       stays pinned at the top, so opening/closing a question — which changes the
+       question column's height — never moves OR resizes it. Centering made it
+       jump to re-center; stretching made it resize every toggle. Both flickered. */
+    align-items: start;
   }
 
   .faq-bts {
     position: relative;
-    /* No fixed aspect-ratio on desktop: align-items:stretch lets the photo
-       fill the question column's height (and resize as it changes). The
-       mobile rule below restores a set ratio for the single-column layout. */
+    /* Constant size, independent of the question column's height — so it never
+       resizes when a question opens/closes (top-anchored via align-items:start
+       above). The mobile rule below uses a wider ratio for the stacked layout. */
+    aspect-ratio: 4 / 5;
     border-radius: 18px;
     overflow: hidden;
     border: 1px solid var(--line);
