@@ -554,31 +554,30 @@ const tilesLB = tilesLBRaw;
     background: var(--card);
     position: relative;
     display: block;
-    /* Apply the 3D tilt here using the vars set by initTilt(). This scoped
-       rule would otherwise override the global `[data-tilt] .img-wrap`
-       transform (killing the tilt) — so it has to carry the tilt itself.
-       The perspective/rotate transform also gives the rounded-corner clip
-       its own compositor layer, the same reason the old translateZ(0) was
-       here, so the corners don't square off while the image scales. */
-    transform: perspective(900px) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
-    transition: transform 0.3s cubic-bezier(.2,.7,.3,1);
-    backface-visibility: hidden;
+    /* STATIC rounded frame — deliberately NOT tilted (this overrides the global
+       [data-tilt] .img-wrap transform). Safari can't keep a rounded clip on an
+       element it 3D-transforms every frame — that flickered the corners. Keeping
+       the frame static fixes it; translateZ(0) gives it its own layer so it
+       reliably clips the tilting image inside (Safari included). The 3D tilt is
+       applied to the <img> instead (below). */
+    transform: translateZ(0);
     isolation: isolate;
-    will-change: transform;
   }
   .feat-card .img-wrap :global(img) {
     width: 100%; height: 100%;
     object-fit: cover;
-    transition: transform 0.5s ease;
-    /* Round the image itself so corners are clipped on every browser — Safari
-       won't clip a child to a transformed parent's border-radius. The image is
-       deliberately NOT promoted to its own 3D layer (no translateZ/will-change/
-       backface here): a rounded promoted layer inside the parent's perspective
-       tilt made the tilt flicker on Safari. The parent keeps the tilt + clip. */
-    border-radius: inherit;
+    /* Tilt lives on the IMAGE now, inside the static rounded frame, so corners
+       stay put on Safari. Reads --tilt-rx/--tilt-ry (initTilt sets them on
+       .img-wrap; custom props inherit down to the img) and composes the hover
+       zoom via --feat-scale. The hover zoom is active exactly when the tilt is,
+       so it also overfills the frame and the tilt never reveals an edge gap. */
+    transform: perspective(900px) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)) scale(var(--feat-scale, 1));
+    transition: transform 0.3s cubic-bezier(.2,.7,.3,1);
+    will-change: transform;
+    backface-visibility: hidden;
   }
   .feat-card:hover .img-wrap :global(img),
-  .feat-card:focus-visible .img-wrap :global(img) { transform: scale(1.05); }
+  .feat-card:focus-visible .img-wrap :global(img) { --feat-scale: 1.05; }
 
   /* Hover caption: slides up from bottom of the photo */
   .feat-card .hover-meta {
