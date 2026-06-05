@@ -554,31 +554,28 @@ const tilesLB = tilesLBRaw;
     background: var(--card);
     position: relative;
     display: block;
-    /* STATIC rounded frame — deliberately NOT tilted (this overrides the global
-       [data-tilt] .img-wrap transform). Safari can't keep a rounded clip on an
-       element it 3D-transforms every frame — that flickered the corners. Keeping
-       the frame static fixes it; translateZ(0) gives it its own layer so it
-       reliably clips the tilting image inside (Safari included). The 3D tilt is
-       applied to the <img> instead (below). */
-    transform: translateZ(0);
+    /* Whole frame tilts — reads --tilt-rx/--tilt-ry from initTilt's per-frame
+       lerp. Compositor hints (preserve-3d, isolate, backface-visibility,
+       will-change) keep the rounded clip stable while the element 3D-transforms,
+       so Safari doesn't flicker the corners. Transition is intentionally
+       short (80ms) so the JS lerp dominates per-frame motion — a longer CSS
+       transition would constantly chase each new target and make the tilt
+       feel laggy. */
+    transform: perspective(900px) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+    transform-style: preserve-3d;
+    transition: transform 0.08s linear;
+    backface-visibility: hidden;
     isolation: isolate;
+    will-change: transform;
   }
   .feat-card .img-wrap :global(img) {
     width: 100%; height: 100%;
     object-fit: cover;
-    /* Tilt lives on the IMAGE now, inside the static rounded frame, so corners
-       stay put on Safari. Reads --tilt-rx/--tilt-ry (initTilt sets them on
-       .img-wrap; custom props inherit down to the img) and composes the hover
-       zoom via --feat-scale. The hover zoom is active exactly when the tilt is,
-       so it also overfills the frame and the tilt never reveals an edge gap.
-
-       Transition is intentionally short (80ms) — initTilt runs its own
-       per-frame lerp (rx += (trx - rx) * 0.18) at ~60fps. A longer CSS
-       transition would constantly chase each frame's new target and make
-       the tilt feel laggy / muddy. 80ms still smooths the hover --feat-scale
-       change cleanly. */
-    transform: perspective(900px) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)) scale(var(--feat-scale, 1));
-    transition: transform 0.08s linear;
+    /* Hover-zoom lives on the img so it doesn't fight the tilt transform on
+       the wrap. They compose visually because the img is a child of the
+       tilting wrap. */
+    transform: scale(var(--feat-scale, 1));
+    transition: transform 0.3s cubic-bezier(.2,.7,.3,1);
     will-change: transform;
     backface-visibility: hidden;
   }
