@@ -498,6 +498,17 @@ const trackList = [...artists, ...artists];
     background: #000;
     box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(98, 166, 219, 0.2);
   }
+  /* Every marquee video is vertical (9:16), so size the player by height to
+     fill it instead of pillar-boxing it in the wide 16:9 frame. The open
+     handler tags the container data-kind="video", so this only hits videos —
+     photos keep their own sizing. (If a horizontal marquee video is ever added,
+     give it a per-item orientation flag like the On Film tiles use.) */
+  .artist-lb-media[data-kind="video"] :global(iframe) {
+    width: auto;
+    height: min(82vh, 1040px);
+    aspect-ratio: 9 / 16;
+    max-width: 94vw;
+  }
   .artist-lightbox figcaption {
     color: var(--bp-light);
     font-family: var(--font-display);
