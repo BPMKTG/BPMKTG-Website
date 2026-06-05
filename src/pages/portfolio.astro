@@ -575,6 +575,11 @@ const tilesLB = tilesLBRaw;
     transform: translateZ(0);
     backface-visibility: hidden;
     will-change: transform;
+    /* Round the image itself too. Safari does NOT clip a layer-promoted
+       child (this img is its own GPU layer) to the transformed parent's
+       border-radius, so without this the corners stay square on Mac while
+       Chrome/Windows clip fine. Matching the wrap's 16px radius fixes it. */
+    border-radius: inherit;
   }
   .feat-card:hover .img-wrap :global(img),
   .feat-card:focus-visible .img-wrap :global(img) { transform: scale(1.05); }

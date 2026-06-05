@@ -152,8 +152,7 @@ const {
   }
 
   /* Two-column layout when the BTS image is shown — image on the LEFT,
-     questions on the right. align-items: center keeps the photo visually
-     centered with the question list rather than pinned to question #1. */
+     questions on the right. */
   .faq-body {
     display: grid;
     grid-template-columns: 1fr;
@@ -162,12 +161,17 @@ const {
   .faq-body.has-bts {
     grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
     gap: 2.5rem;
-    align-items: center;
+    /* stretch, not center: the photo fills the question column's height and
+       resizes smoothly as answers open/close — instead of being a fixed-size
+       box that jumps vertically to re-center on every toggle (read as a flash). */
+    align-items: stretch;
   }
 
   .faq-bts {
     position: relative;
-    aspect-ratio: 4 / 5;
+    /* No fixed aspect-ratio on desktop: align-items:stretch lets the photo
+       fill the question column's height (and resize as it changes). The
+       mobile rule below restores a set ratio for the single-column layout. */
     border-radius: 18px;
     overflow: hidden;
     border: 1px solid var(--line);
