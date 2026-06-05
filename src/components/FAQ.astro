@@ -161,19 +161,18 @@ const {
   .faq-body.has-bts {
     grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
     gap: 2.5rem;
-    /* Top-anchor the photo (not center, not stretch): it's a constant size and
-       stays pinned at the top, so opening/closing a question — which changes the
-       question column's height — never moves OR resizes it. Centering made it
-       jump to re-center; stretching made it resize every toggle. Both flickered. */
-    align-items: start;
+    /* Stretch: the photo tracks the question column's height. The flicker came
+       from that height changing INSTANTLY on toggle — fixed by animating the
+       accordion open/close below, so the column (and the photo with it) eases
+       to the new height instead of snapping. */
+    align-items: stretch;
   }
 
   .faq-bts {
     position: relative;
-    /* Constant size, independent of the question column's height — so it never
-       resizes when a question opens/closes (top-anchored via align-items:start
-       above). The mobile rule below uses a wider ratio for the stacked layout. */
-    aspect-ratio: 4 / 5;
+    /* No fixed ratio on desktop — align-items:stretch sizes it to the question
+       column (which now eases between heights). Mobile rule restores a ratio
+       for the single-column stack. */
     border-radius: 18px;
     overflow: hidden;
     border: 1px solid var(--line);
@@ -313,6 +312,23 @@ const {
     font-size: 0.96rem;
     line-height: 1.55;
     max-width: 70ch;
+  }
+
+  /* Smooth accordion open/close — the question column eases between heights so
+     the stretched BTS photo glides with it instead of snapping (the "flicker").
+     Uses the modern ::details-content animation; browsers without interpolate-size
+     just toggle instantly (no regression, the content still shows when open). */
+  @supports (interpolate-size: allow-keywords) {
+    .faq { interpolate-size: allow-keywords; }
+    .faq-item::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition: block-size 0.4s cubic-bezier(0.2, 0.7, 0.3, 1),
+                  content-visibility 0.4s allow-discrete;
+    }
+    .faq-item[open]::details-content {
+      block-size: auto;
+    }
   }
 
   /* Footnote restyled as a calm centered body line. Link uses bp-blue
