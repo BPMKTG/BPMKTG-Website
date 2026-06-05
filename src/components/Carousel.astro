@@ -301,17 +301,15 @@ const shots = [
     overflow-y: hidden;
     padding: 0.5rem 1.5rem 1rem;
     scroll-padding-left: 1.5rem;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.2) transparent;
+    scrollbar-width: none;        /* Firefox — hide the scrollbar (still scrolls) */
+    -ms-overflow-style: none;     /* old Edge/IE */
     cursor: grab;
     user-select: none;
     -webkit-user-select: none;
   }
   .rail:active { cursor: grabbing; }
   .rail :global(img) { -webkit-user-drag: none; user-drag: none; }
-  .rail::-webkit-scrollbar { height: 8px; }
-  .rail::-webkit-scrollbar-track { background: transparent; }
-  .rail::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 999px; }
+  .rail::-webkit-scrollbar { display: none; }   /* Chrome/Safari/Edge — hide the scrollbar */
 
   .card {
     margin: 0;
