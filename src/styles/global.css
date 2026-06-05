@@ -63,6 +63,14 @@ body {
   background-size: 220px 220px, auto, auto, auto;
   background-attachment: fixed;
 }
+/* Mobile: a fixed-attachment background is NOT GPU-composited on iOS and
+   repaints the whole nebula + grain on every scroll frame (janky scrolling).
+   Let it scroll with the page instead — the starfield canvas (position:fixed)
+   still gives the fixed cosmos, and these gradients are subtle enough that the
+   difference is imperceptible. Pure scroll-perf win on phones. */
+@media (max-width: 700px) {
+  body { background-attachment: scroll; }
+}
 
 a { color: inherit; text-decoration: none; }
 img, svg { max-width: 100%; height: auto; display: block; }
