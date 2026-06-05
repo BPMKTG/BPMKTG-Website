@@ -1080,18 +1080,18 @@ Memory rule **"always push directly to main"** lives at `~/.claude/projects/C--U
 
 ---
 
-## ✅ RESOLVED — Portfolio lightbox "glitch" was a LOCAL GPU-DRIVER fault on one PC, NOT a site bug — 2026-06-04
+## ✅ RESOLVED — Portfolio lightbox "glitch" was a LOCAL Chromium-GPU-driver fault on one PC, NOT a site bug — 2026-06-04
 
-**Status: CLOSED. The website is fine. The glitch was isolated to a single machine.** Do not re-chase this as a code bug.
+**Status: CLOSED. The website is fine. The glitch was isolated to one PC's Chromium browsers.** Do not re-chase this as a code bug.
 
-**The real root cause:** a **GPU driver / hardware fault on one specific Windows PC** (the owner's custom-built desktop). On that PC the GPU context dropped under the portfolio's rendering load — lightbox/gallery images went **black**, the tab's compositor **wedged** (same-tab nav dead, external `target="_blank"` + scroll still worked), and a **hard refresh recovered** it. Classic per-tab GPU context loss from a flaky driver.
+**The real root cause:** a **GPU driver bug in the Direct3D11 path that Chromium (Chrome/Edge) uses, on one specific Windows PC** (the owner's custom-built desktop). On that PC, under the portfolio's rendering load, the GPU context dropped — lightbox/gallery images went **black**, the tab's compositor **wedged** (same-tab nav dead, external `target="_blank"` + scroll still worked), and a **hard refresh recovered** it. Classic per-tab GPU context loss. Firefox on the same PC was unaffected (different GPU backend).
 
 **How we proved it's the machine, not the code — the decisive evidence:**
 - Reproduced **only** on that one PC. Tested the identical repro on an **iMac, a Mac laptop, an M1 MacBook, and a *second* Windows PC → all flawless.**
-- On the failing PC it broke in **Chrome, Edge, AND Firefox.** Firefox uses a totally different engine + GPU stack than Chromium — three engines failing on one machine while four other devices are clean = a **system-level GPU driver/hardware problem**, not the site.
+- On the failing PC it broke in **Chrome AND Edge (both Chromium / ANGLE→D3D11) but NOT Firefox (Gecko, different GPU backend).** Chromium-only failure on one machine, clean everywhere else = **that PC's GPU driver has a bug in the Direct3D11 path Chromium uses**; Firefox's different path dodges it. Most likely surfaced by a recent Chrome/Edge auto-update (they update together) — which is why the owner perceived it as "started a couple days ago," not a site change.
 - JS heap stayed ~2 MB throughout (not a leak); `iframes` returned to 0 on close (not the Vimeo player); broken-image count was 0 while images were visibly black (valid in memory, GPU just couldn't paint) — all consistent with a driver-level context loss, nothing the page code controls.
 
-**Fix for the affected PC (not a code change):** update the GPU driver via a **clean/DDU reinstall**; immediate workaround is disabling browser GPU acceleration (Chrome → Settings → System → "Use graphics acceleration when available" → off → relaunch). If a clean driver reinstall doesn't resolve it, suspect GPU hardware (temps/VRAM/PSU).
+**Fix for the affected PC (not a code change), in order:** (1) In `chrome://flags` set **"Choose ANGLE graphics backend" → OpenGL** (or D3D9) and relaunch — switches Chromium off the buggy D3D11 path; fast, reversible, usually fixes it. (2) Clean **GPU driver reinstall (DDU + latest driver)**. (3) Band-aid: disable browser GPU acceleration (Chrome → Settings → System → off → relaunch). Firefox already works as-is.
 
 **Debugging lessons worth keeping (these were genuinely useful):**
 - Drive a `snap()`/`diag()` console probe in **real Chrome** to read heap / iframe / dialog / broken-image counts at the moment of failure — instantly separates JS leak vs. GPU vs. stuck-dialog.
