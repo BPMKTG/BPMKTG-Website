@@ -570,9 +570,15 @@ const tilesLB = tilesLBRaw;
        stay put on Safari. Reads --tilt-rx/--tilt-ry (initTilt sets them on
        .img-wrap; custom props inherit down to the img) and composes the hover
        zoom via --feat-scale. The hover zoom is active exactly when the tilt is,
-       so it also overfills the frame and the tilt never reveals an edge gap. */
+       so it also overfills the frame and the tilt never reveals an edge gap.
+
+       Transition is intentionally short (80ms) — initTilt runs its own
+       per-frame lerp (rx += (trx - rx) * 0.18) at ~60fps. A longer CSS
+       transition would constantly chase each frame's new target and make
+       the tilt feel laggy / muddy. 80ms still smooths the hover --feat-scale
+       change cleanly. */
     transform: perspective(900px) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)) scale(var(--feat-scale, 1));
-    transition: transform 0.3s cubic-bezier(.2,.7,.3,1);
+    transition: transform 0.08s linear;
     will-change: transform;
     backface-visibility: hidden;
   }
