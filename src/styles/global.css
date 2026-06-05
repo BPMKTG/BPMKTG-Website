@@ -1105,25 +1105,6 @@ img[data-mx-loading][data-mx-loaded] {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   Lightbox open → free GPU image-texture memory.
-   When a photo/video lightbox is open, an opaque ::backdrop already
-   covers the whole page, so none of these are visible. `visibility:
-   hidden` stops them being painted (so the browser can release their
-   decoded-image GPU textures + the fixed full-screen star-canvas
-   texture) while KEEPING their layout boxes — so the page can't
-   scroll-jump when the lightbox closes (content-visibility:hidden
-   collapsed the sections to 0 height and yanked the scroll position).
-   ═══════════════════════════════════════════════════════════════ */
-body.lb-open .portfolio-hero,
-body.lb-open .featured-block,
-body.lb-open .on-film,
-body.lb-open .gallery-block,
-body.lb-open .site-footer,
-body.lb-open .space-canvas {
-  visibility: hidden;
-}
-
 /* Reduced motion: kill everything */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

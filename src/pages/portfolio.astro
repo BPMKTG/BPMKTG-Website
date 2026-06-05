@@ -109,13 +109,12 @@ const allTiles = galleryOrder
     tag: item.tag,
   }));
 
-// Generate larger variants for the lightbox. 1440px is plenty sharp for a
-// contained full-screen view while keeping each decoded image ~35% smaller
-// than 1800px — opening many in sequence stays well under the browser's
-// image-texture budget (oversized decodes were exhausting GPU memory and
-// blanking images after heavy browsing).
+// Generate larger variants for the lightbox — full crisp resolution for the
+// contained full-screen view. (Earlier shrinks to 1440/1200 were chasing a
+// "GPU texture" theory that turned out to be a local driver fault on one PC,
+// not a real memory limit — so there's no reason to serve soft images.)
 const lightboxOf = async (src: ImageMetadata) =>
-  (await getImage({ src, width: 1200, format: 'webp', quality: 84 })).src;
+  (await getImage({ src, width: 1800, format: 'webp', quality: 86 })).src;
 
 const orientationOf = (src: ImageMetadata) => (src.width >= src.height ? 'h' : 'v');
 
@@ -313,7 +312,6 @@ const tilesLB = tilesLBRaw;
       lbInited = false;
       if (lbAc) { lbAc.abort(); lbAc = null; }
       lbReleaseCursor();
-      document.body.classList.remove('lb-open');
       const dialog = document.querySelector<HTMLDialogElement>('[data-lightbox]');
       if (dialog) {
         const img = dialog.querySelector<HTMLImageElement>('[data-lightbox-img]');
@@ -375,17 +373,12 @@ const tilesLB = tilesLBRaw;
         if (typeof dialog.showModal === 'function') dialog.showModal();
         else dialog.setAttribute('open', '');
         document.body.style.overflow = 'hidden';
-        // Free the gallery/canvas GPU textures while the photo is up (an opaque
-        // backdrop covers them anyway) so the single lightbox image always fits
-        // in the texture budget — the real fix for the "images go black" glitch.
-        document.body.classList.add('lb-open');
         const cursor = document.querySelector<HTMLElement>('.bp-cursor');
         if (cursor) dialog.appendChild(cursor);
       };
 
       const close = () => {
         lbReleaseCursor();
-        document.body.classList.remove('lb-open');
         if (typeof dialog.close === 'function') dialog.close();
         else dialog.removeAttribute('open');
         // Safety: force-close any dialog still flagged open so none can linger
