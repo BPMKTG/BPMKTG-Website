@@ -853,9 +853,9 @@ const tilesLB = tilesLBRaw;
   .lightbox-next:focus-visible { transform: translateY(-50%) translateX(3px) scale(1.06); }
 
   @media (max-width: 600px) {
-    .lightbox-arrow { width: 44px; height: 44px; }
-    .lightbox-prev  { left: 0.75rem; }
-    .lightbox-next  { right: 0.75rem; }
+    /* Hide the prev/next arrows on mobile — they overlap the photo and get in
+       the way. Navigation is by swiping left/right (swipe handlers stay active). */
+    .lightbox-arrow { display: none; }
   }
   @media (prefers-reduced-motion: reduce) {
     .lightbox-arrow,

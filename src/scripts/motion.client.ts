@@ -682,31 +682,38 @@ function initScrollFocus() {
   }, { rootMargin: '0px 0px 0px 0px', threshold: 0 });
   all.forEach(el => io.observe(el));
 
-  // Pick the single in-view element whose vertical center is closest to
-  // the viewport center. Anything outside ±35% of the viewport is
-  // disqualified (matches the old rootMargin band, but enforced one at
-  // a time so we never have two cards lit up).
-  let current: HTMLElement | null = null;
+  // Focus the in-view element(s) whose vertical center is closest to the
+  // viewport center (anything outside ±35% of the viewport is disqualified).
+  // We light up the closest element AND any element tied with it: in a
+  // 2-column grid (e.g. the On Film tiles on mobile) the left and right tiles
+  // of the same row share an identical distance, so BOTH light up instead of
+  // only the first (left) one. Single-column sections are unaffected — their
+  // items differ in distance by far more than ROW_TOL.
+  let current = new Set<HTMLElement>();
   let ticking = false;
+  const ROW_TOL = 16; // px: catches same-row tiles, never the next row
   const pick = () => {
     ticking = false;
     const vh = window.innerHeight;
     const vCenter = vh / 2;
     const maxDist = vh * 0.35;
-    let best: { el: HTMLElement; dist: number } | null = null;
+    const candidates: { el: HTMLElement; dist: number }[] = [];
     for (const el of inView) {
       const r = el.getBoundingClientRect();
       if (r.height <= 0) continue;
       const c = r.top + r.height / 2;
       const dist = Math.abs(c - vCenter);
       if (dist > maxDist) continue;
-      if (!best || dist < best.dist) best = { el, dist };
+      candidates.push({ el, dist });
     }
-    const next = best?.el ?? null;
-    if (next === current) return;
-    if (current) current.classList.remove('is-focus');
+    const next = new Set<HTMLElement>();
+    if (candidates.length) {
+      const min = Math.min(...candidates.map(c => c.dist));
+      for (const c of candidates) if (c.dist <= min + ROW_TOL) next.add(c.el);
+    }
+    current.forEach(el => { if (!next.has(el)) el.classList.remove('is-focus'); });
+    next.forEach(el => { if (!current.has(el)) el.classList.add('is-focus'); });
     current = next;
-    if (current) current.classList.add('is-focus');
   };
   const schedule = () => {
     if (ticking) return;
@@ -721,8 +728,8 @@ function initScrollFocus() {
     io.disconnect();
     window.removeEventListener('scroll', schedule);
     window.removeEventListener('resize', schedule);
-    if (current) current.classList.remove('is-focus');
-    current = null;
+    current.forEach(el => el.classList.remove('is-focus'));
+    current = new Set();
   });
 }
 
