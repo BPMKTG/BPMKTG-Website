@@ -113,11 +113,18 @@ const shots = [
     const wrap = rail.parentElement!;
     const step = () => Math.round(rail.clientWidth * 0.42);
 
+    // Once the user takes control (arrows, edge-hover scroll, or drag) the
+    // auto-advance fully stops — and only re-arms when the carousel scrolls
+    // out of view and the user returns to the section later.
+    let userEngaged = false;
+
     // ── Nav buttons ──
     wrap.querySelector('[data-rail-prev]')?.addEventListener('click', () => {
+      userEngaged = true;
       rail.scrollBy({ left: -step() * 2, behavior: 'smooth' });
     }, { signal });
     wrap.querySelector('[data-rail-next]')?.addEventListener('click', () => {
+      userEngaged = true;
       rail.scrollBy({ left:  step() * 2, behavior: 'smooth' });
     }, { signal });
 
@@ -130,6 +137,7 @@ const shots = [
     rail.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'mouse') return;
       dragging = true;
+      userEngaged = true;
       moved = false;
       startX = e.clientX;
       startScroll = rail.scrollLeft;
@@ -199,6 +207,7 @@ const shots = [
     };
 
     const startEdge = (zone: HTMLElement, dir: 1 | -1, clientX: number) => {
+      userEngaged = true;
       edgeDecel = false;
       edgeDir = dir;
       edgeSpeed = computeSpeed(zone, dir, clientX);
@@ -233,12 +242,12 @@ const shots = [
 
     wrap.addEventListener('pointerenter', () => { hovering = true; }, { signal });
     wrap.addEventListener('pointerleave', () => { hovering = false; }, { signal });
-    rail.addEventListener('touchstart', () => { touching = true; }, { passive: true, signal });
+    rail.addEventListener('touchstart', () => { touching = true; userEngaged = true; }, { passive: true, signal });
     rail.addEventListener('touchend',   () => { touchT = window.setTimeout(() => { touching = false; }, 2000); }, { passive: true, signal });
     teardowns.push(() => clearTimeout(touchT));
 
     const autoTick = () => {
-      if (hovering || touching || dragging || edgeDir || !inView || document.hidden) return;
+      if (userEngaged || hovering || touching || dragging || edgeDir || !inView || document.hidden) return;
       const max = rail.scrollWidth - rail.clientWidth;
       if (max <= 0) return;
       if (rail.scrollLeft >= max - 4) {
@@ -248,7 +257,10 @@ const shots = [
       }
     };
     if (!reduceMotion) {
-      const io = new IntersectionObserver(([e]) => { inView = e.isIntersecting; }, { threshold: 0 });
+      const io = new IntersectionObserver(([e]) => {
+        inView = e.isIntersecting;
+        if (!inView) userEngaged = false; // re-arm auto-advance when the section scrolls away
+      }, { threshold: 0 });
       io.observe(rail);
       const autoTimer = window.setInterval(autoTick, AUTO_MS);
       teardowns.push(() => { io.disconnect(); clearInterval(autoTimer); });
