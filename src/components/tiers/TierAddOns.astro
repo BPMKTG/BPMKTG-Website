@@ -47,7 +47,7 @@ const { tier } = Astro.props;
 
     {tier.addOns.nextStep && (
       <article class="tier-next-step card-trace card-inner-glow" data-reveal data-scroll-focus>
-        <p class="tier-next-eyebrow" data-icon-pop>Next Step — Tier {tier.addOns.nextStep.number}</p>
+        <p class="tier-next-eyebrow" data-icon-pop>Next Step · Tier {tier.addOns.nextStep.number}</p>
         <h3>{tier.addOns.nextStep.name}</h3>
         <p class="tier-next-desc">{tier.addOns.nextStep.description}</p>
         <ul class="tier-next-bullets">

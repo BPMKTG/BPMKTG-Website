@@ -16,7 +16,7 @@ interface Props {
 const { tier } = Astro.props;
 ---
 <Layout
-  title={`Tier ${tier.number} — ${tier.name} — Blueprint Marketing`}
+  title={`Tier ${tier.number} ${tier.name} | Blueprint Marketing`}
   description={`${tier.name}: ${tier.positioning}`}
 >
   <TierHero
@@ -46,7 +46,7 @@ const { tier } = Astro.props;
     headline={tier.faq.headline}
     lede={tier.faq.lede}
     faqs={tier.faq.items}
-    footnote={`Question we didn't cover? <a href="${CALENDLY_URL}" target="_blank" rel="noopener noreferrer">Bring it up on the call</a> — that's what it's for.`}
+    footnote={`Question we didn't cover? <a href="${CALENDLY_URL}" target="_blank" rel="noopener noreferrer">Bring it up on the call</a>. That's what it's for.`}
   />
   <BookCall />
 </Layout>

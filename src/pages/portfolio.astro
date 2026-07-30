@@ -96,8 +96,8 @@ const galleryOrder: { slug: string; caption: string; tag: string }[] = [
   { slug: 'sanpacho-silo',                              caption: 'San Pacho',                 tag: 'Silo - Dallas' },
   { slug: 'laurenmia-fluffycloud-silo-red',             caption: 'Lauren Mia X Fluffy Cloud', tag: 'Silo - Dallas' },
   { slug: 'legendofshellda-toatsatx',                   caption: 'Legend of Shellda',         tag: 'Toats - Austin' },
-  { slug: 'wooli-dft-pyro-lasers',                      caption: 'Wooli',                     tag: 'Dancefestopia' },          // 55 — bottom of col 3
-  { slug: 'levelup-dft-bubbles',                        caption: 'Level Up',                  tag: 'Dancefestopia' },          // 56 — bottom of col 4
+  { slug: 'wooli-dft-pyro-lasers',                      caption: 'Wooli',                     tag: 'Dancefestopia' },          // 55, bottom of col 3
+  { slug: 'levelup-dft-bubbles',                        caption: 'Level Up',                  tag: 'Dancefestopia' },          // 56, bottom of col 4
 ];
 
 const allTiles = galleryOrder
@@ -133,7 +133,7 @@ const tilesLBRaw = await Promise.all(
 const tilesLB = tilesLBRaw;
 ---
 <Layout
-  title="Portfolio — Blueprint Marketing"
+  title="Portfolio | Blueprint Marketing"
   description="In The Field: Blueprint Marketing's media access across festivals, headline sets, and backstage with EDM's biggest names."
 >
   <section class="portfolio-hero">
@@ -233,7 +233,7 @@ const tilesLB = tilesLBRaw;
             data-lightbox-open
             data-orientation={tile.orient}
             data-full={tile.full}
-            data-caption={`${tile.caption} — ${tile.tag}`}
+            data-caption={`${tile.caption} · ${tile.tag}`}
             data-mobile-deferred={i >= 20 ? '1' : undefined}
             aria-label={`Open larger view: ${tile.caption}`}
           >
@@ -637,7 +637,7 @@ const tilesLB = tilesLBRaw;
   .gallery-sub { color: var(--muted); margin-top: 0.85rem; font-size: 0.95rem; }
 
   /* Position-driven alternating layout. Tile shape is dictated by grid
-     position, NOT by the source image's aspect ratio — the data-orientation
+     position, NOT by the source image's aspect ratio, the data-orientation
      attribute is no longer used by CSS. Each column alternates H / V down
      its length, and adjacent columns are offset so the columns read:
        col 1: H V H V …    col 2: V H V H …
