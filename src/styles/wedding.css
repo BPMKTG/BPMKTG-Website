@@ -278,18 +278,18 @@ html.wed body {
 [data-reveal-group] > [data-reveal]:nth-child(n+7) { --reveal-delay: 0.50s; }
 
 /* ── 3D deal-in ──
-   The EDM offer stack flips its tier cards in from nearly edge-on. Same
-   idea here, dialled back: shallower angles, longer settle, no overshoot.
-   The parent owns `perspective` so a whole row shares one camera.
-   [data-reveal="flip"] = the full spin, reserved for the package cards.
-   [data-reveal="deal"] = a subtle version for grids of media tiles. */
-[data-reveal="flip"] {
-  transform: translateY(52px) translateZ(-150px) rotateX(5deg) rotateY(-46deg);
-  transform-origin: center center;
-  transition:
-    opacity 1.5s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
-    transform 1.5s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
-}
+   [data-reveal="flip"] is NOT defined here. It lives entirely inside
+   WedPackages.astro's scoped CSS, exactly the way the homepage keeps the
+   tier flip inside OfferStack.astro. Two reasons, both learned the hard
+   way:
+     1. A component's scoped `.card { transition: ... }` is (0,2,0) and
+        out-specifies anything `[data-reveal="flip"]` (0,1,0) declares
+        here, so a rule in this file gets silently replaced.
+     2. The stagger has to come from a private custom property, because
+        `[data-reveal-group] > [data-reveal]:nth-child(n)` below is
+        (0,3,0) and overrides any `--reveal-delay` a component sets.
+   [data-reveal="deal"] is the subtle version for grids of media tiles;
+   its hosts declare their own transitions for reason 1 above. */
 [data-reveal="deal"] {
   transform: translateY(34px) translateZ(-70px) rotateX(4deg) rotateY(-15deg);
   transform-origin: center center;
@@ -297,7 +297,6 @@ html.wed body {
     opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
     transform 1.2s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
 }
-[data-reveal="flip"].is-in,
 [data-reveal="deal"].is-in { transform: none; }
 
 /* A hairline that draws itself across on reveal. Opacity stays at 1 —
@@ -313,7 +312,6 @@ html.wed body {
 /* Narrow screens: the 3D rotation clips against the viewport edge and
    reads as a glitch once the cards are stacked. Slide them up instead. */
 @media (max-width: 760px) {
-  [data-reveal="flip"],
   [data-reveal="deal"] {
     transform: translateY(30px);
     transition:

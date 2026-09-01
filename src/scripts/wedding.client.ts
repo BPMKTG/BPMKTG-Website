@@ -22,19 +22,34 @@ function initReveal() {
     return;
   }
 
-  const io = new IntersectionObserver(entries => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('is-in');
-        io.unobserve(entry.target);
+  const observe = (targets: HTMLElement[], options: IntersectionObserverInit) => {
+    if (!targets.length) return;
+    const io = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-in');
+          io.unobserve(entry.target);
+        }
       }
-    }
-  }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    }, options);
+    targets.forEach(el => {
+      el.setAttribute('data-wed-reveal', '1');
+      io.observe(el);
+    });
+  };
 
-  els.forEach(el => {
-    el.setAttribute('data-wed-reveal', '1');
-    io.observe(el);
-  });
+  const all = Array.from(els);
+  const flip = all.filter(el => el.dataset.reveal === 'flip');
+  const rest = all.filter(el => el.dataset.reveal !== 'flip');
+
+  observe(rest, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+
+  // The flip cards get their own, later trigger. A percentage threshold is
+  // the wrong metric for them: the package cards are ~800px tall, so 12% of
+  // the card is a sliver at the very bottom of the screen, and the 1.6s
+  // spin would be over before it scrolled into view. Firing on the top edge
+  // crossing 75% of the viewport means the spin plays where you can see it.
+  observe(flip, { threshold: 0, rootMargin: '0px 0px -25% 0px' });
 }
 
 // 2. Image fade-in. Images only — the hover-preview <video>s own their

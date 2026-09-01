@@ -1160,8 +1160,13 @@ off the same `[data-reveal]` / `.is-in` contract; `wedding.client.ts` only
 adds the class.
 
 - **`[data-reveal="flip"]`** on the three package cards: the offer-stack spin,
-  dialled back to `rotateY(-46deg)` from the EDM stack's `-55deg`, 1.5s settle,
-  0.26s stagger. The grid owns `perspective` so all three turn toward one camera.
+  **identical to the homepage** — `rotateY(-55deg)`, `translateZ(-180px)`,
+  `rotateX(6deg)`, `translateY(60px)`, 1.6s settle, 0.3s stagger, `perspective:
+  1800px` on the grid. A first attempt dialled these values back and it read as
+  no effect at all; the matched values are what make it legible.
+  **The whole effect lives in `WedPackages.astro`'s scoped CSS, not in
+  wedding.css** — same as the homepage keeps it inside `OfferStack.astro`, and
+  for the same two reasons (see the trap below).
 - **`[data-reveal="deal"]`**: the same idea at `-15deg` for grids of media tiles
   (film tiles, gallery tiles), so they settle onto the page with depth instead
   of just sliding.
@@ -1182,14 +1187,35 @@ adds the class.
   nearest the middle of the viewport takes the emphasis instead, with a
   tolerance band so a grid row lights up together.
 
+**Percentage thresholds are the wrong trigger for tall elements.** The package
+cards are ~810px tall, so the default `threshold: 0.12` fired when 97px of card
+(a sliver at the very bottom of the screen) was visible, and the 1.6s spin was
+over before it scrolled into view. `initReveal` now observes `[data-reveal="flip"]`
+separately with `threshold: 0, rootMargin: '0px 0px -25% 0px'`, firing on the
+card's top edge crossing 75% of the viewport. Verified: not `.is-in` at 78%,
+`.is-in` by 69%.
+
 **The trap to remember.** An Astro component's scoped `.card { transition: … }`
 is `(0,2,0)` and out-specifies `[data-reveal="flip"]` at `(0,1,0)` in
 wedding.css, so it replaces the reveal transition wholesale and the cards snap
 in with no animation at all. Any element carrying both a reveal and its own
 `transition` must declare **all** of the properties together in the component
 rule. Same reason hover must never touch `transform` on those elements: sharing
-the property drags the hover down to the 1.5s reveal duration, or cuts the
+the property drags the hover down to the 1.6s reveal duration, or cuts the
 reveal down to the hover duration, depending which rule wins.
+
+**And the stagger needs a private custom property.** `[data-reveal-group] >
+[data-reveal]:nth-child(n)` in wedding.css is `(0,3,0)` and overwrites any
+`--reveal-delay` a component sets, which silently collapsed the package stagger
+from 0/0.3/0.6s to 0/0.09/0.18s. The cards use `--card-flip-delay` instead,
+exactly as the homepage uses `--tier-flip-delay`. Any new staggered reveal needs
+its own property name.
+
+**How to check a reveal you cannot see.** Transitions never advance on a hidden
+preview pane, so screenshots prove nothing here. Two things that do work:
+`el.getAnimations()` reports whether a `CSSTransition` was created at all, and at
+what duration and delay; and pausing those animations and setting `currentTime`
+scrubs to a real mid-flight frame you can screenshot.
 
 ### Two conventions this page had to catch up to
 
