@@ -1,0 +1,95 @@
+---
+// How it works — five steps on a hairline timeline.
+import { processSteps } from '../../data/weddings';
+---
+<section class="process wed-section" id="process">
+  <div class="wed-container">
+    <header class="head">
+      <p class="wed-label" data-reveal="left">How It Works</p>
+      <h2 data-reveal>From <em class="script">"is our date open?"</em><br />to the film in your inbox.</h2>
+    </header>
+
+    <ol class="steps" data-reveal-group>
+      {processSteps.map((step, i) => (
+        <li class="step" data-reveal="scale">
+          <span class="num">{String(i + 1).padStart(2, '0')}</span>
+          <h3>{step.title}</h3>
+          <p>{step.body}</p>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
+
+<style>
+  .process { background: var(--wed-bg); }
+  .head { max-width: 60ch; margin-bottom: 3.5rem; }
+  .head h2 { margin-top: 1.1rem; }
+
+  .steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1.5rem;
+    position: relative;
+  }
+  /* Hairline that runs behind the step numbers, tying them into one
+     timeline. Sits at the vertical centre of the number row. */
+  .steps::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    top: 17px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--wed-line), var(--wed-line), transparent);
+    pointer-events: none;
+  }
+
+  .step {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-width: 0;
+    position: relative;
+  }
+  .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--wed-card);
+    border: 1px solid var(--wed-line);
+    color: var(--wed-navy);
+    font-family: var(--wed-display);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.35rem;
+    position: relative;
+    z-index: 1;
+  }
+  .step h3 {
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: var(--wed-ink);
+    line-height: 1.15;
+  }
+  .step p {
+    font-size: 0.9rem;
+    font-weight: 300;
+    line-height: 1.6;
+    color: var(--wed-muted);
+    overflow-wrap: break-word;
+  }
+
+  @media (max-width: 1000px) {
+    .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem 1.5rem; }
+    .steps::before { display: none; }
+  }
+  @media (max-width: 560px) {
+    .steps { grid-template-columns: 1fr; }
+  }
+</style>

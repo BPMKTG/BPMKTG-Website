@@ -1061,6 +1061,112 @@ Applied to: SolutionUSP pillars, ProblemSection pain cards, FAQ (springy chevron
 
 ---
 
+## Session 14 — 2026-09-01 — `/weddings`: an unlisted second funnel
+
+### What it is
+
+A complete wedding-films + photography sales page at **`/weddings`**, built for a
+customer who has nothing to do with EDM artists. **It is deliberately not linked
+from anywhere on the main site** — not the header, not the footer, not any page.
+The only way in is a link you hand someone (or search). It is currently
+indexable; flip `noindex` on in the page's `<WeddingLayout>` props if you'd
+rather it stay out of Google entirely.
+
+### The isolation rule (the most important thing to know)
+
+**Nothing existing was modified.** Every file in this arc is new. The weddings
+page does not import `Layout.astro`, `global.css`, `motion.client.ts`, `Header`,
+`Footer`, `SpaceBackground`, or any EDM component. That is on purpose: the two
+funnels have opposite aesthetics, and a shared stylesheet would mean every
+future wedding tweak risks the artist site and vice versa. If you need a
+component on both, **copy it**, don't share it.
+
+```
+src/pages/weddings.astro            the page
+src/layouts/WeddingLayout.astro     standalone shell (own <html class="wed">)
+src/styles/wedding.css              standalone light theme, imports nothing
+src/scripts/wedding.client.ts       reveal + image fade + header + mobile nav only
+src/data/weddings.ts                ALL copy, pricing, film + gallery entries
+src/components/weddings/*.astro     11 components, none shared with the EDM side
+src/assets/images/weddings/         empty; see its README for the drop-in convention
+public/brand/logo-header-navy.svg   navy wordmark (generated from logo-header.svg)
+```
+
+### Design direction
+
+Light and airy, but still unmistakably Blueprint:
+- **Ivory + champagne surfaces** (`--wed-bg` #fcfaf8 / `--wed-bg-2` #f6f0ea), white cards.
+- **Cormorant Garamond** for display, sentence case — the opposite of the EDM
+  uppercase Orbitron. **Roboto** stays for body (brand continuity).
+- **Orbitron survives in exactly one place**: the tiny uppercase eyebrow labels
+  (`.wed-label`). That is the visual thread back to the parent brand.
+- **Blueprint navy #264fa0 is still primary.** Champagne gold `#b08d4f` replaces
+  the EDM orange as the accent.
+- **The blueprint grid is a whisper** — pale blue hairlines on ivory
+  (`.wed-grid-bg`) — except in the closing CTA, the one navy panel on the page,
+  where it runs at full strength like it does on the EDM site.
+
+### Placeholders (nothing here is real yet)
+
+No wedding assets exist, so every tile is designed to look finished while empty:
+- A film tile with no poster renders a champagne/blue placeholder panel with a
+  camera glyph and "Film coming soon"; **with no `vimeoId` it is a `<div>`, not
+  a `<button>`**, so it can't open an empty player.
+- A gallery tile with no image is likewise inert, and its shape still comes from
+  `orientation`, so the masonry rhythm is already correct with zero photos.
+- Assets are wired **by filename → slug**. Drop `thumbnails/<slug>.jpg` or
+  `gallery/<slug>.jpg` in and the tile fills itself in with no code change.
+  `hero.jpg` turns the typographic hero into a full-bleed photo hero the same way.
+
+### ⚠️ Everything priced is a DRAFT
+
+Packages (Foundation $2,850 / Blueprint $4,950 / Legacy $8,500), the whole à la
+carte menu, the delivery windows, and the inclusion counts are a first draft
+written to make the page real. **They are not confirmed business decisions.**
+They're all in `src/data/weddings.ts` behind a TODO banner. Confirm before this
+URL goes to a couple.
+
+### Two bugs worth remembering
+
+1. **Base element selectors were out-specifying the utility classes.**
+   `html.wed p` is (0,1,2) and beat `.wed-label` (0,1,0), so every eyebrow label
+   silently rendered in body-text grey — including the white one on the navy CTA,
+   which was nearly invisible. Same story with `html.wed a` vs `.wed-btn`.
+   Fixed by wrapping the whole base layer in `:where()` so it carries **zero**
+   specificity: `:where(html.wed) :where(p) { … }`. Keep it that way.
+2. **A flex parent silently shrank the hero.** `.hero` is `display: flex` (to
+   centre vertically), which made `.inner` a flex item that sized to its content
+   instead of the container width — the whole hero drifted to the middle of the
+   screen. `.inner { width: 100% }` fixes it. Watch for this any time you centre
+   a `.wed-container` with flex.
+
+### Verification notes for next time
+
+The browser preview pane runs **hidden**, which means `document.hidden === true`,
+which means **CSS opacity transitions never advance**. Every `[data-reveal]`
+element therefore screenshots at opacity 0 and the page looks blank. It is not a
+bug. To take a usable screenshot: inject
+`[data-reveal]{opacity:1!important;transform:none!important;transition:none!important}`
+first. Scrolled screenshots are also unreliable in that pane — instead
+`display:none` the sections above the one you want so the target lands at the
+top of the page. Also: the dev server served **stale component CSS** after edits
+at one point; if a rule you just wrote isn't in `document.styleSheets`, restart
+the dev server before you go hunting for a specificity problem.
+
+### Still open on /weddings
+
+1. **Confirm all pricing** (see the TODO banner in `src/data/weddings.ts`).
+2. **A dedicated wedding Calendly + inbox.** `WEDDING_CALENDLY_URL` and
+   `WEDDING_EMAIL` currently fall back to the company-wide ones, so no CTA is
+   dead — but the two funnels aren't tracked separately.
+3. **`WEDDING_INSTAGRAM`** is still a `[…]` placeholder; the footer link hides
+   itself until it's real.
+4. **Real assets** — films (Vimeo ids + posters), gallery photos, `hero.jpg`.
+5. **Testimonials** — no couple quotes anywhere yet. Worth a section once there
+   is one wedding to quote.
+
+---
+
 ## Laptop handoff checklist
 
 Last-known good state: commit on `main` after this session is pushed. To continue on laptop:

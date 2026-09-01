@@ -1,0 +1,92 @@
+---
+// /weddings — an unlisted funnel for couples.
+//
+// This page is intentionally NOT linked from the main site's header,
+// footer, or any other page: weddings and EDM artists are different
+// customers and the two funnels should not cross. Anyone arriving here
+// arrives from a link we hand them (or from search).
+//
+// It also does not use Layout.astro — see WeddingLayout.astro for why.
+import WeddingLayout from '../layouts/WeddingLayout.astro';
+import WedHero from '../components/weddings/WedHero.astro';
+import WedFilms from '../components/weddings/WedFilms.astro';
+import WedGallery from '../components/weddings/WedGallery.astro';
+import WedPackages from '../components/weddings/WedPackages.astro';
+import WedAlaCarte from '../components/weddings/WedAlaCarte.astro';
+import WedProcess from '../components/weddings/WedProcess.astro';
+import WedFaq from '../components/weddings/WedFaq.astro';
+import WedBook from '../components/weddings/WedBook.astro';
+import { WEDDING_CALENDLY_URL } from '../data/weddings';
+---
+<WeddingLayout
+  title="Wedding Films + Photography — Blueprint Marketing"
+  description="Cinematic wedding films, full ceremony multicam, video moments, engagement films, and photography by Blueprint Marketing."
+>
+  <WedHero />
+  <WedFilms />
+  <WedGallery />
+
+  <!-- Mid-page CTA — catches couples who are sold by the work and don't
+       want to read the pricing sections to find a booking link. -->
+  <section class="midcta">
+    <div class="wed-container midcta-inner">
+      <div class="midcta-copy" data-reveal="left">
+        <p class="midcta-eyebrow">Now booking</p>
+        <h2>We take one wedding per weekend.</h2>
+        <p class="midcta-body">
+          It keeps the whole crew on your day instead of split across two.
+          It also means dates close early — check yours before you read
+          another word of pricing.
+        </p>
+      </div>
+      <a href={WEDDING_CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="wed-btn midcta-btn" data-reveal>
+        Check your date
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
+  </section>
+
+  <WedPackages />
+  <WedAlaCarte />
+  <WedProcess />
+  <WedFaq />
+  <WedBook />
+</WeddingLayout>
+
+<style>
+  .midcta {
+    background: var(--wed-bg);
+    padding: 4.5rem 0;
+    border-top: 1px solid var(--wed-line-soft);
+    border-bottom: 1px solid var(--wed-line-soft);
+  }
+  .midcta-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3rem;
+  }
+  .midcta-copy { max-width: 62ch; }
+  .midcta-eyebrow {
+    font-family: var(--wed-display);
+    font-size: 0.56rem;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--wed-gold);
+    margin-bottom: 0.85rem;
+  }
+  .midcta h2 { font-size: clamp(1.8rem, 3.4vw, 2.6rem); }
+  .midcta-body {
+    margin-top: 0.85rem;
+    font-size: 0.98rem;
+    font-weight: 300;
+    line-height: 1.65;
+    color: var(--wed-muted);
+  }
+  .midcta-btn { flex-shrink: 0; }
+
+  @media (max-width: 860px) {
+    .midcta-inner { flex-direction: column; align-items: flex-start; gap: 1.75rem; }
+  }
+</style>

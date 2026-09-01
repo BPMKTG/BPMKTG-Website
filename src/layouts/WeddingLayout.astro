@@ -1,0 +1,58 @@
+---
+// Shell for the unlisted /weddings funnel.
+//
+// Intentionally NOT Layout.astro. That layout mounts the starfield canvas,
+// the EDM header (which links straight into the artist funnel), and the
+// dark global stylesheet. Weddings is a different customer with a different
+// aesthetic, and the two funnels should never bleed into each other — so
+// this shell is standalone: its own header, its own footer, its own
+// stylesheet, its own motion script.
+//
+// The <html> element carries `class="wed"`, which is what every rule in
+// wedding.css scopes itself to.
+import WedHeader from '../components/weddings/WedHeader.astro';
+import WedFooter from '../components/weddings/WedFooter.astro';
+import '../styles/wedding.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Set true to keep the page out of search results entirely. */
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description = 'Wedding films by Blueprint Marketing — cinematic wedding recaps, full ceremony multicam, and the moments you will actually rewatch.',
+  noindex = false,
+} = Astro.props;
+---
+<!doctype html>
+<html lang="en" class="wed">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#fcfaf8" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="icon" type="image/svg+xml" href="/brand/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Orbitron:wght@500;600;700&family=Roboto:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title}</title>
+  </head>
+  <body>
+    <WedHeader />
+    <main>
+      <slot />
+    </main>
+    <WedFooter />
+
+    <script>
+      import '../scripts/wedding.client.ts';
+    </script>
+  </body>
+</html>

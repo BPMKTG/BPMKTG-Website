@@ -1,0 +1,162 @@
+---
+// Hero.
+//
+// Designed to look finished with ZERO photography: the default state is a
+// typographic hero on a champagne wash with the blueprint grid behind it.
+// Drop `src/assets/images/weddings/hero.jpg` (or .png) in and it becomes a
+// full-bleed photo hero with a light scrim automatically — no code change.
+import { Image } from 'astro:assets';
+import { WEDDING_CALENDLY_URL } from '../../data/weddings';
+
+const heroGlob = import.meta.glob<{ default: ImageMetadata }>(
+  '../../assets/images/weddings/hero.{jpg,jpeg,png}',
+  { eager: true }
+);
+const heroImg = Object.values(heroGlob)[0]?.default;
+
+const trust = [
+  'One wedding per weekend',
+  'Teaser inside 72 hours',
+  'Film + photo, one crew',
+];
+---
+<section class:list={['hero', { 'hero--photo': heroImg, 'wed-grid-bg': !heroImg }]} id="top">
+  {heroImg && (
+    <div class="bg" aria-hidden="true">
+      <Image src={heroImg} alt="" width={2200} height={1400} format="webp" quality={84} loading="eager" />
+      <div class="scrim"></div>
+    </div>
+  )}
+
+  <div class="wed-container inner">
+    <p class="wed-label" data-reveal="left">Blueprint Marketing · Weddings</p>
+
+    <h1 data-reveal>
+      The film you'll still be<br />
+      <em class="script">watching in thirty years.</em>
+    </h1>
+
+    <p class="wed-lede lede" data-reveal>
+      Wedding films, full ceremony multicam, and photography from a crew that
+      came up shooting live music — one take, no second chances, no asking
+      anyone to do it again. Your day gets covered the same way.
+    </p>
+
+    <div class="ctas" data-reveal>
+      <a href={WEDDING_CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="wed-btn">
+        Check your date
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+      <a href="#films" class="wed-btn wed-btn--ghost">Watch the films</a>
+    </div>
+
+    <ul class="trust" data-reveal>
+      {trust.map(item => <li>{item}</li>)}
+    </ul>
+  </div>
+
+  <div class="fade" aria-hidden="true"></div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    min-height: clamp(560px, 82vh, 820px);
+    /* Champagne wash — the "airy" default when there is no hero photo. */
+    background:
+      radial-gradient(80% 60% at 15% 10%, rgba(223, 234, 245, 0.85), transparent 60%),
+      radial-gradient(70% 60% at 88% 85%, rgba(242, 232, 214, 0.9), transparent 62%),
+      var(--wed-bg);
+  }
+
+  .bg { position: absolute; inset: 0; z-index: 0; }
+  .bg :global(img) { width: 100%; height: 100%; object-fit: cover; object-position: center 40%; }
+  /* Light scrim, not a dark one — the page stays airy even over a photo. */
+  .scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      rgba(252, 250, 248, 0.94) 0%,
+      rgba(252, 250, 248, 0.82) 42%,
+      rgba(252, 250, 248, 0.35) 100%
+    );
+  }
+
+  .inner {
+    position: relative;
+    z-index: 2;
+    /* .hero is a flex row (to vertically centre this block), which makes
+       .inner a flex item — without width:100% it shrinks to its content
+       and the whole hero drifts toward the middle of the viewport. */
+    width: 100%;
+    padding-top: 5.5rem;
+    padding-bottom: 5.5rem;
+  }
+
+  .hero h1 {
+    margin: 1.4rem 0 0;
+    /* Wide enough that the authored <br/> is the only line break —
+       a narrower cap re-wrapped "The film you'll still be" onto two. */
+    max-width: 24ch;
+  }
+  .lede {
+    margin-top: 1.75rem;
+    max-width: 56ch;
+    font-size: 1.12rem;
+  }
+
+  .ctas {
+    margin-top: 2.25rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .trust {
+    list-style: none;
+    margin: 2.75rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem 2rem;
+    font-family: var(--wed-display);
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--wed-muted);
+  }
+  .trust li { display: flex; align-items: center; gap: 0.6rem; }
+  .trust li::before {
+    content: "";
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--wed-gold);
+    flex-shrink: 0;
+  }
+
+  /* Softens the join into the first content section. */
+  .fade {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 120px;
+    background: linear-gradient(to bottom, transparent, var(--wed-bg));
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  @media (max-width: 700px) {
+    .hero { min-height: 0; }
+    .inner { padding-top: 3.5rem; padding-bottom: 4rem; }
+    /* Drop the authored line break on phones — at this width it stranded
+       "be" alone on its own line. Balanced natural wrapping reads better. */
+    .hero h1 { max-width: none; text-wrap: balance; }
+    .hero h1 br { display: none; }
+    .lede { font-size: 1.02rem; }
+    .ctas .wed-btn { flex: 1 1 100%; }
+  }
+</style>

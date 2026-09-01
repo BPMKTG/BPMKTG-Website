@@ -1,0 +1,115 @@
+---
+// Weddings footer. Intentionally contains no links into the EDM funnel —
+// this page is its own island.
+import { WEDDING_CALENDLY_URL, WEDDING_EMAIL, WEDDING_INSTAGRAM } from '../../data/weddings';
+const year = new Date().getFullYear();
+const hasInstagram = !WEDDING_INSTAGRAM.startsWith('[');
+---
+<footer class="wed-footer">
+  <div class="wed-container inner">
+    <div class="brand-col">
+      <img src="/brand/logo-header-navy.svg" alt="Blueprint Marketing" class="mark" width="200" height="62" />
+      <p class="tagline">Amplifying and elevating your story.</p>
+    </div>
+
+    <div class="links">
+      <div class="col">
+        <h4>The Work</h4>
+        <ul>
+          <li><a href="#films">Wedding films</a></li>
+          <li><a href="#films">Ceremony multicam</a></li>
+          <li><a href="#films">Video moments</a></li>
+          <li><a href="#films">Engagement films</a></li>
+          <li><a href="#gallery">Photo gallery</a></li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>Booking</h4>
+        <ul>
+          <li><a href="#packages">Packages</a></li>
+          <li><a href="#menu">À la carte</a></li>
+          <li><a href="#process">How it works</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a href={WEDDING_CALENDLY_URL} target="_blank" rel="noopener noreferrer">Check your date</a></li>
+        </ul>
+      </div>
+      <div class="col">
+        <h4>Say Hello</h4>
+        <ul>
+          <li><a href={`mailto:${WEDDING_EMAIL}`}>{WEDDING_EMAIL}</a></li>
+          {hasInstagram && (
+            <li><a href={WEDDING_INSTAGRAM} target="_blank" rel="noopener noreferrer">Instagram</a></li>
+          )}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="wed-container foot">
+    <p>© {year} Blueprint Marketing. All rights reserved.</p>
+    <p class="fine">Wedding films and photography.</p>
+  </div>
+</footer>
+
+<style>
+  .wed-footer {
+    background: var(--wed-bg-2);
+    border-top: 1px solid var(--wed-line-soft);
+    padding: 4.5rem 0 2rem;
+  }
+  .inner {
+    display: grid;
+    grid-template-columns: 1.2fr 2fr;
+    gap: 3rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--wed-line-soft);
+  }
+  .brand-col { display: flex; flex-direction: column; gap: 1rem; align-items: flex-start; }
+  .mark { height: 30px; width: auto; }
+  .tagline {
+    font-family: var(--wed-serif);
+    font-size: 1.3rem;
+    font-style: italic;
+    color: var(--wed-ink-2);
+    max-width: 24ch;
+    line-height: 1.35;
+  }
+
+  .links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+  .col h4 {
+    font-family: var(--wed-display);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--wed-navy);
+    margin-bottom: 1.1rem;
+  }
+  .col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  .col a {
+    font-size: 0.9rem;
+    font-weight: 300;
+    color: var(--wed-ink-2);
+    transition: color 0.25s ease;
+  }
+  .col a:hover { color: var(--wed-navy); }
+
+  .foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding-top: 1.5rem;
+    font-size: 0.78rem;
+    color: var(--wed-dim);
+  }
+  .foot p { color: inherit; }
+
+  @media (max-width: 880px) {
+    .inner { grid-template-columns: 1fr; gap: 2.5rem; }
+  }
+  @media (max-width: 560px) {
+    .links { grid-template-columns: 1fr 1fr; gap: 1.75rem; }
+  }
+</style>

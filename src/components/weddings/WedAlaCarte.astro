@@ -1,0 +1,150 @@
+---
+// À la carte menu — priced line items, grouped Film / Photo / Add-ons.
+// Laid out as a printed menu (dotted leaders between name and price)
+// rather than as cards, so it reads as a list you scan, not a second
+// offer stack competing with the packages above it.
+import { alaCarte, WEDDING_CALENDLY_URL } from '../../data/weddings';
+---
+<section class="menu wed-section" id="menu">
+  <div class="wed-container">
+    <header class="head">
+      <p class="wed-label wed-label--center" data-reveal>À La Carte</p>
+      <h2 data-reveal>Or build it <em class="script">line by line.</em></h2>
+      <p class="wed-lede" data-reveal>
+        Add anything here to a package, or skip the packages entirely and book
+        only the pieces you want. No minimums on the film side.
+      </p>
+    </header>
+
+    <div class="groups">
+      {alaCarte.map(group => (
+        <section class="group" data-reveal>
+          <header class="group-head">
+            <h3>{group.heading}</h3>
+            <p>{group.note}</p>
+          </header>
+          <ul class="items">
+            {group.items.map(item => (
+              <li class="item">
+                <span class="item-main">
+                  <span class="item-name">{item.name}</span>
+                  <span class="item-detail">{item.detail}</span>
+                </span>
+                <span class="leader" aria-hidden="true"></span>
+                <span class="item-price">{item.price}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+
+    <div class="menu-cta" data-reveal>
+      <div class="wed-rule" aria-hidden="true"><span></span></div>
+      <p>Not sure what you need? That is what the call is for.</p>
+      <a href={WEDDING_CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="wed-btn">
+        Check your date
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .menu { background: var(--wed-bg-2); }
+  .head { max-width: 60ch; margin: 0 auto 3.5rem; text-align: center; }
+  .head h2 { margin: 1.1rem 0 1.4rem; }
+
+  .groups {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 3rem 4rem;
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  /* The Film list is roughly twice as long as the other two, so it takes
+     the full width and the shorter lists pair up underneath it. */
+  .group:first-child { grid-column: 1 / -1; }
+  .group:first-child .items { columns: 2; column-gap: 4rem; }
+  .group:first-child .item { break-inside: avoid; }
+
+  .group-head {
+    padding-bottom: 0.9rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--wed-line);
+  }
+  .group-head h3 {
+    font-size: 1.75rem;
+    font-weight: 400;
+    color: var(--wed-ink);
+  }
+  .group-head p {
+    margin-top: 0.3rem;
+    font-size: 0.86rem;
+    font-weight: 300;
+    font-style: italic;
+    font-family: var(--wed-serif);
+    color: var(--wed-muted);
+  }
+
+  .items { list-style: none; margin: 0; padding: 0; }
+  .item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.7rem 0;
+  }
+  .item-main { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+  .item-name {
+    font-size: 0.98rem;
+    font-weight: 400;
+    color: var(--wed-ink);
+  }
+  .item-detail {
+    font-size: 0.8rem;
+    font-weight: 300;
+    line-height: 1.4;
+    color: var(--wed-muted);
+  }
+  /* Dotted leader — the printed-menu detail that makes the list scan. */
+  .leader {
+    flex: 1;
+    min-width: 1.5rem;
+    align-self: center;
+    margin-top: 0.2rem;
+    border-bottom: 1px dotted rgba(45, 40, 35, 0.28);
+  }
+  .item-price {
+    font-family: var(--wed-serif);
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--wed-navy);
+    white-space: nowrap;
+  }
+
+  .menu-cta {
+    margin-top: 4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    text-align: center;
+  }
+  .menu-cta p {
+    font-family: var(--wed-serif);
+    font-size: 1.35rem;
+    font-style: italic;
+    color: var(--wed-ink-2);
+  }
+
+  @media (max-width: 900px) {
+    .groups { grid-template-columns: 1fr; gap: 2.5rem; }
+    .group:first-child .items { columns: 1; }
+  }
+  @media (max-width: 460px) {
+    .item { flex-wrap: wrap; gap: 0.35rem 0.75rem; }
+    .leader { display: none; }
+    .item-main { flex: 1 1 100%; }
+    .item-price { font-size: 1.05rem; }
+  }
+</style>

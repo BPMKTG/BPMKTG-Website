@@ -1,0 +1,293 @@
+---
+// The film section — feature, wedding films, ceremony multicam, video
+// moments, engagement films — plus its own Vimeo lightbox.
+//
+// Poster images are resolved by slug from the weddings/thumbnails folder,
+// which is empty on purpose right now: drop `<slug>.jpg` in and the tile
+// swaps its placeholder panel for the real frame with no code change.
+import WedFilmTile from './WedFilmTile.astro';
+import {
+  featureFilm,
+  weddingFilms,
+  ceremonyFilms,
+  momentFilms,
+  engagementFilms,
+} from '../../data/weddings';
+
+const posterGlob = import.meta.glob<{ default: ImageMetadata }>(
+  '../../assets/images/weddings/thumbnails/*.{jpg,jpeg,png}',
+  { eager: true }
+);
+
+const posterBySlug: Record<string, ImageMetadata> = {};
+for (const [path, mod] of Object.entries(posterGlob)) {
+  const slug = path.split('/').pop()!.replace(/\.(jpg|jpeg|png)$/, '');
+  posterBySlug[slug] = mod.default;
+}
+
+const groups = [
+  {
+    id: 'wedding-films',
+    label: 'Wedding Films',
+    blurb: 'The highlight film — your whole day cut down to the minutes you will actually rewatch, every anniversary, for the rest of your life.',
+    items: weddingFilms,
+    cols: 'three',
+  },
+  {
+    id: 'ceremony',
+    label: 'Ceremony Multicam',
+    blurb: 'The full ceremony, uncut, from three angles with clean vow audio. The one film your parents will ask for.',
+    items: ceremonyFilms,
+    cols: 'three',
+  },
+  {
+    id: 'moments',
+    label: 'Video Moments',
+    blurb: 'Single beats, finished on their own — the first look, the first kiss, the first dance, the cake, the sendoff. Short enough to send to anyone.',
+    items: momentFilms,
+    cols: 'four',
+  },
+  {
+    id: 'engagement',
+    label: 'Engagement Films',
+    blurb: 'Shot months before the day, usually played at the reception. The easiest way to get comfortable on camera before it counts.',
+    items: engagementFilms,
+    cols: 'three',
+  },
+];
+---
+<section class="films wed-section" id="films">
+  <div class="wed-container">
+    <header class="head" data-reveal-group>
+      <p class="wed-label" data-reveal="left">On Film</p>
+      <h2 data-reveal>The films we make<br /><em class="script">for the two of you.</em></h2>
+      <p class="wed-lede wed-narrow" data-reveal>
+        We came up shooting live music — one take, no second chances, no asking
+        the headliner to do it again. A wedding is the same job with higher
+        stakes, and we cover it the same way.
+      </p>
+    </header>
+
+    <div class="feature" data-reveal="scale">
+      <WedFilmTile {...featureFilm} posterImg={posterBySlug[featureFilm.slug]} feature />
+    </div>
+
+    {groups.map(group => (
+      <section class="group" id={group.id}>
+        <header class="group-head">
+          <div class="group-head-main">
+            <h3 data-reveal="left">{group.label}</h3>
+            <p data-reveal>{group.blurb}</p>
+          </div>
+        </header>
+        <div class:list={['grid', `grid--${group.cols}`]} data-reveal-group>
+          {group.items.map(item => (
+            <div data-reveal="scale">
+              <WedFilmTile {...item} posterImg={posterBySlug[item.slug]} />
+            </div>
+          ))}
+        </div>
+      </section>
+    ))}
+  </div>
+</section>
+
+<!-- Video lightbox -->
+<dialog class="wvlb" data-wed-vlb>
+  <button type="button" class="wvlb-close" data-wed-vlb-close aria-label="Close">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+    </svg>
+  </button>
+  <figure class="wvlb-figure">
+    <div class="wvlb-frame" data-wed-vlb-frame></div>
+    <figcaption class="wvlb-caption" data-wed-vlb-caption></figcaption>
+  </figure>
+</dialog>
+
+<script>
+  // Hover previews + the Vimeo lightbox. The site has no ClientRouter, so
+  // every navigation is a full page load — no teardown plumbing needed.
+  const initWedFilms = () => {
+    const dialog = document.querySelector<HTMLDialogElement>('[data-wed-vlb]');
+    const frame  = dialog?.querySelector<HTMLElement>('[data-wed-vlb-frame]');
+    const capEl  = dialog?.querySelector<HTMLElement>('[data-wed-vlb-caption]');
+    const tiles  = Array.from(document.querySelectorAll<HTMLElement>('[data-wed-video]'));
+
+    const open = (id: string, caption: string, vertical: boolean) => {
+      if (!dialog || !frame) return;
+      document.querySelectorAll<HTMLVideoElement>('.preview').forEach(v => v.pause());
+      frame.innerHTML = `<iframe
+        src="https://player.vimeo.com/video/${id}?autoplay=1&title=0&byline=0&portrait=0&dnt=1"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowfullscreen
+        title="${caption}"></iframe>`;
+      if (capEl) capEl.textContent = caption;
+      dialog.classList.toggle('wvlb--vertical', vertical);
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+      document.body.style.overflow = 'hidden';
+    };
+
+    const close = () => {
+      if (!dialog || !frame) return;
+      if (typeof dialog.close === 'function') dialog.close();
+      else dialog.removeAttribute('open');
+      document.body.style.overflow = '';
+      frame.innerHTML = ''; // removing the iframe is what stops playback
+    };
+
+    tiles.forEach(tile => {
+      const id = tile.dataset.vimeoId;
+      if (id) {
+        tile.addEventListener('click', () =>
+          open(id, tile.dataset.caption || '', tile.dataset.orientation === 'v')
+        );
+      }
+      // Hover preview — the CSS fades it in; this starts playback.
+      const video = tile.querySelector<HTMLVideoElement>('.preview');
+      if (video && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+        tile.addEventListener('pointerenter', () => { video.play().catch(() => {}); });
+        tile.addEventListener('pointerleave', () => { video.pause(); video.currentTime = 0; });
+      }
+    });
+
+    dialog?.querySelector('[data-wed-vlb-close]')?.addEventListener('click', close);
+    dialog?.addEventListener('click', e => { if (e.target === dialog) close(); });
+    dialog?.addEventListener('cancel', e => { e.preventDefault(); close(); });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWedFilms, { once: true });
+  } else {
+    initWedFilms();
+  }
+</script>
+
+<style>
+  .films { background: var(--wed-bg); }
+  .head { max-width: 66ch; margin-bottom: 3.5rem; }
+  .head h2 { margin: 1.1rem 0 1.5rem; }
+
+  .feature { margin-bottom: 4.5rem; }
+
+  .group { margin-top: 4.5rem; }
+  .group-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--wed-line-soft);
+  }
+  .group-head-main { max-width: 64ch; }
+  .group-head h3 {
+    font-size: clamp(1.6rem, 2.6vw, 2.1rem);
+    font-weight: 400;
+    color: var(--wed-ink);
+    margin-bottom: 0.5rem;
+  }
+  .group-head p {
+    font-size: 0.98rem;
+    font-weight: 300;
+    color: var(--wed-muted);
+    line-height: 1.6;
+  }
+
+  .grid { display: grid; gap: 1.75rem; }
+  .grid--three { grid-template-columns: repeat(3, 1fr); }
+  /* Video moments are vertical tiles — four across keeps them a usable
+     size while still filling two complete rows from eight entries. */
+  .grid--four  { grid-template-columns: repeat(4, 1fr); gap: 1.35rem; }
+
+  @media (max-width: 1080px) {
+    .grid--three { grid-template-columns: repeat(2, 1fr); }
+    .grid--four  { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .grid--three { grid-template-columns: 1fr; }
+    .grid--four  { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+    .group { margin-top: 3rem; }
+  }
+
+  /* ═════════ Video lightbox ═════════ */
+  .wvlb {
+    background: transparent;
+    border: none;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    overflow: visible;
+    color: var(--wed-ink);
+  }
+  .wvlb::backdrop { background: rgba(252, 250, 248, 0.96); }
+  .wvlb[open] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: wvlbIn 0.3s ease;
+  }
+  @keyframes wvlbIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .wvlb-figure {
+    margin: 0;
+    width: min(92vw, 1320px);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    pointer-events: none;
+  }
+  .wvlb-frame {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--wed-radius);
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 40px 90px -40px rgba(35, 42, 59, 0.6);
+    pointer-events: auto;
+  }
+  .wvlb--vertical .wvlb-figure { width: auto; max-width: 92vw; align-items: center; }
+  .wvlb--vertical .wvlb-frame {
+    width: auto;
+    height: min(80vh, 1040px);
+    max-width: 92vw;
+    aspect-ratio: 9 / 16;
+  }
+  /* :global() — the iframe is injected by JS so it carries no scope id. */
+  .wvlb-frame :global(iframe) { width: 100% !important; height: 100% !important; border: 0; display: block; }
+
+  .wvlb-caption {
+    font-family: var(--wed-serif);
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--wed-ink-2);
+    text-align: center;
+    pointer-events: auto;
+  }
+  .wvlb-close {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid var(--wed-line);
+    color: var(--wed-ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: 0 12px 30px -20px rgba(35, 42, 59, 0.5);
+    transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
+  }
+  .wvlb-close:hover { background: var(--wed-navy); color: #fff; transform: rotate(90deg); }
+  @media (prefers-reduced-motion: reduce) {
+    .wvlb-close { transition: none; }
+    .wvlb-close:hover { transform: none; }
+  }
+</style>

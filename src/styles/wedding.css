@@ -1,0 +1,305 @@
+/* ═══════════════════════════════════════════════════════════════
+   WEDDINGS — standalone light theme.
+
+   This file is DELIBERATELY self-contained: it does NOT import or
+   depend on global.css. The /weddings page is an unlisted, separate
+   funnel for a completely different customer, and keeping its CSS
+   isolated means (a) nothing here can leak into the EDM site, and
+   (b) nothing there can drag dark-mode tokens into this page.
+
+   Brand continuity is kept deliberately:
+   - Blueprint navy (#264fa0) is still the primary.
+   - Orbitron still sets the tiny uppercase eyebrow labels.
+   - The blueprint grid still shows up, but as a whisper — pale blue
+     hairlines on ivory instead of white-on-black HUD.
+   Everything else is retuned light, warm, and airy.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Surfaces ── */
+  --wed-bg:        #fcfaf8;  /* warm ivory — the page ground */
+  --wed-bg-2:      #f6f0ea;  /* champagne band */
+  --wed-bg-3:      #efe7de;  /* deepest warm band */
+  --wed-card:      #ffffff;
+  --wed-line:      rgba(45, 40, 35, 0.12);
+  --wed-line-soft: rgba(45, 40, 35, 0.07);
+
+  /* ── Ink ── */
+  --wed-ink:    #232a3b;  /* deep navy-charcoal, ties to brand navy */
+  --wed-ink-2:  #4a5265;
+  --wed-muted:  #79808f;
+  --wed-dim:    #9aa0ac;
+
+  /* ── Brand accents, retuned ── */
+  --wed-navy:      #264fa0;  /* Blueprint primary — unchanged */
+  --wed-navy-deep: #1d3d7d;
+  --wed-blue:      #8fb6da;  /* soft dusty blue */
+  --wed-blue-pale: #dfeaf5;
+  --wed-gold:      #b08d4f;  /* champagne gold — the wedding accent */
+  --wed-gold-soft: #c8a86a;
+  --wed-gold-pale: #f2e8d6;
+  --wed-blush:     #e9d7cd;
+
+  --wed-max: 1240px;
+  --wed-radius: 14px;
+  --wed-radius-lg: 22px;
+
+  --wed-sans:    "Roboto", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --wed-serif:   "Cormorant Garamond", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --wed-display: "Orbitron", "Roboto", ui-sans-serif, system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html.wed {
+  margin: 0;
+  padding: 0;
+  background: var(--wed-bg);
+  color: var(--wed-ink);
+  font-family: var(--wed-sans);
+  font-weight: 300;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
+html.wed body {
+  margin: 0;
+  padding: 0;
+  background: var(--wed-bg);
+  overflow-x: hidden;
+}
+
+/* Base element styles are wrapped in :where() so they carry ZERO
+   specificity. Without it `html.wed p` (0,1,2) out-ranks a utility class
+   like `.wed-label` (0,1,0) and silently steals its color — which is
+   exactly what happened to the eyebrow labels and the button text. */
+:where(html.wed) :where(a) { color: inherit; text-decoration: none; }
+:where(html.wed) :where(img, svg) { max-width: 100%; height: auto; display: block; }
+
+/* ── Typography ──
+   Cormorant Garamond does the display work: high-contrast, light-weight,
+   generous. Sentence case (not the EDM uppercase) is the whole point. */
+:where(html.wed) :where(h1, h2, h3, h4) {
+  margin: 0;
+  font-family: var(--wed-serif);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  line-height: 1.08;
+  color: var(--wed-ink);
+  text-transform: none;
+}
+:where(html.wed) :where(h1) { font-size: clamp(2.6rem, 5.5vw, 4.75rem); line-height: 1.04; }
+:where(html.wed) :where(h2) { font-size: clamp(2.1rem, 4.2vw, 3.4rem); }
+:where(html.wed) :where(h3) { font-size: 1.35rem; font-weight: 500; line-height: 1.2; }
+:where(html.wed) :where(h4) { font-size: 1.05rem; font-weight: 500; }
+:where(html.wed) :where(em.script) { font-style: italic; color: var(--wed-navy); }
+:where(html.wed) .gold { color: var(--wed-gold); }
+:where(html.wed) .navy { color: var(--wed-navy); }
+
+:where(html.wed) :where(p) { margin: 0; color: var(--wed-ink-2); }
+
+.wed-container { max-width: var(--wed-max); margin: 0 auto; padding: 0 1.5rem; }
+.wed-section   { padding: 6rem 0; }
+.wed-narrow    { max-width: 62ch; }
+
+/* Tiny uppercase eyebrow — the one place Orbitron survives, so the page
+   still reads as Blueprint at a glance. */
+.wed-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--wed-display);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--wed-navy);
+}
+.wed-label::before {
+  content: "";
+  width: 26px; height: 1px;
+  background: var(--wed-gold);
+  display: inline-block;
+  flex-shrink: 0;
+}
+.wed-label--center { justify-content: center; }
+.wed-label--center::after {
+  content: "";
+  width: 26px; height: 1px;
+  background: var(--wed-gold);
+  display: inline-block;
+  flex-shrink: 0;
+}
+.wed-label--gold { color: var(--wed-gold); }
+.wed-label--light { color: #fff; }
+.wed-label--light::before, .wed-label--light::after { background: rgba(255,255,255,0.75); }
+
+.wed-lede {
+  font-size: 1.08rem;
+  font-weight: 300;
+  line-height: 1.7;
+  color: var(--wed-ink-2);
+}
+
+/* ── Buttons ──
+   Softer than the EDM stack: gentle radius, no neon glow, no shimmer.
+   The lift on hover is the only movement. */
+.wed-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1rem 1.85rem;
+  border-radius: 999px;
+  background: var(--wed-navy);
+  color: #fff;
+  font-family: var(--wed-sans);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1px solid var(--wed-navy);
+  cursor: pointer;
+  transition: background 0.25s ease, border-color 0.25s ease,
+              color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 10px 26px -16px rgba(38, 79, 160, 0.7);
+}
+.wed-btn:hover {
+  background: var(--wed-navy-deep);
+  border-color: var(--wed-navy-deep);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px -16px rgba(38, 79, 160, 0.75);
+}
+.wed-btn .arrow { transition: transform 0.3s cubic-bezier(.2,.7,.3,1); }
+.wed-btn:hover .arrow { transform: translateX(4px); }
+
+.wed-btn--ghost {
+  background: transparent;
+  color: var(--wed-ink);
+  border-color: var(--wed-line);
+  box-shadow: none;
+}
+.wed-btn--ghost:hover {
+  background: transparent;
+  color: var(--wed-navy);
+  border-color: var(--wed-navy);
+  box-shadow: none;
+}
+
+.wed-btn--gold {
+  background: var(--wed-gold);
+  border-color: var(--wed-gold);
+  box-shadow: 0 10px 26px -16px rgba(176, 141, 79, 0.8);
+}
+.wed-btn--gold:hover { background: #997a43; border-color: #997a43; }
+
+.wed-btn--light {
+  background: #fff;
+  color: var(--wed-navy);
+  border-color: #fff;
+}
+.wed-btn--light:hover { background: #fff; color: var(--wed-navy-deep); }
+
+.wed-btn--outline-light {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255,255,255,0.5);
+  box-shadow: none;
+}
+.wed-btn--outline-light:hover { background: rgba(255,255,255,0.12); border-color: #fff; box-shadow: none; }
+
+/* ── The blueprint whisper ──
+   Same architectural grid as the EDM site, but pale blue hairlines on
+   ivory instead of white on black. Opt in with .wed-grid-bg. */
+.wed-grid-bg { position: relative; isolation: isolate; }
+.wed-grid-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(38, 79, 160, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(38, 79, 160, 0.055) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(75% 75% at 50% 50%, #000 25%, transparent 100%);
+  -webkit-mask-image: radial-gradient(75% 75% at 50% 50%, #000 25%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Hairline divider with a gold pip in the middle — used between sections. */
+.wed-rule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  color: var(--wed-gold);
+}
+.wed-rule::before, .wed-rule::after {
+  content: "";
+  height: 1px;
+  width: min(120px, 18vw);
+  background: linear-gradient(90deg, transparent, var(--wed-line), transparent);
+}
+.wed-rule span {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--wed-gold);
+  display: block;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOTION — a trimmed copy of the site's reveal system.
+   Same [data-reveal] / .is-in contract that wedding.client.ts drives,
+   but softer and slower than the EDM easing: this page should breathe.
+   ═══════════════════════════════════════════════════════════════ */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 1.05s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+    transform 1.05s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+  will-change: opacity, transform;
+}
+[data-reveal].is-in { opacity: 1; transform: none; }
+
+[data-reveal="left"]        { transform: translateX(-20px); }
+[data-reveal="left"].is-in  { transform: none; }
+[data-reveal="scale"]       { transform: translateY(28px) scale(0.965); }
+[data-reveal="scale"].is-in { transform: none; }
+[data-reveal="fade"]        { transform: none; }
+
+[data-reveal-group] > [data-reveal]:nth-child(1)   { --reveal-delay: 0.00s; }
+[data-reveal-group] > [data-reveal]:nth-child(2)   { --reveal-delay: 0.09s; }
+[data-reveal-group] > [data-reveal]:nth-child(3)   { --reveal-delay: 0.18s; }
+[data-reveal-group] > [data-reveal]:nth-child(4)   { --reveal-delay: 0.27s; }
+[data-reveal-group] > [data-reveal]:nth-child(5)   { --reveal-delay: 0.36s; }
+[data-reveal-group] > [data-reveal]:nth-child(6)   { --reveal-delay: 0.45s; }
+[data-reveal-group] > [data-reveal]:nth-child(n+7) { --reveal-delay: 0.50s; }
+
+/* Image fade-in as each file decodes (wedding.client.ts tags them). */
+img[data-wed-loading] {
+  opacity: 0;
+  transition: opacity 0.6s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+img[data-wed-loading][data-wed-loaded] { opacity: 1; }
+
+/* Focus visibility — this page has no custom cursor, so the native
+   focus ring matters. */
+html.wed :focus-visible {
+  outline: 2px solid var(--wed-navy);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.wed { scroll-behavior: auto; }
+  [data-reveal] { opacity: 1; transform: none; transition: none; }
+  img[data-wed-loading] { opacity: 1; transition: none; }
+  .wed-btn, .wed-btn .arrow { transition: none; }
+  .wed-btn:hover { transform: none; }
+}
+
+@media (max-width: 700px) {
+  .wed-section { padding: 4rem 0; }
+}

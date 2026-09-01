@@ -1,0 +1,219 @@
+---
+// Weddings header.
+//
+// Deliberately NOT the site Header: none of these links go to the EDM
+// funnel, and the logo points back to /weddings rather than /, so a bride
+// who clicks it lands here instead of on an artist-growth homepage.
+import { WEDDING_CALENDLY_URL } from '../../data/weddings';
+
+const nav = [
+  { href: '#films',     label: 'Films' },
+  { href: '#gallery',   label: 'Gallery' },
+  { href: '#packages',  label: 'Packages' },
+  { href: '#menu',      label: 'À La Carte' },
+  { href: '#faq',       label: 'FAQ' },
+];
+---
+<header class="wed-header" data-wed-header>
+  <div class="wed-container inner">
+    <a href="#top" class="brand" aria-label="Blueprint Marketing Weddings">
+      <img src="/brand/logo-header-navy.svg" alt="Blueprint Marketing" width="180" height="56" />
+      <span class="brand-sub">Weddings</span>
+    </a>
+
+    <nav class="nav" aria-label="Primary">
+      <ul>
+        {nav.map(item => <li><a href={item.href}>{item.label}</a></li>)}
+      </ul>
+    </nav>
+
+    <a href={WEDDING_CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="wed-btn cta">
+      Check Your Date
+      <span class="arrow" aria-hidden="true">→</span>
+    </a>
+
+    <button
+      type="button"
+      class="burger"
+      aria-label="Open menu"
+      aria-expanded="false"
+      aria-controls="wed-nav"
+      data-wed-nav-toggle
+    >
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+
+  <div class="sheet" id="wed-nav" data-wed-nav hidden role="dialog" aria-modal="true" aria-label="Menu">
+    <!-- The sheet covers the header, so it carries its own wordmark —
+         otherwise an open menu loses the brand entirely. -->
+    <a href="#top" class="sheet-brand" data-wed-nav-link aria-label="Blueprint Marketing Weddings">
+      <img src="/brand/logo-header-navy.svg" alt="Blueprint Marketing" width="180" height="56" />
+      <span class="brand-sub">Weddings</span>
+    </a>
+    <ul>
+      {nav.map(item => (
+        <li><a href={item.href} data-wed-nav-link>{item.label}</a></li>
+      ))}
+    </ul>
+    <a href={WEDDING_CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="wed-btn sheet-cta" data-wed-nav-link>
+      Check Your Date
+      <span class="arrow" aria-hidden="true">→</span>
+    </a>
+  </div>
+</header>
+
+<style>
+  .wed-header {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: rgba(252, 250, 248, 0.82);
+    backdrop-filter: blur(14px) saturate(120%);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.35s ease, background 0.35s ease, box-shadow 0.35s ease;
+  }
+  /* .is-stuck is toggled by wedding.client.ts past 40px of scroll — the
+     header only earns its hairline once it's actually sitting over content. */
+  .wed-header.is-stuck {
+    border-bottom-color: var(--wed-line-soft);
+    box-shadow: 0 12px 30px -28px rgba(35, 42, 59, 0.6);
+  }
+
+  .inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding-top: 0.9rem;
+    padding-bottom: 0.9rem;
+  }
+
+  .brand { display: flex; align-items: baseline; gap: 0.7rem; }
+  .brand img { height: 26px; width: auto; }
+  .brand-sub {
+    font-family: var(--wed-serif);
+    font-size: 1.15rem;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--wed-gold);
+    line-height: 1;
+    /* Hairline separator between the wordmark and the sub-brand */
+    padding-left: 0.75rem;
+    border-left: 1px solid var(--wed-line);
+  }
+
+  .nav ul {
+    list-style: none;
+    display: flex;
+    gap: 2rem;
+    margin: 0; padding: 0;
+  }
+  .nav a {
+    position: relative;
+    font-size: 0.82rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--wed-ink-2);
+    padding-bottom: 4px;
+    transition: color 0.25s ease;
+  }
+  .nav a::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 1px;
+    background: var(--wed-gold);
+    transform: scaleX(0);
+    transform-origin: right center;
+    transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  .nav a:hover { color: var(--wed-navy); }
+  .nav a:hover::after { transform: scaleX(1); transform-origin: left center; }
+
+  .cta { padding: 0.75rem 1.35rem; font-size: 0.7rem; }
+
+  /* ── Mobile ── */
+  .burger {
+    display: none;
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--wed-line);
+    border-radius: 999px;
+    width: 44px; height: 44px;
+    padding: 0;
+    cursor: pointer;
+    color: var(--wed-ink);
+    position: relative;
+    z-index: 70;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .burger span {
+    display: block;
+    width: 18px; height: 1.5px;
+    background: currentColor;
+    margin: 2.5px 0;
+    transition: transform 0.3s cubic-bezier(.2,.7,.3,1), opacity 0.2s ease;
+  }
+  .burger.is-open span:nth-child(1) { transform: translateY(4px) rotate(45deg); }
+  .burger.is-open span:nth-child(2) { opacity: 0; }
+  .burger.is-open span:nth-child(3) { transform: translateY(-4px) rotate(-45deg); }
+
+  .sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 65;
+    /* Fully opaque: on a light page a translucent overlay lets the body
+       copy ghost through the menu and the whole thing reads as smudged. */
+    background: var(--wed-bg);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2.25rem;
+    padding: 1.5rem 2rem 3rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    height: 100svh;
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .sheet[hidden] { display: none; }
+  .sheet.is-open { opacity: 1; }
+  .sheet-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+    padding-bottom: 1.5rem;
+  }
+  .sheet-brand img { height: 24px; width: auto; }
+
+  .sheet ul { list-style: none; margin: 0; padding: 0; }
+  .sheet li + li { border-top: 1px solid var(--wed-line-soft); }
+  .sheet ul a {
+    display: block;
+    padding: 1.15rem 0;
+    font-family: var(--wed-serif);
+    font-size: clamp(1.8rem, 7vw, 2.4rem);
+    font-weight: 400;
+    color: var(--wed-ink);
+    transition: color 0.25s ease, padding-left 0.25s ease;
+  }
+  .sheet ul a:hover { color: var(--wed-navy); padding-left: 0.6rem; }
+  .sheet-cta { align-self: flex-start; }
+
+  @media (max-width: 1040px) {
+    .nav, .cta { display: none; }
+    .burger { display: flex; }
+  }
+  @media (max-width: 420px) {
+    .brand img { height: 22px; }
+    .brand-sub { font-size: 1rem; padding-left: 0.6rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wed-header, .nav a, .nav a::after, .sheet, .sheet ul a, .burger span { transition: none; }
+  }
+</style>

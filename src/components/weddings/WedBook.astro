@@ -1,0 +1,101 @@
+---
+// Closing CTA. The one section on this page that inverts to navy — it is
+// the last thing on the page and it should feel like a full stop.
+import { WEDDING_CALENDLY_URL, WEDDING_EMAIL } from '../../data/weddings';
+---
+<section class="book" id="book">
+  <div class="wed-container inner">
+    <p class="wed-label wed-label--center wed-label--light" data-reveal>Let's Talk</p>
+
+    <h2 data-reveal>Tell us the date.<br /><em>We'll tell you if it's open.</em></h2>
+
+    <p class="lede" data-reveal>
+      Thirty minutes, no hard sell, no slide deck. Bring your venue, your
+      timeline, and the two or three moments you already know you want to keep.
+    </p>
+
+    <div class="ctas" data-reveal>
+      <a href={WEDDING_CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="wed-btn wed-btn--light">
+        Check your date
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+      <a href={`mailto:${WEDDING_EMAIL}`} class="wed-btn wed-btn--outline-light">{WEDDING_EMAIL}</a>
+    </div>
+
+    <p class="fine" data-reveal>We reply to every inquiry within one business day.</p>
+  </div>
+</section>
+
+<style>
+  .book {
+    position: relative;
+    overflow: hidden;
+    padding: 7rem 0;
+    background:
+      radial-gradient(70% 90% at 50% 0%, rgba(143, 182, 218, 0.28), transparent 65%),
+      linear-gradient(180deg, var(--wed-navy) 0%, var(--wed-navy-deep) 100%);
+    isolation: isolate;
+  }
+  /* The blueprint grid returns at full strength here — this is the one
+     panel dark enough to carry it the way the EDM site does. */
+  .book::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+    background-size: 62px 62px;
+    mask-image: radial-gradient(70% 70% at 50% 45%, #000 25%, transparent 100%);
+    -webkit-mask-image: radial-gradient(70% 70% at 50% 45%, #000 25%, transparent 100%);
+    pointer-events: none;
+  }
+
+  .inner {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1.4rem;
+  }
+  .book h2 {
+    color: #fff;
+    font-size: clamp(2.4rem, 5vw, 4rem);
+    margin-top: 0.5rem;
+  }
+  .book h2 em { font-style: italic; color: var(--wed-blue-pale); }
+
+  .lede {
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 1.08rem;
+    font-weight: 300;
+    line-height: 1.7;
+    max-width: 56ch;
+  }
+
+  .ctas {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .fine {
+    margin-top: 0.75rem;
+    font-family: var(--wed-display);
+    font-size: 0.56rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  @media (max-width: 700px) {
+    .book { padding: 4.5rem 0; }
+    .ctas .wed-btn { flex: 1 1 100%; }
+  }
+</style>
