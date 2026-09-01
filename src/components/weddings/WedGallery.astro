@@ -39,7 +39,7 @@ const hasAnyPhotos = tiles.some(t => t.src);
       <p class="wed-label" data-reveal="left">The Gallery</p>
       <h2 data-reveal>Stills from the <em class="script">same day.</em></h2>
       <p class="wed-lede wed-narrow" data-reveal>
-        Shot by the same crew, on the same timeline, graded to match your film —
+        Shot by the same crew, on the same timeline, graded to match your film,
         so your photos and your video finally look like they came from one wedding.
       </p>
     </header>
@@ -47,7 +47,7 @@ const hasAnyPhotos = tiles.some(t => t.src);
     {!hasAnyPhotos && (
       <p class="empty-note" data-reveal>
         <span class="empty-dot" aria-hidden="true"></span>
-        Gallery in progress — images drop in here as we finish each wedding.
+        Gallery in progress. Images drop in here as we finish each wedding.
       </p>
     )}
 
@@ -60,7 +60,7 @@ const hasAnyPhotos = tiles.some(t => t.src);
             data-orientation={tile.orientation}
             data-wed-photo
             data-full={tile.full}
-            data-caption={`${tile.caption} — ${tile.tag}`}
+            data-caption={`${tile.caption} · ${tile.tag}`}
             data-reveal="scale"
             aria-label={`Open larger view: ${tile.caption}`}
           >

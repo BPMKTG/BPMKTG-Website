@@ -143,11 +143,11 @@ export const packages: WeddingPackage[] = [
     name: 'The Foundation',
     price: '$2,850',
     cadence: 'up to 6 hours of coverage',
-    positioning: 'The day, told properly — ceremony, portraits, and the first hour of the party.',
+    positioning: 'The day, told properly: ceremony, portraits, and the first hour of the party.',
     bestFor: 'Intimate weddings, shorter timelines, couples who want the film without the full-day build.',
     includes: [
       '6 hours of same-day coverage, one filmmaker',
-      '4–6 minute wedding film',
+      '4-6 minute wedding film',
       'Full ceremony, multicam edit',
       '3 video moments of your choosing',
       'Licensed music + full audio mix',
@@ -165,7 +165,7 @@ export const packages: WeddingPackage[] = [
     bestFor: 'Most couples. Full-day weddings where the morning and the late night both matter.',
     includes: [
       '10 hours of coverage, two filmmakers',
-      '6–8 minute wedding film',
+      '6-8 minute wedding film',
       'Full ceremony, three-camera multicam edit',
       'Full toasts + speeches edit',
       '6 video moments of your choosing',
@@ -191,7 +191,7 @@ export const packages: WeddingPackage[] = [
       'Rehearsal dinner coverage',
       'Drone / aerial coverage where permitted',
       'A documentary edit of the full day',
-      'Priority delivery — teaser in 72 hours',
+      'Priority delivery: teaser in 72 hours',
     ],
     featured: false,
   },
@@ -212,7 +212,7 @@ export const alaCarte: AlaCarteGroup[] = [
     heading: 'Film',
     note: 'Where we started, and still what we do best.',
     items: [
-      { name: 'Wedding film',            detail: '4–8 minute highlight film of the full day',            price: 'from $2,200' },
+      { name: 'Wedding film',            detail: '4-8 minute highlight film of the full day',            price: 'from $2,200' },
       { name: 'Ceremony multicam',       detail: 'Full unabridged ceremony, three angles, full audio',   price: '$850' },
       { name: 'Video moments',           detail: 'Pack of 3 key moments, finished individually',         price: '$600' },
       { name: 'Additional video moment', detail: 'Each moment beyond your package',                      price: '$180' },
@@ -220,7 +220,7 @@ export const alaCarte: AlaCarteGroup[] = [
       { name: 'Social teaser',           detail: '60-second vertical cut, delivered inside 72 hours',    price: '$450' },
       { name: 'Toasts + speeches edit',  detail: 'Every speech, cleaned up and cut together',            price: '$400' },
       { name: 'Rehearsal dinner',        detail: 'Up to 3 hours of coverage the night before',           price: '$700' },
-      { name: 'Documentary edit',        detail: 'The long-form cut — 20–40 minutes of the whole day',   price: '$800' },
+      { name: 'Documentary edit',        detail: 'The long-form cut, 20 to 40 minutes of the whole day',   price: '$800' },
     ],
   },
   {
@@ -252,7 +252,7 @@ export const alaCarte: AlaCarteGroup[] = [
 // ─────────────────────────────────────────────────────────────
 export const processSteps = [
   { title: 'Check your date',   body: 'Tell us where and when. We hold one wedding per weekend, so dates go early.' },
-  { title: 'The consult',       body: 'A 30-minute call — your venue, your timeline, the people who matter, and what you actually want to watch back.' },
+  { title: 'The consult',       body: 'A 30-minute call: your venue, your timeline, the people who matter, and what you actually want to watch back.' },
   { title: 'Build the plan',    body: 'You get a written coverage plan: crew, hours, the shot list, and the moments you told us you cannot miss.' },
   { title: 'The day',           body: 'We stay out of the way. No staging, no posing you through your own wedding, no camera in your face during the vows.' },
   { title: 'The delivery',      body: 'A teaser first, then your films and gallery in one private online home you can share with everyone who missed it.' },
@@ -264,11 +264,11 @@ export const processSteps = [
 export const faqs = [
   {
     q: 'Do you shoot photo as well as video?',
-    a: 'Both. Film is where we built our name — festival stages, live production, high-pressure single-take moments — and photo runs alongside it with the same crew. If you only want one, book only one; the à la carte menu prices them separately.',
+    a: 'Both. Film is where we built our name (festival stages, live production, high-pressure single-take moments) and photo runs alongside it with the same crew. If you only want one, book only one; the à la carte menu prices them separately.',
   },
   {
     q: 'How far in advance should we book?',
-    a: 'Most couples book 9–14 months out. We take one wedding per weekend so the crew is never split, which means popular dates close early. If your date is close, ask anyway — we hold a small number of short-notice slots.',
+    a: 'Most couples book 9 to 14 months out. We take one wedding per weekend so the crew is never split, which means popular dates close early. If your date is close, ask anyway. We hold a small number of short-notice slots.',
   },
   {
     q: 'When do we get everything?',
@@ -276,7 +276,7 @@ export const faqs = [
   },
   {
     q: 'What is a "video moment"?',
-    a: 'A single beat of the day, finished as its own short film — the first look, the first kiss, the first dance, the toast that wrecked everybody, the sendoff. They live separately from the highlight film so you can send one to your grandmother without making her scrub through eight minutes to find it.',
+    a: 'A single beat of the day, finished as its own short film: the first look, the first kiss, the first dance, the toast that wrecked everybody, the sendoff. They live separately from the highlight film so you can send one to your grandmother without making her scrub through eight minutes to find it.',
   },
   {
     q: 'Will you be in our faces all day?',
@@ -284,7 +284,7 @@ export const faqs = [
   },
   {
     q: 'Do you travel?',
-    a: 'Yes. Travel within 90 miles is included. Beyond that we quote travel and lodging up front — there is never a surprise line item after the fact.',
+    a: 'Yes. Travel within 90 miles is included. Beyond that we quote travel and lodging up front. There is never a surprise line item after the fact.',
   },
   {
     q: 'Can we pick the music?',

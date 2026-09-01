@@ -1153,6 +1153,22 @@ top of the page. Also: the dev server served **stale component CSS** after edits
 at one point; if a rule you just wrote isn't in `document.styleSheets`, restart
 the dev server before you go hunting for a specificity problem.
 
+### Two conventions this page had to catch up to
+
+This checkout was **13 commits behind `origin/main`** when the session started
+(last local work was 2026-06-05; upstream had moved through July). Always
+`git fetch` before starting here. The rebase was clean, but two site-wide rules
+landed upstream in that window and the weddings page had to be brought in line:
+
+1. **No em dashes in visitor-facing copy** (`8c62464`). Every rendered page sits
+   at zero. The weddings page shipped 19 and was rewritten contextually to match
+   (clauses to periods, asides to commas or parentheses, list intros to colons).
+   En dashes in numeric ranges are out too: plain hyphens, or spelled out.
+   Code comments keep theirs, since visitors never see them.
+2. **Caption separators are the middle dot `·`, page titles use a pipe.**
+   `<title>Wedding Films + Photography | Blueprint Marketing</title>`, and film
+   and gallery lightbox captions read `Title · Tag`.
+
 ### Still open on /weddings
 
 1. **Confirm all pricing** (see the TODO banner in `src/data/weddings.ts`).
