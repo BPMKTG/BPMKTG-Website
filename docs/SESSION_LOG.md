@@ -1345,6 +1345,31 @@ components, a bare class will lose to any later element-plus-class rule.
   not to put the backup-shooter guarantee on the site until a real arrangement
   exists. Both now agree: the site promises no backup shooter.
 
+### How the his & hers coverage actually works
+
+Corrected by Mason, and the copy on the page now matches. Worth writing down
+because the first version had it wrong in three places:
+
+- **While the couple is apart**, both of them shoot **hybrid, photo and video**,
+  each in their own getting-ready room. So neither room trades stills for
+  footage.
+- **Once the couple is together**, they split: Makenzie on photo, Mason on video,
+  through ceremony, portraits, and reception.
+
+The earlier copy said Mason shot video and Makenzie shot photo all day, which
+undersold it: the real version means both mediums are covered on both sides of
+the morning by one married couple.
+
+Lives in `WedAbout.astro`, `WedBothSides.astro`, and the "what does his and hers
+mean" FAQ. There is a note at the top of `src/data/weddings.ts` so future copy
+matches.
+
+**Open question:** the Notion pricing page lists Blueprint as film-led with
+photo as an add-on. The site now says both shooters capture photo and video
+while apart, which describes how they work rather than what every package
+delivers. If a film-only couple could read that as photo being included, the
+FAQ answer needs a qualifier.
+
 ### Two conventions this page had to catch up to
 
 This checkout was **13 commits behind `origin/main`** when the session started

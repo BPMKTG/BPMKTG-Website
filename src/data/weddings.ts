@@ -12,6 +12,12 @@
 // guarantee, and the answer to the two biggest objections, so it should
 // stay the first thing a couple reads.
 //
+// How it actually works, per Mason: while the couple is getting ready
+// apart, BOTH of them shoot hybrid (photo and video) in their own room,
+// so neither side trades one medium for the other. Once the couple is
+// together, Makenzie takes photo and Mason takes video. Copy anywhere on
+// the page should match that split.
+//
 // Money line, from that doc, and worth keeping intact:
 //   "Every part of your wedding day, captured by a team who was actually
 //    there for both sides of it."
@@ -308,7 +314,7 @@ export const processSteps = [
 export const faqs = [
   {
     q: 'What does "his and hers" actually mean?',
-    a: 'It means a guy with the groomsmen and a girl with the bridesmaids. We are a husband-and-wife team: he runs video, she runs photo and the bridal side. On our two- and three-person packages that means both getting-ready rooms are covered at the same time, by someone who fits naturally in that room. Nobody is waiting on a shooter to finish one side and drive to the other.',
+    a: 'It means one of us is with the groomsmen and one of us is with the bridesmaids, at the same time, on the two- and three-person packages. While you are apart we both shoot hybrid, photo and video, so neither room trades stills for footage and nobody is waiting on a shooter to finish one side and drive to the other. Once you are together we go back to our lanes: Makenzie on photo, Mason on video. We are married, so this is not a crew we assemble per wedding. It is the two of us either way.',
   },
   {
     q: 'I do not love the idea of a stranger filming me getting ready.',
