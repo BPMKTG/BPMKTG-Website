@@ -1255,8 +1255,12 @@ answer to the two biggest objections. The original copy led with generic
 sentiment ("the film you'll still be watching in thirty years") and never
 mentioned it.
 
-- **Hero H1** is now the primary hook verbatim: *"A guy for your groomsmen. A
-  girl for your bridesmaids."* Trust row leads with "His and hers coverage".
+- **Hero H1** was briefly the primary hook verbatim ("A guy for your groomsmen.
+  A girl for your bridesmaids."), then **reverted at the owner's request** to
+  "The film you'll still be watching in thirty years." He did not like the hook
+  as a headline. The trust row still leads with "His and hers coverage", and the
+  hook itself still carries the section immediately below, so the USP is intact.
+  Do not restore it to the H1 without asking.
 - **New `WedBothSides.astro`**, directly under the hero. The page previously
   jumped from hero into the films, so a couple could scroll the whole gallery
   without learning what makes this team different. Three cards: his, hers, one
@@ -1296,9 +1300,12 @@ then the people who made it, then the ask.
 This section is load-bearing rather than decorative. The his & hers crew is the
 entire USP, and it only becomes credible once a couple sees it is not a staffing
 model invented for a website but a married couple who happen to shoot video and
-photo. **Mason and Makenzie Celum, married 28 March 2025**, with a baby son.
-Portrait is `about/mason-makenzie.jpg`, shot on the boardwalk at the same
-cypress swamp the wedding frames come from.
+photo. **Mason and Makenzie Celum, married 28 March 2025**, based in **Austin, Texas**,
+with a baby son. They met and spent their first year long distance, Mason in
+North Dakota and Makenzie in Alabama, before both moving to Texas. The son does
+**not** come to shoots (an early draft said he did; corrected). Portrait is
+`about/mason-makenzie.jpg`, shot on the boardwalk at the same cypress swamp the
+wedding frames come from.
 
 Source image was a 27.8 MB, 4672x7008 camera original. Downscaled to 1733x2600
 at q88 (1.9 MB) before committing: Astro derives webp from it either way, and a
@@ -1320,7 +1327,8 @@ Two things to know about how it is wired:
   `thumbnails/our-story.jpg` in replaces it. Verified `maxresdefault.jpg` exists
   for this video (1280x720); not every video has one.
 
-Nav gained a "Us" item, footer gained "Meet the team".
+Section sits **directly above the FAQ**, after the process. Nav gained an
+"About Us" item, ordered to mirror the page; footer gained "Meet the team".
 
 **Specificity trap, third time.** `.lead` and `.copy-col p` were both (0,2,0)
 after Astro scoping, and the later one won, flattening the italic pull-quote to
