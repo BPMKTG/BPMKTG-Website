@@ -1,0 +1,217 @@
+---
+// Who you are actually hiring.
+//
+// This section carries a lot of weight on this page: the his & hers crew
+// is the whole USP, and it is only credible once a couple sees that it is
+// not a staffing model invented for a website, it is a married couple who
+// happen to shoot video and photo. The proposal documentary is the proof
+// that they are in the same boat as the people booking them.
+import { Image } from 'astro:assets';
+import WedFilmTile from './WedFilmTile.astro';
+import portrait from '../../assets/images/weddings/about/mason-makenzie.jpg';
+import { WEDDING_CALENDLY_URL } from '../../data/weddings';
+
+// Their own proposal + love story film. Lives on YouTube rather than
+// Vimeo, which is why WedFilmTile and the lightbox take a provider.
+const STORY_YOUTUBE_ID = 'xHn_kkrDrFA';
+
+// Until a local poster is dropped in, borrow YouTube's own thumbnail for
+// the film. Swap in `thumbnails/our-story.jpg` and delete posterUrl.
+const STORY_POSTER = `https://img.youtube.com/vi/${STORY_YOUTUBE_ID}/maxresdefault.jpg`;
+---
+<section class="about wed-section" id="about">
+  <div class="wed-container">
+    <div class="split">
+      <div class="photo-col" data-reveal="left">
+        <div class="frame">
+          <Image
+            src={portrait}
+            alt="Mason and Makenzie Celum with their son, on the boardwalk at the cypress swamp"
+            width={1000}
+            height={1500}
+            format="webp"
+            quality={86}
+            loading="lazy"
+          />
+        </div>
+        <p class="caption">Mason, Makenzie, and the newest member of the crew.</p>
+      </div>
+
+      <div class="copy-col">
+        <p class="wed-label" data-reveal="left">The Two Of Us</p>
+        <h2 data-reveal>Mason and <em class="script">Makenzie.</em></h2>
+
+        <p class="lead" data-reveal>
+          The his and hers thing is not a staffing model we invented for a
+          website. It is just us.
+        </p>
+
+        <p data-reveal>
+          Mason shoots the video. Makenzie shoots the photo and stays with the
+          bridal party through the whole morning. That means the two most
+          personal hours of your day, happening in two different rooms, are both
+          covered at the same time, by someone who belongs in that room.
+        </p>
+
+        <p data-reveal>
+          We got married ourselves on March 28th, 2025, recently enough that we
+          still remember exactly which parts of planning were miserable and
+          which parts we would do again. We had a baby not long after, and he
+          comes along to most things now. He is not much help with the gear yet.
+        </p>
+
+        <p data-reveal>
+          Before weddings, we came up shooting live music. Festival stages,
+          headline sets, one take and no second chances. That is an odd
+          background for a wedding team and it turns out to be the right one:
+          nobody stops a show so you can get the shot again, and nobody should
+          be stopping your ceremony either.
+        </p>
+
+        <ul class="facts" data-reveal>
+          <li><span>Married</span> March 28th, 2025</li>
+          <li><span>Shooting together</span> Four years and counting</li>
+          <li><span>Based</span> Louisiana, and wherever your date is</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="story">
+      <header class="story-head">
+        <h3 data-reveal="left">Before we ever filmed a proposal, we filmed our own.</h3>
+        <p data-reveal>
+          The full documentary of how we got here. It is the same thing we make
+          for you, made for us, which is the only real way to show you what we
+          would do with your day.
+        </p>
+      </header>
+
+      <div class="story-tile" data-reveal="deal">
+        <WedFilmTile
+          slug="our-story"
+          title="Our Story"
+          tag="The Proposal Documentary"
+          category="Documentary"
+          orientation="h"
+          youtubeId={STORY_YOUTUBE_ID}
+          posterUrl={STORY_POSTER}
+          feature
+        />
+      </div>
+
+      <a href={WEDDING_CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="wed-btn wed-btn--ghost story-cta" data-reveal>
+        Check your date
+        <span class="arrow" aria-hidden="true">&#8594;</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .about { background: var(--wed-bg); }
+
+  .split {
+    display: grid;
+    grid-template-columns: 0.85fr 1.15fr;
+    gap: 4rem;
+    align-items: center;
+  }
+
+  .photo-col { display: flex; flex-direction: column; gap: 1rem; }
+  .frame {
+    border-radius: var(--wed-radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--wed-line-soft);
+    background: var(--wed-bg-2);
+    box-shadow: 0 34px 70px -46px rgba(35, 42, 59, 0.6);
+    aspect-ratio: 2 / 3;
+  }
+  .frame :global(img) { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .caption {
+    font-family: var(--wed-serif);
+    font-size: 1rem;
+    font-style: italic;
+    color: var(--wed-muted);
+    text-align: center;
+  }
+
+  .copy-col { display: flex; flex-direction: column; gap: 1.15rem; }
+  .copy-col h2 { margin: 1rem 0 0.5rem; }
+  /* Scoped under .copy-col so it out-specifies the `.copy-col p` rule
+     below, which is declared later at equal specificity and was otherwise
+     flattening this back down to body size. */
+  .copy-col .lead {
+    font-family: var(--wed-serif);
+    font-size: clamp(1.3rem, 2.1vw, 1.65rem);
+    font-style: italic;
+    line-height: 1.4;
+    color: var(--wed-ink);
+  }
+  .copy-col p {
+    font-size: 1rem;
+    font-weight: 300;
+    line-height: 1.75;
+    color: var(--wed-ink-2);
+  }
+
+  .facts {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 1.25rem 0 0;
+    border-top: 1px solid var(--wed-line-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .facts li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 300;
+    color: var(--wed-ink-2);
+  }
+  .facts span {
+    flex: 0 0 auto;
+    min-width: 11ch;
+    font-family: var(--wed-display);
+    font-size: 0.54rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--wed-gold);
+  }
+
+  /* ── The documentary ── */
+  .story {
+    margin-top: 5rem;
+    padding-top: 3.5rem;
+    border-top: 1px solid var(--wed-line-soft);
+    perspective: 2200px;
+  }
+  .story-head { max-width: 62ch; margin: 0 auto 2.25rem; text-align: center; }
+  .story-head h3 {
+    font-size: clamp(1.6rem, 3vw, 2.35rem);
+    font-weight: 400;
+    line-height: 1.15;
+    color: var(--wed-ink);
+    margin-bottom: 0.9rem;
+  }
+  .story-head p {
+    font-size: 1rem;
+    font-weight: 300;
+    line-height: 1.7;
+    color: var(--wed-muted);
+  }
+  .story-cta { margin: 2.25rem auto 0; display: flex; width: fit-content; }
+
+  @media (max-width: 960px) {
+    .split { grid-template-columns: 1fr; gap: 2.5rem; }
+    .photo-col { max-width: 460px; margin: 0 auto; width: 100%; }
+    .story { margin-top: 3.5rem; padding-top: 2.5rem; }
+  }
+  @media (max-width: 520px) {
+    .facts li { flex-direction: column; gap: 0.15rem; }
+    .facts span { min-width: 0; }
+  }
+</style>

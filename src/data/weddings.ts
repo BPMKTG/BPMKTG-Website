@@ -51,6 +51,8 @@ export interface WeddingFilm {
   tag: string;
   category: string;
   vimeoId?: string;
+  /** YouTube video id. Use for anything hosted on YouTube instead of Vimeo. */
+  youtubeId?: string;
   preview?: string;
   /** 'h' = 16:9 tile, 'v' = 9:16 tile. Controls tile + player shape. */
   orientation?: 'h' | 'v';

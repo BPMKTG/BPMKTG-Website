@@ -1288,6 +1288,45 @@ real backup arrangement exists. The later page wins: it is **deliberately absent
 from the site**. It is the single strongest closer for wedding bookings, so it
 is worth actually arranging, then adding.
 
+### About section + the proposal documentary
+
+`WedAbout.astro`, between the gallery and the mid-page CTA: proof of the work,
+then the people who made it, then the ask.
+
+This section is load-bearing rather than decorative. The his & hers crew is the
+entire USP, and it only becomes credible once a couple sees it is not a staffing
+model invented for a website but a married couple who happen to shoot video and
+photo. **Mason and Makenzie Celum, married 28 March 2025**, with a baby son.
+Portrait is `about/mason-makenzie.jpg`, shot on the boardwalk at the same
+cypress swamp the wedding frames come from.
+
+Source image was a 27.8 MB, 4672x7008 camera original. Downscaled to 1733x2600
+at q88 (1.9 MB) before committing: Astro derives webp from it either way, and a
+28 MB binary in git buys nothing.
+
+**The video system now speaks two platforms.** Their proposal documentary is on
+YouTube, and everything here was hardcoded to Vimeo. `WedFilmTile` emits
+`data-video-provider` + `data-video-id` instead of `data-vimeo-id`, and the
+lightbox picks the embed URL per provider (`youtube-nocookie.com` for YouTube,
+so no tracking cookies are set before anyone presses play). Adding a third host
+is now one case in `embedSrc`.
+
+Two things to know about how it is wired:
+- The About tile **reuses WedFilms' lightbox**. That component's script queries
+  `[data-wed-video]` page-wide, so any tile anywhere is bound. If WedFilms is
+  ever removed from the page, the About tile loses its player.
+- The documentary poster is **YouTube's own thumbnail via `posterUrl`**, an
+  external URL, not a local asset. `posterImg` always wins, so dropping
+  `thumbnails/our-story.jpg` in replaces it. Verified `maxresdefault.jpg` exists
+  for this video (1280x720); not every video has one.
+
+Nav gained a "Us" item, footer gained "Meet the team".
+
+**Specificity trap, third time.** `.lead` and `.copy-col p` were both (0,2,0)
+after Astro scoping, and the later one won, flattening the italic pull-quote to
+body size. Fixed by scoping it `.copy-col .lead`. Worth internalising: in these
+components, a bare class will lose to any later element-plus-class rule.
+
 ### Two conventions this page had to catch up to
 
 This checkout was **13 commits behind `origin/main`** when the session started

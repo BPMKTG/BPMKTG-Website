@@ -124,13 +124,24 @@ const groups = [
     const dialog = document.querySelector<HTMLDialogElement>('[data-wed-vlb]');
     const frame  = dialog?.querySelector<HTMLElement>('[data-wed-vlb-frame]');
     const capEl  = dialog?.querySelector<HTMLElement>('[data-wed-vlb-caption]');
+    // Page-wide, deliberately: the About section renders a WedFilmTile of
+    // its own and reuses this one lightbox rather than shipping a second
+    // dialog. If WedFilms is ever removed from the page, that tile loses
+    // its player.
     const tiles  = Array.from(document.querySelectorAll<HTMLElement>('[data-wed-video]'));
 
-    const open = (id: string, caption: string, vertical: boolean) => {
+    const embedSrc = (provider: string, id: string) =>
+      provider === 'youtube'
+        // nocookie host + modestbranding keeps the player quiet and stops
+        // YouTube setting tracking cookies before anyone hits play.
+        ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&modestbranding=1`
+        : `https://player.vimeo.com/video/${id}?autoplay=1&title=0&byline=0&portrait=0&dnt=1`;
+
+    const open = (provider: string, id: string, caption: string, vertical: boolean) => {
       if (!dialog || !frame) return;
       document.querySelectorAll<HTMLVideoElement>('.preview').forEach(v => v.pause());
       frame.innerHTML = `<iframe
-        src="https://player.vimeo.com/video/${id}?autoplay=1&title=0&byline=0&portrait=0&dnt=1"
+        src="${embedSrc(provider, id)}"
         allow="autoplay; fullscreen; picture-in-picture"
         allowfullscreen
         title="${caption}"></iframe>`;
@@ -150,10 +161,11 @@ const groups = [
     };
 
     tiles.forEach(tile => {
-      const id = tile.dataset.vimeoId;
-      if (id) {
+      const id = tile.dataset.videoId;
+      const provider = tile.dataset.videoProvider;
+      if (id && provider) {
         tile.addEventListener('click', () =>
-          open(id, tile.dataset.caption || '', tile.dataset.orientation === 'v')
+          open(provider, id, tile.dataset.caption || '', tile.dataset.orientation === 'v')
         );
       }
       // Hover preview — the CSS fades it in; this starts playback.

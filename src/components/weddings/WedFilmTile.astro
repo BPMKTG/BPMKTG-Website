@@ -17,9 +17,16 @@ interface Props {
   tag: string;
   category: string;
   vimeoId?: string;
+  youtubeId?: string;
   preview?: string;
   orientation?: 'h' | 'v';
   posterImg?: ImageMetadata;
+  /**
+   * Escape hatch for a poster that is not a local asset (a YouTube
+   * thumbnail, say). `posterImg` always wins, so dropping a real file in
+   * replaces it without touching this.
+   */
+  posterUrl?: string;
   feature?: boolean;
 }
 
@@ -29,13 +36,20 @@ const {
   tag,
   category,
   vimeoId,
+  youtubeId,
   preview,
   orientation = 'h',
   posterImg,
+  posterUrl,
   feature = false,
 } = Astro.props;
 
-const playable = Boolean(vimeoId);
+// One tile, either platform. The lightbox reads provider + id off the
+// dataset rather than assuming Vimeo, so adding a third host later is a
+// case in one switch instead of a rewrite.
+const provider = vimeoId ? 'vimeo' : youtubeId ? 'youtube' : undefined;
+const videoId  = vimeoId ?? youtubeId;
+const playable = Boolean(provider);
 const Tag = playable ? 'button' : 'div';
 const imgW = orientation === 'h' ? 1280 : 810;
 const imgH = orientation === 'h' ? 720  : 1440;
@@ -45,7 +59,8 @@ const imgH = orientation === 'h' ? 720  : 1440;
   type={playable ? 'button' : undefined}
   data-orientation={orientation}
   data-slug={slug}
-  data-vimeo-id={vimeoId}
+  data-video-provider={provider}
+  data-video-id={videoId}
   data-caption={`${title} · ${tag}`}
   data-wed-video={playable ? '' : undefined}
   data-wed-focus
@@ -56,6 +71,8 @@ const imgH = orientation === 'h' ? 720  : 1440;
 
     {posterImg ? (
       <Image src={posterImg} alt={title} width={imgW} height={imgH} format="webp" quality={84} loading="lazy" />
+    ) : posterUrl ? (
+      <img src={posterUrl} alt={title} width={imgW} height={imgH} loading="lazy" />
     ) : (
       <span class="placeholder" aria-hidden="true">
         <svg viewBox="0 0 48 34" width="42" height="30" fill="none" stroke="currentColor" stroke-width="1.2">
