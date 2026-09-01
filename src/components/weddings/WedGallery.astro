@@ -70,7 +70,7 @@ const hasAnyPhotos = tiles.some(t => t.src);
                 src={tile.src}
                 alt={tile.caption}
                 width={1100}
-                height={tile.orientation === 'v' ? 1466 : 1100}
+                height={tile.orientation === 'v' ? 1466 : tile.orientation === 'w' ? 733 : 1100}
                 format="webp"
                 quality={84}
                 loading="lazy"
@@ -265,6 +265,9 @@ const hasAnyPhotos = tiles.some(t => t.src);
       box-shadow 0.45s ease,
       border-color 0.35s ease;
   }
+  /* Row spans set the tile's aspect against the column width:
+     2 rows = 3:2 landscape, 3 rows = square, 4 rows = 3:4 portrait. */
+  .gtile[data-orientation="w"] { grid-row: span 2; }
   .gtile[data-orientation="v"] { grid-row: span 4; }
   .gtile:not(.gtile--empty):hover,
   .gtile:not(.gtile--empty):focus-visible {

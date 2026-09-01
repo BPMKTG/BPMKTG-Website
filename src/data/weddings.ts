@@ -102,22 +102,32 @@ export interface WeddingPhoto {
   slug: string;
   caption: string;
   tag: string;
-  orientation: 'h' | 'v';
+  /**
+   * Tile shape in the masonry:
+   *   'w' = 3:2 landscape  — use for 16:9 sources (video frames crop least here)
+   *   'h' = 1:1 square
+   *   'v' = 3:4 portrait
+   * The shape holds whether or not the image exists yet, so the grid rhythm
+   * is already correct with an empty folder.
+   */
+  orientation: 'w' | 'h' | 'v';
 }
 
+// Captions and shapes match the twelve frames from the cypress-swamp
+// wedding, in the order they read best down the wall.
 export const galleryPhotos: WeddingPhoto[] = [
-  { slug: 'gallery-01', caption: 'The First Look',    tag: 'Getting Ready', orientation: 'h' },
-  { slug: 'gallery-02', caption: 'The Portrait',      tag: 'Golden Hour',   orientation: 'v' },
-  { slug: 'gallery-03', caption: 'The Details',       tag: 'The Rings',     orientation: 'h' },
-  { slug: 'gallery-04', caption: 'The Aisle',         tag: 'Ceremony',      orientation: 'v' },
-  { slug: 'gallery-05', caption: 'The Vows',          tag: 'Ceremony',      orientation: 'h' },
-  { slug: 'gallery-06', caption: 'The First Kiss',    tag: 'Ceremony',      orientation: 'v' },
-  { slug: 'gallery-07', caption: 'The Party',         tag: 'Reception',     orientation: 'h' },
-  { slug: 'gallery-08', caption: 'The First Dance',   tag: 'Reception',     orientation: 'v' },
-  { slug: 'gallery-09', caption: 'The Toast',         tag: 'Reception',     orientation: 'h' },
-  { slug: 'gallery-10', caption: 'The Table',         tag: 'Details',       orientation: 'v' },
-  { slug: 'gallery-11', caption: 'The Sendoff',       tag: 'Late Night',    orientation: 'h' },
-  { slug: 'gallery-12', caption: 'The Two of You',    tag: 'Portraits',     orientation: 'v' },
+  { slug: 'gallery-01', caption: 'The Groomsmen',      tag: 'Ceremony',      orientation: 'w' },
+  { slug: 'gallery-02', caption: 'The First Look',     tag: 'Before',        orientation: 'w' },
+  { slug: 'gallery-03', caption: 'The Bride',          tag: 'Portraits',     orientation: 'h' },
+  { slug: 'gallery-04', caption: 'Boots Off The Ground', tag: 'The Boys',    orientation: 'w' },
+  { slug: 'gallery-05', caption: 'The Chapel',         tag: 'Ceremony',      orientation: 'w' },
+  { slug: 'gallery-06', caption: 'The Vows',           tag: 'Ceremony',      orientation: 'h' },
+  { slug: 'gallery-07', caption: 'The Guests',         tag: 'Ceremony',      orientation: 'w' },
+  { slug: 'gallery-08', caption: 'Just Married',       tag: 'Portraits',     orientation: 'w' },
+  { slug: 'gallery-09', caption: 'The Cigar',          tag: 'Portraits',     orientation: 'h' },
+  { slug: 'gallery-10', caption: 'The Bouquet',        tag: 'Portraits',     orientation: 'w' },
+  { slug: 'gallery-11', caption: 'The Dock',           tag: 'The Swamp',     orientation: 'w' },
+  { slug: 'gallery-12', caption: 'Under The Cypress',  tag: 'Details',       orientation: 'w' },
 ];
 
 // ─────────────────────────────────────────────────────────────
