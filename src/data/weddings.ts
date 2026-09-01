@@ -324,7 +324,7 @@ export const faqs = [
   },
   {
     q: 'A friend offered to shoot it for free.',
-    a: 'That is a real option, and sometimes it works out. The difference is four-plus years of doing this, a written plan for every part of your day, real backup coverage, and a team that is not also trying to be a guest at your wedding. A free shooter is not a bad person, they are just an unplanned one.',
+    a: 'That is a real option, and sometimes it works out. The difference is six years of shooting weddings, a written plan for every part of your day, and a team that is not also trying to be a guest at your wedding. A free shooter is not a bad person, they are just an unplanned one.',
   },
   {
     q: 'How far in advance should we book?',

@@ -1335,6 +1335,16 @@ after Astro scoping, and the later one won, flattening the italic pull-quote to
 body size. Fixed by scoping it `.copy-col .lead`. Worth internalising: in these
 components, a bare class will lose to any later element-plus-class rule.
 
+### Numbers on the page, and where they came from
+
+- **Six years shooting weddings**, confirmed by the owner. The Notion OBJECTIONS
+  page still says "4+ years running"; that script is stale and should be updated
+  there too.
+- **The "real backup coverage" claim is gone from the FAQ.** An early draft of
+  the free-friend answer promised it, which contradicted the deliberate decision
+  not to put the backup-shooter guarantee on the site until a real arrangement
+  exists. Both now agree: the site promises no backup shooter.
+
 ### Two conventions this page had to catch up to
 
 This checkout was **13 commits behind `origin/main`** when the session started
