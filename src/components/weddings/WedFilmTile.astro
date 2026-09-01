@@ -48,6 +48,7 @@ const imgH = orientation === 'h' ? 720  : 1440;
   data-vimeo-id={vimeoId}
   data-caption={`${title} · ${tag}`}
   data-wed-video={playable ? '' : undefined}
+  data-wed-focus
   aria-label={playable ? `Play ${title}` : undefined}
 >
   <span class="frame">
@@ -135,8 +136,20 @@ const imgH = orientation === 'h' ? 720  : 1440;
   }
   .frame > :global(img) {
     transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.3, 1);
+    /* Very slow drift so a still poster never sits completely dead.
+       Alternates, so it breathes in and out rather than snapping back. */
+    animation: wedKenBurns 26s ease-in-out infinite alternate;
+    transform-origin: center;
   }
-  .wtile:not(.wtile--idle):hover .frame > :global(img) { transform: scale(1.04); }
+  /* Stagger neighbours so a row of tiles doesn't pulse in unison. */
+  .wtile[data-stagger="1"] .frame > :global(img) { animation-delay: -7s; }
+  .wtile[data-stagger="2"] .frame > :global(img) { animation-delay: -14s; }
+  .wtile:not(.wtile--idle):hover .frame > :global(img),
+  .wtile.is-focus .frame > :global(img) {
+    /* Hand the transform over to the hover zoom while it's held. */
+    animation-play-state: paused;
+    transform: scale(1.04);
+  }
 
   .preview {
     z-index: 1;
@@ -174,6 +187,22 @@ const imgH = orientation === 'h' ? 720  : 1440;
     -webkit-mask-image: radial-gradient(70% 70% at 50% 50%, #000 20%, transparent 100%);
   }
   .placeholder > * { position: relative; z-index: 1; opacity: 0.62; }
+  /* Slow light sweep. Until real films land every tile here is an empty
+     panel, and without this the section reads as a grid of dead boxes. */
+  .placeholder::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(
+      112deg,
+      transparent 34%,
+      rgba(255, 255, 255, 0.55) 50%,
+      transparent 66%
+    );
+    background-size: 260% 100%;
+    animation: wedSheen 11s ease-in-out infinite;
+    pointer-events: none;
+  }
   .placeholder-text {
     font-family: var(--wed-display);
     font-size: 0.58rem;
@@ -252,12 +281,26 @@ const imgH = orientation === 'h' ? 720  : 1440;
     color: var(--wed-gold);
   }
 
+  /* Touch: there is no hover, so the tile nearest the middle of the
+     viewport gets the same emphasis instead. wedding.client.ts toggles
+     .is-focus as you scroll. */
   @media (hover: none) {
     .wtile:hover .frame { transform: none; box-shadow: 0 18px 40px -34px rgba(35, 42, 59, 0.55); }
     .wtile:hover .frame > :global(img) { transform: none; }
     .wtile:hover .play { background: rgba(255,255,255,0.88); color: var(--wed-navy); transform: translate(-50%, -50%); }
+
+    .wtile.is-focus:not(.wtile--idle) .frame {
+      border-color: rgba(38, 79, 160, 0.28);
+      box-shadow: 0 26px 55px -34px rgba(35, 42, 59, 0.5);
+    }
+    .wtile.is-focus:not(.wtile--idle) .play {
+      background: var(--wed-navy);
+      color: #fff;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     .frame, .frame > :global(img), .play, .preview { transition: none; }
+    .frame > :global(img) { animation: none; }
+    .placeholder::after { animation: none; opacity: 0; }
   }
 </style>

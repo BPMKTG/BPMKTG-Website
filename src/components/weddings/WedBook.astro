@@ -4,6 +4,8 @@
 import { WEDDING_CALENDLY_URL, WEDDING_EMAIL } from '../../data/weddings';
 ---
 <section class="book" id="book">
+  <div class="wed-motes" data-wed-motes aria-hidden="true"></div>
+
   <div class="wed-container inner">
     <p class="wed-label wed-label--center wed-label--light" data-reveal>Let's Talk</p>
 
@@ -50,6 +52,29 @@ import { WEDDING_CALENDLY_URL, WEDDING_EMAIL } from '../../data/weddings';
     mask-image: radial-gradient(70% 70% at 50% 45%, #000 25%, transparent 100%);
     -webkit-mask-image: radial-gradient(70% 70% at 50% 45%, #000 25%, transparent 100%);
     pointer-events: none;
+  }
+
+  /* Champagne motes drifting up the panel. The EDM CTA does this in blue
+     and faster; here they are gold, sparse, and slow enough that you
+     notice them only if you stop and look. Spans are created in JS. */
+  .wed-motes {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .wed-motes :global(span) {
+    position: absolute;
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: var(--wed-gold-soft);
+    box-shadow: 0 0 8px rgba(200, 168, 106, 0.8);
+    opacity: 0;
+    left: var(--x, 50%);
+    top: 104%;
+    animation: wedMote var(--dur, 20s) linear infinite;
+    animation-delay: var(--delay, 0s);
   }
 
   .inner {

@@ -18,7 +18,7 @@ import { packages, WEDDING_CALENDLY_URL } from '../../data/weddings';
 
     <div class="cards" data-reveal-group>
       {packages.map(pkg => (
-        <article class:list={['card', { 'card--featured': pkg.featured }]} data-reveal="scale">
+        <article class:list={['card', { 'card--featured': pkg.featured }]} data-reveal="flip" data-wed-focus>
           {pkg.featured && <span class="ribbon">Most booked</span>}
 
           <p class="eyebrow">{pkg.eyebrow}</p>
@@ -75,7 +75,16 @@ import { packages, WEDDING_CALENDLY_URL } from '../../data/weddings';
     grid-template-columns: repeat(3, 1fr);
     gap: 1.5rem;
     align-items: stretch;
+    /* One shared camera, so all three cards spin toward the same vanishing
+       point instead of each pivoting in its own little box. */
+    perspective: 1900px;
+    perspective-origin: center 40%;
   }
+  /* Sequential deal-in. Slower stagger than the EDM stack (0.3s) so the
+     three cards read as one unhurried gesture rather than a dealt hand. */
+  .card:nth-child(1) { --reveal-delay: 0s; }
+  .card:nth-child(2) { --reveal-delay: 0.26s; }
+  .card:nth-child(3) { --reveal-delay: 0.52s; }
 
   .card {
     position: relative;
@@ -87,13 +96,29 @@ import { packages, WEDDING_CALENDLY_URL } from '../../data/weddings';
     border-radius: var(--wed-radius-lg);
     padding: 2.25rem 1.9rem 2rem;
     box-shadow: 0 24px 55px -45px rgba(35, 42, 59, 0.6);
-    transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.3, 1),
-                box-shadow 0.45s ease, border-color 0.35s ease;
+    /* All four properties are named HERE, in one declaration, because this
+       scoped rule out-specifies `[data-reveal="flip"]` in wedding.css and
+       would otherwise replace its transition wholesale, leaving the cards
+       to snap into place with no spin at all.
+       Note hover moves border and shadow only, never transform: sharing
+       the transform property would cut the 1.5s spin to the hover
+       duration. (The EDM tier cards don't lift on hover for the same
+       reason.) */
+    transition:
+      opacity 1.5s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+      transform 1.5s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+      box-shadow 0.45s ease,
+      border-color 0.35s ease;
   }
-  .card:hover {
-    transform: translateY(-5px);
-    border-color: rgba(38, 79, 160, 0.2);
+  .card:hover,
+  .card.is-focus {
+    border-color: rgba(38, 79, 160, 0.28);
     box-shadow: 0 34px 70px -45px rgba(35, 42, 59, 0.65);
+  }
+  .card--featured:hover,
+  .card--featured.is-focus {
+    border-color: rgba(176, 141, 79, 0.7);
+    box-shadow: 0 34px 70px -42px rgba(176, 141, 79, 0.65);
   }
 
   /* Featured card: a warm gold edge + champagne wash instead of the EDM
@@ -230,8 +255,19 @@ import { packages, WEDDING_CALENDLY_URL } from '../../data/weddings';
     .cards { grid-template-columns: 1fr; max-width: 560px; margin: 0 auto; }
     .positioning, .best-for { min-height: 0; }
   }
+  @media (max-width: 760px) {
+    /* Match the slide-up fallback wedding.css uses at this width. */
+    .card {
+      transition:
+        opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+        transform 0.85s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+        box-shadow 0.45s ease,
+        border-color 0.35s ease;
+    }
+    .card:nth-child(2) { --reveal-delay: 0.12s; }
+    .card:nth-child(3) { --reveal-delay: 0.24s; }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .card { transition: none; }
-    .card:hover { transform: none; }
+    .card { opacity: 1; transform: none; transition: none; }
   }
 </style>

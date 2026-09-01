@@ -68,7 +68,7 @@ const groups = [
       </p>
     </header>
 
-    <div class="feature" data-reveal="scale">
+    <div class="feature" data-reveal="deal">
       <WedFilmTile {...featureFilm} posterImg={posterBySlug[featureFilm.slug]} feature />
     </div>
 
@@ -82,7 +82,7 @@ const groups = [
         </header>
         <div class:list={['grid', `grid--${group.cols}`]} data-reveal-group>
           {group.items.map(item => (
-            <div data-reveal="scale">
+            <div data-reveal="deal">
               <WedFilmTile {...item} posterImg={posterBySlug[item.slug]} />
             </div>
           ))}
@@ -169,7 +169,7 @@ const groups = [
   .head { max-width: 66ch; margin-bottom: 3.5rem; }
   .head h2 { margin: 1.1rem 0 1.5rem; }
 
-  .feature { margin-bottom: 4.5rem; }
+  .feature { margin-bottom: 4.5rem; perspective: 2200px; }
 
   .group { margin-top: 4.5rem; }
   .group-head {
@@ -195,7 +195,9 @@ const groups = [
     line-height: 1.6;
   }
 
-  .grid { display: grid; gap: 1.75rem; }
+  /* Shared camera for the deal-in, so a row of tiles rotates toward one
+     vanishing point rather than each pivoting independently. */
+  .grid { display: grid; gap: 1.75rem; perspective: 1600px; perspective-origin: center 35%; }
   .grid--three { grid-template-columns: repeat(3, 1fr); }
   /* Video moments are vertical tiles — four across keeps them a usable
      size while still filling two complete rows from eight entries. */

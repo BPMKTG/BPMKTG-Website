@@ -1153,6 +1153,44 @@ top of the page. Also: the dev server served **stale component CSS** after edits
 at one point; if a rule you just wrote isn't in `document.styleSheets`, restart
 the dev server before you go hunting for a specificity problem.
 
+### Motion pass
+
+The EDM motion vocabulary ported over and retuned. Everything is CSS driven
+off the same `[data-reveal]` / `.is-in` contract; `wedding.client.ts` only
+adds the class.
+
+- **`[data-reveal="flip"]`** on the three package cards: the offer-stack spin,
+  dialled back to `rotateY(-46deg)` from the EDM stack's `-55deg`, 1.5s settle,
+  0.26s stagger. The grid owns `perspective` so all three turn toward one camera.
+- **`[data-reveal="deal"]`**: the same idea at `-15deg` for grids of media tiles
+  (film tiles, gallery tiles), so they settle onto the page with depth instead
+  of just sliding.
+- **`[data-reveal="line"]`**: a hairline that draws itself across. Used for the
+  process timeline, which is now a real `<li class="line">` rather than
+  `.steps::before`, because an observer can't target a pseudo-element.
+- **Eyebrow rules draw in.** Every `.wed-label`'s leading hairline grows from 0
+  to 26px on reveal, so each section opens with the same small gesture.
+- **Ken Burns** on any real photograph (26s on film posters, 32s on gallery
+  tiles, staggered, alternating), paused on hover where the zoom takes over.
+- **Placeholder sheen**: a slow light sweep across the empty film and gallery
+  panels, so the page has life before any assets exist. Delete these two rules
+  once real media lands and the Ken Burns takes over.
+- **Champagne motes** rising through the navy closing CTA, the gold counterpart
+  to the EDM CTA's blue particles. `--rise` is measured from the section's own
+  height in JS and re-measured on resize.
+- **`[data-wed-focus]` + `.is-focus`**: touch devices have no hover, so the card
+  nearest the middle of the viewport takes the emphasis instead, with a
+  tolerance band so a grid row lights up together.
+
+**The trap to remember.** An Astro component's scoped `.card { transition: … }`
+is `(0,2,0)` and out-specifies `[data-reveal="flip"]` at `(0,1,0)` in
+wedding.css, so it replaces the reveal transition wholesale and the cards snap
+in with no animation at all. Any element carrying both a reveal and its own
+`transition` must declare **all** of the properties together in the component
+rule. Same reason hover must never touch `transform` on those elements: sharing
+the property drags the hover down to the 1.5s reveal duration, or cuts the
+reveal down to the hover duration, depending which rule wins.
+
 ### Two conventions this page had to catch up to
 
 This checkout was **13 commits behind `origin/main`** when the session started

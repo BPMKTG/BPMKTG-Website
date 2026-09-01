@@ -277,6 +277,94 @@ html.wed body {
 [data-reveal-group] > [data-reveal]:nth-child(6)   { --reveal-delay: 0.45s; }
 [data-reveal-group] > [data-reveal]:nth-child(n+7) { --reveal-delay: 0.50s; }
 
+/* ── 3D deal-in ──
+   The EDM offer stack flips its tier cards in from nearly edge-on. Same
+   idea here, dialled back: shallower angles, longer settle, no overshoot.
+   The parent owns `perspective` so a whole row shares one camera.
+   [data-reveal="flip"] = the full spin, reserved for the package cards.
+   [data-reveal="deal"] = a subtle version for grids of media tiles. */
+[data-reveal="flip"] {
+  transform: translateY(52px) translateZ(-150px) rotateX(5deg) rotateY(-46deg);
+  transform-origin: center center;
+  transition:
+    opacity 1.5s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+    transform 1.5s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+}
+[data-reveal="deal"] {
+  transform: translateY(34px) translateZ(-70px) rotateX(4deg) rotateY(-15deg);
+  transform-origin: center center;
+  transition:
+    opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+    transform 1.2s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+}
+[data-reveal="flip"].is-in,
+[data-reveal="deal"].is-in { transform: none; }
+
+/* A hairline that draws itself across on reveal. Opacity stays at 1 —
+   this one animates its scale, not its fade. */
+[data-reveal="line"] {
+  opacity: 1;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
+}
+[data-reveal="line"].is-in { transform: scaleX(1); }
+
+/* Narrow screens: the 3D rotation clips against the viewport edge and
+   reads as a glitch once the cards are stacked. Slide them up instead. */
+@media (max-width: 760px) {
+  [data-reveal="flip"],
+  [data-reveal="deal"] {
+    transform: translateY(30px);
+    transition:
+      opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+      transform 0.85s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+  }
+}
+
+/* ── Eyebrow rule draws in ──
+   `.wed-label`'s leading hairline (and the trailing one on the centred
+   variant) grows from nothing when its section reveals. Small, and it
+   fires on every section, so the page has a consistent opening gesture. */
+.wed-label::before,
+.wed-label--center::after {
+  transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.25s;
+}
+/* Collapsed only while the label (or its reveal container) is still
+   waiting. Written as :not(.is-in) rather than the inverse so a label
+   that never gets observed keeps its rule instead of losing it. */
+.wed-label[data-reveal]:not(.is-in)::before,
+.wed-label[data-reveal]:not(.is-in).wed-label--center::after,
+[data-reveal]:not(.is-in) .wed-label::before,
+[data-reveal]:not(.is-in) .wed-label--center::after { width: 0; }
+
+/* ── Ken Burns ──
+   A very slow drift on any real photograph, so a still gallery still
+   breathes. Paused on hover, where the tile's own zoom takes over. */
+@keyframes wedKenBurns {
+  from { transform: scale(1); }
+  to   { transform: scale(1.07); }
+}
+
+/* ── Placeholder sheen ──
+   Until real assets land, every media tile is an empty panel. A slow
+   light sweep keeps those from reading as dead boxes. */
+@keyframes wedSheen {
+  0%, 100% { background-position: -180% 0; }
+  50%      { background-position:  180% 0; }
+}
+
+/* ── Rising motes ──
+   The EDM CTA floats blue particles; this floats champagne ones, fewer
+   and slower. --rise is measured in JS from the host's own height so the
+   motes traverse the whole panel at any viewport. */
+@keyframes wedMote {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 0.85; }
+  100% { transform: translateY(calc(-1 * var(--rise, 110vh))) translateX(var(--drift, 0px)); opacity: 0; }
+}
+
 /* Image fade-in as each file decodes (wedding.client.ts tags them). */
 img[data-wed-loading] {
   opacity: 0;
@@ -295,6 +383,10 @@ html.wed :focus-visible {
 @media (prefers-reduced-motion: reduce) {
   html.wed { scroll-behavior: auto; }
   [data-reveal] { opacity: 1; transform: none; transition: none; }
+  [data-reveal="line"] { transform: none; }
+  .wed-label::before, .wed-label--center::after { width: 26px; transition: none; }
+  .wed-label[data-reveal]:not(.is-in)::before { width: 26px; }
+  .wed-motes { display: none; }
   img[data-wed-loading] { opacity: 1; transition: none; }
   .wed-btn, .wed-btn .arrow { transition: none; }
   .wed-btn:hover { transform: none; }

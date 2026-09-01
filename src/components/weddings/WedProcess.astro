@@ -10,6 +10,8 @@ import { processSteps } from '../../data/weddings';
     </header>
 
     <ol class="steps" data-reveal-group>
+      <!-- Real element, not a pseudo, so the reveal observer can drive it. -->
+      <li class="line" data-reveal="line" aria-hidden="true"></li>
       {processSteps.map((step, i) => (
         <li class="step" data-reveal="scale">
           <span class="num">{String(i + 1).padStart(2, '0')}</span>
@@ -36,15 +38,18 @@ import { processSteps } from '../../data/weddings';
     position: relative;
   }
   /* Hairline that runs behind the step numbers, tying them into one
-     timeline. Sits at the vertical centre of the number row. */
-  .steps::before {
-    content: "";
+     timeline. Sits at the vertical centre of the number row, and draws
+     itself left to right as the section reveals. */
+  .line {
     position: absolute;
     left: 0; right: 0;
     top: 17px;
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--wed-line), var(--wed-line), transparent);
     pointer-events: none;
+    list-style: none;
+    grid-column: 1 / -1;
+    grid-row: 1;
   }
 
   .step {
@@ -53,6 +58,22 @@ import { processSteps } from '../../data/weddings';
     gap: 0.6rem;
     min-width: 0;
     position: relative;
+  }
+  /* Number settles up into place as its card arrives, then holds a soft
+     gold ring. Lifted from the EDM roadmap's step numbers, minus the tilt. */
+  .step .num {
+    transform: translateY(6px);
+    opacity: 0.5;
+    box-shadow: 0 0 0 0 rgba(176, 141, 79, 0);
+    transition:
+      transform 1s cubic-bezier(0.22, 1, 0.36, 1) 0.2s,
+      opacity 1s cubic-bezier(0.22, 1, 0.36, 1) 0.2s,
+      box-shadow 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.45s;
+  }
+  .step.is-in .num {
+    transform: translateY(0);
+    opacity: 1;
+    box-shadow: 0 0 0 4px rgba(176, 141, 79, 0.12);
   }
   .num {
     display: inline-flex;
@@ -87,7 +108,10 @@ import { processSteps } from '../../data/weddings';
 
   @media (max-width: 1000px) {
     .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem 1.5rem; }
-    .steps::before { display: none; }
+    .line { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .step .num { transform: none; opacity: 1; transition: none; }
   }
   @media (max-width: 560px) {
     .steps { grid-template-columns: 1fr; }
