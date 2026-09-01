@@ -15,9 +15,9 @@ const heroGlob = import.meta.glob<{ default: ImageMetadata }>(
 const heroImg = Object.values(heroGlob)[0]?.default;
 
 const trust = [
-  'One wedding per weekend',
+  'His and hers coverage',
   'Teaser inside 72 hours',
-  'Film + photo, one crew',
+  'One wedding per weekend',
 ];
 ---
 <section class:list={['hero', { 'hero--photo': heroImg, 'wed-grid-bg': !heroImg }]} id="top">
@@ -34,14 +34,14 @@ const trust = [
     <p class="wed-label" data-reveal="left">Blueprint Marketing · Weddings</p>
 
     <h1 data-reveal>
-      The film you'll still be<br />
-      <em class="script">watching in thirty years.</em>
+      A guy for your groomsmen.<br />
+      <em class="script">A girl for your bridesmaids.</em>
     </h1>
 
     <p class="wed-lede lede" data-reveal>
-      Wedding films, full ceremony multicam, and photography from a crew that
-      came up shooting live music: one take, no second chances, no asking
-      anyone to do it again. Your day gets covered the same way.
+      A husband-and-wife team shooting film and photo together, so every part
+      of your wedding day gets captured by someone who was actually there for
+      both sides of it. No missed moments, no stranger in the room.
     </p>
 
     <div class="ctas" data-reveal>

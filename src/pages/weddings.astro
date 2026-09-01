@@ -9,9 +9,11 @@
 // It also does not use Layout.astro — see WeddingLayout.astro for why.
 import WeddingLayout from '../layouts/WeddingLayout.astro';
 import WedHero from '../components/weddings/WedHero.astro';
+import WedBothSides from '../components/weddings/WedBothSides.astro';
 import WedFilms from '../components/weddings/WedFilms.astro';
 import WedGallery from '../components/weddings/WedGallery.astro';
 import WedPackages from '../components/weddings/WedPackages.astro';
+import WedGuarantee from '../components/weddings/WedGuarantee.astro';
 import WedAlaCarte from '../components/weddings/WedAlaCarte.astro';
 import WedProcess from '../components/weddings/WedProcess.astro';
 import WedFaq from '../components/weddings/WedFaq.astro';
@@ -23,6 +25,7 @@ import { WEDDING_CALENDLY_URL } from '../data/weddings';
   description="Cinematic wedding films, full ceremony multicam, video moments, engagement films, and photography by Blueprint Marketing."
 >
   <WedHero />
+  <WedBothSides />
   <WedFilms />
   <WedGallery />
 
@@ -32,11 +35,11 @@ import { WEDDING_CALENDLY_URL } from '../data/weddings';
     <div class="wed-container midcta-inner">
       <div class="midcta-copy" data-reveal="left">
         <p class="midcta-eyebrow">Now booking</p>
-        <h2>We take one wedding per weekend.</h2>
+        <h2>Every part of your day, captured by a team who was actually there for both sides of it.</h2>
         <p class="midcta-body">
-          It keeps the whole crew on your day instead of split across two.
-          It also means dates close early. Check yours before you read
-          another word of pricing.
+          We take one wedding per weekend, which keeps the whole crew on your day
+          instead of split across two. It also means dates close early. Check
+          yours before you read another word of pricing.
         </p>
       </div>
       <a href={WEDDING_CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="wed-btn midcta-btn" data-reveal>
@@ -47,6 +50,7 @@ import { WEDDING_CALENDLY_URL } from '../data/weddings';
   </section>
 
   <WedPackages />
+  <WedGuarantee />
   <WedAlaCarte />
   <WedProcess />
   <WedFaq />

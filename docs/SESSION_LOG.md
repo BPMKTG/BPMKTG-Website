@@ -1241,6 +1241,53 @@ fight the type. Note the hero `<Image>` is sized to the source's own 2000x1125
 photo repeats several times. No `vimeoId` is set on anything, so tiles render as
 posters with captions and no play button, and the lightbox never opens.
 
+### Messaging rebuilt on the Irresistible Offer Formula
+
+Source: Notion, *Blueprint Marketing > IRRESISTIBLE OFFER FORMULA - WEDDING
+VIDEO/PHOTO* and its child pages (HOOK, USP, PAIN POINTS, DESIRED OUTCOME,
+ROADMAP, GUARANTEE, OFFER PRICING, OBJECTIONS).
+
+**The page was missing its own USP.** Everything hangs on the his & hers crew:
+a guy with the groomsmen, a girl with the bridesmaids, because Mason and his
+wife shoot as a pair (he runs video, she runs photo and the bridal side). That
+one fact is simultaneously the hook, the USP, the comfort guarantee, and the
+answer to the two biggest objections. The original copy led with generic
+sentiment ("the film you'll still be watching in thirty years") and never
+mentioned it.
+
+- **Hero H1** is now the primary hook verbatim: *"A guy for your groomsmen. A
+  girl for your bridesmaids."* Trust row leads with "His and hers coverage".
+- **New `WedBothSides.astro`**, directly under the hero. The page previously
+  jumped from hero into the films, so a couple could scroll the whole gallery
+  without learning what makes this team different. Three cards: his, hers, one
+  team on film and photo, each answering a pain from the doc.
+- **New `WedGuarantee.astro`**, sitting under the pricing where hesitation
+  actually happens. Delivery in writing, reply in one business day, comfort,
+  revisions.
+- **Money line** carried into the mid-page CTA: *"Every part of your wedding
+  day, captured by a team who was actually there for both sides of it."*
+- **Packages** now lead with what couples are really buying: "The film, without
+  the full-day build" / "Both sides of the day, morning through late night" /
+  "The complete story, with nothing left out."
+- **Process** replaced with the real five-step roadmap. Note step 2 is an
+  engagement session, which the invented version did not have.
+- **FAQ** rebuilt from the objections doc: budget reframe (one team costs less
+  than two vendors), the free-friend objection, the comfort objection, the
+  photo-vs-video reframe, the templated-film objection.
+
+**⚠️ Pricing is now CONFIRMED**, not placeholder. The Notion pricing page marks
+every package, à la carte line, booking term, and delivery window as live. The
+draft numbers happened to match, so nothing moved, but the TODO banner in
+`src/data/weddings.ts` is gone. Still outstanding there: wedding Calendly,
+wedding inbox, Instagram URL, real assets.
+
+**⚠️ Two Notion pages conflict on the backup-shooter guarantee.** OBJECTIONS
+(edited 07:50) scripts *"we guarantee a vetted backup shooter"*; GUARANTEE
+(edited 08:49, later) flags it as **not confirmed** and says to add it only if a
+real backup arrangement exists. The later page wins: it is **deliberately absent
+from the site**. It is the single strongest closer for wedding bookings, so it
+is worth actually arranging, then adding.
+
 ### Two conventions this page had to catch up to
 
 This checkout was **13 commits behind `origin/main`** when the session started

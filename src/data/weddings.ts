@@ -5,12 +5,21 @@
 // than the rest of the site (couples, not EDM artists). It is not linked
 // from the main nav or footer by design.
 //
-// ⚠️  PLACEHOLDER CONTENT
-//     Everything marked TODO below is a first draft written to make the
-//     page real and shippable — NOT confirmed business information.
-//     Specifically: every price, every package inclusion count, the
-//     delivery windows, and all film/gallery entries (we have not shot a
-//     wedding gallery yet). Replace before this URL goes to a client.
+// Messaging follows the Irresistible Offer Formula worked out in Notion
+// (Blueprint Marketing > IRRESISTIBLE OFFER FORMULA - WEDDING VIDEO/PHOTO).
+// The load-bearing idea is the his & hers crew: a guy with the groomsmen,
+// a girl with the bridesmaids. It is the USP, the hook, the comfort
+// guarantee, and the answer to the two biggest objections, so it should
+// stay the first thing a couple reads.
+//
+// Money line, from that doc, and worth keeping intact:
+//   "Every part of your wedding day, captured by a team who was actually
+//    there for both sides of it."
+//
+// ✅ Pricing, booking terms, and delivery windows below are CONFIRMED.
+// ⚠️  Still outstanding: a dedicated wedding Calendly + inbox, the
+//     Instagram URL, and real film/gallery assets (the current images are
+//     stand-in frames pulled from the films).
 // ═══════════════════════════════════════════════════════════════
 
 import { CALENDLY_URL, CONTACT_EMAIL } from '../config/cta';
@@ -161,10 +170,10 @@ export const packages: WeddingPackage[] = [
     name: 'The Foundation',
     price: '$2,850',
     cadence: 'up to 6 hours of coverage',
-    positioning: 'The day, told properly: ceremony, portraits, and the first hour of the party.',
-    bestFor: 'Intimate weddings, shorter timelines, couples who want the film without the full-day build.',
+    positioning: 'The film, without the full-day build.',
+    bestFor: 'Intimate weddings and shorter timelines. One filmmaker covering the ceremony, the portraits, and the first hour of the party.',
     includes: [
-      '6 hours of same-day coverage, one filmmaker',
+      '6 hours of coverage, one filmmaker',
       '4-6 minute wedding film',
       'Full ceremony, multicam edit',
       '3 video moments of your choosing',
@@ -179,10 +188,10 @@ export const packages: WeddingPackage[] = [
     name: 'The Blueprint',
     price: '$4,950',
     cadence: 'up to 10 hours of coverage',
-    positioning: 'Getting ready to last dance, with two filmmakers so nothing happens off camera.',
-    bestFor: 'Most couples. Full-day weddings where the morning and the late night both matter.',
+    positioning: 'Both sides of the day, morning through late night.',
+    bestFor: 'Most couples. Two filmmakers means a guy with the groomsmen and a girl with the bridesmaids, so nothing happens off camera.',
     includes: [
-      '10 hours of coverage, two filmmakers',
+      '10 hours, two filmmakers: his and hers coverage',
       '6-8 minute wedding film',
       'Full ceremony, three-camera multicam edit',
       'Full toasts + speeches edit',
@@ -199,8 +208,8 @@ export const packages: WeddingPackage[] = [
     name: 'The Legacy',
     price: '$8,500',
     cadence: 'full-day film + photo',
-    positioning: 'One team on film and photo, so the two halves of your gallery finally look like they belong together.',
-    bestFor: 'Couples who want a single crew covering everything, plus an engagement session beforehand.',
+    positioning: 'The complete story, with nothing left out.',
+    bestFor: 'Couples who want one crew on both film and photo, plus an engagement session months before the day.',
     includes: [
       'Unlimited-hours coverage, three-person crew',
       'Everything in The Blueprint',
@@ -269,11 +278,26 @@ export const alaCarte: AlaCarteGroup[] = [
 // Process
 // ─────────────────────────────────────────────────────────────
 export const processSteps = [
-  { title: 'Check your date',   body: 'Tell us where and when. We hold one wedding per weekend, so dates go early.' },
-  { title: 'The consult',       body: 'A 30-minute call: your venue, your timeline, the people who matter, and what you actually want to watch back.' },
-  { title: 'Build the plan',    body: 'You get a written coverage plan: crew, hours, the shot list, and the moments you told us you cannot miss.' },
-  { title: 'The day',           body: 'We stay out of the way. No staging, no posing you through your own wedding, no camera in your face during the vows.' },
-  { title: 'The delivery',      body: 'A teaser first, then your films and gallery in one private online home you can share with everyone who missed it.' },
+  {
+    title: 'The discovery call',
+    body: 'Free. Your venue, your timeline, your people, and what you actually want to watch back. You leave knowing exactly what is covered and what it costs.',
+  },
+  {
+    title: 'The engagement session',
+    body: 'Shot months before the wedding, so you are comfortable on camera before it counts. You get a gallery and a short film for save-the-dates and invites.',
+  },
+  {
+    title: 'The shot plan',
+    body: 'A written, shot-by-shot plan for the day: who is with the bridesmaids, who is with the groomsmen, the family photo list, the multicam ceremony setup.',
+  },
+  {
+    title: 'The day',
+    body: 'His and hers coverage from getting ready through the last dance, with footage backed up in real time. We stay out of the way and we never restage a moment that already happened.',
+  },
+  {
+    title: 'The delivery',
+    body: 'Your teaser first, then your film and gallery on a date you were given in writing, finished with a walkthrough call.',
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -281,8 +305,24 @@ export const processSteps = [
 // ─────────────────────────────────────────────────────────────
 export const faqs = [
   {
+    q: 'What does "his and hers" actually mean?',
+    a: 'It means a guy with the groomsmen and a girl with the bridesmaids. We are a husband-and-wife team: he runs video, she runs photo and the bridal side. On our two- and three-person packages that means both getting-ready rooms are covered at the same time, by someone who fits naturally in that room. Nobody is waiting on a shooter to finish one side and drive to the other.',
+  },
+  {
+    q: 'I do not love the idea of a stranger filming me getting ready.',
+    a: 'Most people do not, and that is exactly why we built it this way. You get a girl with the bridesmaids and a guy with the groomsmen, so it never feels like a stranger of the wrong gender in the room during the most unguarded hour of your day. That comfort is the difference between footage that looks natural and footage where everyone is holding their breath.',
+  },
+  {
     q: 'Do you shoot photo as well as video?',
-    a: 'Both. Film is where we built our name (festival stages, live production, high-pressure single-take moments) and photo runs alongside it with the same crew. If you only want one, book only one; the à la carte menu prices them separately.',
+    a: 'Both, from one team. They are not competing: photos freeze a moment you can print and frame, video lets you hear your vows again, hear the room laugh, watch the first dance. Most couples who book only one end up wishing they had both, and you cannot go back for the other half. If you genuinely only want one, book only one. The a la carte menu prices them separately.',
+  },
+  {
+    q: 'That is more than we budgeted for.',
+    a: 'Most couples come in assuming they can only afford one or the other, because two vendors means two invoices and two timelines. Booking one team covering both sides of your day costs less than hiring a separate photographer and videographer, and there is only one version of this day you will ever get. If the number is still wrong for you, the a la carte menu lets you build exactly what you want and nothing you do not.',
+  },
+  {
+    q: 'A friend offered to shoot it for free.',
+    a: 'That is a real option, and sometimes it works out. The difference is four-plus years of doing this, a written plan for every part of your day, real backup coverage, and a team that is not also trying to be a guest at your wedding. A free shooter is not a bad person, they are just an unplanned one.',
   },
   {
     q: 'How far in advance should we book?',
@@ -290,7 +330,7 @@ export const faqs = [
   },
   {
     q: 'When do we get everything?',
-    a: 'Your social teaser lands first, then the full gallery within six weeks of the wedding. Rush delivery pulls the full film inside 14 days if you want it sooner.',
+    a: 'Your teaser lands within 72 hours, and your full film and gallery within six weeks. You get that delivery date in writing when you book, so there is no vague timeline and no chasing us down. Rush delivery pulls the full film inside 14 days if you want it sooner.',
   },
   {
     q: 'What is a "video moment"?',
@@ -298,15 +338,15 @@ export const faqs = [
   },
   {
     q: 'Will you be in our faces all day?',
-    a: 'No. We come from live events, where you get one take and you do not get to interrupt the show. That habit carries over: we work long lenses, we stay quiet, and we do not stop your wedding to restage a moment that already happened.',
+    a: 'No. We came up shooting live music, where you get one take and you do not get to interrupt the show. That habit carries over: we work long lenses, we stay quiet, and we do not stop your wedding to restage a moment that already happened.',
+  },
+  {
+    q: 'Will our film look like everyone else\'s?',
+    a: 'Not if we do our job. The reason most wedding films feel interchangeable is that they are built from a template: same drone shot, same slow-motion first dance, same acoustic cover. We plan your day around your actual people and your actual venue, and we cut to music that means something to you.',
   },
   {
     q: 'Do you travel?',
-    a: 'Yes. Travel within 90 miles is included. Beyond that we quote travel and lodging up front. There is never a surprise line item after the fact.',
-  },
-  {
-    q: 'Can we pick the music?',
-    a: 'Bring us songs that mean something and we will build around them wherever the license allows. Everything we deliver is properly licensed, so your film will never get muted or pulled off a platform later.',
+    a: 'Yes. Travel within 90 miles is included. Beyond that we quote travel and lodging up front, so there is never a surprise line item after the fact.',
   },
   {
     q: 'What do you need from us to hold a date?',
