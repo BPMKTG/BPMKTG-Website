@@ -23,7 +23,9 @@ const trust = [
 <section class:list={['hero', { 'hero--photo': heroImg, 'wed-grid-bg': !heroImg }]} id="top">
   {heroImg && (
     <div class="bg" aria-hidden="true">
-      <Image src={heroImg} alt="" width={2200} height={1400} format="webp" quality={84} loading="eager" />
+      <!-- 16:9 at the source's own resolution: asking for anything taller
+           crops the frame and upscales it soft. -->
+      <Image src={heroImg} alt="" width={2000} height={1125} format="webp" quality={84} loading="eager" />
       <div class="scrim"></div>
     </div>
   )}

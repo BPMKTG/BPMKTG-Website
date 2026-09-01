@@ -45,6 +45,13 @@ export interface WeddingFilm {
   preview?: string;
   /** 'h' = 16:9 tile, 'v' = 9:16 tile. Controls tile + player shape. */
   orientation?: 'h' | 'v';
+  /**
+   * Borrow another image as this tile's poster, by filename stem, from
+   * either the thumbnails or the gallery folder. Lets a dozen frames
+   * stand in across every tile without duplicating the binaries into the
+   * repo. Drop a real `thumbnails/<slug>.jpg` in and delete this field.
+   */
+  posterSlug?: string;
 }
 
 /** Hero film — the one piece that opens the section at full width. */
@@ -54,41 +61,42 @@ export const featureFilm: WeddingFilm = {
   tag: 'Full Feature',
   category: 'Wedding Film',
   orientation: 'h',
+  posterSlug: 'gallery-11',
   // vimeoId: 'TODO',
 };
 
 /** Wedding films / recaps — the highlight-reel format. */
 export const weddingFilms: WeddingFilm[] = [
-  { slug: 'wedding-film-01', title: 'The Wedding Film', tag: 'Full Day',          category: 'Wedding Film', orientation: 'h' },
-  { slug: 'wedding-film-02', title: 'The Wedding Film', tag: 'Garden Ceremony',   category: 'Wedding Film', orientation: 'h' },
-  { slug: 'wedding-film-03', title: 'The Wedding Film', tag: 'Evening Reception', category: 'Wedding Film', orientation: 'h' },
+  { slug: 'wedding-film-01', title: 'The Wedding Film', tag: 'Full Day',          category: 'Wedding Film', orientation: 'h', posterSlug: 'gallery-04' },
+  { slug: 'wedding-film-02', title: 'The Wedding Film', tag: 'Garden Ceremony',   category: 'Wedding Film', orientation: 'h', posterSlug: 'gallery-05' },
+  { slug: 'wedding-film-03', title: 'The Wedding Film', tag: 'Evening Reception', category: 'Wedding Film', orientation: 'h', posterSlug: 'gallery-07' },
 ];
 
 /** Ceremony multicam — the full, unabridged ceremony from every angle. */
 export const ceremonyFilms: WeddingFilm[] = [
-  { slug: 'ceremony-multicam-01', title: 'The Ceremony',   tag: 'Three-Camera Edit', category: 'Ceremony', orientation: 'h' },
-  { slug: 'ceremony-multicam-02', title: 'The Vows',       tag: 'Full Audio Mix',    category: 'Ceremony', orientation: 'h' },
-  { slug: 'ceremony-multicam-03', title: 'The Processional', tag: 'Multicam',        category: 'Ceremony', orientation: 'h' },
+  { slug: 'ceremony-multicam-01', title: 'The Ceremony',   tag: 'Three-Camera Edit', category: 'Ceremony', orientation: 'h', posterSlug: 'gallery-01' },
+  { slug: 'ceremony-multicam-02', title: 'The Vows',       tag: 'Full Audio Mix',    category: 'Ceremony', orientation: 'h', posterSlug: 'gallery-06' },
+  { slug: 'ceremony-multicam-03', title: 'The Processional', tag: 'Multicam',        category: 'Ceremony', orientation: 'h', posterSlug: 'gallery-02' },
 ];
 
 /** Video moments — short, high-quality clips of the beats that matter. */
 // Eight so the 4-column grid fills two clean rows with no orphan tile.
 export const momentFilms: WeddingFilm[] = [
-  { slug: 'moment-first-look',      title: 'The First Look',      tag: 'Getting Ready', category: 'Moment', orientation: 'v' },
-  { slug: 'moment-first-kiss',      title: 'The First Kiss',      tag: 'Ceremony',      category: 'Moment', orientation: 'v' },
-  { slug: 'moment-grand-entrance',  title: 'The Grand Entrance',  tag: 'Reception',     category: 'Moment', orientation: 'v' },
-  { slug: 'moment-first-dance',     title: 'The First Dance',     tag: 'Reception',     category: 'Moment', orientation: 'v' },
-  { slug: 'moment-parent-dance',    title: 'The Parent Dance',    tag: 'Reception',     category: 'Moment', orientation: 'v' },
-  { slug: 'moment-speeches',        title: 'The Speeches',        tag: 'Reception',     category: 'Moment', orientation: 'v' },
-  { slug: 'moment-cake-cutting',    title: 'The Cake Cutting',    tag: 'Reception',     category: 'Moment', orientation: 'v' },
-  { slug: 'moment-sendoff',         title: 'The Sendoff',         tag: 'Late Night',    category: 'Moment', orientation: 'v' },
+  { slug: 'moment-first-look',      title: 'The First Look',      tag: 'Getting Ready', category: 'Moment', orientation: 'v', posterSlug: 'gallery-02' },
+  { slug: 'moment-first-kiss',      title: 'The First Kiss',      tag: 'Ceremony',      category: 'Moment', orientation: 'v', posterSlug: 'gallery-08' },
+  { slug: 'moment-grand-entrance',  title: 'The Grand Entrance',  tag: 'Reception',     category: 'Moment', orientation: 'v', posterSlug: 'gallery-10' },
+  { slug: 'moment-first-dance',     title: 'The First Dance',     tag: 'Reception',     category: 'Moment', orientation: 'v', posterSlug: 'gallery-11' },
+  { slug: 'moment-parent-dance',    title: 'The Parent Dance',    tag: 'Reception',     category: 'Moment', orientation: 'v', posterSlug: 'gallery-07' },
+  { slug: 'moment-speeches',        title: 'The Speeches',        tag: 'Reception',     category: 'Moment', orientation: 'v', posterSlug: 'gallery-06' },
+  { slug: 'moment-cake-cutting',    title: 'The Cake Cutting',    tag: 'Reception',     category: 'Moment', orientation: 'v', posterSlug: 'gallery-09' },
+  { slug: 'moment-sendoff',         title: 'The Sendoff',         tag: 'Late Night',    category: 'Moment', orientation: 'v', posterSlug: 'gallery-04' },
 ];
 
 /** Engagement films — shot before the day, often used at the reception. */
 export const engagementFilms: WeddingFilm[] = [
-  { slug: 'engagement-01', title: 'The Engagement Film', tag: 'Golden Hour', category: 'Engagement', orientation: 'h' },
-  { slug: 'engagement-02', title: 'The Engagement Film', tag: 'At Home',     category: 'Engagement', orientation: 'h' },
-  { slug: 'engagement-03', title: 'The Proposal',        tag: 'Documentary', category: 'Engagement', orientation: 'h' },
+  { slug: 'engagement-01', title: 'The Engagement Film', tag: 'Golden Hour', category: 'Engagement', orientation: 'h', posterSlug: 'gallery-03' },
+  { slug: 'engagement-02', title: 'The Engagement Film', tag: 'At Home',     category: 'Engagement', orientation: 'h', posterSlug: 'gallery-10' },
+  { slug: 'engagement-03', title: 'The Proposal',        tag: 'Documentary', category: 'Engagement', orientation: 'h', posterSlug: 'gallery-08' },
 ];
 
 // ─────────────────────────────────────────────────────────────

@@ -1217,6 +1217,30 @@ preview pane, so screenshots prove nothing here. Two things that do work:
 what duration and delay; and pausing those animations and setting `currentTime`
 scrubs to a real mid-flight frame you can screenshot.
 
+### Real media dropped in (preview state)
+
+Twelve 2000x1125 screen grabs from the cypress-swamp wedding now populate the
+page. They are **frames pulled from the films, not photographs**, which drove
+two changes:
+
+- The gallery gained a **3:2 wide tile** (`orientation: 'w'`, `grid-row: span 2`).
+  The old square and 3:4 shapes threw away a third of a 16:9 frame.
+- `WeddingFilm.posterSlug` lets a film tile **borrow another image by filename
+  stem**, and `WedFilms.astro` now globs the gallery folder as well as
+  thumbnails. Twelve frames cover roughly thirty tile slots without duplicating
+  binaries into the repo. Real posters go in `thumbnails/<slug>.jpg`, which is
+  loaded second so it always wins over a borrowed frame; delete the
+  `posterSlug` when that happens.
+
+`hero.jpg` is the cypress-canopy frame: it is a texture plate with no subject,
+so the headline sits over it cleanly where a photo with people in it would
+fight the type. Note the hero `<Image>` is sized to the source's own 2000x1125
+— asking for the earlier 2200x1400 both cropped the frame and upscaled it soft.
+
+**Still a preview, not final.** With twelve frames across thirty slots the same
+photo repeats several times. No `vimeoId` is set on anything, so tiles render as
+posters with captions and no play button, and the lightbox never opens.
+
 ### Two conventions this page had to catch up to
 
 This checkout was **13 commits behind `origin/main`** when the session started

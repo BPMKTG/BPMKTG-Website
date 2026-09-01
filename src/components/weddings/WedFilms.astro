@@ -14,16 +14,26 @@ import {
   engagementFilms,
 } from '../../data/weddings';
 
+// Both folders are in scope so a film tile can borrow a gallery frame via
+// `posterSlug` while we wait on real poster art. thumbnails/ is loaded
+// second so a real poster always wins over a borrowed one.
 const posterGlob = import.meta.glob<{ default: ImageMetadata }>(
+  '../../assets/images/weddings/gallery/*.{jpg,jpeg,png}',
+  { eager: true }
+);
+const thumbGlob = import.meta.glob<{ default: ImageMetadata }>(
   '../../assets/images/weddings/thumbnails/*.{jpg,jpeg,png}',
   { eager: true }
 );
 
 const posterBySlug: Record<string, ImageMetadata> = {};
-for (const [path, mod] of Object.entries(posterGlob)) {
+for (const [path, mod] of Object.entries({ ...posterGlob, ...thumbGlob })) {
   const slug = path.split('/').pop()!.replace(/\.(jpg|jpeg|png)$/, '');
   posterBySlug[slug] = mod.default;
 }
+
+const posterFor = (film: { slug: string; posterSlug?: string }) =>
+  posterBySlug[film.slug] ?? (film.posterSlug ? posterBySlug[film.posterSlug] : undefined);
 
 const groups = [
   {
@@ -69,7 +79,7 @@ const groups = [
     </header>
 
     <div class="feature" data-reveal="deal">
-      <WedFilmTile {...featureFilm} posterImg={posterBySlug[featureFilm.slug]} feature />
+      <WedFilmTile {...featureFilm} posterImg={posterFor(featureFilm)} feature />
     </div>
 
     {groups.map(group => (
@@ -83,7 +93,7 @@ const groups = [
         <div class:list={['grid', `grid--${group.cols}`]} data-reveal-group>
           {group.items.map(item => (
             <div data-reveal="deal">
-              <WedFilmTile {...item} posterImg={posterBySlug[item.slug]} />
+              <WedFilmTile {...item} posterImg={posterFor(item)} />
             </div>
           ))}
         </div>
