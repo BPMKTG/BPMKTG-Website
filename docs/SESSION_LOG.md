@@ -1370,6 +1370,41 @@ while apart, which describes how they work rather than what every package
 delivers. If a film-only couple could read that as photo being included, the
 FAQ answer needs a qualifier.
 
+### Where /weddings stands, and what is open
+
+Live and deployed, unlinked from the rest of the site. Sections in order: hero,
+his & hers, films, gallery, mid-CTA, packages, guarantee, a la carte, process,
+about, FAQ, closing CTA.
+
+**Open, in rough priority order:**
+
+1. **Vimeo ids.** Nothing on the page has one, so every film tile is a poster
+   with a caption: no play button, and the lightbox never opens. The YouTube
+   path is proven end to end by the proposal documentary, so the plumbing works;
+   the tiles just have no ids. Add them to `src/data/weddings.ts`.
+2. **Real posters and photos.** Twelve frames currently cover about thirty tile
+   slots, so images repeat. Drop `thumbnails/<slug>.jpg` in and delete that
+   film's `posterSlug`. Drop `gallery/<slug>.jpg` to replace a gallery frame.
+3. **Video Moments crop.** That row is 4:5 vertical because the real deliverable
+   is a vertical social cut, but the stand-in frames are 16:9 and crop hard.
+   Decide whether to keep it vertical or flip the row to 16:9.
+4. **Dedicated wedding Calendly + inbox.** `WEDDING_CALENDLY_URL` and
+   `WEDDING_EMAIL` still fall back to the company-wide ones, so no CTA is dead,
+   but the two funnels are not tracked separately.
+5. **`WEDDING_INSTAGRAM`** is still a placeholder; the footer link hides itself
+   until it is real.
+6. **Backup shooter.** Deliberately promised nowhere on the site. Mason's own
+   guarantee doc calls it the number one fear in wedding booking and the page
+   cannot use that closer until a real arrangement exists.
+7. **Testimonials.** No couple quotes anywhere. Worth a section after the first
+   wedding there is something to quote.
+8. **Photo on The Blueprint.** Notion prices that package film-led with photo as
+   an add-on, while the site says both shooters capture photo and video while
+   apart. That describes how they shoot, not what every package delivers.
+   Unresolved: decide whether the FAQ needs a qualifier.
+9. **Indexable.** No `noindex` is set, so search can find it. The `noindex` prop
+   on `WeddingLayout` is wired if that changes.
+
 ### Two conventions this page had to catch up to
 
 This checkout was **13 commits behind `origin/main`** when the session started
@@ -1400,22 +1435,41 @@ landed upstream in that window and the weddings page had to be brought in line:
 
 ---
 
-## Laptop handoff checklist
+## Machine handoff checklist
 
-Last-known good state: commit on `main` after this session is pushed. To continue on laptop:
+Works in either direction (PC <-> Mac). Everything lives in git; nothing about
+the site is machine-local.
 
 ```bash
-gh repo clone BPMKTG/BPMKTG-Website
+git clone https://github.com/BPMKTG/BPMKTG-Website.git   # or: git pull
 cd BPMKTG-Website
 npm ci          # respects package-lock.json -> Astro 6.3.3
 npm run dev     # http://localhost:4321
 ```
 
-Then in Claude on the laptop, first message:
+First message to Claude on the other machine:
 
-> *"Continuing on BPMKTG-Website. Read `docs/SESSION_LOG.md` and `docs/CONTENT_BRIEF.md` first."*
+> *"Continuing on BPMKTG-Website. Read `docs/SESSION_LOG.md` and
+> `docs/CONTENT_BRIEF.md` first. Always push directly to main on this repo,
+> no PR or branch flow."*
 
-Memory rule **"always push directly to main"** lives at `~/.claude/projects/C--Users-Mason-Documents-Claude-BPMKTG-Website/memory/feedback_git_workflow.md` on this PC — it's local-only and won't transfer. Either copy that file over to the equivalent path on the laptop, OR add the rule to the first laptop message: *"Always push directly to main on this repo, no PR/branch flow."*
+**`git fetch` before you start.** The Mac checkout was 13 commits behind when
+this session opened (last local work 2026-06-05, upstream had moved through
+July), and two site-wide copy rules had landed in the gap. Do not assume a
+checkout is current just because it is clean.
+
+The "always push directly to main" memory is local to whichever machine wrote
+it, so it does not travel. Either restate it in the first message, as above, or
+copy the memory file across.
+
+### Not in the repo
+
+- `~/Desktop/wedding-grabs/` on the Mac: the 12 original 2000x1125 screen grabs
+  plus `DSC00053.JPEG`, the 27.8 MB 4672x7008 camera original of the family
+  portrait. The repo has the placed and downscaled copies only
+  (`gallery-01..12.jpg`, `hero.jpg`, `about/mason-makenzie.jpg` at 1733x2600).
+  Nothing on the site depends on the originals, but the full-resolution family
+  portrait exists only on the Mac.
 
 ---
 
