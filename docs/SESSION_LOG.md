@@ -1668,9 +1668,7 @@ looking at the 404 fallback.
 response holds it and will not revalidate. The server being fixed does not fix
 the visitor. **Hard refresh is mandatory** after this happens.
 
-Worth fixing properly at some point: a missing asset should return a real 404
-rather than `200` HTML, which would turn a silent total-restyle into a normal
-missing-file. Raised with the owner, not yet actioned.
+**FIXED, same session.** See the 404 entry below.
 
 ### Broken images now degrade instead of shouting
 
@@ -1693,6 +1691,46 @@ uppercase, navy — so a status and a category label looked like the same object
 Now it differs on every axis: Cormorant Garamond, italic, sentence case, white,
 21.6px on the feature tile, over a soft radial scrim with no pill or radius,
 against the badge's 9.92px uppercase Orbitron navy-on-white pill.
+
+### `src/pages/404.astro` — do not delete this thinking it is decoration
+
+The root cause of the unstyled-page incident above. **Cloudflare Pages, with no
+`404.html` in the output, answers every unmatched request by serving
+`index.html` with a `200`.** That is the single-page-app default and this is not
+a single-page app. It is why a not-yet-propagated stylesheet came back as `200
+text/html` instead of failing honestly, and why the browser silently discarded
+the page's entire CSS with nothing in the console to explain it.
+
+Astro compiles `src/pages/404.astro` to `dist/404.html`, which Cloudflare Pages
+serves with a real 404. Verified against `astro preview`, which follows the same
+convention:
+
+| Request | Before | After |
+|---|---|---|
+| `/_astro/weddings.NOTREAL.css` | `200 text/html` (homepage) | **`404`** |
+| `/does-not-exist` | `200 text/html` (homepage) | **`404`** |
+| a real hashed asset | `200 text/css` | `200 text/css` |
+
+A missing asset now fails as a missing asset: visible in the network tab, not
+cacheable as a valid response, and never silently swapped for an HTML document.
+
+The page itself is deliberately dependency-light — it renders when something has
+already gone wrong, so it should not need much to be right.
+
+### "Film coming soon" markers removed
+
+Cut at the owner's call: with a poster on every tile they read as visual noise
+across 18 tiles rather than useful information. Idle tiles are now just poster
+plus caption with no play button.
+
+Note the tradeoff this re-accepts, in case it comes back up: a couple can click
+an unplayable tile and get nothing, with no on-tile explanation. That was the
+original reason for adding them. The real fix is video ids.
+
+The `.placeholder-text` reading "Film coming soon" inside the **no-poster** panel
+is a different, pre-existing element and was left alone. It renders only when a
+tile has no image at all, which today is never, since every film tile borrows a
+frame via `posterSlug`.
 
 ### Still open on /weddings
 

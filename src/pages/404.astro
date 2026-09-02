@@ -1,0 +1,123 @@
+---
+// 404.
+//
+// This page exists for a reason beyond being polite about typos, and the
+// reason is worth stating so nobody deletes it as decoration.
+//
+// Cloudflare Pages, with no `404.html` in the build output, answers any
+// unmatched request by serving `index.html` with a **200**. That is the
+// single-page-app default, and this is not a single-page app. The failure
+// mode it produced: a deploy served new HTML before its new hashed assets
+// finished propagating, so `/_astro/weddings.<hash>.css` returned 200 with
+// `content-type: text/html` — the homepage. The browser, correctly, threw
+// the whole stylesheet away (`x-content-type-options: nosniff`), and the
+// page rendered as raw unstyled HTML with no error anywhere to explain it.
+//
+// Astro builds this file to `dist/404.html`, which Cloudflare Pages serves
+// with a real 404 status. A missing asset then fails as a missing asset:
+// visible in the network tab, not cached as a valid response, and not
+// silently swapped for an HTML document.
+//
+// Keep this page dependency-light. It is what renders when something has
+// already gone wrong, so it should not need much to be right.
+import Layout from '../layouts/Layout.astro';
+import { CALENDLY_URL } from '../config/cta';
+---
+<Layout
+  title="Page Not Found | Blueprint Marketing"
+  description="That page does not exist. Head back to Blueprint Marketing."
+>
+  <section class="nf">
+    <div class="nf-inner">
+      <p class="nf-code">404</p>
+      <h1>This one is off the setlist.</h1>
+      <p class="nf-body">
+        The page you were looking for does not exist, or it moved. No drama,
+        the rest of the site is still here.
+      </p>
+
+      <div class="nf-actions">
+        <a href="/" class="nf-btn nf-btn--primary">Back to home</a>
+        <a href="/portfolio" class="nf-btn">See the work</a>
+        <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="nf-btn">
+          Book a call
+        </a>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .nf {
+    min-height: 62vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6rem 1.5rem;
+    text-align: center;
+  }
+  .nf-inner { max-width: 58ch; }
+
+  .nf-code {
+    font-family: var(--font-display, Orbitron), sans-serif;
+    font-size: clamp(3.5rem, 12vw, 7rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    /* Sits behind the headline as a watermark rather than shouting. */
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.22);
+    margin-bottom: 1rem;
+  }
+
+  .nf h1 {
+    font-size: clamp(1.6rem, 4vw, 2.5rem);
+    font-weight: 700;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+  }
+
+  .nf-body {
+    font-size: 1rem;
+    line-height: 1.7;
+    opacity: 0.75;
+    margin-bottom: 2.25rem;
+  }
+
+  .nf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+  .nf-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.8rem 1.5rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: inherit;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: border-color 0.3s ease, background 0.3s ease, transform 0.3s ease;
+  }
+  .nf-btn:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateY(-2px);
+  }
+  .nf-btn--primary {
+    background: #2f6bff;
+    border-color: #2f6bff;
+  }
+  .nf-btn--primary:hover {
+    background: #4780ff;
+    border-color: #4780ff;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nf-btn { transition: none; }
+    .nf-btn:hover { transform: none; }
+  }
+</style>

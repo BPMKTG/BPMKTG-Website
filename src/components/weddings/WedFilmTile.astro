@@ -7,10 +7,10 @@
 //
 // Every tile degrades gracefully, because most of the real assets do not
 // exist yet. No poster image renders a designed placeholder panel. No
-// video id renders a non-interactive tile that says "Coming soon" where
-// the play button would be, rather than a poster a couple clicks at and
-// nothing happens. Both states clear themselves the moment the asset
-// lands, with no code change.
+// video id renders a plain, non-interactive tile: the poster and caption
+// with no play button, deliberately unlabelled (an earlier "Film coming
+// soon" marker was cut as visual noise). Both states clear themselves the
+// moment the asset lands, with no code change.
 import { Image } from 'astro:assets';
 
 interface Props {
@@ -103,16 +103,10 @@ const imgH = orientation === 'h' ? 720  : 1125;
       </video>
     )}
 
-    {playable ? (
+    {playable && (
       <span class="play" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="8,5 19,12 8,19" /></svg>
       </span>
-    ) : (posterImg || posterUrl) && (
-      /* Sits where the play button would, so the missing affordance is
-         explained rather than just absent. The no-poster placeholder
-         panel says the same thing in its own centre, so it does not get
-         a second label here. */
-      <span class="soon">Film coming soon</span>
     )}
   </span>
 
@@ -298,45 +292,6 @@ const imgH = orientation === 'h' ? 720  : 1125;
     background: var(--wed-navy);
     color: #fff;
     transform: translate(-50%, -50%) scale(1.08);
-  }
-
-  /* ── Coming soon ──
-     Deliberately NOT the badge's language. The corner badge is a white
-     Orbitron pill naming a category; this is a status, so it reads as
-     one: no pill, serif italic, sentence case, on a soft scrim that only
-     exists to keep it legible over a photo. Different typeface, case,
-     colour and shape means the two never get mistaken for each other. */
-  .soon {
-    position: absolute;
-    left: 50%; top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 3;
-    padding: 0.55rem 1.4rem;
-    color: #fff;
-    font-family: var(--wed-serif);
-    font-size: 1.02rem;
-    font-style: italic;
-    font-weight: 400;
-    letter-spacing: 0.01em;
-    white-space: nowrap;
-    pointer-events: none;
-    /* An ellipse rather than a pill: soft-edged so it sits on the frame
-       instead of stamping a second chip onto it. */
-    background: radial-gradient(
-      ellipse at center,
-      rgba(35, 42, 59, 0.62) 0%,
-      rgba(35, 42, 59, 0.46) 55%,
-      rgba(35, 42, 59, 0) 78%
-    );
-    text-shadow: 0 1px 12px rgba(35, 42, 59, 0.75);
-  }
-  .wtile--feature .soon { font-size: 1.35rem; padding: 0.8rem 2.2rem; }
-  /* If the poster 404s the frame falls back to the pale panel, and a dark
-     scrim on that is just a smudge. Drop to ink, no scrim. */
-  .frame:has(> img[data-wed-broken]) .soon {
-    color: var(--wed-ink-2);
-    background: none;
-    text-shadow: none;
   }
 
   /* ── Caption, below the frame ── */
