@@ -1,0 +1,158 @@
+---
+// A quiet "still building this" notice, shown once per visitor.
+//
+// Deliberately NOT a top bar: the header is transparent over the hero and
+// a bar above it would break that, push the hero down, and be the first
+// thing a couple reads. This is a card in the bottom corner that arrives
+// after the hero has landed, so the work sells first and the caveat comes
+// second.
+//
+// It is `role="status"` rather than a dialog: nothing is blocked, nothing
+// needs a decision, and a modal for an FYI is a hostile pattern. Dismissal
+// is remembered in localStorage so it never nags a returning visitor.
+---
+<aside class="wnotice" data-wed-notice hidden aria-live="polite" role="status">
+  <span class="wnotice-dot" aria-hidden="true"></span>
+  <div class="wnotice-body">
+    <p class="wnotice-title">This page is still being built</p>
+    <p class="wnotice-text">
+      Films and galleries are going up as we finish them. If you want to see
+      something that is not here yet, just ask on the call.
+    </p>
+  </div>
+  <button type="button" class="wnotice-close" data-wed-notice-close aria-label="Dismiss this notice">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+    </svg>
+  </button>
+</aside>
+
+<script>
+  // Bumping this key re-shows the notice to everyone who dismissed the
+  // previous one, which is what you want when the message changes.
+  const KEY = 'bp-wed-notice-v1';
+
+  const initWedNotice = () => {
+    const el = document.querySelector<HTMLElement>('[data-wed-notice]');
+    if (!el) return;
+
+    // Private mode and blocked site data both throw on access, so every
+    // read and write is guarded. A visitor who cannot store the dismissal
+    // still gets a working, closable notice.
+    let dismissed = false;
+    try {
+      dismissed = localStorage.getItem(KEY) === '1';
+    } catch {}
+    if (dismissed) return;
+
+    // Let the hero land first. The work should be the first thing read.
+    const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1500;
+    window.setTimeout(() => {
+      el.hidden = false;
+      // A short timer, NOT requestAnimationFrame: rAF does not run while the
+      // tab is backgrounded, so a page opened in a background tab would be
+      // un-hidden but stranded at opacity 0. Timers still fire. The delay
+      // only needs to be long enough for the browser to record a start state
+      // for the transition.
+      window.setTimeout(() => el.classList.add('is-in'), 30);
+    }, delay);
+
+    el.querySelector('[data-wed-notice-close]')?.addEventListener('click', () => {
+      el.classList.remove('is-in');
+      try {
+        localStorage.setItem(KEY, '1');
+      } catch {}
+      // Match the CSS transition, then take it out of the layout entirely.
+      window.setTimeout(() => { el.hidden = true; }, 400);
+    });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWedNotice, { once: true });
+  } else {
+    initWedNotice();
+  }
+</script>
+
+<style>
+  .wnotice {
+    position: fixed;
+    left: 1.5rem;
+    bottom: 1.5rem;
+    z-index: 60;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    width: min(24rem, calc(100vw - 3rem));
+    padding: 1.05rem 1.15rem;
+    border: 1px solid var(--wed-line);
+    border-radius: var(--wed-radius);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 26px 60px -30px rgba(35, 42, 59, 0.45);
+    /* Start state for the entrance; .is-in releases it. */
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  .wnotice.is-in { opacity: 1; transform: none; }
+
+  .wnotice-dot {
+    flex-shrink: 0;
+    width: 7px; height: 7px;
+    margin-top: 0.45rem;
+    border-radius: 50%;
+    background: var(--wed-gold);
+    /* Same champagne pulse as the gallery's in-progress chip. */
+    box-shadow: 0 0 0 0 rgba(176, 141, 79, 0.5);
+    animation: wnoticePulse 2.8s ease-out infinite;
+  }
+  @keyframes wnoticePulse {
+    0%   { box-shadow: 0 0 0 0 rgba(176, 141, 79, 0.45); }
+    70%  { box-shadow: 0 0 0 7px rgba(176, 141, 79, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(176, 141, 79, 0); }
+  }
+
+  .wnotice-body { flex: 1; min-width: 0; }
+  .wnotice-title {
+    font-family: var(--wed-display);
+    font-size: 0.56rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--wed-navy);
+    margin-bottom: 0.4rem;
+  }
+  .wnotice-text {
+    font-size: 0.86rem;
+    font-weight: 300;
+    line-height: 1.55;
+    color: var(--wed-ink-2);
+  }
+
+  .wnotice-close {
+    flex-shrink: 0;
+    width: 26px; height: 26px;
+    margin: -0.2rem -0.25rem 0 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--wed-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.25s ease, color 0.25s ease;
+  }
+  .wnotice-close:hover { background: var(--wed-bg-2); color: var(--wed-ink); }
+
+  @media (max-width: 600px) {
+    .wnotice { left: 0.75rem; right: 0.75rem; bottom: 0.75rem; width: auto; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wnotice { transition: none; transform: none; }
+    .wnotice-dot { animation: none; }
+    .wnotice-close { transition: none; }
+  }
+</style>

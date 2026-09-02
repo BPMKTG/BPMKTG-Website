@@ -119,10 +119,16 @@ export const momentFilms: WeddingFilm[] = [
 ];
 
 /** Engagement films — shot before the day, often used at the reception. */
+// Slugs are `engagement-film-NN`, NOT `engagement-NN`. WedFilms globs the
+// gallery folder as well as thumbnails/ into one slug map, so a film slug
+// that collides with a gallery filename silently steals that photo as its
+// poster and overrides its own posterSlug. `engagement-NN` collided with
+// the engagement photos the moment they landed. Matches the naming the
+// other groups already use (`wedding-film-NN`, `ceremony-multicam-NN`).
 export const engagementFilms: WeddingFilm[] = [
-  { slug: 'engagement-01', title: 'The Engagement Film', tag: 'Golden Hour', category: 'Engagement', orientation: 'h', posterSlug: 'wedding-03' },
-  { slug: 'engagement-02', title: 'The Engagement Film', tag: 'At Home',     category: 'Engagement', orientation: 'h', posterSlug: 'wedding-10' },
-  { slug: 'engagement-03', title: 'The Proposal',        tag: 'Documentary', category: 'Engagement', orientation: 'h', posterSlug: 'wedding-08' },
+  { slug: 'engagement-film-01', title: 'The Engagement Film', tag: 'Golden Hour', category: 'Engagement', orientation: 'h', posterSlug: 'wedding-03' },
+  { slug: 'engagement-film-02', title: 'The Engagement Film', tag: 'At Home',     category: 'Engagement', orientation: 'h', posterSlug: 'wedding-10' },
+  { slug: 'engagement-film-03', title: 'The Proposal',        tag: 'Documentary', category: 'Engagement', orientation: 'h', posterSlug: 'wedding-08' },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -181,19 +187,84 @@ const weddingPhotos: WeddingPhoto[] = [
   { slug: 'wedding-12', caption: 'Under The Cypress',  tag: 'Details',    category: 'wedding', orientation: 'w' },
 ];
 
-// ⚠️ Engagement and proposal sessions are shot and ready, but the files
-//    are not in the repo yet and NOTHING here should be guessed. Add an
-//    entry per photo once the images land, with a caption that describes
-//    the actual frame:
+// TWO different couples, deliberately in one list: the gallery sells the
+// service, not the session, so they interleave on the wall.
 //
-//      { slug: 'engagement-01', caption: '…', tag: '…',
-//        category: 'engagement', orientation: 'w' | 'h' | 'v' },
+//   01-26  Mason and Makenzie's own: overcast winter, the spiral stair,
+//          the white chapel at Grace Heritage, the courtyard.
+//   27-47  A client couple, golden hour on the town square: the stone
+//          facades, the blue door, the teal breeze-block, the roses.
 //
-//    Slug must match the filename in gallery/. Until an entry exists the
-//    photo does not render, and until a real image exists the tab does
-//    not appear, so a half-finished category never reaches a visitor.
-const engagementPhotos: WeddingPhoto[] = [];
-const proposalPhotos: WeddingPhoto[] = [];
+// Nearly every frame is portrait, so tiles are 'v' apart from two
+// landscape frames ('w') and a few tight crops that hold up square ('h').
+const engagementPhotos: WeddingPhoto[] = [
+  { slug: 'engagement-01', caption: 'The Dip',                tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-02', caption: 'The Spiral Stair',       tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-03', caption: 'Both Of Them',           tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-04', caption: 'On The Iron Steps',      tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-05', caption: 'Standing Together',      tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-06', caption: 'By The Chapel',          tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-07', caption: 'The Kiss',               tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-08', caption: 'Held Close',             tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-09', caption: 'Her Smile',              tag: 'Portraits',     category: 'engagement', orientation: 'h' },
+  { slug: 'engagement-10', caption: 'Wrapped Up',             tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-11', caption: 'A Quiet Minute',         tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-12', caption: 'Down The Block',         tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-13', caption: 'Laughing',               tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-14', caption: 'Over His Shoulder',      tag: 'Portraits',     category: 'engagement', orientation: 'h' },
+  { slug: 'engagement-15', caption: 'Christmas On The Steps', tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-16', caption: 'The Look',               tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-17', caption: 'Grace Heritage',         tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-18', caption: 'Stolen Kiss',            tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-19', caption: 'Against The Stone',      tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-20', caption: 'Walking Away',           tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-21', caption: 'The Ring',               tag: 'Details',       category: 'engagement', orientation: 'h' },
+  { slug: 'engagement-22', caption: 'The Courtyard',          tag: 'The Courtyard', category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-23', caption: 'Off Her Feet',           tag: 'The Courtyard', category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-24', caption: 'Lifted',                 tag: 'The Courtyard', category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-25', caption: 'Among The Roses',        tag: 'Details',       category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-26', caption: 'One More',               tag: 'The Courtyard', category: 'engagement', orientation: 'v' },
+
+  { slug: 'engagement-27', caption: 'Her Ring',             tag: 'Details',       category: 'engagement', orientation: 'h' },
+  { slug: 'engagement-28', caption: 'Into The Evening',     tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-29', caption: 'Golden Hour',          tag: 'Portraits',     category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-30', caption: 'Side By Side',         tag: 'Portraits',     category: 'engagement', orientation: 'w' },
+  { slug: 'engagement-31', caption: 'Warm Light',           tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-32', caption: 'Showing It Off',       tag: 'Details',       category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-33', caption: 'Chapel Light',         tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-34', caption: 'Golden Kiss',          tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-35', caption: 'The Stone Steps',      tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-36', caption: 'Crossing The Square',  tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-37', caption: 'The Square',           tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-38', caption: 'The Blue Door',        tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-39', caption: 'Under The Lamp',       tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-40', caption: 'Sunset On The Square', tag: 'Portraits',     category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-41', caption: 'Teal And White',       tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-42', caption: 'The White House',      tag: 'Downtown',      category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-43', caption: 'Through The Roses',    tag: 'Details',       category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-44', caption: 'Behind The Blooms',    tag: 'Details',       category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-45', caption: 'The Garden Path',      tag: 'The Courtyard', category: 'engagement', orientation: 'v' },
+  { slug: 'engagement-46', caption: 'Garden Pavilion',      tag: 'The Courtyard', category: 'engagement', orientation: 'w' },
+  { slug: 'engagement-47', caption: 'The Chapel Steps',     tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
+];
+
+// Their proposal, shot at night in the lit woods, in the order it
+// happened: the walk in, the knee, the yes, the ring.
+const proposalPhotos: WeddingPhoto[] = [
+  { slug: 'proposal-01', caption: 'Under The Lights', tag: 'The Woods',    category: 'proposal', orientation: 'v' },
+  { slug: 'proposal-02', caption: 'Hand In Hand',     tag: 'The Woods',    category: 'proposal', orientation: 'v' },
+  { slug: 'proposal-03', caption: 'Down On One Knee', tag: 'The Question', category: 'proposal', orientation: 'v' },
+  { slug: 'proposal-04', caption: 'The Question',     tag: 'The Question', category: 'proposal', orientation: 'v' },
+  { slug: 'proposal-05', caption: 'Yes',              tag: 'The Question', category: 'proposal', orientation: 'v' },
+  { slug: 'proposal-06', caption: 'The First Hug',    tag: 'She Said Yes', category: 'proposal', orientation: 'v' },
+  { slug: 'proposal-07', caption: 'The First Kiss',   tag: 'She Said Yes', category: 'proposal', orientation: 'v' },
+  { slug: 'proposal-08', caption: 'Just Engaged',     tag: 'She Said Yes', category: 'proposal', orientation: 'v' },
+  { slug: 'proposal-09', caption: 'The Ring',         tag: 'The Ring',     category: 'proposal', orientation: 'h' },
+  { slug: 'proposal-10', caption: 'Her Hand',         tag: 'The Ring',     category: 'proposal', orientation: 'h' },
+  { slug: 'proposal-11', caption: 'Telling Everyone', tag: 'She Said Yes', category: 'proposal', orientation: 'v' },
+  { slug: 'proposal-12', caption: 'Newly Engaged',    tag: 'The Ring',     category: 'proposal', orientation: 'v' },
+  { slug: 'proposal-13', caption: 'In The Snow',      tag: 'She Said Yes', category: 'proposal', orientation: 'v' },
+];
 
 export const galleryPhotos: WeddingPhoto[] = [
   ...weddingPhotos,

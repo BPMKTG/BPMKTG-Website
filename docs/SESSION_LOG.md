@@ -1466,10 +1466,22 @@ copy the memory file across.
 
 - `~/Desktop/wedding-grabs/` on the Mac: the 12 original 2000x1125 screen grabs
   plus `DSC00053.JPEG`, the 27.8 MB 4672x7008 camera original of the family
-  portrait. The repo has the placed and downscaled copies only
-  (`gallery-01..12.jpg`, `hero.jpg`, `about/mason-makenzie.jpg` at 1733x2600).
-  Nothing on the site depends on the originals, but the full-resolution family
-  portrait exists only on the Mac.
+  portrait. The repo has the placed and downscaled copies only (now
+  `wedding-01..12.jpg` after the 2026-09-02 rename, plus `hero.jpg` and
+  `about/mason-makenzie.jpg` at 1733x2600). Nothing on the site depends on the
+  originals, but the full-resolution family portrait exists only on the Mac.
+
+- **`C:\Users\Mason\Documents\Claude\wedding-originals\` on the PC**, a sibling
+  of the repo and deliberately outside it: the 60 camera originals of the
+  engagement and proposal sets, **976 MB**, still under their delivery names
+  (`mk engagement (N).jpg`, `mk proposal (N).jpg`, `vm engagement (N).JPG`).
+  The repo has only the 2400px web copies (`engagement-01..47.jpg`,
+  `proposal-01..13.jpg`, 31 MB total).
+
+  **These are PC-only and are not in git.** Nothing on the site needs them, but
+  if the full-resolution files matter, copy that folder to the Mac or to backup
+  before the PC is wiped or that folder gets cleaned up. Same trap as the Mac's
+  `wedding-grabs`, now pointing the other way.
 
 ---
 
@@ -1732,11 +1744,101 @@ is a different, pre-existing element and was left alone. It renders only when a
 tile has no image at all, which today is never, since every film tile borrows a
 frame via `posterSlug`.
 
+### Engagement and proposal photos are live, and the gallery tabs switched on
+
+**60 photos landed across two drops**, in three sets from three shoots:
+
+| Slugs | Whose | Where |
+|---|---|---|
+| `engagement-01..26` | Mason and Makenzie's own | overcast winter, spiral stair, Grace Heritage chapel |
+| `engagement-27..47` | **a client couple** | golden hour on the town square, blue door, roses |
+| `proposal-01..13` | Mason and Makenzie's own | night, lit woods, in the order it happened |
+
+The gallery now shows **All (72) / Weddings (12) / Engagements (47) /
+Proposals (13)** and the tab bar appeared on its own, exactly as the
+self-healing rule intended.
+
+The second batch arrived mid-session as `vm engagement (N).JPG` and was **nearly
+missed**: the first pass globbed `mk *.jpg` only, so a different prefix and an
+uppercase extension slipped through and got as far as `git add` before a
+staged-size check caught 19 MB files. Before committing an asset drop, list
+whatever does not match the slug convention, do not trust the prefix you were
+given.
+
+**976 MB of camera originals do not go in git.** They arrived at 3638x5457 to
+4672x7008, up to 47 MB each. Resized to 2400px on the long edge at quality 88:
+**976 MB -> 31 MB**, no visible loss, since the gallery renders at 1100px and
+the lightbox at 1800px. Committing them would have put nearly a gigabyte in
+history permanently and made Cloudflare re-encode all of it every build. The
+procedure and a runnable snippet are now in the asset README.
+
+**Captions were written from the frames, not guessed.** Reading 60 images one by
+one is expensive, so `sharp` composited labelled 3x3 contact sheets into the
+scratchpad and those were read instead: 8 images rather than 60. Worth repeating
+next time a batch lands. Nearly every frame is portrait, so tiles are `'v'`
+apart from two landscape frames (`'w'`) and a few tight crops that hold square
+(`'h'`).
+
+The gallery heading said *"Stills from the same day"*, which stopped being true
+the moment two other service lines joined it. Now *"Stills from the whole
+story"*, with a lede naming all three.
+
+**Slug collision, caught by a duplicate count.** The engagement *film* tiles
+were slugged `engagement-01..03`, and `WedFilms` globs the gallery folder as
+well as `thumbnails/` into one slug map. The moment `gallery/engagement-01.jpg`
+existed it silently became that film tile's poster, overriding its `posterSlug`.
+Renamed to `engagement-film-NN`, which is what the other groups already do
+(`wedding-film-NN`, `ceremony-multicam-NN`). **Film slugs and gallery slugs
+share one namespace. Do not reuse a name across them.**
+
+**Open positioning question, deliberately not decided:** `proposal-*` and
+`engagement-01..26` are the owners' own, while `engagement-27..47` is real
+client work. The tabs do not distinguish. The About film carries a note saying
+it is theirs; the gallery does not. Flagged to the owner.
+
+### An in-progress notice, once per visitor
+
+`WedNotice.astro`, wired into `weddings.astro`. Bottom-left card, fades in
+**1.5s after load** so the hero sells before the caveat lands, dismissible, and
+the dismissal is remembered in `localStorage` under `bp-wed-notice-v1`. Bump
+that key to re-show it to everyone after the message changes.
+
+Deliberately not a top bar: the header is transparent over the hero, and a bar
+would break that and be the first thing a couple reads. `role="status"`, not a
+dialog: nothing is blocked and a modal for an FYI is hostile.
+
+**Bug caught in review, worth remembering.** The entrance first used
+`requestAnimationFrame` to add the `.is-in` class one frame after unhiding.
+**rAF does not run in a backgrounded tab**, so a visitor opening the page in a
+background tab got a notice that was un-hidden but stranded at `opacity: 0`.
+Now a 30ms `setTimeout`, which fires regardless. Anywhere a start state has to
+be painted before a transition, use a timer, not rAF.
+
+Every `localStorage` access is wrapped in try/catch: private mode and blocked
+site data throw on access, and a visitor who cannot store the dismissal still
+gets a working, closable notice.
+
 ### Still open on /weddings
 
-Unchanged from last session, all blocked on assets or business decisions:
-Vimeo ids, real posters and gallery photos, a dedicated wedding Calendly +
-inbox, `WEDDING_INSTAGRAM`, the backup-shooter arrangement, and testimonials.
+Photos are **done** for engagements and proposals as of 2026-09-02. What is left:
+
+1. **Vimeo ids.** Still the big one. The page has exactly **one playable video**
+   (the About documentary, on YouTube). Every other film tile is a poster with
+   no play button and, since the owner cut the coming-soon markers, no
+   explanation either. This is the single highest-value thing left.
+2. **Real film posters.** `thumbnails/<slug>.jpg`. Tiles still borrow gallery
+   frames via `posterSlug`.
+3. **Wedding photos beyond the one wedding.** Twelve frames, all cypress swamp.
+4. **Proposals are sold nowhere.** No package, no a la carte line, no process
+   step mentions a proposal shoot, yet there is now a Proposals gallery tab with
+   13 photos in it. A tab with no offer behind it is a gap. Needs a line and a
+   price, neither of which can be invented.
+5. **Dedicated wedding Calendly + inbox.** Still falling back to company-wide.
+6. **`WEDDING_INSTAGRAM`** still a placeholder; the footer link hides itself.
+7. **Backup shooter**, and **testimonials**: unchanged, both blocked on reality
+   rather than code.
+8. **Whether to label the owners' own work as theirs** on the engagement and
+   proposal tabs. See the 2026-09-02 entry.
 
 ---
 

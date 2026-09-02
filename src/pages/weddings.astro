@@ -26,6 +26,7 @@ import WedAlaCarte from '../components/weddings/WedAlaCarte.astro';
 import WedProcess from '../components/weddings/WedProcess.astro';
 import WedFaq from '../components/weddings/WedFaq.astro';
 import WedBook from '../components/weddings/WedBook.astro';
+import WedNotice from '../components/weddings/WedNotice.astro';
 import { WEDDING_CALENDLY_URL } from '../data/weddings';
 ---
 <WeddingLayout
@@ -64,6 +65,9 @@ import { WEDDING_CALENDLY_URL } from '../data/weddings';
   <WedAbout />
   <WedFaq />
   <WedBook />
+
+  <!-- Fixed-position, so it sits outside the section flow. -->
+  <WedNotice />
 </WeddingLayout>
 
 <style>

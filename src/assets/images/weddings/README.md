@@ -34,8 +34,34 @@ tag, category, and tile shape. A file with no entry does not render.
 | `gallery/*` with `orientation: 'h'` | square crop-safe | 1600px wide |
 | `gallery/*` with `orientation: 'v'` | 3:4 crop-safe | 1400px wide |
 
-Astro re-encodes everything to WebP at build time, so upload full-quality
-originals — don't pre-compress.
+Astro re-encodes everything to WebP at build time, so don't pre-compress
+for quality. **But do downscale for size.**
+
+### Downscale before committing. This matters.
+
+Camera originals do not belong in git. The engagement and proposal sets
+arrived as 39 files totalling **720 MB** (4000x6000 to 4672x7008, up to
+47 MB each) and went in at **21.5 MB** after a resize to 2400px on the long
+edge at quality 88, with zero visible loss: the gallery renders at 1100px
+and the lightbox at 1800px, so nothing above 2400px is ever seen.
+
+Committing the originals would have put 720 MB in git history permanently
+and made Cloudflare re-encode all of it on every build.
+
+```bash
+# From the repo root. Resizes in place, keeps EXIF orientation.
+node -e "
+const sharp=require('sharp'),fs=require('fs'),p=require('path');
+const d='src/assets/images/weddings/gallery';
+(async()=>{for(const f of fs.readdirSync(d).filter(f=>/\.jpe?g\$/i.test(f))){
+  const i=p.join(d,f), t=i+'.tmp.jpg';
+  await sharp(i).rotate().resize({width:2400,height:2400,fit:'inside',withoutEnlargement:true})
+    .jpeg({quality:88,mozjpeg:true}).toFile(t);
+  fs.renameSync(t,i);
+}})();"
+```
+
+Keep the full-resolution originals somewhere outside the repo.
 
 ## Video
 
