@@ -7,6 +7,13 @@
 // arrives from a link we hand them (or from search).
 //
 // It also does not use Layout.astro — see WeddingLayout.astro for why.
+//
+// Unlisted, but deliberately NOT noindex: "unlisted" here means no link
+// from the artist funnel, not hidden from the world. Couples searching
+// for a wedding videographer are exactly who this page is for, and the
+// two audiences' search queries do not overlap, so there is nothing to
+// protect by hiding it. Pass `noindex` to <WeddingLayout> if that ever
+// changes; the meta tag is already wired.
 import WeddingLayout from '../layouts/WeddingLayout.astro';
 import WedHero from '../components/weddings/WedHero.astro';
 import WedBothSides from '../components/weddings/WedBothSides.astro';

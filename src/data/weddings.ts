@@ -18,6 +18,12 @@
 // together, Makenzie takes photo and Mason takes video. Copy anywhere on
 // the page should match that split.
 //
+// That describes how the day is COVERED, not what a package DELIVERS.
+// The Foundation and The Blueprint are film packages; an edited photo
+// gallery comes with The Legacy or as a photo add-on. Both FAQ answers
+// that touch photo say so, so a film-only couple cannot read the his &
+// hers hook as photo being included.
+//
 // Money line, from that doc, and worth keeping intact:
 //   "Every part of your wedding day, captured by a team who was actually
 //    there for both sides of it."
@@ -157,7 +163,8 @@ export const galleryPhotos: WeddingPhoto[] = [
 
 // ─────────────────────────────────────────────────────────────
 // Packages — three-card offer stack.
-// ⚠️ TODO: every price and inclusion below is a placeholder draft.
+// Prices and inclusions here are confirmed: see the banner at the top of
+// this file, which is the one place to change if that stops being true.
 // ─────────────────────────────────────────────────────────────
 export interface WeddingPackage {
   slug: string;
@@ -234,7 +241,7 @@ export const packages: WeddingPackage[] = [
 
 // ─────────────────────────────────────────────────────────────
 // À la carte menu — add to any package, or book on its own.
-// ⚠️ TODO: placeholder pricing.
+// Confirmed pricing, same as the packages above.
 // ─────────────────────────────────────────────────────────────
 export interface AlaCarteGroup {
   heading: string;
@@ -314,7 +321,7 @@ export const processSteps = [
 export const faqs = [
   {
     q: 'What does "his and hers" actually mean?',
-    a: 'It means one of us is with the groomsmen and one of us is with the bridesmaids, at the same time, on the two- and three-person packages. While you are apart we both shoot hybrid, photo and video, so neither room trades stills for footage and nobody is waiting on a shooter to finish one side and drive to the other. Once you are together we go back to our lanes: Makenzie on photo, Mason on video. We are married, so this is not a crew we assemble per wedding. It is the two of us either way.',
+    a: 'It means one of us is with the groomsmen and one of us is with the bridesmaids, at the same time, on the two- and three-person packages. While you are apart we both shoot hybrid, photo and video, so neither room trades stills for footage and nobody is waiting on a shooter to finish one side and drive to the other. Once you are together we go back to our lanes: Makenzie on photo, Mason on video. We are married, so this is not a crew we assemble per wedding. It is the two of us either way. One thing worth being clear on: shooting hybrid is how we cover the morning, not what every package delivers. The film packages deliver film. An edited photo gallery comes with The Legacy, or as a photo add-on on any package.',
   },
   {
     q: 'I do not love the idea of a stranger filming me getting ready.',
@@ -322,7 +329,7 @@ export const faqs = [
   },
   {
     q: 'Do you shoot photo as well as video?',
-    a: 'Both, from one team. They are not competing: photos freeze a moment you can print and frame, video lets you hear your vows again, hear the room laugh, watch the first dance. Most couples who book only one end up wishing they had both, and you cannot go back for the other half. If you genuinely only want one, book only one. The a la carte menu prices them separately.',
+    a: 'Both, from one team. They are not competing: photos freeze a moment you can print and frame, video lets you hear your vows again, hear the room laugh, watch the first dance. Most couples who book only one end up wishing they had both, and you cannot go back for the other half. If you genuinely only want one, book only one. Photo is delivered on The Legacy or as an add-on to either film package, and the a la carte menu prices both separately.',
   },
   {
     q: 'That is more than we budgeted for.',

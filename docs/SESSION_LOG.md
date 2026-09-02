@@ -1501,4 +1501,82 @@ copy the memory file across.
 
 ---
 
+## Session 15 — 2026-09-02 — `/weddings`: cleared the open items that needed no new assets
+
+Resumed on the PC, which was **12 commits behind `origin/main`** — the whole
+`/weddings` arc existed only upstream. (Third time this has bitten a session.
+`git fetch` first, always.)
+
+### Video Moments crop — resolved, and it was partly a bug
+
+The row **stays 4:5 vertical**: the real deliverable is a vertical social cut,
+so flipping it to 16:9 would misrepresent the product and have to be flipped
+back the moment real posters land.
+
+Underneath the design question was an actual bug. `WedFilmTile` requested
+vertical posters at **810x1440 (9:16)** while `.frame` is **4:5**. A 2000x1125
+stand-in was therefore cropped to 9:16 at build (keeping ~32% of its width),
+then cropped *again* by `object-fit: cover`. Fixed the requested dims to
+**900x1125**, matching the frame.
+
+For the stand-ins specifically, `posterBorrowed` now flows from `WedFilms` into
+the tile: a **borrowed** 16:9 frame in a vertical tile renders `contain`ed over
+a blurred, overscaled fill of itself (`.lbx`) instead of cropping at all. It is
+self-removing — drop a real `thumbnails/<slug>.jpg` in, `posterBorrowed` goes
+false, and the tile reverts to a full-bleed cover with no code change.
+
+**Not yet eyeballed by a human.** Screenshots were unavailable this session, so
+this was verified numerically only (frame 0.801, image 1.772, contained, no
+overflow). Give the row a look; if 46%-image / 54%-blur reads as too much blur,
+the fix is to drop `hideMeta`-style opt-out on `letterbox` in `WedFilmTile`.
+
+### Hero film caption removed
+
+The feature tile in **On Film** no longer renders "A Wedding Film / Full
+Feature" under the frame — the section heading directly above already says it.
+New `hideMeta` prop, set only on that one tile. The title still feeds the
+lightbox caption, the `alt`, and the `aria-label`, so nothing accessible was
+lost. The About story tile keeps its caption.
+
+### Pricing banners — the contradiction was stale comments, not open pricing
+
+`d34a162` updated the file-top banner to "Pricing … CONFIRMED" but left the two
+inline `⚠️ TODO: placeholder pricing` banners from the original scaffold
+(`061c476`) in place. Pricing is confirmed; both stale banners are gone, and the
+file-top banner is now the single place to change if that stops being true.
+
+### Photo on The Blueprint — FAQ qualifier added
+
+The his & hers hook says both shooters cover hybrid photo and video while the
+couple is apart. That is **how the day is covered, not what a package
+delivers**: Foundation and Blueprint are film packages, and an edited photo
+gallery comes with The Legacy or as an add-on. Both FAQ answers that touch photo
+now say so explicitly, so a film-only couple cannot read the hook as photo being
+included.
+
+### `noindex` — decided: leave it indexable
+
+"Unlisted" means no link from the artist funnel, not hidden from the world.
+Couples searching for a wedding videographer are exactly the audience, and the
+two funnels' queries do not overlap, so there is nothing to protect by hiding
+it. Reasoning is recorded in `src/pages/weddings.astro`; the `noindex` prop
+stays wired if that ever changes.
+
+### Gotcha worth keeping: Astro dev serves stale scoped CSS
+
+New CSS in a `.astro` `<style>` block was correct in the SSR'd HTML (`curl`
+proved it) but **absent from the DOM in the browser** — Vite handed the page a
+cached `?astro&type=style` module and Astro dev drops the SSR'd duplicate on
+hydration. A fresh tab did not help. **Restarting the dev server did.** If a
+style edit appears to do nothing, diff `curl` against the DOM before you go
+hunting for a selector bug.
+
+### Still open on /weddings
+
+Unchanged from last session, all blocked on assets or business decisions:
+Vimeo ids, real posters and gallery photos, a dedicated wedding Calendly +
+inbox, `WEDDING_INSTAGRAM`, the backup-shooter arrangement, and testimonials.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
