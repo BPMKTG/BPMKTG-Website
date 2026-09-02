@@ -35,6 +35,13 @@ for (const [path, mod] of Object.entries({ ...posterGlob, ...thumbGlob })) {
 const posterFor = (film: { slug: string; posterSlug?: string }) =>
   posterBySlug[film.slug] ?? (film.posterSlug ? posterBySlug[film.posterSlug] : undefined);
 
+// True when the tile is wearing another film's frame rather than its own.
+// The vertical Video Moments tiles letterbox a borrowed 16:9 frame rather
+// than crop it; drop a real thumbnails/<slug>.jpg in and this flips to
+// false and the tile goes back to a full-bleed cover with no code change.
+const posterBorrowed = (film: { slug: string; posterSlug?: string }) =>
+  !posterBySlug[film.slug] && Boolean(film.posterSlug && posterBySlug[film.posterSlug]);
+
 const groups = [
   {
     id: 'wedding-films',
@@ -81,7 +88,13 @@ const groups = [
     </header>
 
     <div class="feature" data-reveal="deal">
-      <WedFilmTile {...featureFilm} posterImg={posterFor(featureFilm)} feature />
+      <WedFilmTile
+        {...featureFilm}
+        posterImg={posterFor(featureFilm)}
+        posterBorrowed={posterBorrowed(featureFilm)}
+        feature
+        hideMeta
+      />
     </div>
 
     {groups.map(group => (
@@ -95,7 +108,7 @@ const groups = [
         <div class:list={['grid', `grid--${group.cols}`]} data-reveal-group>
           {group.items.map(item => (
             <div data-reveal="deal">
-              <WedFilmTile {...item} posterImg={posterFor(item)} />
+              <WedFilmTile {...item} posterImg={posterFor(item)} posterBorrowed={posterBorrowed(item)} />
             </div>
           ))}
         </div>
