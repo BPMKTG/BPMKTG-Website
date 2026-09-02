@@ -103,16 +103,19 @@ export const ceremonyFilms: WeddingFilm[] = [
 ];
 
 /** Video moments — short, high-quality clips of the beats that matter. */
+// Horizontal, like every other film on the page. A vertical crop for
+// social is available on request, so the tiles show the master 16:9 the
+// clip is actually delivered in rather than the crop.
 // Eight so the 4-column grid fills two clean rows with no orphan tile.
 export const momentFilms: WeddingFilm[] = [
-  { slug: 'moment-first-look',      title: 'The First Look',      tag: 'Getting Ready', category: 'Moment', orientation: 'v', posterSlug: 'gallery-02' },
-  { slug: 'moment-first-kiss',      title: 'The First Kiss',      tag: 'Ceremony',      category: 'Moment', orientation: 'v', posterSlug: 'gallery-08' },
-  { slug: 'moment-grand-entrance',  title: 'The Grand Entrance',  tag: 'Reception',     category: 'Moment', orientation: 'v', posterSlug: 'gallery-10' },
-  { slug: 'moment-first-dance',     title: 'The First Dance',     tag: 'Reception',     category: 'Moment', orientation: 'v', posterSlug: 'gallery-11' },
-  { slug: 'moment-parent-dance',    title: 'The Parent Dance',    tag: 'Reception',     category: 'Moment', orientation: 'v', posterSlug: 'gallery-07' },
-  { slug: 'moment-speeches',        title: 'The Speeches',        tag: 'Reception',     category: 'Moment', orientation: 'v', posterSlug: 'gallery-06' },
-  { slug: 'moment-cake-cutting',    title: 'The Cake Cutting',    tag: 'Reception',     category: 'Moment', orientation: 'v', posterSlug: 'gallery-09' },
-  { slug: 'moment-sendoff',         title: 'The Sendoff',         tag: 'Late Night',    category: 'Moment', orientation: 'v', posterSlug: 'gallery-04' },
+  { slug: 'moment-first-look',      title: 'The First Look',      tag: 'Getting Ready', category: 'Moment', orientation: 'h', posterSlug: 'gallery-02' },
+  { slug: 'moment-first-kiss',      title: 'The First Kiss',      tag: 'Ceremony',      category: 'Moment', orientation: 'h', posterSlug: 'gallery-08' },
+  { slug: 'moment-grand-entrance',  title: 'The Grand Entrance',  tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'gallery-10' },
+  { slug: 'moment-first-dance',     title: 'The First Dance',     tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'gallery-11' },
+  { slug: 'moment-parent-dance',    title: 'The Parent Dance',    tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'gallery-07' },
+  { slug: 'moment-speeches',        title: 'The Speeches',        tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'gallery-06' },
+  { slug: 'moment-cake-cutting',    title: 'The Cake Cutting',    tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'gallery-09' },
+  { slug: 'moment-sendoff',         title: 'The Sendoff',         tag: 'Late Night',    category: 'Moment', orientation: 'h', posterSlug: 'gallery-04' },
 ];
 
 /** Engagement films — shot before the day, often used at the reception. */

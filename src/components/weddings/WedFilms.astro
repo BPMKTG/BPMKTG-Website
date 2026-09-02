@@ -35,13 +35,6 @@ for (const [path, mod] of Object.entries({ ...posterGlob, ...thumbGlob })) {
 const posterFor = (film: { slug: string; posterSlug?: string }) =>
   posterBySlug[film.slug] ?? (film.posterSlug ? posterBySlug[film.posterSlug] : undefined);
 
-// True when the tile is wearing another film's frame rather than its own.
-// The vertical Video Moments tiles letterbox a borrowed 16:9 frame rather
-// than crop it; drop a real thumbnails/<slug>.jpg in and this flips to
-// false and the tile goes back to a full-bleed cover with no code change.
-const posterBorrowed = (film: { slug: string; posterSlug?: string }) =>
-  !posterBySlug[film.slug] && Boolean(film.posterSlug && posterBySlug[film.posterSlug]);
-
 const groups = [
   {
     id: 'wedding-films',
@@ -60,7 +53,7 @@ const groups = [
   {
     id: 'moments',
     label: 'Video Moments',
-    blurb: 'Single beats, finished on their own: the first look, the first kiss, the first dance, the cake, the sendoff. Short enough to send to anyone.',
+    blurb: 'Single beats, finished on their own: the first look, the first kiss, the first dance, the cake, the sendoff. Short enough to send to anyone. Delivered horizontal, and if you want one cut vertical for social, just ask.',
     items: momentFilms,
     cols: 'four',
   },
@@ -88,13 +81,7 @@ const groups = [
     </header>
 
     <div class="feature" data-reveal="deal">
-      <WedFilmTile
-        {...featureFilm}
-        posterImg={posterFor(featureFilm)}
-        posterBorrowed={posterBorrowed(featureFilm)}
-        feature
-        hideMeta
-      />
+      <WedFilmTile {...featureFilm} posterImg={posterFor(featureFilm)} feature hideMeta />
     </div>
 
     {groups.map(group => (
@@ -108,7 +95,7 @@ const groups = [
         <div class:list={['grid', `grid--${group.cols}`]} data-reveal-group>
           {group.items.map(item => (
             <div data-reveal="deal">
-              <WedFilmTile {...item} posterImg={posterFor(item)} posterBorrowed={posterBorrowed(item)} />
+              <WedFilmTile {...item} posterImg={posterFor(item)} />
             </div>
           ))}
         </div>
@@ -236,8 +223,8 @@ const groups = [
      vanishing point rather than each pivoting independently. */
   .grid { display: grid; gap: 1.75rem; perspective: 1600px; perspective-origin: center 35%; }
   .grid--three { grid-template-columns: repeat(3, 1fr); }
-  /* Video moments are vertical tiles — four across keeps them a usable
-     size while still filling two complete rows from eight entries. */
+  /* Video moments: four across, which fills two complete rows from eight
+     entries and reads as a set of short clips rather than full films. */
   .grid--four  { grid-template-columns: repeat(4, 1fr); gap: 1.35rem; }
 
   @media (max-width: 1080px) {

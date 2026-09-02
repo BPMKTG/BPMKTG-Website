@@ -1507,28 +1507,25 @@ Resumed on the PC, which was **12 commits behind `origin/main`** — the whole
 `/weddings` arc existed only upstream. (Third time this has bitten a session.
 `git fetch` first, always.)
 
-### Video Moments crop — resolved, and it was partly a bug
+### Video Moments — they are horizontal, and the crop was a real bug
 
-The row **stays 4:5 vertical**: the real deliverable is a vertical social cut,
-so flipping it to 16:9 would misrepresent the product and have to be flipped
-back the moment real posters land.
+**The row is 16:9, confirmed by the owner.** It had been built 4:5 vertical on
+the assumption that the deliverable was a vertical social cut. It is not: the
+clips are delivered horizontal, and a vertical crop is available on request.
+The group blurb now says exactly that, so nobody has to ask.
 
-Underneath the design question was an actual bug. `WedFilmTile` requested
-vertical posters at **810x1440 (9:16)** while `.frame` is **4:5**. A 2000x1125
-stand-in was therefore cropped to 9:16 at build (keeping ~32% of its width),
-then cropped *again* by `object-fit: cover`. Fixed the requested dims to
-**900x1125**, matching the frame.
+Underneath the wrong shape was a genuine bug, and the fix outlives the shape.
+`WedFilmTile` requested vertical posters at **810x1440 (9:16)** while a vertical
+`.frame` is **4:5**. A 2000x1125 source was therefore cropped to 9:16 at build
+(keeping ~32% of its width) and then cropped *again* by `object-fit: cover`.
+The requested dims now derive from the frame (**1280x720** horizontal,
+**900x1125** vertical), so nothing double-crops. Nothing on the page is vertical
+today, but `orientation: 'v'` is still a supported prop and is now correct.
 
-For the stand-ins specifically, `posterBorrowed` now flows from `WedFilms` into
-the tile: a **borrowed** 16:9 frame in a vertical tile renders `contain`ed over
-a blurred, overscaled fill of itself (`.lbx`) instead of cropping at all. It is
-self-removing — drop a real `thumbnails/<slug>.jpg` in, `posterBorrowed` goes
-false, and the tile reverts to a full-bleed cover with no code change.
-
-**Not yet eyeballed by a human.** Screenshots were unavailable this session, so
-this was verified numerically only (frame 0.801, image 1.772, contained, no
-overflow). Give the row a look; if 46%-image / 54%-blur reads as too much blur,
-the fix is to drop `hideMeta`-style opt-out on `letterbox` in `WedFilmTile`.
+An earlier pass this session shipped a blurred-fill letterbox for borrowed 16:9
+stand-ins in vertical tiles. With the row horizontal nothing used it, so it was
+removed rather than left as dead code. `git show 2aace3f` has it if a genuinely
+vertical tile ever needs the treatment.
 
 ### Hero film caption removed
 
@@ -1561,6 +1558,16 @@ Couples searching for a wedding videographer are exactly the audience, and the
 two funnels' queries do not overlap, so there is nothing to protect by hiding
 it. Reasoning is recorded in `src/pages/weddings.astro`; the `noindex` prop
 stays wired if that ever changes.
+
+### Verification was numeric: screenshots do not work on this PC
+
+The Browser pane returned **blank images** while the DOM measured correctly
+(tiles laid out at 282x159, `opacity: 1`, no transform, images `complete`).
+That is the same Chromium GPU compositing fault documented in the CLOSED
+portfolio-glitch section below, not a page bug. Everything this session was
+verified by measuring the live DOM and grepping the built `dist/` HTML instead.
+On this machine, do not treat a blank or broken screenshot as evidence about
+the site.
 
 ### Gotcha worth keeping: Astro dev serves stale scoped CSS
 
