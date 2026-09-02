@@ -370,6 +370,26 @@ img[data-wed-loading] {
 }
 img[data-wed-loading][data-wed-loaded] { opacity: 1; }
 
+/* ── Broken image fallback ──
+   An image that 404s gets hidden and its container wears the same
+   champagne-to-blue panel an empty tile does, so a missing asset degrades
+   to "not shot yet" instead of the browser's broken-image icon and stray
+   alt text. wedding.client.ts sets the attribute.
+
+   Not theoretical: a Cloudflare Pages deploy can serve new HTML before
+   its new image assets finish propagating, and every tile pointing at one
+   goes broken for that window. */
+img[data-wed-broken] { display: none !important; }
+
+.frame:has(> img[data-wed-broken]),
+.img-wrap:has(> img[data-wed-broken]) {
+  background-image:
+    linear-gradient(rgba(38, 79, 160, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(38, 79, 160, 0.09) 1px, transparent 1px),
+    linear-gradient(150deg, var(--wed-blue-pale) 0%, #fbf7f2 48%, var(--wed-gold-pale) 100%);
+  background-size: 34px 34px, 34px 34px, cover;
+}
+
 /* Focus visibility — this page has no custom cursor, so the native
    focus ring matters. */
 html.wed :focus-visible {

@@ -1635,6 +1635,65 @@ for other people, ask on the call.
   process step mentions a proposal shoot. A Proposals gallery tab with no offer
   behind it is a gap; it needs a line and a price.
 
+### The site "broke" after a deploy, and it was Cloudflare, not the code
+
+Reported as the whole site looking like an unstyled Wikipedia page. It was not
+a code fault, and the diagnosis is worth keeping because it will happen again.
+
+**Cloudflare Pages served new HTML before its new assets propagated.** The
+weddings page was the only one with a brand-new stylesheet in that deploy, so it
+was the only casualty: `/_astro/weddings.*.css` returned **`200` with
+`content-type: text/html`** — Cloudflare's 404 fallback is the homepage. With
+`x-content-type-options: nosniff` the browser correctly threw the whole thing
+away, and the page rendered bare. Homepage, portfolio and about were untouched
+because their stylesheets were unchanged and already on the edge.
+
+Minutes later the CSS resolved to `200 text/css`, **byte-identical** to the local
+build. Same story for the renamed gallery images, which propagated in a rolling
+fashion: three moment posters were still 404ing after the CSS had healed.
+
+**How to diagnose this in one command.** Do not trust the status code, check the
+content type:
+
+```bash
+curl -s -o /dev/null -w "%{http_code} %{content_type} %{size_download}b
+"   https://blueprint-marketing.com/_astro/<asset>
+```
+
+`200 text/html` on a `.css` or `.webp` URL means the asset is missing and you are
+looking at the 404 fallback.
+
+**The tail that hurts:** `_astro` assets carry
+`Cache-Control: max-age=31536000, immutable`. A browser that caught the bad
+response holds it and will not revalidate. The server being fixed does not fix
+the visitor. **Hard refresh is mandatory** after this happens.
+
+Worth fixing properly at some point: a missing asset should return a real 404
+rather than `200` HTML, which would turn a silent total-restyle into a normal
+missing-file. Raised with the owner, not yet actioned.
+
+### Broken images now degrade instead of shouting
+
+Fallout from the above: tiles pointing at un-propagated images showed the
+browser's broken-image icon plus the alt text, which reads as a site falling
+apart. `wedding.client.ts` now marks any failed image `data-wed-broken` (both on
+the `error` event and via a `complete && naturalWidth === 0` check at init, since
+an already-failed image never fires `error` again) and blanks its alt. CSS hides
+it and gives the container the same champagne-and-blueprint panel an empty tile
+gets, through `.frame:has(> img[data-wed-broken])` and the `.img-wrap` twin.
+
+Verified by pointing a live tile at a nonexistent asset: predicate fired, image
+hidden, alt emptied, panel applied, and the coming-soon label dropped its dark
+scrim for ink so it stays readable on the pale panel.
+
+### "Film coming soon" no longer imitates the category badge
+
+The first version reused the badge's language exactly — white pill, Orbitron,
+uppercase, navy — so a status and a category label looked like the same object.
+Now it differs on every axis: Cormorant Garamond, italic, sentence case, white,
+21.6px on the feature tile, over a soft radial scrim with no pill or radius,
+against the badge's 9.92px uppercase Orbitron navy-on-white pill.
+
 ### Still open on /weddings
 
 Unchanged from last session, all blocked on assets or business decisions:

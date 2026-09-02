@@ -56,11 +56,33 @@ function initReveal() {
 //    opacity via :hover, and forcing them visible would break that.
 //    Only tags images that haven't decoded yet, so already-cached images
 //    never flash to opacity:0 for a frame.
+//
+//    An image that fails outright is marked `data-wed-broken`, which the
+//    CSS turns into the same designed panel an empty tile gets. Without
+//    it the browser paints its own broken-image icon and the alt text,
+//    which looks like the site is falling apart. This is not theoretical:
+//    a Cloudflare Pages deploy can serve new HTML before its new image
+//    assets have propagated, and every tile referencing one goes broken
+//    for that window.
+function markBroken(img: HTMLImageElement) {
+  img.setAttribute('data-wed-broken', '1');
+  // Kill the alt text too — it is the thing that reads as a broken page.
+  // The caption under every tile already carries the same words.
+  img.setAttribute('alt', '');
+}
+
 function initMediaLoading() {
   document.querySelectorAll<HTMLImageElement>('img:not([data-wed-loading])').forEach(img => {
+    // An image that already failed before this ran (cached 404, or a
+    // decode that finished first) never fires `error` again.
+    if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) {
+      markBroken(img);
+      return;
+    }
     if (img.complete && img.naturalWidth > 0) return;
     img.setAttribute('data-wed-loading', '1');
-    const finish = () => {
+    const finish = (e: Event) => {
+      if (e.type === 'error') markBroken(img);
       img.setAttribute('data-wed-loaded', '1');
       img.removeEventListener('load', finish);
       img.removeEventListener('error', finish);

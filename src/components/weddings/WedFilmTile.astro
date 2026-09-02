@@ -301,29 +301,43 @@ const imgH = orientation === 'h' ? 720  : 1125;
   }
 
   /* ── Coming soon ──
-     Idle tiles that have a poster. Same pill language as the category
-     badge, centred where the play affordance would be. */
+     Deliberately NOT the badge's language. The corner badge is a white
+     Orbitron pill naming a category; this is a status, so it reads as
+     one: no pill, serif italic, sentence case, on a soft scrim that only
+     exists to keep it legible over a photo. Different typeface, case,
+     colour and shape means the two never get mistaken for each other. */
   .soon {
     position: absolute;
     left: 50%; top: 50%;
     transform: translate(-50%, -50%);
     z-index: 3;
-    padding: 0.5rem 1rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(38, 79, 160, 0.16);
-    color: var(--wed-navy);
-    font-family: var(--wed-display);
-    font-size: 0.54rem;
-    font-weight: 600;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
+    padding: 0.55rem 1.4rem;
+    color: #fff;
+    font-family: var(--wed-serif);
+    font-size: 1.02rem;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: 0.01em;
     white-space: nowrap;
     pointer-events: none;
-    box-shadow: 0 10px 30px -18px rgba(35, 42, 59, 0.5);
+    /* An ellipse rather than a pill: soft-edged so it sits on the frame
+       instead of stamping a second chip onto it. */
+    background: radial-gradient(
+      ellipse at center,
+      rgba(35, 42, 59, 0.62) 0%,
+      rgba(35, 42, 59, 0.46) 55%,
+      rgba(35, 42, 59, 0) 78%
+    );
+    text-shadow: 0 1px 12px rgba(35, 42, 59, 0.75);
   }
-  .wtile--feature .soon { font-size: 0.62rem; padding: 0.6rem 1.3rem; }
+  .wtile--feature .soon { font-size: 1.35rem; padding: 0.8rem 2.2rem; }
+  /* If the poster 404s the frame falls back to the pale panel, and a dark
+     scrim on that is just a smudge. Drop to ink, no scrim. */
+  .frame:has(> img[data-wed-broken]) .soon {
+    color: var(--wed-ink-2);
+    background: none;
+    text-shadow: none;
+  }
 
   /* ── Caption, below the frame ── */
   .meta { display: flex; flex-direction: column; gap: 0.15rem; padding-left: 0.15rem; }
