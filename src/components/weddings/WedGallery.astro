@@ -86,8 +86,8 @@ const hiddenAtRest = (category: string) =>
 
     <p class="tripod-note" data-note-for="engagement proposal" hidden data-reveal>
       <span class="note-dot" aria-hidden="true"></span>
-      Every engagement and proposal frame here is the two of us, shot on a
-      tripod with nobody behind the camera. Yours gets both of us behind it.
+      The frames of the two of us were shot on a tripod, with nobody behind
+      the camera. Yours gets both of us behind it.
     </p>
 
     {!hasAnyPhotos && (
@@ -273,8 +273,10 @@ const hiddenAtRest = (category: string) =>
         t.classList.toggle('is-on', on);
         t.setAttribute('aria-pressed', String(on));
       });
-      // The tripod note only belongs on the categories that are actually
-      // the two of them. It would be a lie over a client's wedding.
+      // The tripod note only belongs where some of the frames are actually
+      // the two of them. It would be a lie over a client's wedding. Note
+      // the copy says "the frames of the two of us", not "these frames":
+      // engagement-27..47 is a client couple, so a blanket claim is wrong.
       if (note) {
         note.hidden = !(note.dataset.noteFor || '').split(' ').includes(filter);
       }

@@ -1878,8 +1878,12 @@ through Proposals cycles those 13 and wraps, never reaching a wedding frame.
 60 of the 72 gallery photos are Mason and Makenzie themselves, shot on a tripod.
 The owner wanted that said out loud, as a selling point rather than an apology:
 
-> *Every engagement and proposal frame here is the two of us, shot on a tripod
-> with nobody behind the camera. Yours gets both of us behind it.*
+> *The frames of the two of us were shot on a tripod, with nobody behind the
+> camera. Yours gets both of us behind it.*
+
+A first draft said "every engagement and proposal frame here is the two of us",
+which is false: `engagement-27..47` is a client couple. The wording now points
+at the frames that are them without claiming the whole set is.
 
 **It is category-aware on purpose.** `data-note-for="engagement proposal"`, and
 `applyFilter` toggles it. On the Weddings tab it is hidden, because those frames
