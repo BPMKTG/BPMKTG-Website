@@ -46,6 +46,16 @@ const tabs = photoCategories.filter(c =>
   tiles.some(t => t.category === c.id && t.src)
 );
 const showTabs = tabs.length > 1;
+
+// There is deliberately no "All" tab: the three service lines are
+// different sells and mixing them reads as one undifferentiated pile.
+// One category is always active, and the first tab with real photography
+// is what the page opens on. Tiles outside it ship hidden rather than
+// being hidden by JS, so there is no flash of all seventy-odd frames
+// before the filter runs.
+const defaultCategory = showTabs ? tabs[0].id : null;
+const hiddenAtRest = (category: string) =>
+  showTabs && category !== defaultCategory;
 ---
 <section class="gallery wed-section" id="gallery">
   <div class="wed-container">
@@ -62,13 +72,23 @@ const showTabs = tabs.length > 1;
 
     {showTabs && (
       <div class="tabs" role="group" aria-label="Filter the gallery by session type" data-reveal>
-        <button type="button" class="tab is-on" aria-pressed="true" data-filter="all">All</button>
         {tabs.map(c => (
-          <button type="button" class="tab" aria-pressed="false" data-filter={c.id}>{c.label}</button>
+          <button
+            type="button"
+            class:list={['tab', { 'is-on': c.id === defaultCategory }]}
+            aria-pressed={String(c.id === defaultCategory)}
+            data-filter={c.id}
+          >{c.label}</button>
         ))}
         <span class="sr-only" role="status" data-gallery-status></span>
       </div>
     )}
+
+    <p class="tripod-note" data-note-for="engagement proposal" hidden data-reveal>
+      <span class="note-dot" aria-hidden="true"></span>
+      Every engagement and proposal frame here is the two of us, shot on a
+      tripod with nobody behind the camera. Yours gets both of us behind it.
+    </p>
 
     {!hasAnyPhotos && (
       <p class="empty-note" data-reveal>
@@ -85,6 +105,7 @@ const showTabs = tabs.length > 1;
             type="button"
             data-orientation={tile.orientation}
             data-category={tile.category}
+            hidden={hiddenAtRest(tile.category)}
             data-wed-photo
             data-full={tile.full}
             data-caption={`${tile.caption} · ${tile.tag}`}
@@ -113,6 +134,7 @@ const showTabs = tabs.length > 1;
             class="gtile gtile--empty"
             data-orientation={tile.orientation}
             data-category={tile.category}
+            hidden={hiddenAtRest(tile.category)}
             data-reveal="deal"
           >
             <span class="ph" aria-hidden="true">
@@ -234,9 +256,11 @@ const showTabs = tabs.length > 1;
     const allTiles = Array.from(document.querySelectorAll<HTMLElement>('.gtile[data-category]'));
     const status = document.querySelector<HTMLElement>('[data-gallery-status]');
 
+    const note = document.querySelector<HTMLElement>('[data-note-for]');
+
     const applyFilter = (filter: string) => {
       allTiles.forEach(tile => {
-        const on = filter === 'all' || tile.dataset.category === filter;
+        const on = tile.dataset.category === filter;
         tile.hidden = !on;
         // A tile filtered out before the reveal observer ever saw it would
         // come back stranded at opacity 0, so anything shown is revealed
@@ -249,6 +273,11 @@ const showTabs = tabs.length > 1;
         t.classList.toggle('is-on', on);
         t.setAttribute('aria-pressed', String(on));
       });
+      // The tripod note only belongs on the categories that are actually
+      // the two of them. It would be a lie over a client's wedding.
+      if (note) {
+        note.hidden = !(note.dataset.noteFor || '').split(' ').includes(filter);
+      }
       if (status) {
         const n = allTiles.filter(t => !t.hidden).length;
         status.textContent = `Showing ${n} photo${n === 1 ? '' : 's'}.`;
@@ -256,8 +285,16 @@ const showTabs = tabs.length > 1;
     };
 
     tabs.forEach(tab =>
-      tab.addEventListener('click', () => applyFilter(tab.dataset.filter || 'all'))
+      tab.addEventListener('click', () => {
+        const filter = tab.dataset.filter;
+        if (filter) applyFilter(filter);
+      })
     );
+
+    // Seed from whichever tab the page shipped active, so the JS state and
+    // the server-rendered state agree from the first frame.
+    const initial = tabs.find(t => t.classList.contains('is-on')) ?? tabs[0];
+    if (initial?.dataset.filter) applyFilter(initial.dataset.filter);
   };
 
   if (document.readyState === 'loading') {
@@ -271,6 +308,32 @@ const showTabs = tabs.length > 1;
   .gallery { background: var(--wed-bg-2); }
   .head { max-width: 66ch; margin-bottom: 2.5rem; }
   .head h2 { margin: 1.1rem 0 1.5rem; }
+
+  /* Same aside language as .empty-note, so the two read as one family. */
+  .tripod-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    margin: -0.75rem 0 2.25rem;
+    padding: 0.85rem 1.25rem;
+    max-width: 68ch;
+    border: 1px solid var(--wed-line);
+    border-radius: var(--wed-radius);
+    background: rgba(255, 255, 255, 0.6);
+    font-family: var(--wed-serif);
+    font-size: 1.05rem;
+    font-style: italic;
+    line-height: 1.5;
+    color: var(--wed-ink-2);
+  }
+  .tripod-note[hidden] { display: none; }
+  .note-dot {
+    width: 7px; height: 7px;
+    margin-top: 0.6rem;
+    border-radius: 50%;
+    background: var(--wed-gold);
+    flex-shrink: 0;
+  }
 
   /* ── Category filter ──
      Only rendered once more than one service line has real photography. */

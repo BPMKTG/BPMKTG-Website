@@ -1372,6 +1372,10 @@ FAQ answer needs a qualifier.
 
 ### Where /weddings stands, and what is open
 
+> ⚠️ **Superseded.** Session 15 closed most of this list and Session 16 changed
+> the gallery. Read this as the state on 2026-09-01 only; the live status is at
+> the end of the most recent session entry.
+
 Live and deployed, unlinked from the rest of the site. Sections in order: hero,
 his & hers, films, gallery, mid-CTA, packages, guarantee, a la carte, process,
 about, FAQ, closing CTA.
@@ -1422,6 +1426,9 @@ landed upstream in that window and the weddings page had to be brought in line:
    and gallery lightbox captions read `Title · Tag`.
 
 ### Still open on /weddings
+
+> ⚠️ **Superseded**, same as above. Pricing is confirmed, the assets landed, and
+> the indexing decision is made. Kept for the record, not as a to-do list.
 
 1. **Confirm all pricing** (see the TODO banner in `src/data/weddings.ts`).
 2. **A dedicated wedding Calendly + inbox.** `WEDDING_CALENDLY_URL` and
@@ -1839,6 +1846,71 @@ Photos are **done** for engagements and proposals as of 2026-09-02. What is left
    rather than code.
 8. **Whether to label the owners' own work as theirs** on the engagement and
    proposal tabs. See the 2026-09-02 entry.
+
+---
+
+## Session 16 — 2026-09-02 — Gallery split by service line, and the tripod note
+
+Short session on the Mac, picking up seven commits pushed from the PC.
+
+### The "All" tab is gone, and one category is always active
+
+The gallery ran **All / Weddings / Engagements / Proposals**, defaulting to All,
+which put a client's wedding, the owners' engagement, and the owners' proposal
+into one undifferentiated wall of 72. Per the owner: keep them separate.
+
+- **No "All" tab.** `defaultCategory` is the first tab with real photography,
+  which is Weddings.
+- **Tiles outside the default ship `hidden` from the server**, rather than being
+  hidden by JS on load. Without that the page paints all 72 and then culls 60,
+  which is a visible flash and a pointless layout pass.
+- The filter script **seeds from whichever tab the markup shipped active**, so
+  the server state and the JS state agree from the first frame instead of the
+  JS deciding independently and hoping they match.
+- The `filter === 'all'` branch is gone from `applyFilter`.
+
+Verified at runtime: Weddings 12 / Engagements 47 / Proposals 13, the note
+toggles with the tab, and the lightbox still walks only the active set. Arrowing
+through Proposals cycles those 13 and wraps, never reaching a wedding frame.
+
+### The tripod note
+
+60 of the 72 gallery photos are Mason and Makenzie themselves, shot on a tripod.
+The owner wanted that said out loud, as a selling point rather than an apology:
+
+> *Every engagement and proposal frame here is the two of us, shot on a tripod
+> with nobody behind the camera. Yours gets both of us behind it.*
+
+**It is category-aware on purpose.** `data-note-for="engagement proposal"`, and
+`applyFilter` toggles it. On the Weddings tab it is hidden, because those frames
+are a client's day and the line would be a straight lie over them. If a fourth
+category is ever added, decide explicitly whether it belongs in that attribute.
+
+### Docs reconciliation
+
+Session 14's two open-item lists were stale after Session 15 closed most of
+them, and a top-down reader would have believed them. Both are now flagged
+superseded in place rather than deleted, since they are still an accurate record
+of what was true that day.
+
+### Live status
+
+Sections: hero, his & hers, films, gallery (3 tabs), mid-CTA, packages,
+guarantee, a la carte, process, about, FAQ, closing CTA.
+
+Genuinely open:
+
+1. **Vimeo ids.** Still the biggest single win. Every film tile is a poster that
+   says "Film coming soon"; the YouTube path is proven by the proposal
+   documentary, so the plumbing works and only the ids are missing.
+2. **Dedicated wedding Calendly + inbox.** Still falling back to the
+   company-wide ones, so nothing is dead, but the funnels are not tracked apart.
+3. **`WEDDING_INSTAGRAM`** placeholder; the footer link hides itself until real.
+4. **Backup shooter.** Promised nowhere, deliberately. The owner's own guarantee
+   doc calls it the number one fear in wedding booking.
+5. **Testimonials.** Nothing to quote yet.
+6. **Wedding photography.** The Weddings tab is 12 frames from one day, all
+   video stills. No stills from an actual photo booking yet.
 
 ---
 
