@@ -12,6 +12,16 @@ weddings/
   gallery/<slug>.jpg        photo gallery tiles (slug = WeddingPhoto.slug)
 ```
 
+Gallery slugs carry their service line, because the gallery filters on it:
+`wedding-01.jpg`, `engagement-01.jpg`, `proposal-01.jpg`. A filter tab
+appears only once that category has at least one real image here, and the
+whole tab bar stays hidden while only one category does, so you can add a
+line one photo at a time without the page ever offering an empty tab.
+
+**A file on its own is not enough.** Every gallery image needs a matching
+entry in `galleryPhotos` (`src/data/weddings.ts`) carrying its caption,
+tag, category, and tile shape. A file with no entry does not render.
+
 `.jpg`, `.jpeg`, and `.png` are all picked up.
 
 ## Sizes

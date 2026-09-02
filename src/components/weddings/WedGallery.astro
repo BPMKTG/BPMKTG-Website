@@ -6,8 +6,14 @@
 // button — there is nothing to enlarge, so it should not behave like
 // there is. Tile shape comes from `orientation` either way, so the
 // masonry rhythm is already correct with zero photos in the folder.
+//
+// Three service lines share this one wall rather than getting a section
+// each: with a handful of frames apiece, three thin walls read worse
+// than one strong one. The tab bar below is built from the categories
+// that have at least one REAL image, and hides itself entirely while
+// only one does, so the page never offers a tab onto an empty room.
 import { Image, getImage } from 'astro:assets';
-import { galleryPhotos } from '../../data/weddings';
+import { galleryPhotos, photoCategories } from '../../data/weddings';
 
 const galleryGlob = import.meta.glob<{ default: ImageMetadata }>(
   '../../assets/images/weddings/gallery/*.{jpg,jpeg,png}',
@@ -32,6 +38,14 @@ const tiles = await Promise.all(
 );
 
 const hasAnyPhotos = tiles.some(t => t.src);
+
+// A tab earns its place only once that category has a real image on
+// disk. Scaffolded-but-unshot categories stay invisible, and the whole
+// bar disappears while weddings is the only line with photography.
+const tabs = photoCategories.filter(c =>
+  tiles.some(t => t.category === c.id && t.src)
+);
+const showTabs = tabs.length > 1;
 ---
 <section class="gallery wed-section" id="gallery">
   <div class="wed-container">
@@ -43,6 +57,16 @@ const hasAnyPhotos = tiles.some(t => t.src);
         so your photos and your video finally look like they came from one wedding.
       </p>
     </header>
+
+    {showTabs && (
+      <div class="tabs" role="group" aria-label="Filter the gallery by session type" data-reveal>
+        <button type="button" class="tab is-on" aria-pressed="true" data-filter="all">All</button>
+        {tabs.map(c => (
+          <button type="button" class="tab" aria-pressed="false" data-filter={c.id}>{c.label}</button>
+        ))}
+        <span class="sr-only" role="status" data-gallery-status></span>
+      </div>
+    )}
 
     {!hasAnyPhotos && (
       <p class="empty-note" data-reveal>
@@ -58,6 +82,7 @@ const hasAnyPhotos = tiles.some(t => t.src);
             class="gtile"
             type="button"
             data-orientation={tile.orientation}
+            data-category={tile.category}
             data-wed-photo
             data-full={tile.full}
             data-caption={`${tile.caption} · ${tile.tag}`}
@@ -85,6 +110,7 @@ const hasAnyPhotos = tiles.some(t => t.src);
           <div
             class="gtile gtile--empty"
             data-orientation={tile.orientation}
+            data-category={tile.category}
             data-reveal="deal"
           >
             <span class="ph" aria-hidden="true">
@@ -138,11 +164,16 @@ const hasAnyPhotos = tiles.some(t => t.src);
     const cap = dialog.querySelector<HTMLElement>('[data-wed-plb-cap]');
     let current = -1;
 
+    // Prev/next walks the FILTERED set, not every photo on the page.
+    // Opening from the Engagements tab and arrowing into a wedding frame
+    // would be a bug, not a feature.
+    let active = openers;
+
     const showAt = (idx: number) => {
-      if (!img || !cap) return;
-      const n = openers.length;
+      if (!img || !cap || !active.length) return;
+      const n = active.length;
       current = ((idx % n) + n) % n;
-      const btn = openers[current];
+      const btn = active[current];
       img.src = btn.dataset.full || '';
       img.alt = btn.dataset.caption || '';
       // Keep the modal image out of the page-wide fade-in system so it can
@@ -153,7 +184,7 @@ const hasAnyPhotos = tiles.some(t => t.src);
     };
 
     const open = (btn: HTMLElement) => {
-      showAt(Math.max(0, openers.indexOf(btn)));
+      showAt(Math.max(0, active.indexOf(btn)));
       if (typeof dialog.showModal === 'function') dialog.showModal();
       else dialog.setAttribute('open', '');
       document.body.style.overflow = 'hidden';
@@ -181,19 +212,50 @@ const hasAnyPhotos = tiles.some(t => t.src);
 
     // Touch swipe — >50px navigates, anything smaller is a tap.
     let startX = 0;
-    let active = false;
+    let swiping = false;
     dialog.addEventListener('pointerdown', e => {
       if (e.pointerType !== 'touch') return;
-      startX = e.clientX; active = true;
+      startX = e.clientX; swiping = true;
     });
     dialog.addEventListener('pointerup', e => {
-      if (!active || e.pointerType !== 'touch') return;
-      active = false;
+      if (!swiping || e.pointerType !== 'touch') return;
+      swiping = false;
       const dx = e.clientX - startX;
       if (Math.abs(dx) < 50) return;
       showAt(dx < 0 ? current + 1 : current - 1);
     });
-    dialog.addEventListener('pointercancel', () => { active = false; });
+    dialog.addEventListener('pointercancel', () => { swiping = false; });
+
+    // ── Category filter ──
+    const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('.tab[data-filter]'));
+    if (!tabs.length) return;
+    const allTiles = Array.from(document.querySelectorAll<HTMLElement>('.gtile[data-category]'));
+    const status = document.querySelector<HTMLElement>('[data-gallery-status]');
+
+    const applyFilter = (filter: string) => {
+      allTiles.forEach(tile => {
+        const on = filter === 'all' || tile.dataset.category === filter;
+        tile.hidden = !on;
+        // A tile filtered out before the reveal observer ever saw it would
+        // come back stranded at opacity 0, so anything shown is revealed
+        // outright. By the time anyone clicks a tab they have scrolled here.
+        if (on) tile.classList.add('is-in');
+      });
+      active = openers.filter(btn => !btn.hidden);
+      tabs.forEach(t => {
+        const on = t.dataset.filter === filter;
+        t.classList.toggle('is-on', on);
+        t.setAttribute('aria-pressed', String(on));
+      });
+      if (status) {
+        const n = allTiles.filter(t => !t.hidden).length;
+        status.textContent = `Showing ${n} photo${n === 1 ? '' : 's'}.`;
+      }
+    };
+
+    tabs.forEach(tab =>
+      tab.addEventListener('click', () => applyFilter(tab.dataset.filter || 'all'))
+    );
   };
 
   if (document.readyState === 'loading') {
@@ -207,6 +269,44 @@ const hasAnyPhotos = tiles.some(t => t.src);
   .gallery { background: var(--wed-bg-2); }
   .head { max-width: 66ch; margin-bottom: 2.5rem; }
   .head h2 { margin: 1.1rem 0 1.5rem; }
+
+  /* ── Category filter ──
+     Only rendered once more than one service line has real photography. */
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 2.25rem;
+  }
+  .tab {
+    padding: 0.55rem 1.15rem;
+    border-radius: 999px;
+    border: 1px solid var(--wed-line);
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--wed-ink-2);
+    font-family: var(--wed-display);
+    font-size: 0.56rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
+  .tab:hover { border-color: rgba(38, 79, 160, 0.3); color: var(--wed-navy); }
+  .tab.is-on {
+    background: var(--wed-navy);
+    border-color: var(--wed-navy);
+    color: #fff;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
 
   .empty-note {
     display: inline-flex;
@@ -267,6 +367,9 @@ const hasAnyPhotos = tiles.some(t => t.src);
   }
   /* Row spans set the tile's aspect against the column width:
      2 rows = 3:2 landscape, 3 rows = square, 4 rows = 3:4 portrait. */
+  /* .gtile and .gtile--empty both set `display`, which out-specifies the
+     UA `[hidden] { display: none }`. Without this the filter is inert. */
+  .gtile[hidden] { display: none; }
   .gtile[data-orientation="w"] { grid-row: span 2; }
   .gtile[data-orientation="v"] { grid-row: span 4; }
   .gtile:not(.gtile--empty):hover,
@@ -480,7 +583,7 @@ const hasAnyPhotos = tiles.some(t => t.src);
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .gtile, .img-wrap :global(img), .cap,
+    .gtile, .img-wrap :global(img), .cap, .tab,
     .wplb-close, .wplb-arrow { transition: none; }
     .gtile { opacity: 1; transform: none; }
     .img-wrap :global(img) { animation: none; }

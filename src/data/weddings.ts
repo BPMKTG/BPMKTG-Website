@@ -84,22 +84,22 @@ export const featureFilm: WeddingFilm = {
   tag: 'Full Feature',
   category: 'Wedding Film',
   orientation: 'h',
-  posterSlug: 'gallery-11',
+  posterSlug: 'wedding-11',
   // vimeoId: 'TODO',
 };
 
 /** Wedding films / recaps — the highlight-reel format. */
 export const weddingFilms: WeddingFilm[] = [
-  { slug: 'wedding-film-01', title: 'The Wedding Film', tag: 'Full Day',          category: 'Wedding Film', orientation: 'h', posterSlug: 'gallery-04' },
-  { slug: 'wedding-film-02', title: 'The Wedding Film', tag: 'Garden Ceremony',   category: 'Wedding Film', orientation: 'h', posterSlug: 'gallery-05' },
-  { slug: 'wedding-film-03', title: 'The Wedding Film', tag: 'Evening Reception', category: 'Wedding Film', orientation: 'h', posterSlug: 'gallery-07' },
+  { slug: 'wedding-film-01', title: 'The Wedding Film', tag: 'Full Day',          category: 'Wedding Film', orientation: 'h', posterSlug: 'wedding-04' },
+  { slug: 'wedding-film-02', title: 'The Wedding Film', tag: 'Garden Ceremony',   category: 'Wedding Film', orientation: 'h', posterSlug: 'wedding-05' },
+  { slug: 'wedding-film-03', title: 'The Wedding Film', tag: 'Evening Reception', category: 'Wedding Film', orientation: 'h', posterSlug: 'wedding-07' },
 ];
 
 /** Ceremony multicam — the full, unabridged ceremony from every angle. */
 export const ceremonyFilms: WeddingFilm[] = [
-  { slug: 'ceremony-multicam-01', title: 'The Ceremony',   tag: 'Three-Camera Edit', category: 'Ceremony', orientation: 'h', posterSlug: 'gallery-01' },
-  { slug: 'ceremony-multicam-02', title: 'The Vows',       tag: 'Full Audio Mix',    category: 'Ceremony', orientation: 'h', posterSlug: 'gallery-06' },
-  { slug: 'ceremony-multicam-03', title: 'The Processional', tag: 'Multicam',        category: 'Ceremony', orientation: 'h', posterSlug: 'gallery-02' },
+  { slug: 'ceremony-multicam-01', title: 'The Ceremony',   tag: 'Three-Camera Edit', category: 'Ceremony', orientation: 'h', posterSlug: 'wedding-01' },
+  { slug: 'ceremony-multicam-02', title: 'The Vows',       tag: 'Full Audio Mix',    category: 'Ceremony', orientation: 'h', posterSlug: 'wedding-06' },
+  { slug: 'ceremony-multicam-03', title: 'The Processional', tag: 'Multicam',        category: 'Ceremony', orientation: 'h', posterSlug: 'wedding-02' },
 ];
 
 /** Video moments — short, high-quality clips of the beats that matter. */
@@ -108,34 +108,44 @@ export const ceremonyFilms: WeddingFilm[] = [
 // clip is actually delivered in rather than the crop.
 // Eight so the 4-column grid fills two clean rows with no orphan tile.
 export const momentFilms: WeddingFilm[] = [
-  { slug: 'moment-first-look',      title: 'The First Look',      tag: 'Getting Ready', category: 'Moment', orientation: 'h', posterSlug: 'gallery-02' },
-  { slug: 'moment-first-kiss',      title: 'The First Kiss',      tag: 'Ceremony',      category: 'Moment', orientation: 'h', posterSlug: 'gallery-08' },
-  { slug: 'moment-grand-entrance',  title: 'The Grand Entrance',  tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'gallery-10' },
-  { slug: 'moment-first-dance',     title: 'The First Dance',     tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'gallery-11' },
-  { slug: 'moment-parent-dance',    title: 'The Parent Dance',    tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'gallery-07' },
-  { slug: 'moment-speeches',        title: 'The Speeches',        tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'gallery-06' },
-  { slug: 'moment-cake-cutting',    title: 'The Cake Cutting',    tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'gallery-09' },
-  { slug: 'moment-sendoff',         title: 'The Sendoff',         tag: 'Late Night',    category: 'Moment', orientation: 'h', posterSlug: 'gallery-04' },
+  { slug: 'moment-first-look',      title: 'The First Look',      tag: 'Getting Ready', category: 'Moment', orientation: 'h', posterSlug: 'wedding-02' },
+  { slug: 'moment-first-kiss',      title: 'The First Kiss',      tag: 'Ceremony',      category: 'Moment', orientation: 'h', posterSlug: 'wedding-08' },
+  { slug: 'moment-grand-entrance',  title: 'The Grand Entrance',  tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'wedding-10' },
+  { slug: 'moment-first-dance',     title: 'The First Dance',     tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'wedding-11' },
+  { slug: 'moment-parent-dance',    title: 'The Parent Dance',    tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'wedding-07' },
+  { slug: 'moment-speeches',        title: 'The Speeches',        tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'wedding-06' },
+  { slug: 'moment-cake-cutting',    title: 'The Cake Cutting',    tag: 'Reception',     category: 'Moment', orientation: 'h', posterSlug: 'wedding-09' },
+  { slug: 'moment-sendoff',         title: 'The Sendoff',         tag: 'Late Night',    category: 'Moment', orientation: 'h', posterSlug: 'wedding-04' },
 ];
 
 /** Engagement films — shot before the day, often used at the reception. */
 export const engagementFilms: WeddingFilm[] = [
-  { slug: 'engagement-01', title: 'The Engagement Film', tag: 'Golden Hour', category: 'Engagement', orientation: 'h', posterSlug: 'gallery-03' },
-  { slug: 'engagement-02', title: 'The Engagement Film', tag: 'At Home',     category: 'Engagement', orientation: 'h', posterSlug: 'gallery-10' },
-  { slug: 'engagement-03', title: 'The Proposal',        tag: 'Documentary', category: 'Engagement', orientation: 'h', posterSlug: 'gallery-08' },
+  { slug: 'engagement-01', title: 'The Engagement Film', tag: 'Golden Hour', category: 'Engagement', orientation: 'h', posterSlug: 'wedding-03' },
+  { slug: 'engagement-02', title: 'The Engagement Film', tag: 'At Home',     category: 'Engagement', orientation: 'h', posterSlug: 'wedding-10' },
+  { slug: 'engagement-03', title: 'The Proposal',        tag: 'Documentary', category: 'Engagement', orientation: 'h', posterSlug: 'wedding-08' },
 ];
 
 // ─────────────────────────────────────────────────────────────
 // Photo gallery
 //
-// Same convention: drop `src/assets/images/weddings/gallery/<slug>.jpg`
-// and the tile fills in. `orientation` drives the tile shape whether or
-// not the image exists yet, so the masonry layout is already correct.
+// Three service lines share one gallery wall, filtered by `category`.
+// The tab bar in WedGallery builds itself from the categories that have
+// at least one REAL image on disk, so a category that is scaffolded but
+// unshot never shows a tab full of empty tiles, and the bar hides itself
+// entirely while only one category has photos.
+//
+// Same drop-in convention as before, with the slug now carrying the
+// category: `src/assets/images/weddings/gallery/<slug>.jpg`.
+// `orientation` drives the tile shape whether or not the image exists,
+// so the masonry rhythm is correct with an empty folder.
 // ─────────────────────────────────────────────────────────────
+export type PhotoCategory = 'wedding' | 'engagement' | 'proposal';
+
 export interface WeddingPhoto {
   slug: string;
   caption: string;
   tag: string;
+  category: PhotoCategory;
   /**
    * Tile shape in the masonry:
    *   'w' = 3:2 landscape  — use for 16:9 sources (video frames crop least here)
@@ -147,21 +157,48 @@ export interface WeddingPhoto {
   orientation: 'w' | 'h' | 'v';
 }
 
+/** Tab labels, and the order the tabs appear in. */
+export const photoCategories: { id: PhotoCategory; label: string }[] = [
+  { id: 'wedding',    label: 'Weddings' },
+  { id: 'engagement', label: 'Engagements' },
+  { id: 'proposal',   label: 'Proposals' },
+];
+
 // Captions and shapes match the twelve frames from the cypress-swamp
 // wedding, in the order they read best down the wall.
+const weddingPhotos: WeddingPhoto[] = [
+  { slug: 'wedding-01', caption: 'The Groomsmen',      tag: 'Ceremony',   category: 'wedding', orientation: 'w' },
+  { slug: 'wedding-02', caption: 'The First Look',     tag: 'Before',     category: 'wedding', orientation: 'w' },
+  { slug: 'wedding-03', caption: 'The Bride',          tag: 'Portraits',  category: 'wedding', orientation: 'h' },
+  { slug: 'wedding-04', caption: 'Boots Off The Ground', tag: 'The Boys', category: 'wedding', orientation: 'w' },
+  { slug: 'wedding-05', caption: 'The Chapel',         tag: 'Ceremony',   category: 'wedding', orientation: 'w' },
+  { slug: 'wedding-06', caption: 'The Vows',           tag: 'Ceremony',   category: 'wedding', orientation: 'h' },
+  { slug: 'wedding-07', caption: 'The Guests',         tag: 'Ceremony',   category: 'wedding', orientation: 'w' },
+  { slug: 'wedding-08', caption: 'Just Married',       tag: 'Portraits',  category: 'wedding', orientation: 'w' },
+  { slug: 'wedding-09', caption: 'The Cigar',          tag: 'Portraits',  category: 'wedding', orientation: 'h' },
+  { slug: 'wedding-10', caption: 'The Bouquet',        tag: 'Portraits',  category: 'wedding', orientation: 'w' },
+  { slug: 'wedding-11', caption: 'The Dock',           tag: 'The Swamp',  category: 'wedding', orientation: 'w' },
+  { slug: 'wedding-12', caption: 'Under The Cypress',  tag: 'Details',    category: 'wedding', orientation: 'w' },
+];
+
+// ⚠️ Engagement and proposal sessions are shot and ready, but the files
+//    are not in the repo yet and NOTHING here should be guessed. Add an
+//    entry per photo once the images land, with a caption that describes
+//    the actual frame:
+//
+//      { slug: 'engagement-01', caption: '…', tag: '…',
+//        category: 'engagement', orientation: 'w' | 'h' | 'v' },
+//
+//    Slug must match the filename in gallery/. Until an entry exists the
+//    photo does not render, and until a real image exists the tab does
+//    not appear, so a half-finished category never reaches a visitor.
+const engagementPhotos: WeddingPhoto[] = [];
+const proposalPhotos: WeddingPhoto[] = [];
+
 export const galleryPhotos: WeddingPhoto[] = [
-  { slug: 'gallery-01', caption: 'The Groomsmen',      tag: 'Ceremony',      orientation: 'w' },
-  { slug: 'gallery-02', caption: 'The First Look',     tag: 'Before',        orientation: 'w' },
-  { slug: 'gallery-03', caption: 'The Bride',          tag: 'Portraits',     orientation: 'h' },
-  { slug: 'gallery-04', caption: 'Boots Off The Ground', tag: 'The Boys',    orientation: 'w' },
-  { slug: 'gallery-05', caption: 'The Chapel',         tag: 'Ceremony',      orientation: 'w' },
-  { slug: 'gallery-06', caption: 'The Vows',           tag: 'Ceremony',      orientation: 'h' },
-  { slug: 'gallery-07', caption: 'The Guests',         tag: 'Ceremony',      orientation: 'w' },
-  { slug: 'gallery-08', caption: 'Just Married',       tag: 'Portraits',     orientation: 'w' },
-  { slug: 'gallery-09', caption: 'The Cigar',          tag: 'Portraits',     orientation: 'h' },
-  { slug: 'gallery-10', caption: 'The Bouquet',        tag: 'Portraits',     orientation: 'w' },
-  { slug: 'gallery-11', caption: 'The Dock',           tag: 'The Swamp',     orientation: 'w' },
-  { slug: 'gallery-12', caption: 'Under The Cypress',  tag: 'Details',       orientation: 'w' },
+  ...weddingPhotos,
+  ...engagementPhotos,
+  ...proposalPhotos,
 ];
 
 // ─────────────────────────────────────────────────────────────

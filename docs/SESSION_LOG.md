@@ -1578,6 +1578,63 @@ hydration. A fresh tab did not help. **Restarting the dev server did.** If a
 style edit appears to do nothing, diff `curl` against the DOM before you go
 hunting for a selector bug.
 
+### Three service lines: weddings, engagements, proposals
+
+The owner wants engagement and proposal work on the page alongside weddings,
+and has **a real set of photos (8+) for each**, not yet in the repo. Films are
+a different story: the page still has **exactly one playable video**, the
+couple's own documentary in About.
+
+**One gallery with filter tabs, not three sections.** Three thin walls read
+worse than one strong one, and the page already runs eleven sections.
+`WeddingPhoto` gained a `category` ('wedding' | 'engagement' | 'proposal'),
+the twelve existing frames were renamed `gallery-NN` → `wedding-NN` (the film
+`posterSlug` references followed), and `WedGallery` builds a tab bar from
+whatever categories have a **real image on disk**.
+
+The self-healing rule matters: a tab appears only once its category has a real
+file, and the bar hides entirely while only one category does. So the page today
+looks exactly as it did, and the tabs switch themselves on as photos land. No
+captions were invented — `engagementPhotos` and `proposalPhotos` are empty
+arrays with the required shape documented above them. **A file alone does not
+render; it needs a matching entry with a real caption.**
+
+Verified end to end with three temporary stand-in files, since with one category
+the feature is otherwise unreachable: tabs filtered correctly (12 / 2 / 1 / 15),
+`aria-pressed` tracked, filtered tiles revealed at opacity 1 rather than
+stranding at 0, and the **lightbox walks only the filtered set** (arrowing
+through Engagements cycles the engagement photos and never enters a wedding
+frame). Fixtures removed afterwards.
+
+### Every unplayable film tile now says so
+
+All 18 film tiles were inert posters with no play button and no explanation, so
+a couple clicked one and nothing happened. A tile with a poster but no video id
+now shows a "Film coming soon" pill where the play affordance would be. The
+no-poster placeholder panel already said it in its own centre and does not get a
+second label. Exactly one play button remains on the page, on the real film.
+
+This also answers the engagement-films question: the group keeps its three
+slots rather than being cut down or deleted, because the honest label carries
+it, and the slots fill in as films land.
+
+### The About documentary is theirs, and now says what it offers
+
+Confirmed by the owner: that film is not an engagement sample or a proposal
+sample, it is one documentary covering the love story, the proposal, and the
+engagement, and it is personal. It stays in About only. A short note under it
+now states the offer it had been implying and never making: they do make these
+for other people, ask on the call.
+
+### Not done, and needs the owner
+
+- **Photos.** Drop the engagement and proposal sets into
+  `src/assets/images/weddings/gallery/` as `engagement-NN.jpg` /
+  `proposal-NN.jpg`. Captions get written from the actual frames, not guessed.
+- **Proposals are not sold anywhere.** No package, no a la carte line, no
+  process step mentions a proposal shoot. A Proposals gallery tab with no offer
+  behind it is a gap; it needs a line and a price.
+
 ### Still open on /weddings
 
 Unchanged from last session, all blocked on assets or business decisions:

@@ -5,10 +5,12 @@
 // over the photo and leans on the EDM tokens. Here the caption sits
 // *below* a clean frame, which is what keeps the section airy.
 //
-// Every tile degrades gracefully, because none of the real assets exist
-// yet: no poster image renders a designed placeholder panel, and no
-// vimeoId renders a non-interactive tile with a "Coming soon" badge
-// rather than a button that opens an empty player.
+// Every tile degrades gracefully, because most of the real assets do not
+// exist yet. No poster image renders a designed placeholder panel. No
+// video id renders a non-interactive tile that says "Coming soon" where
+// the play button would be, rather than a poster a couple clicks at and
+// nothing happens. Both states clear themselves the moment the asset
+// lands, with no code change.
 import { Image } from 'astro:assets';
 
 interface Props {
@@ -101,10 +103,16 @@ const imgH = orientation === 'h' ? 720  : 1125;
       </video>
     )}
 
-    {playable && (
+    {playable ? (
       <span class="play" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><polygon points="8,5 19,12 8,19" /></svg>
       </span>
+    ) : (posterImg || posterUrl) && (
+      /* Sits where the play button would, so the missing affordance is
+         explained rather than just absent. The no-poster placeholder
+         panel says the same thing in its own centre, so it does not get
+         a second label here. */
+      <span class="soon">Film coming soon</span>
     )}
   </span>
 
@@ -291,6 +299,31 @@ const imgH = orientation === 'h' ? 720  : 1125;
     color: #fff;
     transform: translate(-50%, -50%) scale(1.08);
   }
+
+  /* ── Coming soon ──
+     Idle tiles that have a poster. Same pill language as the category
+     badge, centred where the play affordance would be. */
+  .soon {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(38, 79, 160, 0.16);
+    color: var(--wed-navy);
+    font-family: var(--wed-display);
+    font-size: 0.54rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 10px 30px -18px rgba(35, 42, 59, 0.5);
+  }
+  .wtile--feature .soon { font-size: 0.62rem; padding: 0.6rem 1.3rem; }
 
   /* ── Caption, below the frame ── */
   .meta { display: flex; flex-direction: column; gap: 0.15rem; padding-left: 0.15rem; }

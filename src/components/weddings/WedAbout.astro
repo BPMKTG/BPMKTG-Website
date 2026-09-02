@@ -107,6 +107,12 @@ const STORY_POSTER = `https://img.youtube.com/vi/${STORY_YOUTUBE_ID}/maxresdefau
         />
       </div>
 
+      <p class="story-note" data-reveal>
+        This one is ours, not a package. We do make them for other people
+        though: the proposal, the engagement, the whole story leading up to
+        the day. If you want one of your own, bring it up on the call.
+      </p>
+
       <a href={WEDDING_CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="wed-btn wed-btn--ghost story-cta" data-reveal>
         Check your date
         <span class="arrow" aria-hidden="true">&#8594;</span>
@@ -211,7 +217,16 @@ const STORY_POSTER = `https://img.youtube.com/vi/${STORY_YOUTUBE_ID}/maxresdefau
     line-height: 1.7;
     color: var(--wed-muted);
   }
-  .story-cta { margin: 2.25rem auto 0; display: flex; width: fit-content; }
+  .story-note {
+    max-width: 58ch;
+    margin: 1.75rem auto 0;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 300;
+    line-height: 1.65;
+    color: var(--wed-muted);
+  }
+  .story-cta { margin: 1.5rem auto 0; display: flex; width: fit-content; }
 
   @media (max-width: 960px) {
     .split { grid-template-columns: 1fr; gap: 2.5rem; }
