@@ -1838,7 +1838,8 @@ gone does not disappear, it renders the designed *empty placeholder* tile, so
 culling photos without culling entries turns them into seven "coming soon"
 panels: the exact opposite of the intent. Both sides have to move together.
 
-Counts are now **Weddings 12 / Engagements 40 / Proposals 13**, 65 files and 65
+Counts are now **Weddings 12 / Engagements 40 / Proposals 13** (proposals later
+culled to 12), 65 files and 65
 entries, reconciled in both directions with zero orphans either way.
 
 **The numbering is left with gaps on purpose. Do not renumber to close them.**
@@ -1862,6 +1863,32 @@ print('entries with no file:', sorted(E - files) or 'none')
 print('files with no entry :', sorted(files - E) or 'none')
 EOF
 ```
+
+### Tile shape follows the source. It is not a design lever.
+
+The owner spotted two square tiles in a wall of 3:4 portraits and asked why.
+Cause: an earlier pass gave a handful of **portrait** frames `orientation: 'h'`
+(1:1) on the theory that tight crops "hold up square" and add masonry rhythm.
+They do not. A square tile among 3:4 neighbours reads as a mistake, and it
+crops the photo for nothing.
+
+Corrected to `'v'`: `proposal-10`, `engagement-09`, `engagement-14`,
+`engagement-21`, `engagement-27`. Four of those are in the Engagements tab, so
+the same fault was sitting one tab over from the one the owner was looking at.
+Worth checking the whole set, not just the tab in the screenshot.
+
+`engagement-30` and `engagement-46` stay `'w'`, and that is correct: those two
+source files really are 3:2 landscape (2400x1600, verified with sharp). Forcing
+them portrait would throw away over half the frame.
+
+**Rule, now written into `src/data/weddings.ts`: shape follows the source file.
+Portrait photo, `'v'`. Landscape photo, `'w'`. Never hand a portrait photo an
+`'h'` or `'w'` tile.** Verified at 1440px: Proposals 12 tiles all at ratio 0.74,
+Engagements 38 at 0.74 plus the 2 real landscapes at 1.55, and no 1.0 anywhere.
+
+Also removed `proposal-09` ("The Ring"), culled by the owner. Proposals is now
+12. Same two-sided cleanup as the previous cull: file and entry together, or
+the entry renders an empty placeholder tile.
 
 ### Still open on /weddings
 
