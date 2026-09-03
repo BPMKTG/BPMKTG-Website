@@ -1482,7 +1482,8 @@ copy the memory file across.
   of the repo and deliberately outside it: the 60 camera originals of the
   engagement and proposal sets, **976 MB**, still under their delivery names
   (`mk engagement (N).jpg`, `mk proposal (N).jpg`, `vm engagement (N).JPG`).
-  The repo has only the 2400px web copies (`engagement-01..47.jpg`,
+  The repo has only the 2400px web copies (`engagement-01..47.jpg`, minus the
+  seven culled 2026-09-03,
   `proposal-01..13.jpg`, 31 MB total).
 
   **These are PC-only and are not in git.** Nothing on the site needs them, but
@@ -1825,6 +1826,43 @@ Every `localStorage` access is wrapped in try/catch: private mode and blocked
 site data throw on access, and a visitor who cannot store the dismissal still
 gets a working, closable notice.
 
+### Owner culled 7 engagement frames, and the sequence now has holes
+
+`engagement-03, 07, 11, 12, 15, 22, 24` deleted from the gallery folder on the
+PC, all from the owners' own set (`01-26`); the client set `27-47` is untouched.
+Captions dropped with them: Both Of Them, The Kiss, A Quiet Minute, Down The
+Block, Christmas On The Steps, The Courtyard, Lifted.
+
+**Deleting the file is only half the job.** A `galleryPhotos` entry whose file is
+gone does not disappear, it renders the designed *empty placeholder* tile, so
+culling photos without culling entries turns them into seven "coming soon"
+panels: the exact opposite of the intent. Both sides have to move together.
+
+Counts are now **Weddings 12 / Engagements 40 / Proposals 13**, 65 files and 65
+entries, reconciled in both directions with zero orphans either way.
+
+**The numbering is left with gaps on purpose. Do not renumber to close them.**
+The slug is only a key onto a filename, so a hole costs nothing, while
+renumbering would re-point every caption at a different photo and churn 33
+binaries through git for no gain. There is a note to this effect in
+`src/data/weddings.ts`.
+
+**Reconcile after any asset drop or cull**, since the failure is silent in both
+directions: an entry with no file renders an empty tile, a file with no entry
+never appears at all.
+
+```bash
+python - <<'EOF'
+import os, re, io
+d = 'src/assets/images/weddings/gallery'
+files = {f[:-4] for f in os.listdir(d) if f.lower().endswith('.jpg')}
+E = set(re.findall(r"slug: '([\w-]+)',\s*caption:",
+        io.open('src/data/weddings.ts', encoding='utf-8').read()))
+print('entries with no file:', sorted(E - files) or 'none')
+print('files with no entry :', sorted(files - E) or 'none')
+EOF
+```
+
 ### Still open on /weddings
 
 Photos are **done** for engagements and proposals as of 2026-09-02. What is left:
@@ -1869,7 +1907,8 @@ into one undifferentiated wall of 72. Per the owner: keep them separate.
   JS deciding independently and hoping they match.
 - The `filter === 'all'` branch is gone from `applyFilter`.
 
-Verified at runtime: Weddings 12 / Engagements 47 / Proposals 13, the note
+Verified at runtime: Weddings 12 / Engagements 47 / Proposals 13 (engagements
+later culled to 40), the note
 toggles with the tab, and the lightbox still walks only the active set. Arrowing
 through Proposals cycles those 13 and wraps, never reaching a wedding frame.
 

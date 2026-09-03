@@ -191,7 +191,12 @@ const weddingPhotos: WeddingPhoto[] = [
 // service, not the session, so they interleave on the wall.
 //
 //   01-26  Mason and Makenzie's own: overcast winter, the spiral stair,
-//          the white chapel at Grace Heritage, the courtyard.
+//          the white chapel at Grace Heritage, the courtyard. Numbering
+//          has GAPS: 03, 07, 11, 12, 15, 22 and 24 were culled by the
+//          owner on 2026-09-03. The gaps are deliberate, do not renumber
+//          to close them. The slug is only a key onto a filename, so a
+//          hole costs nothing, while renumbering would re-point every
+//          caption at a different photo.
 //   27-47  A client couple, golden hour on the town square: the stone
 //          facades, the blue door, the teal breeze-block, the roses.
 //
@@ -200,28 +205,21 @@ const weddingPhotos: WeddingPhoto[] = [
 const engagementPhotos: WeddingPhoto[] = [
   { slug: 'engagement-01', caption: 'The Dip',                tag: 'Downtown',      category: 'engagement', orientation: 'v' },
   { slug: 'engagement-02', caption: 'The Spiral Stair',       tag: 'Downtown',      category: 'engagement', orientation: 'v' },
-  { slug: 'engagement-03', caption: 'Both Of Them',           tag: 'Downtown',      category: 'engagement', orientation: 'v' },
   { slug: 'engagement-04', caption: 'On The Iron Steps',      tag: 'Downtown',      category: 'engagement', orientation: 'v' },
   { slug: 'engagement-05', caption: 'Standing Together',      tag: 'Downtown',      category: 'engagement', orientation: 'v' },
   { slug: 'engagement-06', caption: 'By The Chapel',          tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
-  { slug: 'engagement-07', caption: 'The Kiss',               tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
   { slug: 'engagement-08', caption: 'Held Close',             tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
   { slug: 'engagement-09', caption: 'Her Smile',              tag: 'Portraits',     category: 'engagement', orientation: 'h' },
   { slug: 'engagement-10', caption: 'Wrapped Up',             tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
-  { slug: 'engagement-11', caption: 'A Quiet Minute',         tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
-  { slug: 'engagement-12', caption: 'Down The Block',         tag: 'Downtown',      category: 'engagement', orientation: 'v' },
   { slug: 'engagement-13', caption: 'Laughing',               tag: 'Downtown',      category: 'engagement', orientation: 'v' },
   { slug: 'engagement-14', caption: 'Over His Shoulder',      tag: 'Portraits',     category: 'engagement', orientation: 'h' },
-  { slug: 'engagement-15', caption: 'Christmas On The Steps', tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
   { slug: 'engagement-16', caption: 'The Look',               tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
   { slug: 'engagement-17', caption: 'Grace Heritage',         tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
   { slug: 'engagement-18', caption: 'Stolen Kiss',            tag: 'The Chapel',    category: 'engagement', orientation: 'v' },
   { slug: 'engagement-19', caption: 'Against The Stone',      tag: 'Downtown',      category: 'engagement', orientation: 'v' },
   { slug: 'engagement-20', caption: 'Walking Away',           tag: 'Downtown',      category: 'engagement', orientation: 'v' },
   { slug: 'engagement-21', caption: 'The Ring',               tag: 'Details',       category: 'engagement', orientation: 'h' },
-  { slug: 'engagement-22', caption: 'The Courtyard',          tag: 'The Courtyard', category: 'engagement', orientation: 'v' },
   { slug: 'engagement-23', caption: 'Off Her Feet',           tag: 'The Courtyard', category: 'engagement', orientation: 'v' },
-  { slug: 'engagement-24', caption: 'Lifted',                 tag: 'The Courtyard', category: 'engagement', orientation: 'v' },
   { slug: 'engagement-25', caption: 'Among The Roses',        tag: 'Details',       category: 'engagement', orientation: 'v' },
   { slug: 'engagement-26', caption: 'One More',               tag: 'The Courtyard', category: 'engagement', orientation: 'v' },
 
