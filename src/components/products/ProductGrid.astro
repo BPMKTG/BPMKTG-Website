@@ -1,0 +1,187 @@
+---
+// Shop grid on /products. Each card is a full read of the product at a
+// glance: what it is, what it costs, what lands in the download, and
+// whether it can be bought today.
+import BuyButton from './BuyButton.astro';
+import { productList } from '../../data/products';
+---
+<section class="section prod-grid-section" id="tools">
+  <div class="container">
+    <div class="prod-grid-head">
+      <p class="label" data-reveal="left">The tools</p>
+      <h2 data-reveal>Three problems, three workbooks</h2>
+      <p class="prod-grid-lede" data-reveal>
+        Each one is the system we run for clients, cut down to the part you can
+        run yourself. Buy the one that matches the problem you have this month.
+      </p>
+    </div>
+
+    <ul class="prod-grid" data-reveal-group>
+      {productList.map(p => (
+        <li
+          class:list={['prod-card', 'card-trace', 'card-inner-glow', { 'is-building': p.status === 'in-build' }]}
+          data-reveal
+        >
+          <header class="prod-card-head">
+            <span class="prod-card-num" aria-hidden="true">{p.number}</span>
+            <div class="prod-card-titles">
+              <h3><a href={`/products/${p.slug}`}>{p.name}</a></h3>
+              <p class="prod-card-sub">{p.subtitle}</p>
+            </div>
+          </header>
+
+          <p class="prod-card-summary">{p.cardBlurb}</p>
+
+          <ul class="prod-card-files" aria-label="File formats">
+            {p.fileTypes.map(t => <li>{t}</li>)}
+          </ul>
+
+          <div class="prod-card-foot">
+            <span class="prod-card-price">{p.price}</span>
+            <a class="prod-card-more" href={`/products/${p.slug}`}>
+              Learn more
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <div class="prod-card-buy">
+            <BuyButton
+              slug={p.slug}
+              status={p.status}
+              price={p.price}
+              block
+            />
+          </div>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .prod-grid-head { margin-bottom: 2.5rem; max-width: 60ch; }
+  .prod-grid-head h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2.15rem);
+    font-weight: 800;
+    margin: 0.5rem 0 0.75rem;
+  }
+  .prod-grid-lede {
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.7;
+    margin: 0;
+  }
+
+  .prod-grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 1.25rem;
+    align-items: stretch;
+  }
+
+  .prod-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 1.6rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+    --trace-color: var(--bp-blue);
+  }
+  .prod-card:nth-child(2) { --trace-color: var(--bp-orange); }
+  .prod-card:nth-child(3) { --trace-color: #9b7ce0; }
+  .prod-card.is-building { background: rgba(18, 19, 28, 0.55); }
+
+  .prod-card-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.9rem;
+    align-items: start;
+    margin-bottom: 1rem;
+  }
+  .prod-card-num {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 900;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 1.1px var(--trace-color);
+  }
+  .prod-card-titles { min-width: 0; }
+  .prod-card-titles h3 {
+    margin: 0 0 0.3rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .prod-card-titles h3 a { color: var(--ink); text-decoration: none; }
+  .prod-card-titles h3 a:hover { color: var(--bp-light); }
+  .prod-card-sub {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--dim);
+    line-height: 1.5;
+  }
+
+  .prod-card-summary {
+    margin: 0 0 1.15rem;
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.7;
+    overflow-wrap: break-word;
+  }
+
+  .prod-card-files {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .prod-card-files li {
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--dim);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .prod-card-foot {
+    margin-top: auto;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+  }
+  .prod-card-price {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: var(--ink);
+  }
+  .prod-card-more {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--bp-blue);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .prod-card-more .arrow {
+    display: inline-block;
+    transition: transform 0.2s ease;
+  }
+  .prod-card-more:hover .arrow { transform: translateX(3px); }
+
+  .prod-card-buy { margin-top: 1rem; display: flex; }
+</style>

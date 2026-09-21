@@ -1,0 +1,92 @@
+---
+// Status-aware buy control.
+//
+// Three states, and only one of them is a link:
+//   live     — the product is built AND a checkout URL is wired
+//   pending  — built, but no checkout URL yet. Renders a flat,
+//              non-clickable chip rather than a dead href. This is
+//              the failure mode the footer socials shipped for
+//              months; a placeholder should look unfinished, not
+//              look like a button and go nowhere.
+//   in-build — the files don't exist yet, so nothing is offered.
+import { checkoutUrl } from '../../config/cta';
+
+interface Props {
+  slug: string;
+  status: 'available' | 'in-build';
+  price?: string;
+  label?: string;
+  statusNote?: string;
+  variant?: 'accent' | 'ghost';
+  block?: boolean;
+}
+
+const {
+  slug,
+  status,
+  price,
+  label,
+  statusNote,
+  variant = 'accent',
+  block = false,
+} = Astro.props;
+
+const href = checkoutUrl(slug);
+const state = status === 'in-build' ? 'in-build' : href ? 'live' : 'pending';
+const liveLabel = label ?? (price ? `Get it, ${price}` : 'Get it');
+---
+{state === 'live' && (
+  <a
+    href={href}
+    class:list={['button', variant, { 'buy-block': block }]}
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    {liveLabel}
+    <span class="arrow" aria-hidden="true">→</span>
+  </a>
+)}
+
+{state === 'pending' && (
+  <span class:list={['buy-chip', 'buy-chip--pending', { 'buy-block': block }]}>
+    <span class="buy-dot" aria-hidden="true"></span>
+    Checkout opening soon
+  </span>
+)}
+
+{state === 'in-build' && (
+  <span class:list={['buy-chip', 'buy-chip--building', { 'buy-block': block }]}>
+    <span class="buy-dot" aria-hidden="true"></span>
+    {statusNote ?? 'In build, not for sale yet'}
+  </span>
+)}
+
+<style>
+  .buy-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1.15rem;
+    border-radius: 999px;
+    border: 1px dashed rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+  .buy-chip--building {
+    border-color: rgba(227, 112, 59, 0.3);
+    color: #d8a184;
+  }
+  .buy-dot {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--dim);
+  }
+  .buy-chip--building .buy-dot { background: var(--bp-orange); }
+
+  .buy-block { display: flex; width: 100%; justify-content: center; text-align: center; }
+</style>

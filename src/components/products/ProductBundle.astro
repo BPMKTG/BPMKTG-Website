@@ -1,0 +1,149 @@
+---
+// Bundle band. The catalog calls the bundle the default option on every
+// checkout page, so it renders on the shop index and on each detail page.
+// Its price saving is computed in the data file, never typed twice.
+import BuyButton from './BuyButton.astro';
+import { bundle, productList } from '../../data/products';
+
+interface Props {
+  /** Slug of the product whose page this is, so the rail can flag "this one". */
+  current?: string;
+}
+const { current } = Astro.props;
+---
+<section class="section prod-bundle" id="bundle">
+  <div class="container">
+    <div class="prod-bundle-card" data-reveal>
+      <div class="prod-bundle-main">
+        <p class="label">The bundle</p>
+        <h2>{bundle.name}</h2>
+        <p class="prod-bundle-positioning">{bundle.positioning}</p>
+        <p class="prod-bundle-body">{bundle.body}</p>
+
+        <ul class="prod-bundle-list">
+          {productList.map(p => (
+            <li class:list={{ 'is-current': p.slug === current }}>
+              <span class="prod-bundle-check" aria-hidden="true">✓</span>
+              <span class="prod-bundle-name">
+                {p.name}
+                {p.slug === current && <em> (this one)</em>}
+              </span>
+              <span class="prod-bundle-price">{p.price}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <aside class="prod-bundle-buy">
+        <div class="prod-bundle-price-block">
+          <span class="prod-bundle-was">{bundle.standalone} separately</span>
+          <span class="prod-bundle-now">{bundle.price}</span>
+          <span class="prod-bundle-save">saves {bundle.saving}</span>
+        </div>
+
+        <BuyButton
+          slug={bundle.slug}
+          status={bundle.status}
+          price={bundle.price}
+          label={`Get all three, ${bundle.price}`}
+          statusNote={bundle.statusNote}
+          block
+        />
+
+        <p class="prod-bundle-foot">One payment. All three workbooks, yours to keep.</p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<style>
+  .prod-bundle-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+    gap: clamp(1.75rem, 4vw, 3rem);
+    align-items: center;
+    padding: clamp(1.75rem, 3.5vw, 2.75rem);
+    border: 1px solid rgba(227, 112, 59, 0.28);
+    border-radius: var(--radius-lg);
+    background:
+      radial-gradient(ellipse 70% 120% at 100% 0%, rgba(227, 112, 59, 0.12), transparent 60%),
+      linear-gradient(180deg, rgba(26, 28, 40, 0.9), rgba(14, 15, 24, 0.9));
+    box-shadow: 0 30px 70px -45px rgba(0, 0, 0, 0.9);
+  }
+
+  .prod-bundle-main h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 2.6vw, 1.95rem);
+    font-weight: 800;
+    margin: 0.5rem 0 0.75rem;
+  }
+  .prod-bundle-positioning {
+    color: var(--ink);
+    font-size: 1rem;
+    line-height: 1.7;
+    margin: 0 0 0.75rem;
+  }
+  .prod-bundle-body {
+    color: var(--muted);
+    font-size: 0.93rem;
+    line-height: 1.7;
+    margin: 0 0 1.5rem;
+    max-width: 52ch;
+  }
+
+  .prod-bundle-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.55rem; }
+  .prod-bundle-list li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0.7rem;
+    padding-bottom: 0.55rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.93rem;
+  }
+  .prod-bundle-list li:last-child { border-bottom: none; padding-bottom: 0; }
+  .prod-bundle-check { color: var(--bp-orange); font-size: 0.8rem; }
+  .prod-bundle-name { color: var(--ink); overflow-wrap: break-word; }
+  .prod-bundle-name em { color: var(--dim); font-style: normal; font-size: 0.85rem; }
+  .prod-bundle-price { color: var(--muted); font-size: 0.85rem; }
+  .prod-bundle-list li.is-current .prod-bundle-name { color: var(--bp-light); }
+
+  .prod-bundle-buy {
+    border-left: 1px solid var(--line);
+    padding-left: clamp(1.5rem, 3vw, 2.5rem);
+    text-align: center;
+  }
+  .prod-bundle-price-block { display: grid; gap: 0.25rem; margin-bottom: 1.35rem; }
+  .prod-bundle-was {
+    color: var(--dim);
+    font-size: 0.85rem;
+    text-decoration: line-through;
+  }
+  .prod-bundle-now {
+    font-family: var(--font-display);
+    font-size: clamp(2.2rem, 4vw, 3rem);
+    font-weight: 900;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .prod-bundle-save {
+    color: var(--bp-orange);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .prod-bundle-foot {
+    margin: 0.9rem 0 0;
+    font-size: 0.78rem;
+    color: var(--dim);
+  }
+
+  @media (max-width: 860px) {
+    .prod-bundle-card { grid-template-columns: minmax(0, 1fr); }
+    .prod-bundle-buy {
+      border-left: none;
+      border-top: 1px solid var(--line);
+      padding-left: 0;
+      padding-top: 1.75rem;
+    }
+  }
+</style>

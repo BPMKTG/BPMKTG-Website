@@ -5,7 +5,7 @@
 // CALENDLY_URL from here. When the real URL is provided, update this
 // one constant and every CTA on every page picks it up.
 //
-// Replace `[CALENDLY-URL]` with the real Calendly link, e.g.
+// Update this constant to change the destination everywhere, e.g.
 //   "https://calendly.com/blueprint/strategy-call"
 // ─────────────────────────────────────────────────────────────
 
@@ -34,3 +34,29 @@ export const CALENDLY_LINK_ATTRS = {
   target: '_blank',
   rel: 'noopener noreferrer',
 } as const;
+
+// ─────────────────────────────────────────────────────────────
+// Digital product checkout links.
+//
+// The site is static (no server), so checkout is always a hosted
+// external page: a Stripe Payment Link, a Gumroad / Lemon Squeezy
+// product URL, whatever gets picked. Every buy button on /products
+// and /products/<slug> reads its URL from here by slug, so wiring
+// the real store later is a change to this one map.
+//
+// An empty string means "not wired yet". Buy buttons render a
+// non-clickable "checkout opening soon" state instead of a dead
+// link when that's the case, so an unfinished store can't ship a
+// broken button the way the footer socials did.
+// ─────────────────────────────────────────────────────────────
+export const PRODUCT_CHECKOUT: Record<string, string> = {
+  'show-media-brief-kit':    '',
+  'release-rollout-calendar': '',
+  'content-vault':           '',
+  bundle:                    '',
+};
+
+/** Checkout URL for a product slug, or '' when it isn't wired yet. */
+export function checkoutUrl(slug: string): string {
+  return PRODUCT_CHECKOUT[slug] ?? '';
+}

@@ -1,0 +1,92 @@
+---
+// "The other tools" rail at the foot of a detail page. Uses each
+// product's own positioning line, which is what separates them.
+import { productList } from '../../data/products';
+
+interface Props { current: string; }
+const { current } = Astro.props;
+const others = productList.filter(p => p.slug !== current);
+---
+<section class="section prod-cross">
+  <div class="container">
+    <p class="label" data-reveal="left">The other tools</p>
+
+    <ul class="prod-cross-grid" data-reveal-group>
+      {others.map(p => (
+        <li class="prod-cross-card card-trace" data-reveal>
+          <a href={`/products/${p.slug}`}>
+            <span class="prod-cross-num" aria-hidden="true">{p.number}</span>
+            <h3>{p.name}</h3>
+            <p class="prod-cross-positioning">{p.positioning}</p>
+            <p class="prod-cross-meta">
+              <span>{p.price}</span>
+              {p.status === 'in-build' && <em>in build</em>}
+            </p>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .prod-cross-grid {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+  .prod-cross-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--card);
+    --trace-color: var(--bp-blue);
+    min-width: 0;
+  }
+  .prod-cross-card:nth-child(2) { --trace-color: #9b7ce0; }
+  .prod-cross-card a {
+    display: block;
+    padding: 1.4rem 1.5rem;
+    text-decoration: none;
+    color: inherit;
+  }
+  .prod-cross-num {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 900;
+    color: transparent;
+    -webkit-text-stroke: 1px var(--trace-color);
+  }
+  .prod-cross-card h3 {
+    margin: 0.5rem 0 0.4rem;
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .prod-cross-card a:hover h3 { color: var(--bp-light); }
+  .prod-cross-positioning {
+    margin: 0 0 0.8rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+  .prod-cross-meta {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--ink);
+  }
+  .prod-cross-meta em {
+    font-family: var(--font-sans);
+    font-style: normal;
+    font-weight: 500;
+    font-size: 0.75rem;
+    color: var(--bp-orange);
+  }
+</style>

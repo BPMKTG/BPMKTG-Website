@@ -1,0 +1,132 @@
+---
+// Who it's for, the exact file manifest, and the limits worth saying
+// out loud. A buyer of a $17 file should be able to see precisely what
+// lands in their download before they pay for it.
+import type { Product } from '../../data/products';
+
+interface Props { product: Product; }
+const { product } = Astro.props;
+---
+<section class="section prod-specs" id="specs">
+  <div class="container prod-specs-grid">
+    <div class="prod-specs-col" data-reveal="left">
+      <p class="label">Who it's for</p>
+      <p class="prod-specs-who">{product.whoFor}</p>
+
+      {product.caveats && product.caveats.length > 0 && (
+        <div class="prod-caveats">
+          <p class="prod-caveats-head">Worth knowing</p>
+          <ul>
+            {product.caveats.map(c => <li>{c}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+
+    <div class="prod-specs-col" data-reveal>
+      <p class="label">What you download</p>
+
+      {product.files.length > 0 ? (
+        <ul class="prod-files">
+          {product.files.map(f => (
+            <li>
+              <code>{f.name}</code>
+              <span>{f.purpose}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="prod-files-empty">
+          The file manifest gets published here once the workbook is finished.
+          Everything described above is what it is being built to do.
+        </p>
+      )}
+
+      <p class="prod-format-note">{product.formatNote}</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .prod-specs-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(2rem, 4vw, 3.5rem);
+    align-items: start;
+  }
+  .prod-specs-col { min-width: 0; }
+
+  .prod-specs-who {
+    color: var(--ink);
+    font-size: 1.05rem;
+    line-height: 1.7;
+    margin: 0.75rem 0 0;
+    max-width: 44ch;
+  }
+
+  .prod-caveats {
+    margin-top: 1.75rem;
+    padding: 1.15rem 1.35rem;
+    border: 1px solid rgba(227, 112, 59, 0.22);
+    border-radius: var(--radius);
+    background: rgba(227, 112, 59, 0.05);
+  }
+  .prod-caveats-head {
+    margin: 0 0 0.6rem;
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--bp-orange);
+  }
+  .prod-caveats ul { margin: 0; padding-left: 1.05rem; }
+  .prod-caveats li {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.65;
+    margin-bottom: 0.4rem;
+  }
+  .prod-caveats li:last-child { margin-bottom: 0; }
+
+  .prod-files { list-style: none; padding: 0; margin: 0.75rem 0 0; }
+  .prod-files li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.3rem;
+    padding: 0.95rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .prod-files li:first-child { border-top: 1px solid var(--line); }
+  .prod-files code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+    color: var(--bp-light);
+    overflow-wrap: break-word;
+  }
+  .prod-files span {
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+
+  .prod-files-empty {
+    margin: 0.75rem 0 0;
+    color: var(--muted);
+    font-size: 0.93rem;
+    line-height: 1.7;
+    padding: 1.15rem 1.35rem;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+  }
+
+  .prod-format-note {
+    margin: 1.1rem 0 0;
+    font-size: 0.82rem;
+    color: var(--dim);
+  }
+
+  @media (max-width: 860px) {
+    .prod-specs-grid { grid-template-columns: minmax(0, 1fr); gap: 2.25rem; }
+  }
+</style>

@@ -1,0 +1,261 @@
+---
+// /products — the shop. Every digital product on one page, with the
+// bundle as the default option, then the path up to the done-for-you
+// tiers for anyone who would rather not run it themselves.
+import { Image } from 'astro:assets';
+import Layout from '../../layouts/Layout.astro';
+import ProductGrid from '../../components/products/ProductGrid.astro';
+import ProductBundle from '../../components/products/ProductBundle.astro';
+import FAQ from '../../components/FAQ.astro';
+import BookCall from '../../components/BookCall.astro';
+import { CALENDLY_URL } from '../../config/cta';
+import heroPhoto from '../../assets/images/portfolio/flosstradamus-lostlands-crater-pyro.jpg';
+
+const faqs = [
+  {
+    q: 'Do I need Excel to use these?',
+    a: 'No. Every workbook opens in Google Sheets as well as Excel. The Brief Kit also ships a Word version of the brief, so you can work in Google Docs if that is where you live.',
+  },
+  {
+    q: 'Which one should I start with?',
+    a: 'Match it to the problem in front of you. The Brief Kit is for the show you have booked. The Rollout Calendar is for the release you have coming. The Vault is for the four years of footage you already own and cannot find.',
+  },
+  {
+    q: 'Is this the same as working with you?',
+    a: 'No. These are the systems we run for clients, cut down to the part you can run on your own. The tiers are us running the whole thing with you. If you want the thinking applied to your specific catalog and calendar, that starts with the Growth Blueprint Session.',
+  },
+  {
+    q: 'Is it a subscription?',
+    a: 'One payment, yours to keep. The Brief Kit gets reused every show, the Rollout Calendar is built for one release at a time, and the Vault runs continuously for as long as you keep logging files.',
+  },
+  {
+    q: 'Can I send the Brief to any shooter?',
+    a: 'That is what it is for. It works with a shooter you hired, a friend with a camera, or a media team a promoter assigned you. Send them the editable version, not a flattened one, so they can fill in the return block and send it back.',
+  },
+  {
+    q: 'Why can I not buy the Vault yet?',
+    a: 'Because it is not finished. It is described in full on its page so you know what is coming, but we are not taking money for a file that does not exist.',
+  },
+];
+---
+<Layout
+  title="Growth Tools for Artists | Blueprint Marketing"
+  description="Workbooks and templates that run the parts of an artist growth system you can run yourself: show media briefs, release rollouts, and a content library that keeps your footage findable."
+>
+  <section class="shop-hero">
+    <div class="shop-hero-base" aria-hidden="true"></div>
+    <div class="shop-hero-grid" aria-hidden="true"></div>
+
+    <div class="container shop-hero-inner">
+      <div class="shop-hero-layout">
+        <div class="shop-hero-copy">
+          <p class="label" data-reveal="left">Tools</p>
+          <h1 data-reveal>
+            The system, in the parts you can <span class="highlight">run yourself</span>.
+          </h1>
+          <p class="shop-hero-sub" data-reveal>
+            We build growth systems for artists. These are the pieces that do not
+            need us in the room: the brief that gets your media team shooting the
+            right things, the calendar that keeps a release alive past Wednesday,
+            and the library that makes what you already paid for findable again.
+          </p>
+
+          <div class="shop-hero-ctas" data-reveal>
+            <a href="#tools" class="button accent">
+              See the tools
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+            <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" class="button ghost">
+              Book a Strategy Call
+            </a>
+          </div>
+        </div>
+
+        <figure class="shop-hero-figure" data-reveal>
+          <Image
+            src={heroPhoto}
+            alt="Pyro firing over the crowd through blue lasers at the Crater stage, Lost Lands 2026."
+            width={1200}
+            height={800}
+            format="webp"
+            quality={82}
+            loading="eager"
+          />
+          <div class="shop-hero-figure-glow" aria-hidden="true"></div>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <ProductGrid />
+  <ProductBundle />
+
+  <section class="section shop-ladder">
+    <div class="container shop-ladder-inner" data-reveal>
+      <div>
+        <p class="label">If you would rather not run it</p>
+        <h2>The tools are the floor, not the ceiling.</h2>
+        <p>
+          A workbook can tell you what to shoot and when to post it. It cannot
+          shoot it, cut it, or sit in your analytics on a Tuesday working out
+          why one cut moved and the other did not. That is what the tiers are
+          for, and they start with a single session.
+        </p>
+      </div>
+      <a href="/tiers/tier-01" class="button ghost shop-ladder-cta">
+        See Tier 01
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
+  </section>
+
+  <FAQ
+    faqs={faqs}
+    eyebrow="Before you buy"
+    headline={'Straight answers,<br/><span class="glow-blue">about files and what they do.</span>'}
+    lede="What you get, what it opens in, and where each tool stops."
+    showFootnote={false}
+  />
+
+  <BookCall />
+</Layout>
+
+<style>
+  .shop-hero {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    display: flex;
+    align-items: center;
+    /* Shorter than the tier heroes on purpose. Those fill their height
+       with the HUD vector and the offer card; this one earns it with the
+       photo instead, and stops well short of a full viewport. */
+    min-height: clamp(420px, 50vh, 560px);
+  }
+  .shop-hero-base {
+    position: absolute; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 55% at 20% 100%, rgba(38, 79, 160, 0.26), transparent 70%),
+      radial-gradient(ellipse 50% 60% at 92% 10%, rgba(227, 112, 59, 0.12), transparent 65%),
+      linear-gradient(180deg, #050514 0%, #02020a 100%);
+  }
+  .shop-hero-grid {
+    position: absolute; inset: 0; z-index: 1;
+    background-image:
+      linear-gradient(rgba(98, 166, 219, 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(98, 166, 219, 0.07) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(75% 75% at 40% 45%, #000 45%, transparent 100%);
+    pointer-events: none;
+  }
+  .shop-hero-inner {
+    position: relative;
+    z-index: 2;
+    padding: 6.5rem 1.5rem 3rem;
+    width: 100%;
+  }
+  .shop-hero-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+    gap: clamp(2rem, 4vw, 3.5rem);
+    align-items: center;
+  }
+  .shop-hero-copy { min-width: 0; }
+  .shop-hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3.4vw, 2.7rem);
+    font-weight: 900;
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+    margin: 0.75rem 0 1.15rem;
+    max-width: 16ch;
+  }
+  .shop-hero-sub {
+    color: var(--muted);
+    font-size: 0.98rem;
+    line-height: 1.72;
+    max-width: 52ch;
+    margin: 0 0 1.75rem;
+  }
+  .shop-hero-ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+  /* ─── Hero photo ─── */
+  .shop-hero-figure {
+    position: relative;
+    margin: 0;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid rgba(98, 166, 219, 0.2);
+    box-shadow: 0 40px 80px -45px rgba(0, 0, 0, 0.95);
+    /* Own layer: the rounded clip flickered on the portfolio access
+       cards under transform, and the same pin keeps it stable here. */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    isolation: isolate;
+  }
+  .shop-hero-figure img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+  }
+  /* Scrim so the photo sits in the dark page rather than glowing out of
+     it, with a blue light-leak from the top-left to match the section. */
+  .shop-hero-figure-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, rgba(5, 5, 20, 0.18) 0%, transparent 35%, rgba(5, 5, 20, 0.42) 100%),
+      radial-gradient(ellipse 70% 60% at 0% 0%, rgba(98, 166, 219, 0.18), transparent 60%);
+  }
+
+  .shop-ladder-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: center;
+    padding: clamp(1.75rem, 3.5vw, 2.5rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+  }
+  .shop-ladder-inner h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+    font-weight: 800;
+    margin: 0.5rem 0 0.75rem;
+  }
+  .shop-ladder-inner p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.75;
+    max-width: 62ch;
+  }
+  .shop-ladder-cta { white-space: nowrap; }
+
+  @media (max-width: 900px) {
+    .shop-hero { min-height: 0; }
+    .shop-hero-layout { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+    .shop-hero h1 { max-width: 20ch; }
+    .shop-hero-sub { max-width: 60ch; }
+  }
+  @media (max-width: 760px) {
+    .shop-hero-inner { padding: 5rem 1.25rem 2.25rem; }
+    .shop-ladder-inner { grid-template-columns: minmax(0, 1fr); }
+    .shop-hero-ctas > :global(*) { flex: 1 1 100%; justify-content: center; }
+
+    /* Stacked, the photo under the CTAs pushed the whole hero past a
+       phone viewport. It leads instead, as a short establishing band,
+       which shows it immediately and costs ~150px rather than ~190px. */
+    .shop-hero-layout { gap: 1.5rem; }
+    .shop-hero-figure { order: -1; }
+    /* Bias the crop up: centred, the 21:9 band clipped the top of the
+       pyro burst, which is the whole reason the frame works. */
+    .shop-hero-figure img { aspect-ratio: 21 / 9; object-position: center 38%; }
+    .shop-hero h1 { font-size: 1.65rem; max-width: 100%; }
+    .shop-hero-sub { font-size: 0.94rem; line-height: 1.65; margin-bottom: 1.4rem; }
+  }
+</style>

@@ -1984,4 +1984,95 @@ Genuinely open:
 
 ---
 
+## Session 17 — 2026-09-18 — `/products`: selling the digital tools
+
+First main-site work since Session 13 (June 2). Sessions 14 to 16 were all
+`/weddings`.
+
+### What shipped
+
+A shop index at `/products` and three detail pages at `/products/<slug>`,
+built on the same architecture as the tiers: one typed data file
+(`src/data/products.ts`), one dynamic route with `getStaticPaths`, and a set
+of structural components that hold no copy. Adding a fourth product is an
+entry in the data file and nothing else.
+
+Copy came from the Notion page *Product Catalog — Copy Reference*, which the
+owner supplied and which is now recorded as the source of truth in
+[`CONTENT_BRIEF.md`](./CONTENT_BRIEF.md) section 17. The catalog is written
+with em dashes throughout; they were converted on the way in.
+
+New: `src/components/products/` — `ProductHero`, `ProductStory`,
+`ProductInside`, `ProductSpecs`, `ProductBundle`, `ProductCrossSell`,
+`BuyButton`. FAQ and BookCall are reused as-is. "Tools" added to the Header
+nav and the Footer Site column.
+
+### We do not sell files that do not exist
+
+The catalog lists the Content Vault as "to build" and the bundle as pending.
+Rather than list all four as buyable, `Product.status` gates the buy control:
+
+- `'available'` + a wired checkout URL renders a real button
+- `'available'` + no URL yet renders a flat "Checkout opening soon" chip
+- `'in-build'` renders an orange "In build, not for sale yet" chip and no link
+
+The bundle computes its own status from its contents, so while the Vault is
+in build the bundle says "The bundle opens when the Vault does" without
+anyone remembering to flip a second flag. When the Vault workbook is
+finished, changing one `status` field opens both.
+
+The **second** state above exists because of the footer socials, which have
+shipped `href="[INSTAGRAM-URL]"` to production since Session 13. A
+placeholder should look unfinished rather than look like a button and go
+nowhere.
+
+### Bundle math is computed
+
+`bundle.standalone` and `bundle.saving` derive from the three `priceValue`
+fields ($17 + $19 + $29 = $65, less $49, saves $16). Changing any price
+cannot leave a stale saving on the page.
+
+### Payment, still open
+
+Nothing is wired. `PRODUCT_CHECKOUT` in `src/config/cta.ts` maps slug to URL
+and every buy button reads from it, the way `CALENDLY_URL` works. Because the
+site is static there is no server, so checkout has to be a hosted external
+page. Recommendation given to the owner, in order: Lemon Squeezy (merchant of
+record, handles sales tax and VAT, file delivery, ~5% + 50c), Gumroad
+(simpler, ~10%), Stripe Payment Links (cheapest, but you own tax registration
+and delivery). QuickBooks was raised and is the wrong tool: it does invoices
+and payment links but has no digital-product storefront and no automatic file
+delivery, so every sale would be a manual email. Keep it for the books.
+
+Whichever gets picked, the build does not change. It is an href.
+
+### Verified
+
+Built clean at 14 pages. Checked at 1280 and at 375: no horizontal overflow,
+cards and the bundle stack, no console errors. Two things were fixed from
+looking at it rather than from the code: the shop cards used
+`summary[0]`, whose length varied from one line to seven and made the row
+ragged, so products now carry a length-matched `cardBlurb`; and the Vault
+page said its full "still being built" sentence four times, so the long form
+now appears once in the status strip and everywhere else uses the short chip.
+
+The per-product `story.headline` was also changed so it stops repeating the
+hero line verbatim on every page.
+
+### Open
+
+1. **Checkout URLs.** The single biggest one. Nothing is purchasable until
+   `PRODUCT_CHECKOUT` is filled in.
+2. **The Content Vault workbook.** Flip `status` to `'available'` when the
+   file exists, and fill in its `files` array. That also opens the bundle.
+3. **Product screenshots.** Every page is type and vector. A shot of the
+   actual brief and the actual workbook would sell these far harder than
+   prose does, and the copy is already carrying all the weight.
+4. **Free lead magnets and the $197 Teardown** are in the catalog but not on
+   the site. The Release Readiness Score is a web tool, not a file.
+5. **Footer socials** still ship four dead `[*-URL]` placeholders. Unrelated
+   to this session, still live, still worth ten minutes.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*

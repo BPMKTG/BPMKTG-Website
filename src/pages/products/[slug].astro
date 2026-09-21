@@ -1,0 +1,126 @@
+---
+// Routes every entry in src/data/products.ts at /products/<slug>.
+// Adding a product to that file auto-routes it here. No per-product
+// image asset is required; the hero is CSS and SVG.
+import Layout from '../../layouts/Layout.astro';
+import ProductHero from '../../components/products/ProductHero.astro';
+import ProductStory from '../../components/products/ProductStory.astro';
+import ProductInside from '../../components/products/ProductInside.astro';
+import ProductSpecs from '../../components/products/ProductSpecs.astro';
+import ProductBundle from '../../components/products/ProductBundle.astro';
+import ProductCrossSell from '../../components/products/ProductCrossSell.astro';
+import BuyButton from '../../components/products/BuyButton.astro';
+import { products } from '../../data/products';
+import type { Product } from '../../data/products';
+
+export async function getStaticPaths() {
+  return Object.values(products).map(product => ({
+    params: { slug: product.slug },
+    props: { product },
+  }));
+}
+
+const { product } = Astro.props as { product: Product };
+---
+<Layout
+  title={`${product.name} | Blueprint Marketing`}
+  description={`${product.name}: ${product.subtitle}. ${product.summary[0]}`}
+>
+  <ProductHero product={product} />
+
+  {product.status === 'in-build' && product.statusNote && (
+    <div class="prod-status-strip">
+      <div class="container">
+        <span class="prod-status-dot" aria-hidden="true"></span>
+        <p>{product.statusNote}</p>
+      </div>
+    </div>
+  )}
+
+  <ProductStory product={product} />
+  <ProductInside product={product} />
+  <ProductSpecs product={product} />
+
+  <section class="section prod-close">
+    <div class="container prod-close-inner" data-reveal>
+      <p class="label">{product.positioning}</p>
+      <h2>{product.name}</h2>
+      <p class="prod-close-price">
+        <span>{product.price}</span>
+        <em>one-time · {product.formatNote}</em>
+      </p>
+      <div class="prod-close-cta">
+        <BuyButton
+          slug={product.slug}
+          status={product.status}
+          price={product.price}
+        />
+      </div>
+    </div>
+  </section>
+
+  <ProductBundle current={product.slug} />
+  <ProductCrossSell current={product.slug} />
+</Layout>
+
+<style>
+  .prod-status-strip {
+    background: rgba(227, 112, 59, 0.08);
+    border-top: 1px solid rgba(227, 112, 59, 0.22);
+    border-bottom: 1px solid rgba(227, 112, 59, 0.22);
+    padding: 0.9rem 0;
+  }
+  .prod-status-strip .container {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+  }
+  .prod-status-strip p {
+    margin: 0;
+    color: #e0ad92;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+  .prod-status-dot {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--bp-orange);
+  }
+
+  .prod-close-inner {
+    text-align: center;
+    padding: clamp(2rem, 4vw, 3rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background:
+      radial-gradient(ellipse 70% 130% at 50% 0%, rgba(38, 79, 160, 0.18), transparent 65%),
+      var(--card);
+  }
+  .prod-close-inner h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    font-weight: 800;
+    margin: 0.6rem 0 1rem;
+  }
+  .prod-close-price {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin: 0 0 1.75rem;
+  }
+  .prod-close-price span {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    font-weight: 900;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .prod-close-price em {
+    font-style: normal;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .prod-close-cta { display: flex; justify-content: center; }
+</style>

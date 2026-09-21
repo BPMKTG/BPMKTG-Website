@@ -573,5 +573,61 @@ No additional Cloudflare config needed — Pages serves Astro's optimized build 
 
 ---
 
+## 17. DIGITAL PRODUCTS (USE ON /products AND /products/<slug>)
+
+Low-ticket workbooks that sell the system in the parts an artist can run
+without us. They are the entry rung of the ladder: the tools lead to the
+Growth Blueprint Session, which leads to Tiers 2 to 4.
+
+**Copy source of truth:** the Notion page *Product Catalog — Copy Reference*
+(Blueprint Marketing / Lead Magnets). This brief section is a summary; the
+shipped form of that copy lives in `src/data/products.ts`. Em dashes from
+the catalog are converted on the way in, per the site-wide rule.
+
+### The three tools
+
+| Product | Price | Subtitle | Files | Status |
+|---------|-------|----------|-------|--------|
+| Show Media Brief Kit | $17 | Media Brief & Post-Show Content Schedule | PDF + DOCX + XLSX | Built |
+| Release Rollout Calendar | $19 | Rollout Plan & Asset Checklist | XLSX | Built |
+| The Content Vault | $29 | Asset Library & Usage Log | XLSX | **In build** |
+| All Three Tools (bundle) | $49 | vs $65 standalone, saves $16 | all of the above | **Blocked on the Vault** |
+
+**Positioning line, use verbatim:**
+> The Kit organizes one show. The Calendar organizes one release. The Vault
+> organizes everything across time.
+
+**Who each one is for:**
+- **Kit** — artists and managers booking media for shows. Anyone who has hired a shooter and gotten back footage that missed the moment.
+- **Calendar** — artists with a single release coming up who announce two weeks out and watch it die three days after it drops. One release, not a rolling cadence.
+- **Vault** — artists a year or more into shooting regularly, with footage scattered across Drive, Dropbox, a phone, and a hard drive.
+
+### Rules for this section
+
+1. **Never show a buy button for a product that does not exist.** `status:
+   'in-build'` in the data file suppresses every buy control and renders an
+   honest chip instead. The Vault is in build; the bundle contains the Vault,
+   so the bundle inherits that status automatically.
+2. **The bundle saving is computed, never typed.** `bundle.standalone` and
+   `bundle.saving` derive from the three `priceValue` fields, so changing a
+   price can never leave a stale "saves $16" on the page.
+3. **Checkout is external.** The site is static; there is no server. Every
+   buy button reads its URL from `PRODUCT_CHECKOUT` in `src/config/cta.ts`,
+   keyed by slug. Empty string means not wired, and the button renders
+   "Checkout opening soon" rather than a dead link.
+4. **State the limits on the page.** The Calendar does not assert distributor
+   or editorial deadlines. The Kit needs the editable file sent to the
+   shooter so they can complete the return block. Both are in `caveats`.
+
+### Not built yet (in the catalog, not on the site)
+
+The catalog also carries two free lead magnets (*5 Ways to Get 10x More Value
+From Your Show Media*, and the *Release Readiness Score* diagnostic) and the
+$197 *Growth Systems Teardown*. None of those are on the site yet. The
+Readiness Score is a web tool, not a file, so it is a build rather than a
+listing.
+
+---
+
 *End of Blueprint Site Content Brief — v3.0*
 *Compiled from: Irresistible Offer Formula (Notion), Business Plan (Google Drive), Execution Plan (Google Drive), Brand Quickguide, Photo curation + placement session (May 2026)*

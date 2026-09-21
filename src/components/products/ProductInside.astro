@@ -1,0 +1,75 @@
+---
+// "What's inside" cards, plus the closing line where the catalog has one.
+import type { Product } from '../../data/products';
+
+interface Props { product: Product; }
+const { product } = Astro.props;
+const { inside } = product;
+---
+<section class="section prod-inside" id="inside">
+  <div class="container">
+    <div class="prod-inside-head">
+      <p class="label" data-reveal="left">{inside.eyebrow}</p>
+      <h2 data-reveal>{inside.headline}</h2>
+    </div>
+
+    <ul class="prod-inside-grid" data-reveal-group>
+      {inside.items.map(item => (
+        <li class="prod-inside-card card-trace card-inner-glow" data-reveal>
+          <h3>{item.title}</h3>
+          <p>{item.body}</p>
+        </li>
+      ))}
+    </ul>
+
+    {inside.closer && <p class="prod-inside-closer" data-reveal>{inside.closer}</p>}
+  </div>
+</section>
+
+<style>
+  .prod-inside-head { margin-bottom: 2.25rem; }
+  .prod-inside-head h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 2.6vw, 1.95rem);
+    font-weight: 800;
+    margin: 0.5rem 0 0;
+  }
+
+  .prod-inside-grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+  .prod-inside-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--card);
+    padding: 1.5rem;
+    min-width: 0;
+  }
+  .prod-inside-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+    color: var(--bp-light);
+  }
+  .prod-inside-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.7;
+    overflow-wrap: break-word;
+  }
+
+  .prod-inside-closer {
+    margin: 2rem 0 0;
+    text-align: center;
+    font-family: var(--font-display);
+    font-size: clamp(1rem, 1.8vw, 1.2rem);
+    font-weight: 700;
+    color: var(--ink);
+  }
+</style>
