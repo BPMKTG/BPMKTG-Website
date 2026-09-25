@@ -2101,7 +2101,16 @@ The two-up structures had to change shape, not just lose an item:
 
 - `.tease-portraits` was `1fr 1fr`. One portrait left half the column empty;
   making it a single column let the portrait fill the full 6fr and dwarf the
-  copy beside it. It is now one column capped at 360px and centred.
+  copy beside it. First attempt capped it at 360px with `justify-self: center`,
+  **which was wrong**: `justify-self` makes a grid container shrink-wrap rather
+  than fill, so the portrait collapsed to 142px and the section read as mostly
+  empty space. It now uses an explicit `width: min(100%, 380px)` with
+  `margin-inline: auto`.
+- The grid itself was rebalanced `5fr/6fr` to `1.25fr/0.75fr`. Two portraits
+  justified the wider right column; one does not, and at 5fr the copy clamped
+  to 450px, which broke "Built from inside" across three ragged lines. The
+  heading also needed `.tease-copy` raised 50ch to 60ch, with the lede pinned
+  at 48ch so its measure stays readable.
 - The founder rows alternated via `.reversed` on odd indexes, and each photo
   carried a big "01"/"02" overlay. Both are gone: one row cannot alternate, and
   a lone "01" implies an 02 that no longer exists. Dead CSS removed with them.

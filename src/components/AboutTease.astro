@@ -151,7 +151,10 @@ const founderFull = (
 
   .tease-grid {
     display: grid;
-    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    /* Was 5fr/6fr for two portraits. With one, the right side needs far
+       less room and the copy needs more: at 5fr the column clamped to
+       450px and "Built from inside" broke across three ragged lines. */
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
     gap: 3.5rem;
     align-items: center;
   }
@@ -159,8 +162,11 @@ const founderFull = (
     .tease-grid { grid-template-columns: 1fr; gap: 2.5rem; }
   }
 
-  .tease-copy { max-width: 50ch; }
+  .tease-copy { max-width: 60ch; }
   .tease-copy h2 { margin: 1rem 0 1.25rem; text-wrap: balance; }
+  /* The lede stays at a readable measure even though the heading above
+     it is now allowed to run wider. */
+  .tease-copy .lede { max-width: 48ch; }
   .tease-copy .lede {
     color: var(--ink);
     opacity: 0.78;
@@ -192,13 +198,13 @@ const founderFull = (
 
   .tease-portraits {
     display: grid;
-    /* One portrait now. Left as a 2-up grid it stretched to half the
-       column with dead space beside it; as a single column it filled
-       the whole 6fr and dwarfed the copy. Capped and centred instead. */
+    /* One portrait now. `justify-self: center` here made this grid
+       shrink-wrap its content instead of filling, collapsing the
+       portrait to ~142px. An explicit width keeps it sized. */
     grid-template-columns: minmax(0, 1fr);
     gap: 1.25rem;
-    max-width: 360px;
-    justify-self: center;
+    width: min(100%, 380px);
+    margin-inline: auto;
   }
   .portrait {
     appearance: none;
