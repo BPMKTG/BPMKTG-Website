@@ -9,6 +9,12 @@
 ## 1. BRAND IDENTITY
 
 **Company:** Blueprint Marketing
+**Ownership:** Sole ownership, Mason Celum (Founder & CEO). As of Sep 2026 there is
+no second founder and no CTO. A trial partnership with Clayton Ward ended and every
+reference to him was removed from the site. Do not reintroduce co-founder, "two
+friends", or "the two people behind the system" copy.
+**Voice:** Still first-person plural ("we"). Sole ownership does not mean the site
+speaks as "I"; Blueprint works with contractors and the Blueprint Preferred™ network.
 **Tagline:** "Amplifying and elevating your story."
 **Positioning:** Not a content team. Not a marketing agency. We're the growth system behind EDM artists.
 **Tone:** Confident, direct, culturally fluent in EDM. No corporate fluff. Systems-forward, outcome-obsessed.

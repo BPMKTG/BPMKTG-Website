@@ -1,32 +1,26 @@
 ---
 import { Image, getImage } from 'astro:assets';
 import masonPhoto   from '../assets/images/about-us/mason-celum.jpg';
-import claytonPhoto from '../assets/images/about-us/clayton-ward.jpg';
 
-const founders = [
-  { photo: masonPhoto,   name: 'Mason Celum',  role: 'Founder & CEO' },
-  { photo: claytonPhoto, name: 'Clayton Ward', role: 'Co-Founder & CTO' },
-];
+const founder = { photo: masonPhoto, name: 'Mason Celum', role: 'Founder & CEO' };
 
-// Larger renditions for the lightbox so the click-to-open shot is sharp.
-const foundersLB = await Promise.all(
-  founders.map(async f => ({
-    ...f,
-    full: (await getImage({ src: f.photo, width: 1400, format: 'webp', quality: 86 })).src,
-  }))
-);
+// Larger rendition for the lightbox so the click-to-open shot is sharp.
+const founderFull = (
+  await getImage({ src: founder.photo, width: 1400, format: 'webp', quality: 86 })
+).src;
 ---
 <section class="about-tease" id="about-tease">
   <div class="container tease-grid">
     <div class="tease-copy">
       <p class="label" data-reveal="left">Who's behind it</p>
       <h2 data-reveal>
-        Built by two creators<br/>
-        <span class="glow-blue">inside the scene.</span>
+        Built from inside<br/>
+        <span class="glow-blue">the scene.</span>
       </h2>
       <p class="lede" data-reveal>
-        Blueprint isn't run by suits guessing at trends. It's built by two friends
-        who live in this culture, and decided to build the system the artists deserved.
+        Blueprint isn't run by suits guessing at trends. It's built by someone who
+        shoots these shows, lives in this culture, and decided to build the system
+        the artists deserved.
       </p>
       <a href="/about" class="tease-link" data-reveal>
         Read our story
@@ -39,13 +33,13 @@ const foundersLB = await Promise.all(
     </div>
 
     <div class="tease-portraits" data-reveal-group>
-      {foundersLB.map(f => (
+      {[founder].map(f => (
         <button
           type="button"
           class="portrait"
           data-reveal="scale"
           data-tease-portrait
-          data-full={f.full}
+          data-full={founderFull}
           data-caption={`${f.name} · ${f.role}`}
           aria-label={`Open portrait of ${f.name}`}
         >
@@ -198,8 +192,13 @@ const foundersLB = await Promise.all(
 
   .tease-portraits {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* One portrait now. Left as a 2-up grid it stretched to half the
+       column with dead space beside it; as a single column it filled
+       the whole 6fr and dwarfed the copy. Capped and centred instead. */
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.25rem;
+    max-width: 360px;
+    justify-self: center;
   }
   .portrait {
     appearance: none;

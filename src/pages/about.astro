@@ -5,22 +5,13 @@ import { Image } from 'astro:assets';
 
 import heroBg       from '../assets/images/carousel/carousel-wooliees-silo.jpg';
 import masonPhoto   from '../assets/images/about-us/mason-celum.jpg';
-import claytonPhoto from '../assets/images/about-us/clayton-ward.jpg';
 
-const founders = [
-  {
-    photo: masonPhoto,
-    name: 'Mason Celum',
-    role: 'Founder & CEO · Strategy, Creative & Client Relations',
-    bio: `Mason is a Texas-based EDM photographer, strategist, and the founder of Blueprint Marketing. After more than a decade of content creation and years embedded in the bass music scene, shooting headline sets, festival floors, and backstage moments with artists like Martin Garrix, Excision, and Flux Pavilion, he saw the same problem everywhere: incredible artists with no real system behind their growth. Blueprint was built to fix that. Mason leads vision, client strategy, and the creative direction behind Blueprint's partnerships.`,
-  },
-  {
-    photo: claytonPhoto,
-    name: 'Clayton Ward',
-    role: 'Co-Founder & CTO · Systems, Automation & Operations',
-    bio: `Clayton is Blueprint's technical architect. He designs and manages the CRM systems, automation workflows, reporting dashboards, and operational infrastructure that allow Blueprint to deliver consistent, scalable results. While Mason leads on the creative and strategy side, Clayton builds the backend systems that make everything run, turning Blueprint from an agency into a growth machine.`,
-  },
-];
+const founder = {
+  photo: masonPhoto,
+  name: 'Mason Celum',
+  role: 'Founder & CEO · Strategy, Creative & Client Relations',
+  bio: `Mason is a Texas-based EDM photographer, strategist, and the founder of Blueprint Marketing. After more than a decade of content creation and years embedded in the bass music scene, shooting headline sets, festival floors, and backstage moments with artists like Martin Garrix, Excision, and Flux Pavilion, he saw the same problem everywhere: incredible artists with no real system behind their growth. Blueprint was built to fix that. Mason leads vision, client strategy, and the creative direction behind Blueprint's partnerships.`,
+};
 
 const principles = [
   { title: 'EDM-native',                body: "We don't import playbooks from other industries. We live in this scene, we shoot these shows, we know these artists." },
@@ -31,7 +22,7 @@ const principles = [
 ---
 <Layout
   title="About | Blueprint Marketing"
-  description="The growth infrastructure behind bass music's next chapter. Built by photographers and editors who live inside the scene."
+  description="The growth infrastructure behind bass music's next chapter. Built from inside the scene, by someone who shoots these shows."
 >
   <!-- ─────────── Hero with photo background ─────────── -->
   <section class="about-hero">
@@ -60,8 +51,8 @@ const principles = [
         We don't just market music. <em>We live and breathe the culture.</em>
       </p>
       <p class="lede" data-reveal>
-        Built by two friends who live inside the bass music scene,
-        for the artists ready to turn their work into something that compounds.
+        Built from inside the bass music scene, for the artists ready to turn
+        their work into something that compounds.
       </p>
     </div>
   </section>
@@ -178,12 +169,12 @@ const principles = [
     </div>
   </section>
 
-  <!-- ─────────── Founders ─────────── -->
+  <!-- ─────────── Founder ─────────── -->
   <section class="founders">
     <div class="container">
       <header class="founders-head">
-        <p class="label" data-reveal="left">The Founders</p>
-        <h2 data-reveal>The two people<br/>behind the system.</h2>
+        <p class="label" data-reveal="left">The Founder</p>
+        <h2 data-reveal>The person<br/>behind the system.</h2>
         <p class="founders-creed" data-reveal>
           <span class="creed-tick" aria-hidden="true"></span>
           <em>Your wins are our wins.</em><span class="creed-divider"> </span><span class="creed-tail">Partnership, not delivery queue.</span>
@@ -191,30 +182,27 @@ const principles = [
       </header>
 
       <div class="founder-rows">
-        {founders.map((f, i) => (
-          <article class={`founder-row ${i % 2 === 1 ? 'reversed' : ''}`} data-reveal data-scroll-focus>
-            <div class="founder-photo">
-              <span class="founder-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-              <div class="photo-frame card-trace card-inner-glow">
-                <Image
-                  src={f.photo}
-                  alt={f.name}
-                  width={900}
-                  height={1200}
-                  format="webp"
-                  quality={86}
-                  loading="lazy"
-                />
-                <div class="photo-glow" aria-hidden="true"></div>
-              </div>
+        <article class="founder-row" data-reveal data-scroll-focus>
+          <div class="founder-photo">
+            <div class="photo-frame card-trace card-inner-glow">
+              <Image
+                src={founder.photo}
+                alt={founder.name}
+                width={900}
+                height={1200}
+                format="webp"
+                quality={86}
+                loading="lazy"
+              />
+              <div class="photo-glow" aria-hidden="true"></div>
             </div>
-            <div class="founder-body">
-              <h3>{f.name}</h3>
-              <p class="founder-role">{f.role}</p>
-              <p class="founder-bio">{f.bio}</p>
-            </div>
-          </article>
-        ))}
+          </div>
+          <div class="founder-body">
+            <h3>{founder.name}</h3>
+            <p class="founder-role">{founder.role}</p>
+            <p class="founder-bio">{founder.bio}</p>
+          </div>
+        </article>
       </div>
     </div>
   </section>
@@ -597,33 +585,12 @@ const principles = [
     gap: 3rem;
     align-items: center;
   }
-  .founder-row.reversed .founder-photo { grid-column: 2; }
-  .founder-row.reversed .founder-body { grid-column: 1; grid-row: 1; }
-
-  /* Photo column with big numbered overlay */
+  /* Photo column. The alternating-row and big-numeral rules were dropped
+     with the second founder: one row cannot alternate, and a lone "01"
+     implies a 02 that no longer exists. */
   .founder-photo {
     position: relative;
     isolation: isolate;
-  }
-  .founder-num {
-    position: absolute;
-    top: -2.5rem;
-    left: -1rem;
-    font-family: var(--font-display);
-    font-size: clamp(5rem, 10vw, 9rem);
-    font-weight: 900;
-    color: rgba(98, 166, 219, 0.25);
-    line-height: 1;
-    letter-spacing: -0.04em;
-    pointer-events: none;
-    /* In FRONT of the photo so the full numeral reads — the low-alpha
-       blue creates a subtle overlay rather than being clipped behind. */
-    z-index: 2;
-    text-shadow: 0 0 30px rgba(98, 166, 219, 0.18);
-  }
-  .founder-row.reversed .founder-num {
-    left: auto;
-    right: -1rem;
   }
 
   .photo-frame {
@@ -782,15 +749,11 @@ const principles = [
      Responsive
      ═══════════════════════════════════════════════ */
   @media (max-width: 880px) {
-    .founder-row,
-    .founder-row.reversed {
+    .founder-row {
       grid-template-columns: 1fr;
       gap: 2rem;
     }
-    .founder-row.reversed .founder-photo,
-    .founder-row.reversed .founder-body { grid-column: auto; grid-row: auto; }
     .founder-rows { gap: 4.5rem; }
-    .founder-num { top: -1.75rem; font-size: 5rem; }
     .principles-grid { grid-template-columns: repeat(2, 1fr); }
   }
   /* Mobile: the creed pill is removed entirely. */

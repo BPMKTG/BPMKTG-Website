@@ -2075,4 +2075,58 @@ hero line verbatim on every page.
 
 ---
 
+## Session 18 — 2026-09-25 — Back to sole ownership
+
+The trial partnership ended and Clayton Ward is no longer part of Blueprint, so
+he comes off the site. Only two files named him, but the copy around him was
+written for a pair and could not just have a block deleted.
+
+### What changed
+
+- **`/about`** — founder array is a single object. Section label "The Founders"
+  to "The Founder", headline "The two people behind the system" to "The person
+  behind the system". Hero lede "Built by two friends who live inside the bass
+  music scene" to "Built from inside the bass music scene". Meta description
+  dropped "by photographers and editors", which was plural in the same way.
+- **`AboutTease`** (homepage) — headline "Built by two creators inside the
+  scene" to "Built from inside the scene". Lede "built by two friends who live
+  in this culture" to "built by someone who shoots these shows, lives in this
+  culture". One portrait instead of two.
+- **`clayton-ward.jpg` deleted.** Nothing else referenced it. The about-us
+  folder is not globbed by the portfolio page, so nothing broke.
+
+### Layout consequences worth knowing
+
+The two-up structures had to change shape, not just lose an item:
+
+- `.tease-portraits` was `1fr 1fr`. One portrait left half the column empty;
+  making it a single column let the portrait fill the full 6fr and dwarf the
+  copy beside it. It is now one column capped at 360px and centred.
+- The founder rows alternated via `.reversed` on odd indexes, and each photo
+  carried a big "01"/"02" overlay. Both are gone: one row cannot alternate, and
+  a lone "01" implies an 02 that no longer exists. Dead CSS removed with them.
+
+### Decisions the owner made
+
+1. **Drop the systems claims rather than move them to Mason.** Clayton's bio
+   owned CRM, automation workflows, reporting dashboards, and operational
+   infrastructure. None of that moved onto Mason's bio, which still reads
+   "vision, client strategy, and the creative direction".
+2. **Keep the "we" voice.** Sole ownership, but the site still speaks as "we",
+   which is normal for an operator working with contractors and the Blueprint
+   Preferred™ network. Recorded in CONTENT_BRIEF.md section 1.
+
+### Open, and flagged to the owner
+
+**The tier pages still sell the systems capability that left with Clayton.**
+Tier 03 promises performance tracking and reporting and performance dashboards;
+Tier 04 promises email + SMS fan funnels, link-in-bio infrastructure, and paid
+amplification with ROAS reporting. OfferStack, SolutionUSP and Roadmap echo it
+on the homepage. Those are revenue-bearing offers at $3,000 to $10,000/mo and
+were deliberately left alone, since removing Clayton from the About page is a
+different decision from changing what Blueprint sells. If that capability
+genuinely left with him, those deliverables need a separate pass.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
