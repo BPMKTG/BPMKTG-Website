@@ -2138,4 +2138,88 @@ genuinely left with him, those deliverables need a separate pass.
 
 ---
 
+## Session 19 — 2026-09-30 — The shop grows a second audience
+
+Added the **Artist Outreach OS** ($199), a Google Sheets outreach tracker and
+contact directory for concert photographers and videographers. Copy came from
+an owner-supplied product brief answering the 14 questions I asked.
+
+### It is not an artist product, and that shaped everything
+
+Every other thing on /products sells to artists and managers. This sells to
+the people on the *other* side of the Show Media Brief. Rather than drop a
+fourth card into an artist grid, the shop now splits on a new `Product.track`
+field: "For artists and managers" and "For photographers and videographers",
+each with its own heading and blurb. The shop hero was rewritten to cover both.
+
+**The bundle filter is load-bearing, not tidiness.** `bundle.standalone` and
+`bundle.saving` derive from summed `priceValue`s. Left pointed at every
+product, a $199 creator tool silently joins a $49 artist bundle and the page
+starts claiming a $215 saving. The bundle now reduces over `artistProducts`
+only, and its status check does too. Verified in the built HTML: still
+"$65 separately", "saves $16". Cross-sell rails also stay inside a track, and
+the rail hides itself entirely when a track has only one product, which is
+today the case for the creator side.
+
+### A third status, because "in build" would have been a lie
+
+The OS is finished: 17 script modules, ~4,900 lines, ~97 test files, three
+review passes. What has not happened is a real campaign through it. Per the
+owner's own recommendation it is described but not sold.
+
+`'in-build'` was the wrong label for that, so `ProductStatus` gained
+`'unproven'`. It renders blue rather than orange, because nothing is missing:
+*"Built and tested end to end, but nobody has run a real campaign through it
+yet. It goes on sale after one has."* The distinction is now a documented rule
+in CONTENT_BRIEF.md, not a one-off.
+
+### Nothing downloads, so the page could not claim otherwise
+
+This is the first product that is not a file. The buyer gets a link that
+copies a sheet into their own Drive, and 21 templates install into their own
+Gmail. Three schema additions came out of that:
+
+- `tabs` / `hiddenTabs` — the specs column renders "What you get" and a tab
+  list instead of "What you download" and a file manifest. The three plumbing
+  tabs are listed too, for honesty rather than use.
+- `deliveryNote` — its own "How you get it" section. Setup is one menu click
+  and saying so up front is what stops it becoming the support question.
+- `requirement` — a hard prerequisite rendered beside the buy control. The OS
+  is Gmail-only; on Outlook the tracker works and the automation does not, and
+  that belongs above the buy button rather than in an FAQ.
+
+Buy labels read "Get the sheet" rather than "Get it" wherever `deliveryNote`
+is set.
+
+### Blueprint Preferred™ as the closing CTA
+
+Creator-track pages close on the network instead of the artist bundle: the OS
+is a recruiting funnel for it. There is no application URL yet, so
+`BLUEPRINT_PREFERRED_URL` is empty and the button renders "Applications open
+soon" rather than linking nowhere, same pattern as checkout.
+
+### One copy judgment worth flagging
+
+The brief offered two positioning lines, "the OS gets you the next booking"
+and "the OS fills the calendar". Both promise an outcome the brief's own
+limits section says it cannot deliver. Shipped instead: **"The OS gets your
+pitch to the right person, early."** Accurate, and still the reason to buy.
+Easy to swap if the owner prefers either original.
+
+### Open
+
+1. **Run a real campaign through it**, 20 to 30 artists end to end. That is
+   the single thing standing between `'unproven'` and a live buy button, and
+   the owner estimates a few days of normal work.
+2. **Price is the brief's recommendation, not a settled decision.** $199
+   standalone, on the reasoning that $500 is defensible on value but not on
+   delivery while it is a self-serve sheet copy sitting next to $49 items.
+3. **A screenshot of Google's "unverified app" warning.** The brief calls this
+   the single most common reason a template buyer asks for a refund. The page
+   explains it in words; a screenshot would do it better.
+4. **Blueprint Preferred™ application URL.**
+5. **Checkout URLs**, still, for all five items.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*

@@ -3,7 +3,9 @@
 // checkout page, so it renders on the shop index and on each detail page.
 // Its price saving is computed in the data file, never typed twice.
 import BuyButton from './BuyButton.astro';
-import { bundle, productList } from '../../data/products';
+// Artist track only. The bundle is the three artist workbooks; listing
+// every product here would put a $199 creator tool inside a $49 bundle.
+import { bundle, artistProducts } from '../../data/products';
 
 interface Props {
   /** Slug of the product whose page this is, so the rail can flag "this one". */
@@ -21,7 +23,7 @@ const { current } = Astro.props;
         <p class="prod-bundle-body">{bundle.body}</p>
 
         <ul class="prod-bundle-list">
-          {productList.map(p => (
+          {artistProducts.map(p => (
             <li class:list={{ 'is-current': p.slug === current }}>
               <span class="prod-bundle-check" aria-hidden="true">✓</span>
               <span class="prod-bundle-name">

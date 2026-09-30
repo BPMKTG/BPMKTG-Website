@@ -1,33 +1,41 @@
 ---
 // "The other tools" rail at the foot of a detail page. Uses each
 // product's own positioning line, which is what separates them.
-import { productList } from '../../data/products';
+import { productList, products } from '../../data/products';
 
 interface Props { current: string; }
 const { current } = Astro.props;
-const others = productList.filter(p => p.slug !== current);
----
-<section class="section prod-cross">
-  <div class="container">
-    <p class="label" data-reveal="left">The other tools</p>
 
-    <ul class="prod-cross-grid" data-reveal-group>
-      {others.map(p => (
-        <li class="prod-cross-card card-trace" data-reveal>
-          <a href={`/products/${p.slug}`}>
-            <span class="prod-cross-num" aria-hidden="true">{p.number}</span>
-            <h3>{p.name}</h3>
-            <p class="prod-cross-positioning">{p.positioning}</p>
-            <p class="prod-cross-meta">
-              <span>{p.price}</span>
-              {p.status === 'in-build' && <em>in build</em>}
-            </p>
-          </a>
-        </li>
-      ))}
-    </ul>
-  </div>
-</section>
+// Stay inside the track. A photographer reading about outreach has no
+// use for a release rollout calendar, and pointing them at one wastes
+// the only rail on the page.
+const track = products[current]?.track;
+const others = productList.filter(p => p.slug !== current && p.track === track);
+---
+{others.length > 0 && (
+  <section class="section prod-cross">
+    <div class="container">
+      <p class="label" data-reveal="left">The other tools</p>
+
+      <ul class="prod-cross-grid" data-reveal-group>
+        {others.map(p => (
+          <li class="prod-cross-card card-trace" data-reveal>
+            <a href={`/products/${p.slug}`}>
+              <span class="prod-cross-num" aria-hidden="true">{p.number}</span>
+              <h3>{p.name}</h3>
+              <p class="prod-cross-positioning">{p.positioning}</p>
+              <p class="prod-cross-meta">
+                <span>{p.price}</span>
+                {p.status === 'in-build' && <em>in build</em>}
+                {p.status === 'unproven' && <em>not for sale yet</em>}
+              </p>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+)}
 
 <style>
   .prod-cross-grid {

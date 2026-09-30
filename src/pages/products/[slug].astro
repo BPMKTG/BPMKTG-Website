@@ -12,6 +12,7 @@ import ProductCrossSell from '../../components/products/ProductCrossSell.astro';
 import BuyButton from '../../components/products/BuyButton.astro';
 import { products } from '../../data/products';
 import type { Product } from '../../data/products';
+import { BLUEPRINT_PREFERRED_URL } from '../../config/cta';
 
 export async function getStaticPaths() {
   return Object.values(products).map(product => ({
@@ -28,8 +29,8 @@ const { product } = Astro.props as { product: Product };
 >
   <ProductHero product={product} />
 
-  {product.status === 'in-build' && product.statusNote && (
-    <div class="prod-status-strip">
+  {product.status !== 'available' && product.statusNote && (
+    <div class:list={['prod-status-strip', { 'is-unproven': product.status === 'unproven' }]}>
       <div class="container">
         <span class="prod-status-dot" aria-hidden="true"></span>
         <p>{product.statusNote}</p>
@@ -39,6 +40,19 @@ const { product } = Astro.props as { product: Product };
 
   <ProductStory product={product} />
   <ProductInside product={product} />
+
+  {/* Setup is one menu click, and saying so up front is what stops it
+      becoming the most common support question. */}
+  {product.deliveryNote && (
+    <section class="section prod-delivery">
+      <div class="container prod-delivery-inner" data-reveal>
+        <p class="label">How you get it</p>
+        <h2>Nothing downloads.</h2>
+        <p class="prod-delivery-body">{product.deliveryNote}</p>
+      </div>
+    </section>
+  )}
+
   <ProductSpecs product={product} />
 
   <section class="section prod-close">
@@ -54,12 +68,42 @@ const { product } = Astro.props as { product: Product };
           slug={product.slug}
           status={product.status}
           price={product.price}
+          label={product.deliveryNote ? `Get the sheet, ${product.price}` : undefined}
         />
       </div>
     </div>
   </section>
 
-  <ProductBundle current={product.slug} />
+  {/* Creator-track products are a recruiting funnel for the network, so
+      they close on Preferred rather than on the artist bundle. */}
+  {product.track === 'creator' ? (
+    <section class="section prod-preferred">
+      <div class="container prod-preferred-inner" data-reveal>
+        <p class="label">Blueprint Preferred™</p>
+        <h2>Shooting well is half of it.</h2>
+        <p>
+          Blueprint Preferred™ is our vetted creator network. When an artist we
+          work with needs coverage in your market, it is the list we book from.
+          The same pitch discipline this tool enforces is what gets a shooter on
+          that list.
+        </p>
+        {BLUEPRINT_PREFERRED_URL ? (
+          <a href={BLUEPRINT_PREFERRED_URL} target="_blank" rel="noopener noreferrer" class="button accent">
+            Apply to Blueprint Preferred
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        ) : (
+          <span class="prod-preferred-pending">
+            <span class="prod-preferred-dot" aria-hidden="true"></span>
+            Applications open soon
+          </span>
+        )}
+      </div>
+    </section>
+  ) : (
+    <ProductBundle current={product.slug} />
+  )}
+
   <ProductCrossSell current={product.slug} />
 </Layout>
 
@@ -88,6 +132,15 @@ const { product } = Astro.props as { product: Product };
     border-radius: 50%;
     background: var(--bp-orange);
   }
+
+  /* Finished-but-unproven is a blue notice, not an orange one: nothing
+     is missing, it just has not been run in anger yet. */
+  .prod-status-strip.is-unproven {
+    background: rgba(98, 166, 219, 0.08);
+    border-color: rgba(98, 166, 219, 0.24);
+  }
+  .prod-status-strip.is-unproven p { color: var(--bp-light); }
+  .prod-status-strip.is-unproven .prod-status-dot { background: var(--bp-blue); }
 
   .prod-close-inner {
     text-align: center;
@@ -123,4 +176,66 @@ const { product } = Astro.props as { product: Product };
     color: var(--muted);
   }
   .prod-close-cta { display: flex; justify-content: center; }
+
+  /* ─── Delivery ─── */
+  .prod-delivery-inner {
+    max-width: 68ch;
+    padding: clamp(1.5rem, 3vw, 2.25rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+  }
+  .prod-delivery-inner h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+    font-weight: 800;
+    margin: 0.5rem 0 0.9rem;
+  }
+  .prod-delivery-body {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.97rem;
+    line-height: 1.75;
+  }
+
+  /* ─── Blueprint Preferred close ─── */
+  .prod-preferred-inner {
+    text-align: center;
+    max-width: 62ch;
+    margin-inline: auto;
+    padding: clamp(2rem, 4vw, 2.75rem);
+    border: 1px solid rgba(98, 166, 219, 0.22);
+    border-radius: var(--radius-lg);
+    background:
+      radial-gradient(ellipse 70% 130% at 50% 0%, rgba(38, 79, 160, 0.2), transparent 65%),
+      var(--card);
+  }
+  .prod-preferred-inner h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 2.6vw, 1.95rem);
+    font-weight: 800;
+    margin: 0.6rem 0 0.9rem;
+  }
+  .prod-preferred-inner p {
+    margin: 0 0 1.75rem;
+    color: var(--muted);
+    font-size: 0.97rem;
+    line-height: 1.75;
+  }
+  .prod-preferred-pending {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1.15rem;
+    border-radius: 999px;
+    border: 1px dashed rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .prod-preferred-dot {
+    width: 7px; height: 7px; flex: none;
+    border-radius: 50%;
+    background: var(--dim);
+  }
 </style>

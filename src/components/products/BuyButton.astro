@@ -13,7 +13,7 @@ import { checkoutUrl } from '../../config/cta';
 
 interface Props {
   slug: string;
-  status: 'available' | 'in-build';
+  status: 'available' | 'in-build' | 'unproven';
   price?: string;
   label?: string;
   statusNote?: string;
@@ -32,7 +32,11 @@ const {
 } = Astro.props;
 
 const href = checkoutUrl(slug);
-const state = status === 'in-build' ? 'in-build' : href ? 'live' : 'pending';
+const state =
+  status === 'in-build' ? 'in-build'
+  : status === 'unproven' ? 'unproven'
+  : href ? 'live'
+  : 'pending';
 const liveLabel = label ?? (price ? `Get it, ${price}` : 'Get it');
 ---
 {state === 'live' && (
@@ -58,6 +62,13 @@ const liveLabel = label ?? (price ? `Get it, ${price}` : 'Get it');
   <span class:list={['buy-chip', 'buy-chip--building', { 'buy-block': block }]}>
     <span class="buy-dot" aria-hidden="true"></span>
     {statusNote ?? 'In build, not for sale yet'}
+  </span>
+)}
+
+{state === 'unproven' && (
+  <span class:list={['buy-chip', 'buy-chip--unproven', { 'buy-block': block }]}>
+    <span class="buy-dot" aria-hidden="true"></span>
+    {statusNote ?? 'Built, not for sale yet'}
   </span>
 )}
 
@@ -87,6 +98,14 @@ const liveLabel = label ?? (price ? `Get it, ${price}` : 'Get it');
     background: var(--dim);
   }
   .buy-chip--building .buy-dot { background: var(--bp-orange); }
+
+  /* Finished but unproven reads blue, not orange: nothing is missing,
+     it just has not been run for real yet. */
+  .buy-chip--unproven {
+    border-color: rgba(98, 166, 219, 0.32);
+    color: var(--bp-light);
+  }
+  .buy-chip--unproven .buy-dot { background: var(--bp-blue); }
 
   .buy-block { display: flex; width: 100%; justify-content: center; text-align: center; }
 </style>

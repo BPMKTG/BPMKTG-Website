@@ -53,8 +53,15 @@ export const PRODUCT_CHECKOUT: Record<string, string> = {
   'show-media-brief-kit':    '',
   'release-rollout-calendar': '',
   'content-vault':           '',
+  'artist-outreach-os':      '',
   bundle:                    '',
 };
+
+// Where "Apply to Blueprint Preferred™" points. The creator-track
+// products are a recruiting funnel for the network, so this is their
+// closing CTA rather than a strategy call. Empty until the application
+// exists; the button says so instead of linking nowhere.
+export const BLUEPRINT_PREFERRED_URL = '';
 
 /** Checkout URL for a product slug, or '' when it isn't wired yet. */
 export function checkoutUrl(slug: string): string {

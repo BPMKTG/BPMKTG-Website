@@ -16,7 +16,16 @@
 // Nothing here should say a file is buyable before it exists.
 // ─────────────────────────────────────────────────────────────
 
-export type ProductStatus = 'available' | 'in-build';
+// 'available'  — exists, delivers today, safe to take money for
+// 'in-build'   — the thing does not exist yet
+// 'unproven'   — the thing is finished and tested, but has never been
+//                run for real. Deliberately distinct from 'in-build':
+//                saying "in build" about a finished product would be as
+//                inaccurate as saying "buy now" about an untested one.
+export type ProductStatus = 'available' | 'in-build' | 'unproven';
+
+/** Which audience a product is sold to. The shop splits on this. */
+export type ProductTrack = 'artist' | 'creator';
 
 export interface ProductFile {
   name: string;
@@ -42,10 +51,20 @@ export interface Product {
   price: string;           // display string
   priceValue: number;      // used for the bundle saving math
   status: ProductStatus;
-  statusNote?: string;     // rendered wherever an in-build product appears
+  statusNote?: string;     // rendered wherever a non-sellable product appears
+  track: ProductTrack;
 
   fileTypes: string[];     // chips: ["PDF", "DOCX", "XLSX"]
   formatNote: string;      // prose version of the above
+
+  /** A hard prerequisite the buyer must meet. Rendered next to the buy
+   *  control rather than in the FAQ, because someone on Outlook needs to
+   *  learn that before paying, not after. */
+  requirement?: string;
+
+  /** How the product actually reaches the buyer, when it isn't a
+   *  download. The Outreach OS copies a sheet into their own Drive. */
+  deliveryNote?: string;
   whoFor: string;
   positioning: string;     // one line, used in cross-sell + meta
 
@@ -79,6 +98,14 @@ export interface Product {
   };
 
   files: ProductFile[];
+
+  /** For products that are a workbook rather than a download: the tabs
+   *  the buyer gets. Rendered in place of the file manifest, because a
+   *  "what you download" list would be a lie for a Google Sheet. */
+  tabs?: ProductFile[];
+  /** Tabs that exist but are not meant to be used. Listed for honesty. */
+  hiddenTabs?: string[];
+
   /** Honest limits worth stating on the page rather than burying. */
   caveats?: string[];
 }
@@ -95,6 +122,7 @@ const showMediaBriefKit: Product = {
   price: '$17',
   priceValue: 17,
   status: 'available',
+  track: 'artist',
 
   fileTypes: ['PDF', 'DOCX', 'XLSX'],
   formatNote: 'Fillable PDF, Word doc, and Excel or Sheets workbook',
@@ -200,6 +228,7 @@ const releaseRolloutCalendar: Product = {
   price: '$19',
   priceValue: 19,
   status: 'available',
+  track: 'artist',
 
   fileTypes: ['XLSX'],
   formatNote: 'Excel or Google Sheets workbook',
@@ -301,6 +330,7 @@ const contentVault: Product = {
   priceValue: 29,
   status: 'in-build',
   statusNote: 'The Vault is still being built. It is described here in full, but it is not for sale yet.',
+  track: 'artist',
 
   fileTypes: ['XLSX'],
   formatNote: 'Excel or Google Sheets workbook',
@@ -390,30 +420,187 @@ const contentVault: Product = {
   files: [],
 };
 
+// ─────────────────────────────────────────────────────────────
+// 04 — Artist Outreach OS  (creator track, finished but unproven)
+//
+// Structurally unlike the other three: nothing downloads. The buyer
+// gets a link that copies a Google Sheet into their own Drive, and the
+// templates install into their own Gmail. So this record carries `tabs`
+// and `deliveryNote` instead of a file manifest, and a `requirement`
+// (Gmail) that has to be read before anyone pays.
+// ─────────────────────────────────────────────────────────────
+const artistOutreachOS: Product = {
+  slug: 'artist-outreach-os',
+  number: '04',
+  name: 'Artist Outreach OS',
+  shortName: 'Outreach OS',
+  subtitle: 'Outreach Tracker & Contact Directory',
+  price: '$199',
+  priceValue: 199,
+  status: 'unproven',
+  statusNote:
+    'Built and tested end to end, but nobody has run a real campaign through it yet. It goes on sale after one has.',
+  track: 'creator',
+
+  fileTypes: ['Google Sheets', 'Gmail'],
+  formatNote: 'A Google Sheet copied into your own Drive, plus 21 templates installed in your Gmail',
+  requirement:
+    'Gmail only. Drafting, send detection, reply detection, bounce tracking and threading all run through Gmail or Google Workspace. On Outlook or anything else it still works as a tracker, but the automation does not.',
+  deliveryNote:
+    'You get one link that copies the sheet into your own Google Drive, so you own it outright rather than being given access to ours. A fresh copy has a single tab, Start Here. One menu click, Run full setup, builds the other seven tabs, the dropdowns, the automation and the Gmail labels. Everything runs in your account, against your mailbox. We never see your data.',
+
+  whoFor:
+    'The working concert photographer or videographer who already shoots shows and has a reel, and whose pipeline is "DM the artist on Instagram and hope". Roughly two to ten shoots a month, mostly local venues, wanting festival and tour work.',
+  positioning: 'The OS gets your pitch to the right person, early.',
+
+  cardBlurb:
+    'You found out they were playing your city the week after the show. This is the pipeline and the contact book that stops that happening, with follow-ups that fire on their own.',
+
+  summary: [
+    'You can already deliver. What you cannot do is reliably find the right manager, pitch before the routing is locked, and remember who you chased.',
+    'Paste a manager’s details from anywhere and the row fills itself in. The OS drafts the email into your Gmail, notices when you actually send it, and runs a three-stage follow-up that stops the moment someone replies.',
+    'It will not let you email the same manager twice, and it never sends anything on your behalf.',
+  ],
+
+  hero: {
+    eyebrow: 'Artist Outreach',
+    headline: 'You found out they were playing your city <span class="highlight">the week after the show</span>.',
+    sub: 'One paste captures a contact. It drafts, you send, and it remembers everyone you have chased.',
+    pills: [
+      'Copies into your Drive',
+      'Drafts, never sends',
+      'Three-stage follow-up',
+      'Contacts fill themselves',
+      'Gmail only',
+    ],
+    highlights: [
+      { value: '21', unit: 'email templates' },
+      { value: '3', unit: 'follow-up stages' },
+      { value: '29', unit: 'tracked fields' },
+      { value: '1', unit: 'paste per contact' },
+    ],
+  },
+
+  story: {
+    headline: 'The money is in touch two and three.',
+    paragraphs: [
+      "You found out they were playing your city the week after the show. The three times you did get in early, you DM'd the artist's Instagram, got read by an intern, and never followed up, because there was nowhere to write down that you had tried.",
+      'Three failures, in the order they bite. You do not know who to email, so you message the artist. You send once, hear nothing, and forget. And you cannot recall who you pitched, when, or what they said.',
+      'None of that is a talent problem. It is a memory problem, and a spreadsheet with a script attached fixes it.',
+    ],
+    points: [
+      {
+        title: 'One paste captures a contact.',
+        body: 'Copy a manager’s details from anywhere, a booking database, an agency page, an email signature, a link-in-bio, and paste the block into one cell. Name, email, phone, company and role are pulled out, the row fills in, and your directory learns that contact permanently. A blank doc makes you retype it every time.',
+      },
+      {
+        title: 'It drafts. It never sends.',
+        body: 'Every email lands in your Gmail drafts for you to read and change. There is no button anywhere that sends mail on your behalf. A mail-merge tool sends first and apologises afterwards.',
+      },
+      {
+        title: 'The follow-up clock starts when you actually send.',
+        body: 'Not when you wrote the draft. The sheet watches Gmail and notices. Follow-ups go out as replies on the same thread, three stages deep, and the sequence stops the moment someone answers.',
+      },
+      {
+        title: 'It will not let you email the same manager twice.',
+        body: 'It refuses to re-draft a row that already went out, warns when one contact is about to get several emails from a single batch, and can merge nearby dates into one email, "Austin & Dallas, TX on July 3 & July 5", instead of three near-identical pitches to the same person.',
+      },
+    ],
+  },
+
+  inside: {
+    eyebrow: "What's inside",
+    headline: 'A pipeline and a contact book that fills itself',
+    items: [
+      {
+        title: 'The outreach grid',
+        body: 'One row per show or festival, laid out left to right in the order you actually work: event, contact research, send, then tracking.',
+      },
+      {
+        title: 'The artist directory',
+        body: 'A CRM that builds itself out of your outreach. Enter a manager once and every future row for that artist fills in automatically, with lead temperature, last contacted, and last outcome.',
+      },
+      {
+        title: '21 email templates',
+        body: 'Installed as drafts in your own Gmail, where you can edit them freely. They are yours, not ours, and not locked in a file.',
+      },
+      {
+        title: 'The automation',
+        body: 'Detects sends, replies and bounces. Schedules and drafts the follow-ups, flags dead addresses per address, and keeps a dated log of everything that happened.',
+      },
+    ],
+    closer: 'Paste once. Follow up on its schedule, not your memory.',
+  },
+
+  files: [],
+
+  tabs: [
+    { name: 'Start Here', purpose: 'Setup and the full manual, in the sheet. The only tab in a fresh copy' },
+    { name: 'Artist Reachout', purpose: 'The working grid, one row per show or festival' },
+    { name: 'Artist Directory', purpose: 'Your contacts, building themselves as you work' },
+    { name: 'Conversation Log', purpose: 'Dated, append-only history of every draft, send, reply and bounce' },
+    { name: 'Import', purpose: 'Bring an existing outreach spreadsheet in without breaking anything' },
+  ],
+  hiddenTabs: ['Automation Control (settings)', 'Logic (reference lists)', 'Contact Archive (raw pasted blocks)'],
+
+  caveats: [
+    'It cannot promise bookings. It finds nothing for you and guarantees no replies. It makes sure you pitch the right person, early, and then follow up, which is the part most people skip.',
+    'It does not find contacts. You still need a source. It removes the retyping, not the research.',
+    'It does not pull tour dates automatically. It opens the right searches for the artist on that row; you read the dates and fill them in.',
+    'It never sends. You will always press send yourself.',
+    'Google shows an "unverified app" warning the first time you run setup. That is unavoidable: you own your copy, so you are authorising your own script, not ours.',
+  ],
+};
+
 export const products: Record<string, Product> = {
   'show-media-brief-kit': showMediaBriefKit,
   'release-rollout-calendar': releaseRolloutCalendar,
   'content-vault': contentVault,
+  'artist-outreach-os': artistOutreachOS,
 };
 
-/** Catalog order for the shop grid and cross-sell rails. */
+/** Catalog order. Routing walks this; the shop splits it by track. */
 export const productOrder = [
   'show-media-brief-kit',
   'release-rollout-calendar',
   'content-vault',
+  'artist-outreach-os',
 ] as const;
 
 export const productList: Product[] = productOrder.map(slug => products[slug]);
 
+/** The two shop tracks. The shop renders these as separate sections,
+ *  and cross-sell rails stay inside a track: someone reading about
+ *  outreach is a shooter, and has no use for a release calendar. */
+export const artistProducts: Product[] = productList.filter(p => p.track === 'artist');
+export const creatorProducts: Product[] = productList.filter(p => p.track === 'creator');
+
+export const trackLabels: Record<ProductTrack, { label: string; blurb: string }> = {
+  artist: {
+    label: 'For artists and managers',
+    blurb:
+      'The pieces of the growth system you can run without us: what you ask for before a show, what you do with a release, and what happens to every file after.',
+  },
+  creator: {
+    label: 'For photographers and videographers',
+    blurb:
+      'The other side of the same job. You can already shoot it; this is how you get booked to shoot it.',
+  },
+};
+
 // ─────────────────────────────────────────────────────────────
 // The bundle
 //
-// Priced against the sum of the three standalone products, computed
-// rather than hardcoded so the saving can never drift from the
-// prices above. It inherits the least-ready status of its contents:
-// while the Vault is in build, the bundle cannot be delivered either.
+// ARTIST TRACK ONLY. It is priced against the sum of the artist
+// products, computed rather than hardcoded so the saving can never
+// drift from the prices above. Deriving it from every product would
+// silently fold the $199 creator tool into a $49 bundle, so the filter
+// above is load-bearing, not tidiness.
+//
+// It also inherits the least-ready status of its contents: while the
+// Vault is in build, the bundle cannot be delivered either.
 // ─────────────────────────────────────────────────────────────
-const bundleStandalone = productList.reduce((sum, p) => sum + p.priceValue, 0);
+const bundleStandalone = artistProducts.reduce((sum, p) => sum + p.priceValue, 0);
 
 export const bundle = {
   slug: 'bundle',
@@ -422,7 +609,7 @@ export const bundle = {
   priceValue: 49,
   standalone: `$${bundleStandalone}`,
   saving: `$${bundleStandalone - 49}`,
-  status: (productList.every(p => p.status === 'available') ? 'available' : 'in-build') as ProductStatus,
+  status: (artistProducts.every(p => p.status === 'available') ? 'available' : 'in-build') as ProductStatus,
   statusNote: 'The bundle opens when the Vault does.',
   positioning:
     'The Kit organizes one show. The Calendar organizes one release. The Vault organizes everything across time.',

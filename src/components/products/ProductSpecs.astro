@@ -24,9 +24,29 @@ const { product } = Astro.props;
     </div>
 
     <div class="prod-specs-col" data-reveal>
-      <p class="label">What you download</p>
+      {/* A sheet-based product has tabs, not files. Calling that list
+          "what you download" would be plainly untrue, so the heading
+          and the contents both switch. */}
+      <p class="label">{product.tabs ? 'What you get' : 'What you download'}</p>
 
-      {product.files.length > 0 ? (
+      {product.tabs ? (
+        <>
+          <ul class="prod-files">
+            {product.tabs.map(t => (
+              <li>
+                <code>{t.name}</code>
+                <span>{t.purpose}</span>
+              </li>
+            ))}
+          </ul>
+          {product.hiddenTabs && product.hiddenTabs.length > 0 && (
+            <p class="prod-hidden-tabs">
+              Three more tabs stay hidden and do the plumbing, listed here for
+              completeness rather than for use: {product.hiddenTabs.join(', ')}.
+            </p>
+          )}
+        </>
+      ) : product.files.length > 0 ? (
         <ul class="prod-files">
           {product.files.map(f => (
             <li>
@@ -118,6 +138,13 @@ const { product } = Astro.props;
     padding: 1.15rem 1.35rem;
     border: 1px dashed var(--line);
     border-radius: var(--radius);
+  }
+
+  .prod-hidden-tabs {
+    margin: 1rem 0 0;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--dim);
   }
 
   .prod-format-note {

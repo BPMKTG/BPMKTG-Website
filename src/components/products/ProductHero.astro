@@ -72,9 +72,18 @@ const topTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
             slug={product.slug}
             status={product.status}
             price={product.price}
+            label={product.deliveryNote ? `Get the sheet, ${product.price}` : undefined}
           />
           <a href="/products" class="button ghost">All tools</a>
         </div>
+
+        {/* A hard prerequisite belongs beside the buy control, not in an
+            FAQ below the fold. Someone on Outlook should find out here. */}
+        {product.requirement && (
+          <p class="prod-hero-requirement" data-reveal>
+            <strong>Before you buy:</strong> {product.requirement}
+          </p>
+        )}
       </div>
 
       <aside class="prod-offer-card" data-reveal aria-label={`${product.name} summary`}>
@@ -111,6 +120,7 @@ const topTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
             slug={product.slug}
             status={product.status}
             price={product.price}
+            label={product.deliveryNote ? `Get the sheet, ${product.price}` : undefined}
             block
           />
         </div>
@@ -251,6 +261,19 @@ const topTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
   }
 
   .prod-hero-ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+
+  .prod-hero-requirement {
+    margin: 1.15rem 0 0;
+    max-width: 52ch;
+    padding: 0.8rem 1rem;
+    border-left: 2px solid var(--bp-orange);
+    background: rgba(227, 112, 59, 0.06);
+    border-radius: 0 8px 8px 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+  .prod-hero-requirement strong { color: var(--bp-orange); }
 
   /* ─── Offer card ─── */
   .prod-offer-card {

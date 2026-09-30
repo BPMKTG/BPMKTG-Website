@@ -3,58 +3,79 @@
 // glance: what it is, what it costs, what lands in the download, and
 // whether it can be bought today.
 import BuyButton from './BuyButton.astro';
-import { productList } from '../../data/products';
+import { artistProducts, creatorProducts, trackLabels } from '../../data/products';
+
+// Two audiences, two sections. A shooter looking for bookings and an
+// artist planning a release want different things, and one undifferentiated
+// grid would talk past both of them.
+const tracks = [
+  { key: 'artist' as const, items: artistProducts },
+  { key: 'creator' as const, items: creatorProducts },
+].filter(t => t.items.length > 0);
 ---
 <section class="section prod-grid-section" id="tools">
   <div class="container">
     <div class="prod-grid-head">
       <p class="label" data-reveal="left">The tools</p>
-      <h2 data-reveal>Three problems, three workbooks</h2>
+      <h2 data-reveal>Pick the problem you actually have</h2>
       <p class="prod-grid-lede" data-reveal>
-        Each one is the system we run for clients, cut down to the part you can
-        run yourself. Buy the one that matches the problem you have this month.
+        Each one is a piece of the system we run for clients, cut down to the
+        part you can run yourself. Two sets, depending on which side of the
+        show you are standing on.
       </p>
     </div>
 
-    <ul class="prod-grid" data-reveal-group>
-      {productList.map(p => (
-        <li
-          class:list={['prod-card', 'card-trace', 'card-inner-glow', { 'is-building': p.status === 'in-build' }]}
-          data-reveal
-        >
-          <header class="prod-card-head">
-            <span class="prod-card-num" aria-hidden="true">{p.number}</span>
-            <div class="prod-card-titles">
-              <h3><a href={`/products/${p.slug}`}>{p.name}</a></h3>
-              <p class="prod-card-sub">{p.subtitle}</p>
-            </div>
-          </header>
+    {tracks.map(track => (
+      <div class="prod-track">
+        <header class="prod-track-head" data-reveal>
+          <h3>{trackLabels[track.key].label}</h3>
+          <p>{trackLabels[track.key].blurb}</p>
+        </header>
 
-          <p class="prod-card-summary">{p.cardBlurb}</p>
+        <ul class:list={['prod-grid', { 'prod-grid--few': track.items.length < 3 }]} data-reveal-group>
+          {track.items.map(p => (
+            <li
+              class:list={[
+                'prod-card', 'card-trace', 'card-inner-glow',
+                { 'is-building': p.status !== 'available' },
+              ]}
+              data-reveal
+            >
+              <header class="prod-card-head">
+                <span class="prod-card-num" aria-hidden="true">{p.number}</span>
+                <div class="prod-card-titles">
+                  <h4><a href={`/products/${p.slug}`}>{p.name}</a></h4>
+                  <p class="prod-card-sub">{p.subtitle}</p>
+                </div>
+              </header>
 
-          <ul class="prod-card-files" aria-label="File formats">
-            {p.fileTypes.map(t => <li>{t}</li>)}
-          </ul>
+              <p class="prod-card-summary">{p.cardBlurb}</p>
 
-          <div class="prod-card-foot">
-            <span class="prod-card-price">{p.price}</span>
-            <a class="prod-card-more" href={`/products/${p.slug}`}>
-              Learn more
-              <span class="arrow" aria-hidden="true">→</span>
-            </a>
-          </div>
+              <ul class="prod-card-files" aria-label="Formats">
+                {p.fileTypes.map(t => <li>{t}</li>)}
+              </ul>
 
-          <div class="prod-card-buy">
-            <BuyButton
-              slug={p.slug}
-              status={p.status}
-              price={p.price}
-              block
-            />
-          </div>
-        </li>
-      ))}
-    </ul>
+              <div class="prod-card-foot">
+                <span class="prod-card-price">{p.price}</span>
+                <a class="prod-card-more" href={`/products/${p.slug}`}>
+                  Learn more
+                  <span class="arrow" aria-hidden="true">→</span>
+                </a>
+              </div>
+
+              <div class="prod-card-buy">
+                <BuyButton
+                  slug={p.slug}
+                  status={p.status}
+                  price={p.price}
+                  block
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
   </div>
 </section>
 
@@ -73,6 +94,36 @@ import { productList } from '../../data/products';
     margin: 0;
   }
 
+  /* ─── Track sections ─── */
+  .prod-track + .prod-track { margin-top: 4rem; }
+  .prod-track-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 1.25rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .prod-track-head h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bp-light);
+    white-space: nowrap;
+  }
+  .prod-track-head p {
+    margin: 0;
+    flex: 1 1 24ch;
+    min-width: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
   .prod-grid {
     list-style: none;
     padding: 0;
@@ -82,6 +133,9 @@ import { productList } from '../../data/products';
     gap: 1.25rem;
     align-items: stretch;
   }
+  /* A track with one or two items would otherwise stretch its cards
+     across the full row and read as a different component. */
+  .prod-grid--few { grid-template-columns: repeat(auto-fit, minmax(290px, 400px)); }
 
   .prod-card {
     display: flex;
@@ -113,14 +167,14 @@ import { productList } from '../../data/products';
     -webkit-text-stroke: 1.1px var(--trace-color);
   }
   .prod-card-titles { min-width: 0; }
-  .prod-card-titles h3 {
+  .prod-card-titles h4 {
     margin: 0 0 0.3rem;
     font-size: 1.1rem;
     font-weight: 700;
     line-height: 1.25;
   }
-  .prod-card-titles h3 a { color: var(--ink); text-decoration: none; }
-  .prod-card-titles h3 a:hover { color: var(--bp-light); }
+  .prod-card-titles h4 a { color: var(--ink); text-decoration: none; }
+  .prod-card-titles h4 a:hover { color: var(--bp-light); }
   .prod-card-sub {
     margin: 0;
     font-size: 0.82rem;

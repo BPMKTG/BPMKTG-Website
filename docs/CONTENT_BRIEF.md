@@ -581,39 +581,54 @@ No additional Cloudflare config needed — Pages serves Astro's optimized build 
 
 ## 17. DIGITAL PRODUCTS (USE ON /products AND /products/<slug>)
 
-Low-ticket workbooks that sell the system in the parts an artist can run
-without us. They are the entry rung of the ladder: the tools lead to the
-Growth Blueprint Session, which leads to Tiers 2 to 4.
+Low-ticket tools that sell the system in the parts the buyer can run without
+us. **Two audiences, two tracks**, split on `Product.track` and rendered as
+separate sections of the shop:
+
+- **`artist`** — artists and managers. The entry rung of the main ladder: the
+  tools lead to the Growth Blueprint Session, which leads to Tiers 2 to 4.
+- **`creator`** — photographers and videographers. A recruiting funnel for
+  Blueprint Preferred™, so these pages close on the network rather than on a
+  strategy call or the artist bundle.
 
 **Copy source of truth:** the Notion page *Product Catalog — Copy Reference*
 (Blueprint Marketing / Lead Magnets). This brief section is a summary; the
 shipped form of that copy lives in `src/data/products.ts`. Em dashes from
 the catalog are converted on the way in, per the site-wide rule.
 
-### The three tools
+### The catalog
 
-| Product | Price | Subtitle | Files | Status |
-|---------|-------|----------|-------|--------|
-| Show Media Brief Kit | $17 | Media Brief & Post-Show Content Schedule | PDF + DOCX + XLSX | Built |
-| Release Rollout Calendar | $19 | Rollout Plan & Asset Checklist | XLSX | Built |
-| The Content Vault | $29 | Asset Library & Usage Log | XLSX | **In build** |
-| All Three Tools (bundle) | $49 | vs $65 standalone, saves $16 | all of the above | **Blocked on the Vault** |
+| Product | Track | Price | Subtitle | Delivery | Status |
+|---------|-------|-------|----------|----------|--------|
+| Show Media Brief Kit | artist | $17 | Media Brief & Post-Show Content Schedule | PDF + DOCX + XLSX | Built |
+| Release Rollout Calendar | artist | $19 | Rollout Plan & Asset Checklist | XLSX | Built |
+| The Content Vault | artist | $29 | Asset Library & Usage Log | XLSX | **In build** |
+| All Three Tools (bundle) | artist | $49 | vs $65 standalone, saves $16 | the three above | **Blocked on the Vault** |
+| Artist Outreach OS | creator | $199 | Outreach Tracker & Contact Directory | Google Sheet copy + Gmail | **Built, unproven** |
 
-**Positioning line, use verbatim:**
+**Artist-track positioning line, use verbatim:**
 > The Kit organizes one show. The Calendar organizes one release. The Vault
 > organizes everything across time.
+
+**The Outreach OS is not in that line and not in the bundle.** It is a
+different audience at four times the bundle price. A creator-track bundle is
+possible later if more creator tools follow; do not force it now.
 
 **Who each one is for:**
 - **Kit** — artists and managers booking media for shows. Anyone who has hired a shooter and gotten back footage that missed the moment.
 - **Calendar** — artists with a single release coming up who announce two weeks out and watch it die three days after it drops. One release, not a rolling cadence.
 - **Vault** — artists a year or more into shooting regularly, with footage scattered across Drive, Dropbox, a phone, and a hard drive.
+- **Outreach OS** — the working concert photographer or videographer, two to ten shoots a month at local venues, whose pipeline is "DM the artist on Instagram and hope". Not for hobbyists without a portfolio, not for agencies that already have a CRM, not for anyone off Gmail.
 
 ### Rules for this section
 
-1. **Never show a buy button for a product that does not exist.** `status:
-   'in-build'` in the data file suppresses every buy control and renders an
-   honest chip instead. The Vault is in build; the bundle contains the Vault,
-   so the bundle inherits that status automatically.
+1. **Never show a buy button for something we cannot deliver.** Three states,
+   and the distinction between the last two matters: `'available'` sells,
+   `'in-build'` means the thing does not exist (the Vault), and `'unproven'`
+   means it is finished and tested but has never been run for real (the
+   Outreach OS). Calling a finished product "in build" would be as inaccurate
+   as calling an untested one "buy now". The bundle inherits the least-ready
+   status of the artist products automatically.
 2. **The bundle saving is computed, never typed.** `bundle.standalone` and
    `bundle.saving` derive from the three `priceValue` fields, so changing a
    price can never leave a stale "saves $16" on the page.
@@ -624,6 +639,14 @@ the catalog are converted on the way in, per the site-wide rule.
 4. **State the limits on the page.** The Calendar does not assert distributor
    or editorial deadlines. The Kit needs the editable file sent to the
    shooter so they can complete the return block. Both are in `caveats`.
+5. **A hard prerequisite goes beside the buy button, not in the FAQ.** That is
+   what `requirement` is for. The Outreach OS is Gmail-only, and someone on
+   Outlook has to learn that before paying, not after.
+6. **Do not describe a non-download as a download.** A product with `tabs`
+   renders "What you get" and its tab list; only a product with `files`
+   renders "What you download". The Outreach OS ships no files at all: the
+   buyer copies a sheet into their own Drive, and `deliveryNote` explains
+   that in its own section rather than burying it.
 
 ### Not built yet (in the catalog, not on the site)
 
