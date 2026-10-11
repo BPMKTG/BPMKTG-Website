@@ -59,9 +59,34 @@ export const PRODUCT_CHECKOUT: Record<string, string> = {
 
 // Where "Apply to Blueprint Preferred™" points. The creator-track
 // products are a recruiting funnel for the network, so this is their
-// closing CTA rather than a strategy call. Empty until the application
-// exists; the button says so instead of linking nowhere.
-export const BLUEPRINT_PREFERRED_URL = '';
+// closing CTA rather than a strategy call.
+export const BLUEPRINT_PREFERRED_URL = '/blueprint-preferred';
+
+// ─────────────────────────────────────────────────────────────
+// Blueprint Preferred™ application form
+//
+// The site is static, so the form posts to Web3Forms rather than to
+// us. Two destinations, deliberately unequal:
+//
+//   1. Web3Forms  — the source of truth. Returns a real response, so
+//      it decides whether the applicant sees success or an error, and
+//      it sends the notification email.
+//   2. Sheet webhook — best effort. A Google Apps Script that appends
+//      a row. Fired no-cors, so we cannot read the result; if it fails
+//      the application is still in the inbox. Nothing is lost by the
+//      spreadsheet half breaking.
+//
+// The Web3Forms access key is PUBLIC by design: it identifies the
+// destination inbox, it is not a secret, and it ships in the markup.
+// Get one by entering an address at web3forms.com.
+//
+// Until the key is set, the page renders an honest "applications open
+// soon" state rather than a form that silently fails.
+// ─────────────────────────────────────────────────────────────
+export const WEB3FORMS_ACCESS_KEY = '';
+
+/** Apps Script web-app URL. Empty disables the sheet write entirely. */
+export const APPLICATION_SHEET_WEBHOOK = '';
 
 /** Checkout URL for a product slug, or '' when it isn't wired yet. */
 export function checkoutUrl(slug: string): string {

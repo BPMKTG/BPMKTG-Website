@@ -2222,4 +2222,79 @@ Easy to swap if the owner prefers either original.
 
 ---
 
+## Session 20 — 2026-10-10 — /blueprint-preferred, and the site's first form
+
+Built the creator-network page and its application form. Four places already
+named Blueprint Preferred™ with nowhere to send anyone; they now all point
+here, and `BLUEPRINT_PREFERRED_URL` is a real route instead of an empty string.
+
+### The form is native, not an embed
+
+The owner asked for native-and-on-brand, with an embed as a maybe. The embed
+was declined on the merits: a Tally or Typeform iframe cannot inherit the
+fonts, the HUD chrome or the dark palette, and it brings its own scrollbars
+and height-jumping. Native markup styled with the site's own tokens is the
+same amount of work and actually matches.
+
+This is the **first form on the site**, so the plumbing is new. Decisions:
+
+- **Web3Forms**, chosen by the owner. The site is static, so there is no
+  server to post to; Web3Forms takes the POST and sends the email.
+- **Submission is AJAX**, so nobody leaves the page. Inline success panel
+  replaces the form; errors offer a mailto fallback.
+- **Validation is native constraints surfaced inline**, not the browser's
+  default popups, which match nothing else on the site. First invalid field
+  gets focus and is scrolled to.
+- **Honeypot** via Web3Forms' `botcheck`, positioned off-screen rather than
+  `display: none`, which some bots skip.
+
+### Two destinations, deliberately unequal
+
+The owner wanted applications organised, not just sitting in an inbox. So the
+form posts twice:
+
+1. **Web3Forms** is authoritative. Its response decides what the applicant
+   sees, and it sends the mail.
+2. **A Google Apps Script webhook** appends a row to a sheet, fired
+   `no-cors` and never awaited into the success path.
+
+The asymmetry is the point: if the sheet write fails the application is still
+in the inbox, and the applicant is never told their submission failed because
+a spreadsheet was down. `mode: 'no-cors'` with `Content-Type: text/plain`
+keeps it a CORS simple request, which is what gets past Apps Script not
+returning CORS headers. We cannot read the response, and do not need to.
+
+Both are empty constants today, so the page renders a pending notice with a
+mailto fallback rather than a form that drops submissions. Same gate as the
+buy buttons. `docs/PREFERRED_FORM_SETUP.md` has both setup paths, including
+the Apps Script to paste.
+
+### Fields are data
+
+`applicationSections` in `src/data/preferred.ts` drives the markup: fourteen
+fields in three fieldsets, so a long form reads as three short ones. Each
+field's `name` doubles as its Sheet column header, which is why they are
+written as readable labels rather than snake_case.
+
+### Verified
+
+Build clean at 16 pages. With a throwaway key set locally: all 11 required
+fields flag inline, focus lands on the first, no network request fires on an
+invalid submit, the email type check produces its own message, and errors
+clear as soon as a field becomes valid. Success panel checked by hand. Mobile
+collapses to one column at 375 with no overflow. Key reverted to empty before
+commit; nothing was ever posted to Web3Forms.
+
+### Open
+
+1. **The Web3Forms access key.** Two minutes, and the form goes live.
+2. **Five things the page deliberately will not claim** until the owner
+   decides them, now listed in CONTENT_BRIEF.md section 18: rates, spots per
+   market, application response time, whether listing is free, and insurance
+   requirements. Applicants will ask about the first one immediately.
+3. **The homepage WhyBlueprint card** names the network but still is not a
+   link. Worth wiring now that there is a destination.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*

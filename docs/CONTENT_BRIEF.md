@@ -658,5 +658,51 @@ listing.
 
 ---
 
+## 18. BLUEPRINT PREFERRED™ (USE ON /blueprint-preferred)
+
+The creator network, and the only form on the site. It is the destination for
+the four places that already name the network: the homepage WhyBlueprint card,
+two Tier 04 deliverables, and the Artist Outreach OS close.
+
+**Copy lives in `src/data/preferred.ts`.** The page promise is derived only
+from what the site already claims about the network: a vetted US list that
+Blueprint books from when a client needs coverage in that market.
+
+### What the page currently promises
+
+- Paid show work when a Tier 03 or 04 client plays your city
+- The same brief our own shooters get
+- Non-exclusive; it adds dates, it does not touch your existing clients
+- Every application read by a person
+
+### What it deliberately does NOT say, because nobody has decided it
+
+Do not add any of these without a real answer from the owner. Inventing them
+would be the exact over-claiming the weddings tripod note got corrected for:
+
+1. **Rates.** No day rate, no range, no "competitive". Applicants will ask.
+2. **How many spots**, or whether the list is capped per market.
+3. **Response time** on an application. The page says "not instant" and
+   stops there.
+4. **Whether there is any fee** to be listed. There is not, but the page does
+   not say so either way yet.
+5. **Insurance or licensing requirements.** Venues often require liability
+   cover; the criteria list does not mention it.
+
+### Form rules
+
+- The form is native markup styled with site tokens, not an embed. An iframe
+  cannot inherit the fonts or the dark palette and was rejected for that.
+- **Web3Forms is the source of truth** for success or failure and sends the
+  notification email. A second fire-and-forget POST appends a row to a Google
+  Sheet. The sheet half is never allowed to affect what the applicant sees,
+  because a spreadsheet being down is not a failed application.
+- With no access key set the page renders a pending notice and a mailto
+  fallback, never a form that silently drops submissions. Same honesty gate as
+  the buy buttons.
+- Setup, including the Apps Script, is in `docs/PREFERRED_FORM_SETUP.md`.
+
+---
+
 *End of Blueprint Site Content Brief — v3.0*
 *Compiled from: Irresistible Offer Formula (Notion), Business Plan (Google Drive), Execution Plan (Google Drive), Brand Quickguide, Photo curation + placement session (May 2026)*

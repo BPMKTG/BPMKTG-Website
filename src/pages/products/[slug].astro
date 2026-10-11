@@ -88,7 +88,9 @@ const { product } = Astro.props as { product: Product };
           that list.
         </p>
         {BLUEPRINT_PREFERRED_URL ? (
-          <a href={BLUEPRINT_PREFERRED_URL} target="_blank" rel="noopener noreferrer" class="button accent">
+          /* Internal route now, so no target="_blank": the network page
+             is part of this site, not somewhere else. */
+          <a href={BLUEPRINT_PREFERRED_URL} class="button accent">
             Apply to Blueprint Preferred
             <span class="arrow" aria-hidden="true">→</span>
           </a>

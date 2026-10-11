@@ -1,0 +1,441 @@
+---
+// Blueprint Preferred™ application form.
+//
+// Native markup and native validation, styled with the site's own
+// tokens. It posts in the background so the applicant never leaves the
+// page: Web3Forms decides success or failure, and a second fire-and-
+// forget POST appends a row to a Google Sheet when one is configured.
+//
+// With no access key set, this renders a pending notice instead of a
+// form, rather than shipping inputs that silently drop submissions.
+import {
+  WEB3FORMS_ACCESS_KEY,
+  APPLICATION_SHEET_WEBHOOK,
+  CONTACT_EMAIL,
+} from '../../config/cta';
+import { applicationSections, formCopy } from '../../data/preferred';
+
+const live = WEB3FORMS_ACCESS_KEY !== '';
+---
+<section class="section apply" id="apply">
+  <div class="container">
+    <div class="apply-head">
+      <p class="label" data-reveal="left">{formCopy.eyebrow}</p>
+      <h2 data-reveal>{formCopy.headline}</h2>
+      <p class="apply-lede" data-reveal>{formCopy.lede}</p>
+    </div>
+
+    {live ? (
+      <div class="apply-shell" data-reveal>
+        <form
+          class="apply-form"
+          data-apply-form
+          data-access-key={WEB3FORMS_ACCESS_KEY}
+          data-sheet-webhook={APPLICATION_SHEET_WEBHOOK}
+          novalidate
+        >
+          {applicationSections.map(section => (
+            <fieldset class="apply-fieldset">
+              <legend>{section.legend}</legend>
+              {section.hint && <p class="apply-hint">{section.hint}</p>}
+
+              <div class="apply-rows">
+                {section.fields.map(f => (
+                  <div class:list={['apply-field', `is-${f.width ?? 'full'}`]}>
+                    <label for={`f-${f.name}`}>
+                      {f.label}
+                      {f.required && <span class="apply-req" aria-hidden="true">*</span>}
+                      {!f.required && <span class="apply-opt">optional</span>}
+                    </label>
+
+                    {f.type === 'textarea' ? (
+                      <textarea
+                        id={`f-${f.name}`}
+                        name={f.name}
+                        rows="3"
+                        required={f.required}
+                        placeholder={f.placeholder}
+                      ></textarea>
+                    ) : f.type === 'select' ? (
+                      <select id={`f-${f.name}`} name={f.name} required={f.required}>
+                        <option value="">Choose one</option>
+                        {f.options?.map(o => <option value={o}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        id={`f-${f.name}`}
+                        type={f.type}
+                        name={f.name}
+                        required={f.required}
+                        placeholder={f.placeholder}
+                      />
+                    )}
+
+                    {f.help && <p class="apply-help">{f.help}</p>}
+                    <p class="apply-error" data-error-for={f.name} hidden></p>
+                  </div>
+                ))}
+              </div>
+            </fieldset>
+          ))}
+
+          {/* Web3Forms' own honeypot. Bots fill it, people never see it. */}
+          <input type="checkbox" name="botcheck" class="apply-botcheck" tabindex="-1" autocomplete="off" />
+
+          <div class="apply-actions">
+            <button type="submit" class="button accent apply-submit">
+              <span data-submit-label>{formCopy.submitLabel}</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </button>
+            <p class="apply-required-note">Fields marked * are required.</p>
+          </div>
+
+          <p class="apply-formerror" data-form-error hidden role="alert">
+            {formCopy.errorBody}{' '}
+            <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+          </p>
+        </form>
+
+        <div class="apply-success" data-apply-success hidden role="status">
+          <span class="apply-success-mark" aria-hidden="true">✓</span>
+          <h3>{formCopy.successHeadline}</h3>
+          <p>{formCopy.successBody}</p>
+        </div>
+      </div>
+    ) : (
+      <div class="apply-pending" data-reveal>
+        <span class="apply-pending-dot" aria-hidden="true"></span>
+        <p>
+          {formCopy.pendingNote} In the meantime, email{' '}
+          <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> with your portfolio
+          and your market, and we will add you by hand.
+        </p>
+      </div>
+    )}
+  </div>
+</section>
+
+<script>
+  // Submits without leaving the page. Web3Forms is authoritative: its
+  // response decides what the applicant sees. The Sheet write is fired
+  // separately and never allowed to affect that, because a spreadsheet
+  // being down is not a reason to tell someone their application failed.
+  const init = () => {
+    const form = document.querySelector<HTMLFormElement>('[data-apply-form]');
+    if (!form || form.dataset.bound === 'true') return;
+    form.dataset.bound = 'true';
+
+    const shell = form.closest('.apply-shell');
+    const success = shell?.querySelector<HTMLElement>('[data-apply-success]');
+    const formError = form.querySelector<HTMLElement>('[data-form-error]');
+    const button = form.querySelector<HTMLButtonElement>('.apply-submit');
+    const label = form.querySelector<HTMLElement>('[data-submit-label]');
+    const originalLabel = label?.textContent ?? 'Send application';
+
+    const fieldError = (name: string, message: string | null) => {
+      const el = form.querySelector<HTMLElement>(`[data-error-for="${CSS.escape(name)}"]`);
+      const input = form.elements.namedItem(name) as HTMLElement | null;
+      if (el) {
+        el.textContent = message ?? '';
+        el.hidden = !message;
+      }
+      input?.classList.toggle('has-error', Boolean(message));
+    };
+
+    // Native constraint validation, surfaced inline instead of as the
+    // browser's popup, which does not match anything else on the site.
+    const validate = () => {
+      let firstBad: HTMLElement | null = null;
+      const controls = Array.from(
+        form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+          'input[name], select[name], textarea[name]',
+        ),
+      ).filter(c => c.name !== 'botcheck');
+
+      controls.forEach(c => {
+        if (c.checkValidity()) {
+          fieldError(c.name, null);
+          return;
+        }
+        const message = c.validity.valueMissing
+          ? 'This one is required.'
+          : c.validity.typeMismatch && c.type === 'email'
+            ? 'That does not look like an email address.'
+            : c.validity.typeMismatch && c.type === 'url'
+              ? 'Include the full link, starting with https://'
+              : 'Check this one.';
+        fieldError(c.name, message);
+        if (!firstBad) firstBad = c;
+      });
+
+      if (firstBad) {
+        (firstBad as HTMLElement).focus();
+        (firstBad as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+      return !firstBad;
+    };
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (formError) formError.hidden = true;
+      if (!validate()) return;
+
+      const data = Object.fromEntries(new FormData(form).entries());
+      const payload = {
+        ...data,
+        access_key: form.dataset.accessKey,
+        subject: `Blueprint Preferred application: ${data['Name'] ?? 'unknown'}`,
+        from_name: 'Blueprint Preferred applications',
+        replyto: data['Email'],
+      };
+
+      if (button) button.disabled = true;
+      if (label) label.textContent = 'Sending…';
+
+      // Best effort, deliberately not awaited into the success path.
+      const webhook = form.dataset.sheetWebhook;
+      if (webhook) {
+        // text/plain keeps this a CORS "simple request", so Apps Script
+        // accepts it without a preflight. We cannot read the response
+        // and do not need to.
+        fetch(webhook, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ ...data, submittedAt: new Date().toISOString() }),
+        }).catch(() => { /* the inbox still has it */ });
+      }
+
+      try {
+        const res = await fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json().catch(() => ({}));
+
+        if (res.ok && json.success) {
+          form.hidden = true;
+          if (success) {
+            success.hidden = false;
+            success.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          }
+          return;
+        }
+        throw new Error(json.message ?? 'Submission rejected');
+      } catch {
+        if (formError) formError.hidden = false;
+      } finally {
+        if (button) button.disabled = false;
+        if (label) label.textContent = originalLabel;
+      }
+    });
+
+    // Clear a field's error as soon as it becomes valid again.
+    form.addEventListener('input', (e) => {
+      const t = e.target as HTMLInputElement | null;
+      if (t?.name && t.checkValidity()) fieldError(t.name, null);
+    });
+  };
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
+</script>
+
+<style>
+  .apply-head { max-width: 58ch; margin-bottom: 2.5rem; }
+  .apply-head h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2.15rem);
+    font-weight: 800;
+    margin: 0.5rem 0 0.75rem;
+  }
+  .apply-lede { margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.7; }
+
+  .apply-shell {
+    max-width: 820px;
+    padding: clamp(1.5rem, 3.5vw, 2.5rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+  }
+
+  .apply-fieldset { border: 0; padding: 0; margin: 0 0 2.25rem; min-width: 0; }
+  .apply-fieldset:last-of-type { margin-bottom: 1.5rem; }
+  .apply-fieldset legend {
+    padding: 0;
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--bp-blue);
+  }
+  .apply-hint {
+    margin: 0.6rem 0 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    max-width: 60ch;
+  }
+
+  .apply-rows {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem;
+    margin-top: 1.25rem;
+  }
+  .apply-field { min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .apply-field.is-full { grid-column: 1 / -1; }
+
+  .apply-field label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .apply-req { color: var(--bp-orange); }
+  .apply-opt {
+    font-weight: 400;
+    font-size: 0.72rem;
+    color: var(--dim);
+    letter-spacing: 0.04em;
+  }
+
+  .apply-field input,
+  .apply-field select,
+  .apply-field textarea {
+    width: 100%;
+    min-width: 0;
+    font-family: inherit;
+    font-size: 0.93rem;
+    color: var(--ink);
+    background: rgba(8, 8, 16, 0.6);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  }
+  .apply-field textarea { resize: vertical; line-height: 1.6; }
+  .apply-field select {
+    appearance: none;
+    /* Chevron drawn inline so the control matches the dark theme rather
+       than inheriting the OS select styling. */
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+                      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 18px) calc(50% + 2px), calc(100% - 13px) calc(50% + 2px);
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 2.25rem;
+  }
+  .apply-field select option { background: #12131c; color: var(--ink); }
+
+  .apply-field input::placeholder,
+  .apply-field textarea::placeholder { color: var(--dim); }
+
+  .apply-field input:focus,
+  .apply-field select:focus,
+  .apply-field textarea:focus {
+    outline: none;
+    border-color: rgba(98, 166, 219, 0.55);
+    background: rgba(12, 14, 24, 0.85);
+    box-shadow: 0 0 0 3px rgba(98, 166, 219, 0.14);
+  }
+  .apply-field :global(.has-error) { border-color: rgba(227, 112, 59, 0.6); }
+
+  .apply-help { margin: 0; font-size: 0.78rem; color: var(--dim); line-height: 1.5; }
+  .apply-error { margin: 0; font-size: 0.78rem; color: var(--bp-orange); }
+
+  /* Honeypot. Off-screen rather than display:none, which some bots skip. */
+  .apply-botcheck {
+    position: absolute !important;
+    left: -9999px !important;
+    width: 1px; height: 1px;
+    opacity: 0;
+  }
+
+  .apply-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+  }
+  .apply-submit[disabled] { opacity: 0.6; cursor: progress; }
+  .apply-required-note { margin: 0; font-size: 0.78rem; color: var(--dim); }
+
+  .apply-formerror {
+    margin: 1.1rem 0 0;
+    padding: 0.85rem 1rem;
+    border-left: 2px solid var(--bp-orange);
+    background: rgba(227, 112, 59, 0.07);
+    border-radius: 0 8px 8px 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+  .apply-formerror a { color: var(--bp-light); }
+
+  /* ─── Success ─── */
+  .apply-success { text-align: center; padding: clamp(1.5rem, 4vw, 3rem) 1rem; }
+  .apply-success-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 1px solid rgba(98, 166, 219, 0.5);
+    color: var(--bp-light);
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+  }
+  .apply-success h3 {
+    font-family: var(--font-display);
+    font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+    font-weight: 800;
+    margin: 0 0 0.75rem;
+  }
+  .apply-success p {
+    margin: 0 auto;
+    max-width: 48ch;
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.75;
+  }
+
+  /* ─── Pending (no access key yet) ─── */
+  .apply-pending {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    max-width: 640px;
+    padding: 1.15rem 1.35rem;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .apply-pending p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.7;
+  }
+  .apply-pending a { color: var(--bp-light); }
+  .apply-pending-dot {
+    width: 7px; height: 7px; flex: none;
+    margin-top: 0.5rem;
+    border-radius: 50%;
+    background: var(--dim);
+  }
+
+  @media (max-width: 640px) {
+    .apply-rows { grid-template-columns: minmax(0, 1fr); }
+    .apply-actions { flex-direction: column; align-items: stretch; }
+    .apply-submit { justify-content: center; }
+    .apply-required-note { text-align: center; }
+  }
+</style>

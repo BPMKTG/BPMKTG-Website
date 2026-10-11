@@ -1,0 +1,287 @@
+---
+// /blueprint-preferred — the creator network, and the application.
+//
+// Four places on the site already name Blueprint Preferred™ without
+// anywhere to send people: the homepage WhyBlueprint card, two Tier 04
+// deliverables, and the Artist Outreach OS close. This is that page.
+import Layout from '../layouts/Layout.astro';
+import ApplyForm from '../components/preferred/ApplyForm.astro';
+import { hero, what, who } from '../data/preferred';
+import { products } from '../data/products';
+
+const outreachOS = products['artist-outreach-os'];
+---
+<Layout
+  title="Blueprint Preferred™ | Blueprint Marketing"
+  description="A vetted network of photographers and videographers across the US. When an artist we work with needs coverage in your market, Blueprint Preferred is the list we book from."
+>
+  <section class="pref-hero">
+    <div class="pref-hero-base" aria-hidden="true"></div>
+    <div class="pref-hero-grid" aria-hidden="true"></div>
+
+    <div class="container pref-hero-inner">
+      <p class="label" data-reveal="left">{hero.eyebrow}</p>
+      <h1 data-reveal>{hero.headline}</h1>
+      <p class="pref-hero-sub" data-reveal>{hero.sub}</p>
+
+      <ul class="pref-hero-pills" data-reveal-group>
+        {hero.pills.map(p => <li data-reveal>{p}</li>)}
+      </ul>
+
+      <div class="pref-hero-ctas" data-reveal>
+        <a href="#apply" class="button accent">
+          Apply to the network
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+        <a href="#criteria" class="button ghost">What we look for</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────── What it is ─────────── -->
+  <section class="section pref-what">
+    <div class="container">
+      <div class="pref-what-head">
+        <p class="label" data-reveal="left">{what.eyebrow}</p>
+        <h2 data-reveal>{what.headline}</h2>
+      </div>
+
+      <div class="pref-what-body">
+        <div class="pref-what-prose">
+          {what.paragraphs.map(p => <p data-reveal>{p}</p>)}
+        </div>
+
+        <ul class="pref-points" data-reveal-group>
+          {what.points.map(point => (
+            <li class="pref-point card-trace card-inner-glow" data-reveal>
+              <h3>{point.title}</h3>
+              <p>{point.body}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────── Who we take ─────────── -->
+  <section class="section pref-who" id="criteria">
+    <div class="container pref-who-inner">
+      <div class="pref-who-copy" data-reveal="left">
+        <p class="label">{who.eyebrow}</p>
+        <h2>{who.headline}</h2>
+        <p class="pref-who-lede">{who.lede}</p>
+      </div>
+
+      <ul class="pref-criteria" data-reveal-group>
+        {who.criteria.map(c => (
+          <li data-reveal>
+            <span class="pref-tick" aria-hidden="true">✓</span>
+            <span>{c}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <ApplyForm />
+
+  <!-- ─────────── Outreach OS cross-link ─────────── -->
+  <section class="section pref-os">
+    <div class="container pref-os-inner" data-reveal>
+      <div>
+        <p class="label">While you wait</p>
+        <h2>Getting booked is its own skill.</h2>
+        <p>
+          Being on this list adds dates. It does not replace a pipeline. The
+          {' '}{outreachOS.name} is the tracker and contact directory we built
+          for exactly that problem: pitch the right person, early, and follow up
+          without relying on memory.
+        </p>
+      </div>
+      <a href={`/products/${outreachOS.slug}`} class="button ghost pref-os-cta">
+        See the {outreachOS.shortName}
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  /* ═══════════════════════════════════════════════
+     HERO
+     ═══════════════════════════════════════════════ */
+  .pref-hero {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    display: flex;
+    align-items: center;
+    min-height: clamp(420px, 52vh, 560px);
+  }
+  .pref-hero-base {
+    position: absolute; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 55% at 15% 100%, rgba(38, 79, 160, 0.28), transparent 70%),
+      radial-gradient(ellipse 50% 60% at 90% 5%, rgba(227, 112, 59, 0.1), transparent 65%),
+      linear-gradient(180deg, #050514 0%, #02020a 100%);
+  }
+  .pref-hero-grid {
+    position: absolute; inset: 0; z-index: 1;
+    background-image:
+      linear-gradient(rgba(98, 166, 219, 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(98, 166, 219, 0.07) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(75% 75% at 35% 45%, #000 45%, transparent 100%);
+    pointer-events: none;
+  }
+  .pref-hero-inner { position: relative; z-index: 2; padding: 6.5rem 1.5rem 3rem; }
+  .pref-hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    margin: 0.75rem 0 1.15rem;
+  }
+  .pref-hero-sub {
+    color: var(--muted);
+    font-size: 1.02rem;
+    line-height: 1.75;
+    max-width: 58ch;
+    margin: 0 0 1.5rem;
+  }
+  .pref-hero-pills {
+    list-style: none; padding: 0;
+    margin: 0 0 2rem;
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+  }
+  .pref-hero-pills li {
+    font-size: 0.76rem;
+    letter-spacing: 0.04em;
+    color: var(--bp-light);
+    background: rgba(98, 166, 219, 0.08);
+    border: 1px solid rgba(98, 166, 219, 0.22);
+    border-radius: 999px;
+    padding: 0.38rem 0.8rem;
+  }
+  .pref-hero-ctas { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+  /* ═══════════════════════════════════════════════
+     WHAT IT IS
+     ═══════════════════════════════════════════════ */
+  .pref-what-head { margin-bottom: 2.5rem; }
+  .pref-what-head h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    font-weight: 800;
+    line-height: 1.18;
+    margin: 0.5rem 0 0;
+    max-width: 24ch;
+  }
+  .pref-what-body {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: clamp(2rem, 4vw, 3.5rem);
+    align-items: start;
+  }
+  .pref-what-prose p {
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.75;
+    margin: 0 0 1.1rem;
+  }
+  .pref-what-prose p:first-child { color: var(--ink); }
+  .pref-what-prose p:last-child { margin-bottom: 0; }
+
+  .pref-points { list-style: none; padding: 0; margin: 0; display: grid; gap: 1rem; }
+  .pref-point {
+    padding: 1.4rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--card);
+    --trace-color: var(--bp-blue);
+  }
+  .pref-point:nth-child(2) { --trace-color: var(--bp-orange); }
+  .pref-point:nth-child(3) { --trace-color: #9b7ce0; }
+  .pref-point h3 {
+    margin: 0 0 0.45rem;
+    font-size: 1.02rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--bp-light);
+  }
+  .pref-point p { margin: 0; color: var(--muted); font-size: 0.93rem; line-height: 1.7; }
+
+  /* ═══════════════════════════════════════════════
+     WHO WE TAKE
+     ═══════════════════════════════════════════════ */
+  .pref-who-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: clamp(2rem, 4vw, 3.5rem);
+    align-items: start;
+  }
+  .pref-who-copy h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 2.6vw, 1.95rem);
+    font-weight: 800;
+    margin: 0.5rem 0 0.9rem;
+  }
+  .pref-who-lede { margin: 0; color: var(--muted); font-size: 0.97rem; line-height: 1.75; }
+
+  .pref-criteria { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.9rem; }
+  .pref-criteria li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.85rem;
+    align-items: start;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+  .pref-criteria li:last-child { border-bottom: none; padding-bottom: 0; }
+  .pref-tick { color: var(--bp-blue); font-size: 0.85rem; padding-top: 0.2rem; }
+
+  /* ═══════════════════════════════════════════════
+     OUTREACH OS CROSS-LINK
+     ═══════════════════════════════════════════════ */
+  .pref-os-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: center;
+    padding: clamp(1.75rem, 3.5vw, 2.5rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+  }
+  .pref-os-inner h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+    font-weight: 800;
+    margin: 0.5rem 0 0.75rem;
+  }
+  .pref-os-inner p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.75;
+    max-width: 62ch;
+  }
+  .pref-os-cta { white-space: nowrap; }
+
+  /* ═══════════════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════════════ */
+  @media (max-width: 900px) {
+    .pref-what-body,
+    .pref-who-inner { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+  }
+  @media (max-width: 760px) {
+    .pref-hero-inner { padding: 6rem 1.25rem 3rem; }
+    .pref-os-inner { grid-template-columns: minmax(0, 1fr); }
+    .pref-hero-ctas > * { flex: 1 1 100%; justify-content: center; }
+  }
+</style>
