@@ -2385,4 +2385,65 @@ success panel shows. Skills matrix tested for tick, rate, untick-clears.
 
 ---
 
+## Session 22 — 2026-10-12 — Preferred goes worldwide, and stops being flat
+
+Three owner notes on `/blueprint-preferred`.
+
+### Skills trimmed
+
+Photo retouching and Lighting are out. Eight skills remain. Nothing else about
+the matrix changed.
+
+### The network is worldwide
+
+Contacts outside the US want to apply, so "across the US" is gone.
+
+This is not only a Preferred-page edit. The same claim lived in the homepage
+WhyBlueprint card and in Tier 04's network-access deliverable, and leaving
+those saying "across the U.S." would have had the site contradicting itself on
+two pages. All three now say worldwide, and CONTENT_BRIEF.md section 18 notes
+that they have to move together.
+
+Downstream copy: the travel question's options were US-shaped ("Anywhere in
+the US") and are now "Anywhere in my country" and "Internationally"; the
+market placeholder asks for city and country rather than city and state.
+
+### The page was flat, and now is not
+
+It was the only page on the site with no photography at all, which is why it
+read dark and bland next to the rest.
+
+- **Hero carries a real frame.** The SVDDEN DEATH production team at front of
+  house, magenta lasers and orange stage. For a page recruiting crew, a
+  picture of crew working is the argument. Two scrims: one vertical for
+  legibility, one horizontal so the copy side stays dark while the lasers
+  survive on the right.
+- **A four-up portrait rail** of show frames below the fold, all cropped 2:3
+  so it reads as one strip rather than four unrelated pictures. Dimmed and
+  desaturated at rest, full colour on hover.
+- **A four-step "how it works" strip**, each step a card with a coloured
+  outlined numeral. It breaks up what had been three dense prose blocks in a
+  row, and it answers the question the page was leaving implicit: what
+  actually happens after you apply. Derived strictly from existing claims, so
+  it adds no rates, no turnaround promise and no response time.
+
+**Mobile needed its own scrim.** The two gradients stack at phone width, where
+the copy spans the full column, and between them they rendered the photo
+nearly black. The side scrim earns nothing there, so at ≤760px it is dropped
+and the vertical one is softened. The rail also drops to two columns, since
+four at 375px is four slivers.
+
+### Also fixed
+
+An em dash had got into the criteria copy ("not 'I could learn' — live
+music"). Caught on screen rather than in review. The only em dash left in the
+built page is in a Header.astro HTML comment, which is not visible copy.
+
+### Verified
+
+17 pages, build clean. Eight skills in the markup, the two removed ones gone.
+No horizontal overflow at 375; hero 625px against an 812 viewport.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*

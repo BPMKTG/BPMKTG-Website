@@ -5,18 +5,49 @@
 // anywhere to send people: the homepage WhyBlueprint card, two Tier 04
 // deliverables, and the Artist Outreach OS close. This is that page.
 import Layout from '../layouts/Layout.astro';
+import { Image } from 'astro:assets';
 import ApplyForm from '../components/preferred/ApplyForm.astro';
-import { hero, what, who } from '../data/preferred';
+import { hero, what, process, who } from '../data/preferred';
 import { products } from '../data/products';
 
+import heroBg from '../assets/images/portfolio/svddendeath-productionteam-lasers-pyro.jpg';
+import rail1 from '../assets/images/portfolio/crowd-grimefest.jpg';
+import rail2 from '../assets/images/portfolio/atliens-dft-sidestage.jpg';
+import rail3 from '../assets/images/portfolio/sanpacho-silo.jpg';
+import rail4 from '../assets/images/portfolio/wooli-dft-pyro-lasers.jpg';
+
 const outreachOS = products['artist-outreach-os'];
+
+// Portrait crops, 2:3 across the board, so the rail reads as one strip
+// rather than four unrelated images.
+const rail = [
+  { src: rail1, alt: 'Crowd at Grimefest' },
+  { src: rail2, alt: 'ATLiens from the side of the stage at Dancefestopia' },
+  { src: rail3, alt: 'San Pacho at Silo in Dallas' },
+  { src: rail4, alt: 'Wooli under pyro and lasers at Dancefestopia' },
+];
 ---
 <Layout
   title="Blueprint Preferred™ | Blueprint Marketing"
-  description="A vetted network of photographers and videographers across the US. When an artist we work with needs coverage in your market, Blueprint Preferred is the list we book from."
+  description="A vetted network of photographers and videographers worldwide. When an artist we work with needs coverage in your city, Blueprint Preferred is the list we book from."
 >
   <section class="pref-hero">
-    <div class="pref-hero-base" aria-hidden="true"></div>
+    {/* The page was all gradient and grid before, which read flat next to
+        the rest of the site. A real frame of a crew working front of
+        house does the arguing that copy was doing alone. */}
+    <div class="pref-hero-media" aria-hidden="true">
+      <Image
+        src={heroBg}
+        alt=""
+        width={2048}
+        height={1365}
+        format="webp"
+        quality={82}
+        loading="eager"
+        fetchpriority="high"
+      />
+    </div>
+    <div class="pref-hero-scrim" aria-hidden="true"></div>
     <div class="pref-hero-grid" aria-hidden="true"></div>
 
     <div class="container pref-hero-inner">
@@ -60,6 +91,45 @@ const outreachOS = products['artist-outreach-os'];
           ))}
         </ul>
       </div>
+    </div>
+  </section>
+
+  <!-- ─────────── The work ─────────── -->
+  <section class="pref-rail" aria-label="Recent coverage">
+    <ul class="pref-rail-track" data-reveal-group>
+      {rail.map(r => (
+        <li data-reveal="scale">
+          <Image
+            src={r.src}
+            alt={r.alt}
+            width={700}
+            height={1050}
+            format="webp"
+            quality={80}
+            loading="lazy"
+          />
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <!-- ─────────── How it works ─────────── -->
+  <section class="section pref-process">
+    <div class="container">
+      <div class="pref-process-head">
+        <p class="label" data-reveal="left">{process.eyebrow}</p>
+        <h2 data-reveal>{process.headline}</h2>
+      </div>
+
+      <ol class="pref-steps" data-reveal-group>
+        {process.steps.map((s, i) => (
+          <li class="pref-step card-trace" data-reveal>
+            <span class="pref-step-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+            <h3>{s.title}</h3>
+            <p>{s.body}</p>
+          </li>
+        ))}
+      </ol>
     </div>
   </section>
 
@@ -115,18 +185,29 @@ const outreachOS = products['artist-outreach-os'];
     overflow: hidden;
     isolation: isolate;
     display: flex;
-    align-items: center;
-    min-height: clamp(420px, 52vh, 560px);
+    align-items: flex-end;
+    min-height: clamp(520px, 68vh, 720px);
   }
-  .pref-hero-base {
-    position: absolute; inset: 0; z-index: 0;
+  .pref-hero-media { position: absolute; inset: 0; z-index: 0; }
+  .pref-hero-media :global(img) {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center 42%;
+    /* Own layer so the scrim above it never forces a repaint of the
+       photo during scroll. */
+    transform: translateZ(0);
+  }
+  /* Heavy at the bottom where the copy sits, light at the top so the
+     lasers and the orange stage still read. */
+  .pref-hero-scrim {
+    position: absolute; inset: 0; z-index: 1;
     background:
-      radial-gradient(ellipse 60% 55% at 15% 100%, rgba(38, 79, 160, 0.28), transparent 70%),
-      radial-gradient(ellipse 50% 60% at 90% 5%, rgba(227, 112, 59, 0.1), transparent 65%),
-      linear-gradient(180deg, #050514 0%, #02020a 100%);
+      linear-gradient(180deg, rgba(4, 4, 14, 0.78) 0%, rgba(4, 4, 14, 0.42) 32%, rgba(4, 4, 14, 0.88) 88%, #05050e 100%),
+      linear-gradient(90deg, rgba(4, 4, 14, 0.8) 0%, rgba(4, 4, 14, 0.25) 55%, transparent 100%);
+    pointer-events: none;
   }
   .pref-hero-grid {
-    position: absolute; inset: 0; z-index: 1;
+    position: absolute; inset: 0; z-index: 2;
     background-image:
       linear-gradient(rgba(98, 166, 219, 0.07) 1px, transparent 1px),
       linear-gradient(90deg, rgba(98, 166, 219, 0.07) 1px, transparent 1px);
@@ -134,7 +215,7 @@ const outreachOS = products['artist-outreach-os'];
     mask-image: radial-gradient(75% 75% at 35% 45%, #000 45%, transparent 100%);
     pointer-events: none;
   }
-  .pref-hero-inner { position: relative; z-index: 2; padding: 6.5rem 1.5rem 3rem; }
+  .pref-hero-inner { position: relative; z-index: 3; padding: 7rem 1.5rem 3.5rem; }
   .pref-hero h1 {
     font-family: var(--font-display);
     font-size: clamp(2rem, 5vw, 3.4rem);
@@ -142,13 +223,15 @@ const outreachOS = products['artist-outreach-os'];
     line-height: 1.05;
     letter-spacing: -0.015em;
     margin: 0.75rem 0 1.15rem;
+    text-shadow: 0 2px 30px rgba(0, 0, 0, 0.6);
   }
   .pref-hero-sub {
-    color: var(--muted);
+    color: rgba(226, 232, 245, 0.88);
     font-size: 1.02rem;
     line-height: 1.75;
-    max-width: 58ch;
+    max-width: 52ch;
     margin: 0 0 1.5rem;
+    text-shadow: 0 1px 16px rgba(0, 0, 0, 0.7);
   }
   .pref-hero-pills {
     list-style: none; padding: 0;
@@ -211,6 +294,93 @@ const outreachOS = products['artist-outreach-os'];
     color: var(--bp-light);
   }
   .pref-point p { margin: 0; color: var(--muted); font-size: 0.93rem; line-height: 1.7; }
+
+  /* ═══════════════════════════════════════════════
+     WORK RAIL
+     ═══════════════════════════════════════════════ */
+  .pref-rail { padding: 0 0 1rem; }
+  .pref-rail-track {
+    list-style: none;
+    margin: 0;
+    padding: 0 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    max-width: 1600px;
+    margin-inline: auto;
+  }
+  .pref-rail-track li {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+  .pref-rail-track :global(img) {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), filter 0.4s ease;
+    filter: saturate(0.92) brightness(0.82);
+  }
+  .pref-rail-track li:hover :global(img) {
+    transform: scale(1.05);
+    filter: saturate(1.05) brightness(1);
+  }
+
+  /* ═══════════════════════════════════════════════
+     HOW IT WORKS
+     ═══════════════════════════════════════════════ */
+  .pref-process-head { margin-bottom: 2.25rem; }
+  .pref-process-head h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    font-weight: 800;
+    margin: 0.5rem 0 0;
+  }
+  .pref-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1rem;
+    counter-reset: step;
+  }
+  .pref-step {
+    position: relative;
+    padding: 1.5rem 1.4rem 1.4rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--card);
+    --trace-color: var(--bp-blue);
+    min-width: 0;
+  }
+  .pref-step:nth-child(2) { --trace-color: #9b7ce0; }
+  .pref-step:nth-child(3) { --trace-color: var(--bp-orange); }
+  .pref-step:nth-child(4) { --trace-color: var(--bp-light); }
+  .pref-step-num {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 900;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 1.1px var(--trace-color);
+  }
+  .pref-step h3 {
+    margin: 0.65rem 0 0.45rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .pref-step p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.7;
+  }
 
   /* ═══════════════════════════════════════════════
      WHO WE TAKE
@@ -280,8 +450,25 @@ const outreachOS = products['artist-outreach-os'];
     .pref-who-inner { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
   }
   @media (max-width: 760px) {
-    .pref-hero-inner { padding: 6rem 1.25rem 3rem; }
+    .pref-hero { min-height: clamp(460px, 62vh, 600px); }
+    .pref-hero-inner { padding: 6rem 1.25rem 2.75rem; }
+    /* The two scrims stack at phone width, where the copy spans the full
+       column, and between them they were rendering the photo nearly
+       black. The side scrim earns nothing here, so it goes. */
+    .pref-hero-scrim {
+      background: linear-gradient(
+        180deg,
+        rgba(4, 4, 14, 0.62) 0%,
+        rgba(4, 4, 14, 0.3) 30%,
+        rgba(4, 4, 14, 0.86) 82%,
+        #05050e 100%
+      );
+    }
+    .pref-hero-media :global(img) { object-position: center 38%; }
     .pref-os-inner { grid-template-columns: minmax(0, 1fr); }
     .pref-hero-ctas > * { flex: 1 1 100%; justify-content: center; }
+    /* Two up rather than four: at phone width a 4-across rail renders
+       four slivers nobody can read. */
+    .pref-rail-track { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0 1.25rem; gap: 0.6rem; }
   }
 </style>

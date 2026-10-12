@@ -684,6 +684,11 @@ Blueprint books from when a client needs coverage in that market.
 - Non-exclusive; it adds dates, it does not touch your existing clients
 - Every application read by a person
 
+**The network is worldwide, not US-only.** Changed Oct 2026 because contacts
+outside the US want to apply. If you edit this, the same claim appears in the
+WhyBlueprint card on the homepage and in Tier 04's network-access deliverable;
+all three have to agree or the site contradicts itself.
+
 ### What it deliberately does NOT say, because nobody has decided it
 
 Do not add any of these without a real answer from the owner. Inventing them
@@ -713,6 +718,8 @@ would be the exact over-claiming the weddings tripod note got corrected for:
 - **Fields are owner-specified** and live in `applicationSections`. Email and
   primary market were added on top of that list and are not optional: one is
   the only way to reply, the other is the whole premise of booking by city.
+- Skills are owner-curated. Photo retouching and Lighting were removed in Oct
+  2026; the list is eight, Photography through Live streaming.
 - The skills matrix submits **one column per skill** (blank when unclaimed) so
   the Sheet stays filterable, plus a `Skills summary` line because ten columns
   read badly in an email. A ticked skill with no rating is a validation error;

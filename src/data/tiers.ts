@@ -550,7 +550,7 @@ const tier04: Tier = {
       { title: 'Paid amplification',                             body: 'Boost top-performing organic, retarget engaged viewers, run cold-audience prospecting against winning content. Spend follows data, not gut, with monthly budget guidance and clear ROAS reporting.' },
       { title: 'Brand identity + messaging system',              body: 'Ongoing brand identity work, visual, voice, tone, positioning, refreshed as the audience evolves. Messaging stays consistent across every touchpoint so the brand reads the same everywhere a new fan finds you.' },
       { title: 'Performance intelligence',                       body: 'Deep tracking across content, campaigns, funnel, paid, and revenue. Weekly internal review, monthly client review, quarterly strategic recommendations. Pattern identification + growth-trend analysis that catches the curve bending before it shows up in lagging metrics.' },
-      { title: 'Blueprint Preferred™ network access',            body: 'Vetted photographers and videographers across the U.S., coordinated to wherever your tour is. Regional capture without flying our crew everywhere, same brand consistency, lower overhead. The production pipeline scales with your schedule.' },
+      { title: 'Blueprint Preferred™ network access',            body: 'Vetted photographers and videographers worldwide, coordinated to wherever your tour is. Regional capture without flying our crew everywhere, same brand consistency, lower overhead. The production pipeline scales with your schedule.' },
     ],
   },
 

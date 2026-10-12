@@ -44,16 +44,16 @@ export const SKILL_MAX = 10;
 export const hero = {
   eyebrow: 'Blueprint Preferred™',
   headline: 'The list we book from.',
-  sub: 'A vetted network of photographers and videographers across the US. When an artist we work with needs coverage in your market, this is where we look first.',
-  pills: ['Photo and video', 'US-wide', 'Paid show work', 'Applications reviewed by hand'],
+  sub: 'A vetted network of photographers and videographers worldwide. When an artist we work with needs coverage in your city, this is where we look first.',
+  pills: ['Photo and video', 'Worldwide', 'Paid show work', 'Applications reviewed by hand'],
 };
 
 export const what = {
   eyebrow: 'What it is',
   headline: 'Coverage that scales with a tour, without sourcing crews city by city.',
   paragraphs: [
-    'Blueprint runs growth systems for touring artists, and those artists play cities we are not in. Flying a crew to every date does not work, and finding a competent shooter in an unfamiliar market three days before doors works even less.',
-    'So we keep a list. When a Tier 03 or Tier 04 client has a show in your city, we staff it ourselves or we coordinate it through Blueprint Preferred™, depending on the city and the scope. The brief goes out the same way it does for our own shoots, so you know what the night needs before you get there.',
+    'Blueprint runs growth systems for touring artists, and those artists play cities we are not in. Flying a crew to every date does not work, and finding a competent shooter in an unfamiliar city three days before doors works even less. That gets harder, not easier, once a tour crosses a border.',
+    'So we keep a list. When a Tier 03 or Tier 04 client has a show in your city, we staff it ourselves or we coordinate it through Blueprint Preferred™, depending on where it is and what the scope is. The brief goes out the same way it does for our own shoots, so you know what the night needs before you get there.',
   ],
   points: [
     {
@@ -71,12 +71,38 @@ export const what = {
   ],
 };
 
+// Derived from what the site already claims about how coverage works.
+// No rates, no turnaround promises, no response times: those are still
+// undecided and listed as such in CONTENT_BRIEF.md section 18.
+export const process = {
+  eyebrow: 'How it works',
+  headline: 'From application to show day.',
+  steps: [
+    {
+      title: 'You apply',
+      body: 'One form, read by a person. The portfolio is the part we actually judge.',
+    },
+    {
+      title: 'We come to you',
+      body: 'When an artist we work with has a show in your city, we check the list first. You are not pitching for it.',
+    },
+    {
+      title: 'The brief lands first',
+      body: 'Set time, meet point, credentials, the moments worth being in position for, and where the content is going. Before the night, not after.',
+    },
+    {
+      title: 'You shoot and deliver',
+      body: 'You send the work back, you get credited, and you get paid for the booking.',
+    },
+  ],
+};
+
 export const who = {
   eyebrow: 'Who we take',
   headline: 'Working shooters, not hobbyists.',
   lede: 'Every application is read by a person, and we look at the portfolio first. The bar is simple: could we put you in front of a client tomorrow without worrying about it?',
   criteria: [
-    'You already shoot live shows. Not weddings, not portraits, not "I could learn" — live music, in a dark room, with moving lights.',
+    'You already shoot live shows. Not weddings, not portraits, not "I could learn". Live music, in a dark room, with moving lights.',
     'You own your gear, and it can handle a venue. Low light is the whole job.',
     'You can turn work around on a deadline. A recap that lands two weeks late is a recap nobody posts.',
     'You can deliver vertical. Most of what we do with show media ends up on a phone.',
@@ -99,13 +125,13 @@ export const applicationSections: ApplicationSection[] = [
       // network cannot function without them: one is the only way to
       // reply, the other is the whole premise of booking by city.
       { name: 'Email', label: 'Email', type: 'email', required: true, width: 'half', placeholder: 'you@example.com' },
-      { name: 'Primary market', label: 'Primary market', type: 'text', required: true, width: 'half', placeholder: 'City and state' },
+      { name: 'Primary market', label: 'Primary market', type: 'text', required: true, width: 'half', placeholder: 'City and country' },
       {
         name: 'Travel',
         label: 'How far you will travel',
         type: 'select',
         width: 'half',
-        options: ['My city only', 'Up to 3 hours', 'My whole region', 'Anywhere in the US'],
+        options: ['My city only', 'A few hours from me', 'Anywhere in my country', 'Internationally'],
       },
       { name: 'Phone', label: 'Phone', type: 'tel', width: 'half', placeholder: 'Day-of contact' },
       {
@@ -148,9 +174,7 @@ export const applicationSections: ApplicationSection[] = [
       'Color grading',
       'Motion graphics and VFX',
       'Graphic design',
-      'Photo retouching',
       'Drone',
-      'Lighting',
       'Live streaming',
     ],
     fields: [
