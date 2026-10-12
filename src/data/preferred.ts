@@ -125,7 +125,7 @@ export const applicationSections: ApplicationSection[] = [
       // network cannot function without them: one is the only way to
       // reply, the other is the whole premise of booking by city.
       { name: 'Email', label: 'Email', type: 'email', required: true, width: 'half', placeholder: 'you@example.com' },
-      { name: 'Primary market', label: 'Primary market', type: 'text', required: true, width: 'half', placeholder: 'City and country' },
+      { name: 'Primary market', label: 'Primary market', type: 'text', required: true, width: 'half', placeholder: 'City, state, and country' },
       {
         name: 'Travel',
         label: 'How far you will travel',
@@ -161,6 +161,24 @@ export const applicationSections: ApplicationSection[] = [
         type: 'textarea',
         required: true,
         placeholder: 'A few names is plenty. Venues and festivals count.',
+      },
+      {
+        // Lives here rather than in the rates section: it is a criterion
+        // we screen on ("you can turn work around on a deadline"), and
+        // the rates block is optional, which would get this skipped.
+        name: 'Delivery timeframe',
+        label: 'Typical delivery timeframe',
+        type: 'select',
+        required: true,
+        width: 'half',
+        options: [
+          'Same night or next morning',
+          'Within 24 hours',
+          'Within 48 hours',
+          '3 to 5 days',
+          'A week or more',
+        ],
+        help: 'Your normal pace, not your fastest ever.',
       },
     ],
   },

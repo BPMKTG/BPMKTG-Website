@@ -2487,4 +2487,27 @@ values, all five rate fields arrive, and the skills matrix is unaffected.
 
 ---
 
+## Session 24 — 2026-10-12 — Delivery timeframe, and a market placeholder
+
+Two small owner requests on the Preferred application.
+
+**Typical delivery timeframe** added as a required select: same night or next
+morning, 24 hours, 48 hours, 3 to 5 days, a week or more. Help text asks for
+their normal pace rather than their fastest ever.
+
+It sits in **Your work, not Your rates**, on purpose. Turnaround is a
+criterion the page already screens on ("you can turn work around on a
+deadline"), and the rates block is entirely optional, so putting it there
+would have quietly made a screening question skippable.
+
+**Primary market placeholder** is now "City, state, and country" rather than
+"City and country".
+
+### Verified
+
+17 pages. Submitting with the field empty is blocked and flags inline;
+filling it submits the value. Nothing reached Web3Forms.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
