@@ -88,8 +88,14 @@ export const BLUEPRINT_PREFERRED_URL = '/blueprint-preferred';
 // ─────────────────────────────────────────────────────────────
 export const WEB3FORMS_ACCESS_KEY = '5703bc35-9ab0-4d9f-bccc-a2ccaf18e336';
 
-/** Apps Script web-app URL. Empty disables the sheet write entirely. */
-export const APPLICATION_SHEET_WEBHOOK = '';
+/** Apps Script web-app URL. Empty disables the sheet write entirely.
+ *
+ *  Deployed with clasp from the project in docs/PREFERRED_FORM_SETUP.md,
+ *  bound to the "Blueprint Preferred Applications" sheet in the bpmktg
+ *  account. Redeploying with a NEW deployment changes this URL; use
+ *  `clasp redeploy <deploymentId>` to keep it stable instead. */
+export const APPLICATION_SHEET_WEBHOOK =
+  'https://script.google.com/macros/s/AKfycbx8SY1hdjEF_6NG93HgJjNwCtA_-AAYYa0Ul9lw_A6uxuKkYqDxFAmcXbMssVUw7nUq4A/exec';
 
 /** Checkout URL for a product slug, or '' when it isn't wired yet. */
 export function checkoutUrl(slug: string): string {
