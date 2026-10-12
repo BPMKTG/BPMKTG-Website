@@ -12,19 +12,21 @@ import { products } from '../data/products';
 
 import heroBg from '../assets/images/hero/blueprint-preferred.jpg';
 import rail1 from '../assets/images/portfolio/crowd-grimefest.jpg';
-import rail2 from '../assets/images/portfolio/atliens-dft-sidestage.jpg';
-import rail3 from '../assets/images/portfolio/sanpacho-silo.jpg';
-import rail4 from '../assets/images/portfolio/wooli-dft-pyro-lasers.jpg';
+import rail2 from '../assets/images/preferred/preferred-epadronmedia.jpg';
+import rail3 from '../assets/images/preferred/preferred-stillnoize.jpg';
+import rail4 from '../assets/images/preferred/preferred-masoncelum.jpg';
 
 const outreachOS = products['artist-outreach-os'];
 
 // Portrait crops, 2:3 across the board, so the rail reads as one strip
-// rather than four unrelated images.
+// rather than four unrelated images. Each frame is credited to the
+// shooter who took it, which is the point: the rail is the network's
+// own work, not stock, and the people on the list get their name on it.
 const rail = [
-  { src: rail1, alt: 'Crowd at Grimefest' },
-  { src: rail2, alt: 'ATLiens from the side of the stage at Dancefestopia' },
-  { src: rail3, alt: 'San Pacho at Silo in Dallas' },
-  { src: rail4, alt: 'Wooli under pyro and lasers at Dancefestopia' },
+  { src: rail1, handle: '@bytorbs', alt: 'Festival crowd, shot by @bytorbs' },
+  { src: rail2, handle: '@epadronmedia', alt: 'Artist on stage under festival lighting, shot by @epadronmedia' },
+  { src: rail3, handle: '@still.noize', alt: 'Artist performing in front of red and magenta LED walls, shot by @still.noize' },
+  { src: rail4, handle: '@masoncelum.media', alt: 'Artist behind the decks under blue stage light, shot by @masoncelum.media' },
 ];
 ---
 <Layout
@@ -103,12 +105,16 @@ const rail = [
           <Image
             src={r.src}
             alt={r.alt}
-            width={700}
-            height={1050}
+            width={800}
+            height={1200}
             format="webp"
-            quality={80}
+            quality={82}
             loading="lazy"
           />
+          <span class="pref-rail-cap">
+            <strong>{r.handle}</strong>
+            <span>Blueprint Preferred™</span>
+          </span>
         </li>
       ))}
     </ul>
@@ -348,6 +354,53 @@ const rail = [
   .pref-rail-track li:hover :global(img) {
     transform: scale(1.05);
     filter: saturate(1.05) brightness(1);
+  }
+
+  /* Credit, same mechanic as the portfolio gallery captions. */
+  .pref-rail-cap {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 2.25rem 1rem 1rem;
+    background: linear-gradient(to top, rgba(10, 10, 15, 0.94), rgba(10, 10, 15, 0) 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.35s cubic-bezier(0.2, 0.7, 0.3, 1),
+                transform 0.35s cubic-bezier(0.2, 0.7, 0.3, 1);
+    z-index: 2;
+    pointer-events: none;
+  }
+  .pref-rail-track li:hover .pref-rail-cap,
+  .pref-rail-track li:focus-within .pref-rail-cap {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .pref-rail-cap strong {
+    color: #fff;
+    font-family: var(--font-display);
+    /* Scales with the tile. A handle has no spaces to wrap at, so at a
+       fixed size "@masoncelum.media" broke mid-word in a 2-up mobile
+       rail. Shrinking with the viewport keeps every one on one line. */
+    font-size: clamp(0.66rem, 2.4vw, 0.95rem);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    /* Not uppercased, unlike the portfolio captions: these are handles,
+       and @Still.Noize is not what the account is called. */
+    overflow-wrap: anywhere;
+  }
+  .pref-rail-cap > span {
+    color: var(--bp-light);
+    font-size: clamp(0.6rem, 1.9vw, 0.74rem);
+    letter-spacing: 0.04em;
+  }
+
+  /* Hover is not available on touch, and a credit nobody can see is not
+     a credit. On those devices it simply stays up. */
+  @media (hover: none) {
+    .pref-rail-cap { opacity: 1; transform: none; }
+    .pref-rail-track :global(img) { filter: saturate(1) brightness(0.92); }
   }
 
   /* ═══════════════════════════════════════════════

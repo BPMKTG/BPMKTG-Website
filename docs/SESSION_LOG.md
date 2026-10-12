@@ -2563,4 +2563,58 @@ overflow, copy legible over the brighter crop.
 
 ---
 
+## Session 26 — 2026-10-12 — Second hero, and the rail becomes credited work
+
+### Hero swapped again
+
+Owner preferred the second frame from the same shoot. Same filename
+(`hero/blueprint-preferred.jpg`), so no import changed.
+
+**Astro cached the old optimisation.** Replacing a source image while keeping
+its filename does not invalidate the image cache, and both dev and the browser
+kept serving the previous render. Cleared `.astro`, `node_modules/.astro` and
+`dist`, then rebuilt. Confirmed by md5 rather than by eye, which mattered here:
+the two frames are from the same setup and look near-identical at thumbnail
+size, so a screenshot could not settle it.
+
+Worth remembering: **swap an image's bytes under the same name and you must
+clear the Astro image cache**, or use a new filename.
+
+### The rail is now the network's own work, credited
+
+Three of the four frames replaced with photographer-supplied shots. The first
+is unchanged. All four carry a credit on hover, matching the portfolio gallery
+mechanic exactly: handle in white display type, "Blueprint Preferred™" in
+small blue beneath, over a bottom-up gradient.
+
+| Frame | Credit |
+|-------|--------|
+| crowd, kept | @bytorbs |
+| fisheye stage | @epadronmedia |
+| red and magenta LED | @still.noize |
+| blue stage | @masoncelum.media |
+
+New images live in `src/assets/images/preferred/`, named after the handle, so
+file and credit cannot drift apart. They arrived at 13MB, 12MB and 53MB and
+were resampled to 1600x2400 (0.8 to 1.3MB) before any commit, so the originals
+never entered git history.
+
+### Two details the hover pattern needed changing for
+
+- **Handles are not uppercased**, unlike the portfolio captions. @Still.Noize
+  is not what the account is called.
+- **On touch there is no hover**, and a credit nobody can see is not a credit.
+  Under `@media (hover: none)` the captions simply stay up, and the resting
+  image dimming is lifted since there is no hover state to reward.
+
+Handle type also scales with the tile: at a fixed size, "@masoncelum.media"
+has no space to wrap at and broke mid-word in the 2-up mobile rail.
+
+### Verified
+
+17 pages. Hover reveals the credit on desktop; on mobile all four show
+permanently, each on a single line, no overflow at 375.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
