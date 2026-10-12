@@ -187,6 +187,59 @@ export const applicationSections: ApplicationSection[] = [
     ],
   },
   {
+    legend: 'Your rates',
+    // Deliberately all optional. Rates are the question people abandon
+    // forms over, and a ballpark given willingly is worth more than a
+    // number squeezed out of someone. Currency is a select rather than
+    // free text so the Sheet stays sortable now the network is global.
+    hint: 'Ballparks, not quotes. We will not hold you to these, and leaving them blank will not cost you the application. It just saves a round of emails when something comes up in your city.',
+    fields: [
+      {
+        name: 'Currency',
+        label: 'Currency',
+        type: 'select',
+        width: 'half',
+        options: ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'Other (say below)'],
+      },
+      {
+        name: 'Rate per show',
+        label: 'Typical rate, one show',
+        type: 'text',
+        width: 'half',
+        placeholder: 'e.g. 350, or 300 to 500',
+        help: 'One artist, one set, the usual club or support slot.',
+      },
+      {
+        name: 'Rate per festival day',
+        label: 'Typical rate, full festival day',
+        type: 'text',
+        width: 'half',
+        placeholder: 'e.g. 900',
+        help: 'Multiple sets, long day, more deliverables.',
+      },
+      {
+        // NOT "Travel": the You section already owns that name, and two
+        // fields sharing one would collide in the payload and the Sheet.
+        name: 'Travel costs',
+        label: 'How you handle travel',
+        type: 'select',
+        width: 'half',
+        options: [
+          'Included in my market',
+          'Charged beyond my city',
+          'Charged beyond my region',
+          'Case by case',
+        ],
+      },
+      {
+        name: 'Rate notes',
+        label: 'What changes the number',
+        type: 'textarea',
+        placeholder: 'What is included, what costs extra, rush turnaround, usage or licensing, anything else that moves the price.',
+      },
+    ],
+  },
+  {
     legend: 'A bit about you',
     hint: 'The part that actually separates applications. We are picking people we will put in a room with a client.',
     fields: [
@@ -200,6 +253,25 @@ export const applicationSections: ApplicationSection[] = [
     ],
   },
 ];
+
+// ─────────────────────────────────────────────────────────────
+// Every submitted key must be unique. A duplicate is near-invisible:
+// the markup still renders, the form still submits, and the second
+// field just quietly overwrites the first in the payload and loses a
+// Sheet column. Cheaper to fail the build than to find out from a
+// half-empty application. Runs at build time; costs nothing at runtime.
+// ─────────────────────────────────────────────────────────────
+const allFieldNames = applicationSections.flatMap(s => [
+  ...(s.fields ?? []).map(f => f.name),
+  ...(s.skills ?? []),
+]);
+const duplicateNames = allFieldNames.filter((n, i) => allFieldNames.indexOf(n) !== i);
+if (duplicateNames.length > 0) {
+  throw new Error(
+    `preferred.ts: duplicate application field names: ${[...new Set(duplicateNames)].join(', ')}. ` +
+      'Each field name is a submitted key and a Sheet column, so they have to be unique.',
+  );
+}
 
 export const formCopy = {
   eyebrow: 'Apply',

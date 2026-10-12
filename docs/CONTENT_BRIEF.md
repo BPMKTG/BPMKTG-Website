@@ -694,7 +694,10 @@ all three have to agree or the site contradicts itself.
 Do not add any of these without a real answer from the owner. Inventing them
 would be the exact over-claiming the weddings tripod note got corrected for:
 
-1. **Rates.** No day rate, no range, no "competitive". Applicants will ask.
+1. **Rates we pay.** No day rate, no range, no "competitive". Note this is a
+   different thing from the rates section *in the form*, which asks what the
+   applicant charges. Collecting their numbers does not commit us to ours, and
+   the page must still not state what Blueprint pays.
 2. **How many spots**, or whether the list is capped per market.
 3. **Response time** on an application. The page says "not instant" and
    stops there.
@@ -718,6 +721,15 @@ would be the exact over-claiming the weddings tripod note got corrected for:
 - **Fields are owner-specified** and live in `applicationSections`. Email and
   primary market were added on top of that list and are not optional: one is
   the only way to reply, the other is the whole premise of booking by city.
+- **Every field `name` must be unique.** It is the submitted key and the Sheet
+  column, and a duplicate silently overwrites rather than failing: the markup
+  renders, the form submits, and one field's answer disappears. `preferred.ts`
+  throws at build time if two collide, which is how the second `Travel` was
+  caught when the rates section was added.
+- The rates section is **entirely optional on purpose**. Rates are what people
+  abandon forms over, and a willing ballpark beats a squeezed number. Flip
+  `required: true` on Currency and Rate per show if patchy data becomes the
+  bigger problem.
 - Skills are owner-curated. Photo retouching and Lighting were removed in Oct
   2026; the list is eight, Photography through Live streaming.
 - The skills matrix submits **one column per skill** (blank when unclaimed) so

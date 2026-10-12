@@ -2446,4 +2446,45 @@ No horizontal overflow at 375; hero 625px against an 812 viewport.
 
 ---
 
+## Session 23 — 2026-10-12 — Rates on the application
+
+Added a "Your rates" section to the Preferred application: currency, a
+per-show ballpark, a festival-day ballpark, how travel is charged, and a notes
+field for what moves the number. It sits between Skills and the about-you
+section.
+
+**Currency was not asked for but is not optional thinking.** The network went
+worldwide earlier the same day, so a bare "350" from a Berlin applicant means
+nothing. It is a select rather than free text so the Sheet stays sortable.
+
+**The whole section is optional on purpose.** Rates are the question people
+abandon forms over, and a ballpark given willingly is worth more than a number
+squeezed out of someone; the hint says plainly that we will not hold them to
+it and that leaving it blank costs them nothing. One-word change if patchy
+data turns out to be the bigger problem.
+
+Worth noting what this quietly solves: the open "we have not decided our
+rates" item is less urgent now, because the form collects what *they* charge
+rather than requiring us to publish what *we* pay. Those are still different
+things and the brief now says so.
+
+### A duplicate field name, and a guard against the next one
+
+The rates section's travel question was first written as `Travel`, which the
+You section already owns. Two fields sharing a submitted key is nearly
+invisible: the markup renders, the form submits, and the second simply
+overwrites the first in the payload while the Sheet loses a column.
+
+`preferred.ts` now throws at build time on any duplicate across fields and
+skills. Verified by reintroducing the collision on purpose: the build fails
+with the offending name, and passes once renamed to `Travel costs`.
+
+### Verified
+
+17 pages. Stubbed submit confirms both travel fields carry their own distinct
+values, all five rate fields arrive, and the skills matrix is unaffected.
+`read_network_requests` shows nothing reached Web3Forms. No overflow at 375.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
