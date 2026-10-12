@@ -2655,4 +2655,53 @@ per-position styling, so this was a pure data reorder.
 
 ---
 
+## Session 28 — 2026-10-12 — Applications sheet wired end to end
+
+The owner asked for the Apps Script set up for them rather than pasted, so it
+is now created, pushed and deployed with **clasp**, bound to the applications
+sheet in the bpmktg account. They were already authenticated as
+mason@bpmktg.com, so no login was needed.
+
+- Script `1UkRwnAKKR0ipiuYll7WKiS2XpoB_wUldTS-d5EfM2CMlhl6hYe8xnjeI`
+- Deployment `AKfycbx8SY1hdjEF_6NG93HgJjNwCtA_-AAYYa0Ul9lw_A6uxuKkYqDxFAmcXbMssVUw7nUq4A`
+- Deployed source committed at `docs/preferred-apps-script.js`
+
+`executeAs: USER_DEPLOYING` and `access: ANYONE_ANONYMOUS` live in the
+manifest, so the two deployment dropdowns never had to be touched by hand.
+
+**The one step clasp cannot do** is grant the script's scopes: a web app
+running as the deploying user returns 403 until that user approves once. Done
+via an `onOpen` Blueprint menu added for the purpose, which doubles as the
+formatting trigger. Confirmed working: a real submission from the live page
+landed in the sheet.
+
+### Two debugging lessons worth keeping
+
+- **`curl -L` downgrades POST to GET on redirect.** Apps Script always 302s
+  its response to googleusercontent, so a plain `-L` POST test reports 405 and
+  looks like a broken endpoint. Read the `location` header and GET it, or pass
+  `--post302`.
+- **The site 308-redirects to a trailing slash.** Checking
+  `/blueprint-preferred` without `-L` returns an empty body, which I misread
+  as "Cloudflare has not deployed in hours" and reported as such. It had
+  deployed fine. Always follow the redirect before concluding anything about
+  what is live.
+
+### A diagnostic that should not have shipped
+
+While debugging I deployed a `doGet` returning the spreadsheet name, tab list,
+row count and recent applicant names, unauthenticated, to anyone holding the
+`/exec` URL, which ships in the page source. Removed and redeployed within the
+hour; the endpoint now answers nothing to a GET. Worth stating plainly: a
+debug endpoint on a public URL is a data leak, not a convenience.
+
+### Owner formatting notes
+
+- **No filter.** Its only visible effect was turning the column letters and
+  row numbers green, which the owner did not want. Removed.
+- **`submittedAt` moved to the far right**, before the dashboard is built so
+  the formulas resolve against final positions.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*

@@ -58,6 +58,18 @@ function colOf_(heads, name) {
   return s;
 }
 
+/** submittedAt is the least interesting column to read first, so it
+ *  lives at the far right. Moved before anything else in setup, so the
+ *  dashboard formulas are built against the final column positions. */
+function moveSubmittedAtLast_(sheet) {
+  const heads = headers_(sheet);
+  const idx = heads.indexOf('submittedAt');
+  if (idx === -1 || idx === heads.length - 1) return;
+  // Destination is evaluated before the column is lifted out, so moving
+  // to the far right means "one past the current last column".
+  sheet.moveColumns(sheet.getRange(1, idx + 1, sheet.getMaxRows(), 1), heads.length + 1);
+}
+
 /* ── menu ────────────────────────────────────────────────────── */
 
 function onOpen() {
@@ -115,6 +127,8 @@ function setupWorkbook() {
   const sheet = dataSheet_(ss);
   sheet.setName(DATA_TAB);
 
+  moveSubmittedAtLast_(sheet);
+
   const heads = headers_(sheet);
   const lastCol = Math.max(sheet.getLastColumn(), 1);
   const ROWS = 2000;
@@ -158,9 +172,12 @@ function setupWorkbook() {
       if (c > 0) sheet.getRange(2, c, ROWS, 1).setHorizontalAlignment('center');
     });
 
+  // Deliberately no filter. A filter tints the column letters and row
+  // numbers green, and that green was the one thing the owner did not
+  // want. Data > Create a filter adds one back any time, at the cost of
+  // the green returning.
   const existing = sheet.getFilter();
   if (existing) existing.remove();
-  sheet.getRange(1, 1, Math.max(sheet.getLastRow(), 2), lastCol).createFilter();
 
   buildDashboard_(ss, heads);
   ss.setActiveSheet(ss.getSheetByName(DASH_TAB));
