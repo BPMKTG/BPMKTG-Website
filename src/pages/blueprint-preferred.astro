@@ -10,7 +10,7 @@ import ApplyForm from '../components/preferred/ApplyForm.astro';
 import { hero, what, process, who } from '../data/preferred';
 import { products } from '../data/products';
 
-import heroBg from '../assets/images/portfolio/svddendeath-productionteam-lasers-pyro.jpg';
+import heroBg from '../assets/images/hero/blueprint-preferred.jpg';
 import rail1 from '../assets/images/portfolio/crowd-grimefest.jpg';
 import rail2 from '../assets/images/portfolio/atliens-dft-sidestage.jpg';
 import rail3 from '../assets/images/portfolio/sanpacho-silo.jpg';
@@ -32,17 +32,18 @@ const rail = [
   description="A vetted network of photographers and videographers worldwide. When an artist we work with needs coverage in your city, Blueprint Preferred is the list we book from."
 >
   <section class="pref-hero">
-    {/* The page was all gradient and grid before, which read flat next to
-        the rest of the site. A real frame of a crew working front of
-        house does the arguing that copy was doing alone. */}
+    {/* A shooter at work, monitor lit, mid-set. For a page recruiting
+        shooters that is the argument, and the frame conveniently
+        silhouettes to near-black on the left, which is where the copy
+        sits: the photo does most of its own scrim work. */}
     <div class="pref-hero-media" aria-hidden="true">
       <Image
         src={heroBg}
         alt=""
-        width={2048}
-        height={1365}
+        width={1920}
+        height={1080}
         format="webp"
-        quality={82}
+        quality={84}
         loading="eager"
         fetchpriority="high"
       />
@@ -192,18 +193,22 @@ const rail = [
   .pref-hero-media :global(img) {
     width: 100%; height: 100%;
     object-fit: cover;
-    object-position: center 42%;
+    object-position: center 48%;
     /* Own layer so the scrim above it never forces a repaint of the
        photo during scroll. */
     transform: translateZ(0);
   }
-  /* Heavy at the bottom where the copy sits, light at the top so the
-     lasers and the orange stage still read. */
+  /* Much lighter than the frame this replaced. That one was bright edge
+     to edge and needed holding down; this one is already silhouetted
+     black where the copy sits, so a heavy scrim would only have crushed
+     the lasers on the right without buying any legibility. Enough
+     vertical to seat the section into the page, and a gentle left wash
+     as insurance at narrow desktop widths. */
   .pref-hero-scrim {
     position: absolute; inset: 0; z-index: 1;
     background:
-      linear-gradient(180deg, rgba(4, 4, 14, 0.78) 0%, rgba(4, 4, 14, 0.42) 32%, rgba(4, 4, 14, 0.88) 88%, #05050e 100%),
-      linear-gradient(90deg, rgba(4, 4, 14, 0.8) 0%, rgba(4, 4, 14, 0.25) 55%, transparent 100%);
+      linear-gradient(180deg, rgba(4, 4, 14, 0.5) 0%, rgba(4, 4, 14, 0.1) 28%, rgba(4, 4, 14, 0.74) 86%, #05050e 100%),
+      linear-gradient(90deg, rgba(4, 4, 14, 0.55) 0%, rgba(4, 4, 14, 0.12) 46%, transparent 72%);
     pointer-events: none;
   }
   .pref-hero-grid {
@@ -215,7 +220,17 @@ const rail = [
     mask-image: radial-gradient(75% 75% at 35% 45%, #000 45%, transparent 100%);
     pointer-events: none;
   }
-  .pref-hero-inner { position: relative; z-index: 3; padding: 7rem 1.5rem 3.5rem; }
+  .pref-hero-inner {
+    position: relative;
+    z-index: 3;
+    padding: 7rem 1.5rem 3.5rem;
+    /* Required. The hero is a flex container and .container carries
+       `margin: 0 auto`, so without an explicit width this shrinks to its
+       content and the auto margins centre it. That went unnoticed while
+       the copy was wide enough to fill the row, and showed up the moment
+       the headline was capped. */
+    width: 100%;
+  }
   .pref-hero h1 {
     font-family: var(--font-display);
     font-size: clamp(2rem, 5vw, 3.4rem);
@@ -224,15 +239,20 @@ const rail = [
     letter-spacing: -0.015em;
     margin: 0.75rem 0 1.15rem;
     text-shadow: 0 2px 30px rgba(0, 0, 0, 0.6);
+    /* Kept inside the silhouette. The frame is only black across its
+       left half, and an unconstrained headline ran out over the lit
+       monitor and the lasers, where it stopped being readable. */
+    max-width: 13ch;
   }
   .pref-hero-sub {
     color: rgba(226, 232, 245, 0.88);
     font-size: 1.02rem;
     line-height: 1.75;
-    max-width: 52ch;
+    max-width: 40ch;
     margin: 0 0 1.5rem;
     text-shadow: 0 1px 16px rgba(0, 0, 0, 0.7);
   }
+  .pref-hero-pills { max-width: 44ch; }
   .pref-hero-pills {
     list-style: none; padding: 0;
     margin: 0 0 2rem;
@@ -459,12 +479,15 @@ const rail = [
       background: linear-gradient(
         180deg,
         rgba(4, 4, 14, 0.62) 0%,
-        rgba(4, 4, 14, 0.3) 30%,
+        rgba(4, 4, 14, 0.46) 34%,
         rgba(4, 4, 14, 0.86) 82%,
         #05050e 100%
       );
     }
-    .pref-hero-media :global(img) { object-position: center 38%; }
+    /* Stacked, the copy runs the full width and crosses the lit monitor,
+       which the left-silhouette composition only protects on desktop.
+       Hence a firmer mid-band here than the desktop scrim needs. */
+    .pref-hero-media :global(img) { object-position: center 44%; }
     .pref-os-inner { grid-template-columns: minmax(0, 1fr); }
     .pref-hero-ctas > * { flex: 1 1 100%; justify-content: center; }
     /* Two up rather than four: at phone width a 4-across rail renders

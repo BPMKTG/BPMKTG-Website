@@ -2510,4 +2510,57 @@ filling it submits the value. Nothing reached Web3Forms.
 
 ---
 
+## Session 25 — 2026-10-12 — New Preferred hero, and a flex bug it exposed
+
+Owner supplied a replacement hero for `/blueprint-preferred`: a videographer
+in silhouette, monitor lit, shooting a set. Better than the production-team
+frame it replaces, because the page recruits shooters and this is a shooter
+working. Lives at `src/assets/images/hero/blueprint-preferred.jpg`.
+
+It arrived at 1920x1080 and 314KB, already inside the photo guide, so no
+resizing. The frame it replaced stays in the portfolio gallery, so nothing was
+orphaned.
+
+### The scrim got lighter, not heavier
+
+The previous frame was bright edge to edge and needed holding down. This one
+silhouettes to near-black across its left half, which is exactly where the
+copy sits, so the photo does most of its own scrim work. Both gradients were
+softened; a heavy scrim would only have crushed the lasers on the right
+without buying any legibility.
+
+Copy is now capped (`h1` at 13ch, sub at 40ch) to stay inside the silhouette.
+Unconstrained, the headline ran out over the lit monitor and stopped being
+readable.
+
+### The bug that cap exposed
+
+Capping the headline made the hero copy jump to x=401 and shrink to 638px,
+roughly centred, instead of sitting at the container's left edge.
+
+Cause: `.pref-hero` is `display: flex`, and `.container` carries
+`margin: 0 auto`. As a flex item with no explicit width, `.pref-hero-inner`
+shrank to its content and the auto margins centred it. It had been invisible
+only because the copy was previously wide enough to fill the row. Fixed with
+`width: 100%`, which `.shop-hero-inner` on `/products` already had for the
+same reason.
+
+Worth remembering: `.container`'s auto margins behave differently inside a
+flex parent. Any future hero built as a flex container needs the explicit
+width.
+
+### Mobile needed the opposite treatment
+
+Stacked, the copy runs full width and crosses the lit monitor, which the
+left-silhouette composition only protects on desktop. So mobile keeps a firmer
+mid-band scrim than desktop and shifts the crop slightly.
+
+### Verified
+
+17 pages. Desktop: copy at the container edge, headline ending at 50% of the
+width, well inside the dark mass. Mobile: 625px hero in an 812 viewport, no
+overflow, copy legible over the brighter crop.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
