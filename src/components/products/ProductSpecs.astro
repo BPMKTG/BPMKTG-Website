@@ -27,9 +27,20 @@ const { product } = Astro.props;
       {/* A sheet-based product has tabs, not files. Calling that list
           "what you download" would be plainly untrue, so the heading
           and the contents both switch. */}
-      <p class="label">{product.tabs ? 'What you get' : 'What you download'}</p>
+      <p class="label">
+        {product.tabs || product.deliverables ? 'What you get' : 'What you download'}
+      </p>
 
-      {product.tabs ? (
+      {product.deliverables ? (
+        <ul class="prod-files">
+          {product.deliverables.map(d => (
+            <li>
+              <code>{d.name}</code>
+              <span>{d.purpose}</span>
+            </li>
+          ))}
+        </ul>
+      ) : product.tabs ? (
         <>
           <ul class="prod-files">
             {product.tabs.map(t => (

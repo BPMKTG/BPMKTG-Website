@@ -13,9 +13,15 @@ import {
   APPLICATION_SHEET_WEBHOOK,
   CONTACT_EMAIL,
 } from '../../config/cta';
-import { applicationSections, formCopy } from '../../data/preferred';
+import { applicationSections, formCopy, SKILL_MAX } from '../../data/preferred';
 
 const live = WEB3FORMS_ACCESS_KEY !== '';
+
+// Stars are radios in reverse DOM order so a pure-CSS sibling selector
+// can fill the chosen star and every lower one, with no JS needed for
+// the visual state. JS only handles enabling, clearing and the readout.
+const starValues = Array.from({ length: SKILL_MAX }, (_, i) => SKILL_MAX - i);
+const skillId = (skill: string) => skill.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 ---
 <section class="section apply" id="apply">
   <div class="container">
@@ -39,8 +45,48 @@ const live = WEB3FORMS_ACCESS_KEY !== '';
               <legend>{section.legend}</legend>
               {section.hint && <p class="apply-hint">{section.hint}</p>}
 
+              {section.skills && (
+                <ul class="skill-list" data-skill-list>
+                  {section.skills.map(skill => (
+                    <li class="skill is-off" data-skill-row data-skill={skill}>
+                      <label class="skill-check">
+                        <input type="checkbox" data-skill-toggle />
+                        <span class="skill-box" aria-hidden="true"></span>
+                        <span class="skill-name">{skill}</span>
+                      </label>
+
+                      <div class="skill-rate">
+                        <div class="skill-stars" role="radiogroup" aria-label={`${skill} skill level out of ${SKILL_MAX}`}>
+                          {starValues.map(n => (
+                            <Fragment>
+                              <input
+                                class="skill-star-input"
+                                type="radio"
+                                name={skill}
+                                id={`${skillId(skill)}-${n}`}
+                                value={String(n)}
+                                disabled
+                              />
+                              <label class="skill-star" for={`${skillId(skill)}-${n}`}>
+                                <span class="sr-only">{n} out of {SKILL_MAX}</span>
+                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                  <path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L2.6 9.4l6.5-.9L12 2.6z" />
+                                </svg>
+                              </label>
+                            </Fragment>
+                          ))}
+                        </div>
+                        <span class="skill-value" data-skill-value aria-hidden="true"></span>
+                      </div>
+
+                      <p class="apply-error" data-error-for={skill} hidden></p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
               <div class="apply-rows">
-                {section.fields.map(f => (
+                {(section.fields ?? []).map(f => (
                   <div class:list={['apply-field', `is-${f.width ?? 'full'}`]}>
                     <label for={`f-${f.name}`}>
                       {f.label}
@@ -134,13 +180,51 @@ const live = WEB3FORMS_ACCESS_KEY !== '';
 
     const fieldError = (name: string, message: string | null) => {
       const el = form.querySelector<HTMLElement>(`[data-error-for="${CSS.escape(name)}"]`);
-      const input = form.elements.namedItem(name) as HTMLElement | null;
       if (el) {
         el.textContent = message ?? '';
         el.hidden = !message;
       }
-      input?.classList.toggle('has-error', Boolean(message));
+      // A radio group resolves to a RadioNodeList, not an element, so
+      // this has to be guarded: reaching for .classList on one throws,
+      // and inside the async submit handler that surfaces as a rejected
+      // promise rather than an error, i.e. the form silently does nothing.
+      const control = form.elements.namedItem(name);
+      if (control instanceof HTMLElement) {
+        control.classList.toggle('has-error', Boolean(message));
+      }
     };
+
+    // ─── Skills matrix ───
+    // Stars stay disabled until the skill is ticked, so a rating can
+    // never be submitted for something the applicant did not claim.
+    const skillRows = Array.from(form.querySelectorAll<HTMLElement>('[data-skill-row]'));
+
+    const ratingOf = (row: HTMLElement) =>
+      row.querySelector<HTMLInputElement>('.skill-star-input:checked')?.value ?? '';
+
+    const syncRow = (row: HTMLElement) => {
+      const on = row.querySelector<HTMLInputElement>('[data-skill-toggle]')?.checked ?? false;
+      row.classList.toggle('is-off', !on);
+      row.querySelectorAll<HTMLInputElement>('.skill-star-input').forEach(r => {
+        r.disabled = !on;
+        if (!on) r.checked = false;
+      });
+      const readout = row.querySelector<HTMLElement>('[data-skill-value]');
+      const rating = on ? ratingOf(row) : '';
+      if (readout) readout.textContent = rating ? `${rating}/10` : '';
+      if (!on) fieldError(row.dataset.skill ?? '', null);
+    };
+
+    skillRows.forEach(row => {
+      row.querySelector('[data-skill-toggle]')?.addEventListener('change', () => syncRow(row));
+      row.querySelectorAll('.skill-star-input').forEach(r =>
+        r.addEventListener('change', () => {
+          const readout = row.querySelector<HTMLElement>('[data-skill-value]');
+          if (readout) readout.textContent = `${ratingOf(row)}/10`;
+          fieldError(row.dataset.skill ?? '', null);
+        }),
+      );
+    });
 
     // Native constraint validation, surfaced inline instead of as the
     // browser's popup, which does not match anything else on the site.
@@ -168,6 +252,19 @@ const live = WEB3FORMS_ACCESS_KEY !== '';
         if (!firstBad) firstBad = c;
       });
 
+      // A ticked skill with no stars is the one invalid state native
+      // validation cannot see, since the radios carry no `required`.
+      skillRows.forEach(row => {
+        const on = row.querySelector<HTMLInputElement>('[data-skill-toggle]')?.checked ?? false;
+        const skill = row.dataset.skill ?? '';
+        if (on && !ratingOf(row)) {
+          fieldError(skill, 'Give this one a rating, or untick it.');
+          if (!firstBad) firstBad = row.querySelector<HTMLElement>('.skill-star-input:last-of-type');
+        } else {
+          fieldError(skill, null);
+        }
+      });
+
       if (firstBad) {
         (firstBad as HTMLElement).focus();
         (firstBad as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -181,6 +278,21 @@ const live = WEB3FORMS_ACCESS_KEY !== '';
       if (!validate()) return;
 
       const data = Object.fromEntries(new FormData(form).entries());
+
+      // Every skill ships on every submission, blank when unclaimed, so
+      // the Sheet keeps one stable filterable column per skill instead
+      // of a ragged set that depends on what each applicant ticked.
+      const rated: string[] = [];
+      skillRows.forEach(row => {
+        const skill = row.dataset.skill ?? '';
+        const rating = ratingOf(row);
+        data[skill] = rating;
+        if (rating) rated.push(`${skill} ${rating}/10`);
+      });
+      // One readable line for the notification email, which is a worse
+      // place to read ten separate columns.
+      data['Skills summary'] = rated.length ? rated.join(', ') : 'None selected';
+
       const payload = {
         ...data,
         access_key: form.dataset.accessKey,
@@ -347,6 +459,109 @@ const live = WEB3FORMS_ACCESS_KEY !== '';
 
   .apply-help { margin: 0; font-size: 0.78rem; color: var(--dim); line-height: 1.5; }
   .apply-error { margin: 0; font-size: 0.78rem; color: var(--bp-orange); }
+
+  /* ─── Skills matrix ─── */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .skill-list { list-style: none; padding: 0; margin: 1.25rem 0 1.75rem; display: grid; gap: 0.3rem; }
+  .skill {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }
+  .skill:hover { background: rgba(255, 255, 255, 0.02); }
+  .skill:not(.is-off) {
+    background: rgba(98, 166, 219, 0.05);
+    border-color: rgba(98, 166, 219, 0.18);
+  }
+
+  .skill-check {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .skill-check input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .skill-box {
+    width: 17px; height: 17px;
+    flex: none;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 5px;
+    position: relative;
+    transition: border-color 0.18s ease, background 0.18s ease;
+  }
+  .skill-check input:checked + .skill-box {
+    background: var(--bp-blue);
+    border-color: var(--bp-blue);
+  }
+  .skill-check input:checked + .skill-box::after {
+    content: '';
+    position: absolute;
+    left: 5px; top: 1px;
+    width: 4px; height: 9px;
+    border: solid #07121d;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .skill-check input:focus-visible + .skill-box {
+    box-shadow: 0 0 0 3px rgba(98, 166, 219, 0.3);
+  }
+  .skill:not(.is-off) .skill-name { color: var(--ink); }
+
+  .skill-rate { display: flex; align-items: center; gap: 0.6rem; }
+
+  /* Reverse order so `:checked ~ label` reaches the lower stars. */
+  .skill-stars { display: flex; flex-direction: row-reverse; justify-content: flex-end; }
+  .skill-star-input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .skill-star {
+    display: inline-flex;
+    padding: 2px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.14);
+    transition: color 0.12s ease, transform 0.12s ease;
+  }
+  .skill-star svg { width: 17px; height: 17px; fill: currentColor; }
+  .skill-star-input:checked ~ .skill-star { color: var(--bp-blue); }
+  .skill-star:hover { color: var(--bp-light); transform: scale(1.12); }
+  .skill-star-input:focus-visible + .skill-star {
+    outline: 2px solid rgba(98, 166, 219, 0.6);
+    outline-offset: 1px;
+    border-radius: 3px;
+  }
+
+  .is-off .skill-star { cursor: not-allowed; color: rgba(255, 255, 255, 0.07); }
+  .is-off .skill-star:hover { transform: none; color: rgba(255, 255, 255, 0.07); }
+
+  .skill-value {
+    min-width: 3.4ch;
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--bp-light);
+  }
+
+  .skill .apply-error { grid-column: 1 / -1; }
+
+  @media (max-width: 560px) {
+    .skill { grid-template-columns: minmax(0, 1fr); }
+    .skill-rate { justify-content: space-between; }
+  }
 
   /* Honeypot. Off-screen rather than display:none, which some bots skip. */
   .apply-botcheck {

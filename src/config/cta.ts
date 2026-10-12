@@ -9,7 +9,10 @@
 //   "https://calendly.com/blueprint/strategy-call"
 // ─────────────────────────────────────────────────────────────
 
-export const CALENDLY_URL = 'https://calendly.com/bpmktg/strategy-meeting';
+// Google Calendar appointment booking, replacing the old Calendly link.
+// The constant name is kept so every CTA across the site keeps importing
+// the same thing; it means "the booking destination", not "Calendly".
+export const CALENDLY_URL = 'https://calendar.app.google/jdhwJZQBRRQQ8DxQA';
 
 // ─────────────────────────────────────────────────────────────
 // Footer / contact constants — single source of truth.
@@ -83,7 +86,7 @@ export const BLUEPRINT_PREFERRED_URL = '/blueprint-preferred';
 // Until the key is set, the page renders an honest "applications open
 // soon" state rather than a form that silently fails.
 // ─────────────────────────────────────────────────────────────
-export const WEB3FORMS_ACCESS_KEY = '';
+export const WEB3FORMS_ACCESS_KEY = '5703bc35-9ab0-4d9f-bccc-a2ccaf18e336';
 
 /** Apps Script web-app URL. Empty disables the sheet write entirely. */
 export const APPLICATION_SHEET_WEBHOOK = '';

@@ -1,28 +1,19 @@
 # Blueprint Preferred™ application form — setup
 
-The page at `/blueprint-preferred` is built and live. The form is **not yet
-wired**: until the Web3Forms key is set it renders an honest "applications
-open soon" notice with a mailto fallback instead of inputs that would silently
-drop submissions.
+The page at `/blueprint-preferred` is live and **the form is wired**. The
+Web3Forms key is set, so submissions arrive at `info@bpmktg.com` and the
+applicant gets an inline success panel without leaving the page.
 
-Two steps. The first takes two minutes and turns the form on. The second is
-optional and puts applications in a spreadsheet as well as your inbox.
+What is still optional is step 2, which also puts every application into a
+spreadsheet so they are not only in an inbox.
 
 ---
 
-## 1. Turn the form on (required)
+## 1. Email delivery — DONE
 
-1. Go to **web3forms.com** and enter `info@bpmktg.com`.
-2. They email you an **access key**, a UUID.
-3. Put it in [`src/config/cta.ts`](../src/config/cta.ts):
-
-```ts
-export const WEB3FORMS_ACCESS_KEY = 'paste-the-key-here';
-```
-
-That is the whole thing. The form appears, submissions arrive at
-`info@bpmktg.com`, and the applicant gets an inline success panel without
-leaving the page.
+`WEB3FORMS_ACCESS_KEY` is set in [`src/config/cta.ts`](../src/config/cta.ts).
+If it ever needs replacing, get a new key by entering an address at
+web3forms.com and swap that one constant.
 
 **The key is public on purpose.** It ships in the page source. It only
 identifies which inbox to deliver to; it cannot read anything or send on your

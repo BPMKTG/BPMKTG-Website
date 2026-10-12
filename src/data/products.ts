@@ -62,6 +62,10 @@ export interface Product {
    *  learn that before paying, not after. */
   requirement?: string;
 
+  /** A credit or offset against a larger offer, shown under the price.
+   *  The Teardown is fully credited toward the Session. */
+  creditNote?: string;
+
   /** How the product actually reaches the buyer, when it isn't a
    *  download. The Outreach OS copies a sheet into their own Drive. */
   deliveryNote?: string;
@@ -103,6 +107,10 @@ export interface Product {
    *  the buyer gets. Rendered in place of the file manifest, because a
    *  "what you download" list would be a lie for a Google Sheet. */
   tabs?: ProductFile[];
+
+  /** For a service rather than a thing: what gets produced and sent
+   *  back. Also rendered in place of the file manifest. */
+  deliverables?: ProductFile[];
   /** Tabs that exist but are not meant to be used. Listed for honesty. */
   hiddenTabs?: string[];
 
@@ -552,10 +560,127 @@ const artistOutreachOS: Product = {
   ],
 };
 
+// ─────────────────────────────────────────────────────────────
+// 05 — Growth Systems Teardown  (artist track, a service)
+//
+// From the Blueprint Ascension Ladder (Notion). The rung between the
+// workbooks and the $1,000 Session: async, credited forward, and
+// deliberately a demonstration of the thinking rather than a promise.
+// Not a file and not a workbook, so it carries `deliverables`.
+// ─────────────────────────────────────────────────────────────
+const growthSystemsTeardown: Product = {
+  slug: 'growth-systems-teardown',
+  number: '05',
+  name: 'Growth Systems Teardown',
+  shortName: 'The Teardown',
+  subtitle: 'Recorded Audit & Priority Fix List',
+  price: '$197',
+  priceValue: 197,
+  status: 'in-build',
+  statusNote:
+    'The Teardown is not open yet. It is described here in full, but we are not taking bookings for it until the process is running.',
+  track: 'artist',
+
+  fileTypes: ['Video', 'Written'],
+  formatNote: 'A 20-minute recorded walkthrough plus a written priority fix list',
+  creditNote: 'Fully credited toward the Growth Blueprint Session™ within 30 days.',
+  deliveryNote:
+    'Nothing is scheduled. You send your socials, your recent releases and whatever content archive you have. We go through it properly and send back a recorded walkthrough with a written fix list ordered by what matters first. No call, no timezone maths, nothing in your calendar.',
+
+  whoFor:
+    'Artists who want to know what is actually broken before committing to a build. You suspect the problem is not effort, you just cannot see the system from inside it.',
+  positioning: 'The Teardown tells you what is leaking.',
+
+  cardBlurb:
+    'Send your socials, releases and content archive. Get back a recorded walkthrough of what is leaking, what to fix first, and what to build in what order. The full $197 comes off the Session.',
+
+  summary: [
+    'Most artists do not need more content. They need someone to look at what they already have and say, plainly, which part is losing them the growth.',
+    'You submit your socials, your recent releases and your content archive. We return a twenty-minute recorded walkthrough of what is leaking, what to fix first, and what to build in what order, plus the written version so you can work from it.',
+    'It is async on purpose. No scheduling, no timezones, watched on a bus at 2am if that is when you have twenty minutes.',
+  ],
+
+  hero: {
+    eyebrow: 'Diagnosis',
+    headline: 'Find out what is broken <span class="highlight">before you build anything</span>.',
+    sub: 'A recorded teardown of your actual accounts, releases and archive, with a fix list in priority order.',
+    pills: [
+      '20-minute recording',
+      'Written fix list',
+      'Fully credited toward the Session',
+      'No call to schedule',
+      'Async, watch it anywhere',
+    ],
+    highlights: [
+      { value: '20', unit: 'minute walkthrough' },
+      { value: '$197', unit: 'credited forward' },
+      { value: '30', unit: 'day credit window' },
+      { value: '0', unit: 'calls to schedule' },
+    ],
+  },
+
+  story: {
+    headline: 'A demonstration, not a promise.',
+    paragraphs: [
+      'Every agency will tell you what they would do. Almost none of them will show you, because showing you costs them an afternoon and gives away the part they are actually selling.',
+      'The Teardown is that afternoon. You experience the thinking before you spend a thousand pounds on it, which means the Session stops being a leap of faith and becomes an obvious next step or an obvious no.',
+      'And it is yours either way. If you never book anything else, you still have a prioritised list of what is costing you growth.',
+    ],
+    points: [
+      {
+        title: 'It is tour-proof.',
+        body: 'No scheduling, no timezones, nothing that needs you at a desk. It is a recording, so it survives a bus at 2am and a festival weekend.',
+      },
+      {
+        title: 'It is a miniature of the real thing.',
+        body: 'The Growth Blueprint Session™ is this thinking applied with you, in the room, building the plan together. The Teardown is the same eye, one-way. That makes the upgrade obvious instead of salesy.',
+      },
+      {
+        title: 'The whole fee comes back.',
+        body: 'The full $197 is credited toward the Session if you book within 30 days. Taken that way, the diagnosis costs nothing and only the build does.',
+      },
+    ],
+  },
+
+  inside: {
+    eyebrow: 'What you get back',
+    headline: 'What is leaking, and what to fix first',
+    items: [
+      {
+        title: 'The recorded walkthrough',
+        body: 'Twenty minutes through your actual accounts, releases and archive. Not a template with your name in it.',
+      },
+      {
+        title: 'The priority fix list',
+        body: 'Written, ordered, and specific. What to fix this week, what to fix next, and what to stop doing entirely.',
+      },
+      {
+        title: 'The build order',
+        body: 'If the answer is that you need a system rather than a fix, you get the order it should be built in, whether or not you build it with us.',
+      },
+    ],
+    closer: 'This covered the what. The Session builds the how, with you.',
+  },
+
+  files: [],
+
+  deliverables: [
+    { name: 'Recorded teardown', purpose: 'Roughly 20 minutes, walking your socials, releases and archive' },
+    { name: 'Priority fix list', purpose: 'Written, ordered by what costs you the most growth first' },
+  ],
+
+  caveats: [
+    'You have to send real material. Socials, recent releases and whatever archive you have; a teardown of an empty account is not worth either of our time.',
+    'It is a diagnosis, not a build. It tells you what to fix and in what order. Doing it is either your job or the Session.',
+    'The credit runs 30 days. After that the $197 is just the Teardown.',
+  ],
+};
+
 export const products: Record<string, Product> = {
   'show-media-brief-kit': showMediaBriefKit,
   'release-rollout-calendar': releaseRolloutCalendar,
   'content-vault': contentVault,
+  'growth-systems-teardown': growthSystemsTeardown,
   'artist-outreach-os': artistOutreachOS,
 };
 
@@ -564,6 +689,7 @@ export const productOrder = [
   'show-media-brief-kit',
   'release-rollout-calendar',
   'content-vault',
+  'growth-systems-teardown',
   'artist-outreach-os',
 ] as const;
 
@@ -591,16 +717,29 @@ export const trackLabels: Record<ProductTrack, { label: string; blurb: string }>
 // ─────────────────────────────────────────────────────────────
 // The bundle
 //
-// ARTIST TRACK ONLY. It is priced against the sum of the artist
-// products, computed rather than hardcoded so the saving can never
-// drift from the prices above. Deriving it from every product would
-// silently fold the $199 creator tool into a $49 bundle, so the filter
-// above is load-bearing, not tidiness.
+// Its contents are named explicitly, NOT derived from a track. The
+// bundle is the three workbooks and nothing else, and the price and
+// saving are summed from them rather than hardcoded so the arithmetic
+// can never drift from the prices above.
+//
+// This list being explicit is load-bearing. Deriving it from "every
+// artist product" was already fragile and broke the moment the $197
+// Teardown joined that track: a $49 bundle would have started claiming
+// a $213 saving on items it does not include. Add a slug here only if
+// the bundle genuinely contains it.
 //
 // It also inherits the least-ready status of its contents: while the
 // Vault is in build, the bundle cannot be delivered either.
 // ─────────────────────────────────────────────────────────────
-const bundleStandalone = artistProducts.reduce((sum, p) => sum + p.priceValue, 0);
+export const bundleSlugs = [
+  'show-media-brief-kit',
+  'release-rollout-calendar',
+  'content-vault',
+] as const;
+
+export const bundleProducts: Product[] = bundleSlugs.map(slug => products[slug]);
+
+const bundleStandalone = bundleProducts.reduce((sum, p) => sum + p.priceValue, 0);
 
 export const bundle = {
   slug: 'bundle',
@@ -609,7 +748,7 @@ export const bundle = {
   priceValue: 49,
   standalone: `$${bundleStandalone}`,
   saving: `$${bundleStandalone - 49}`,
-  status: (artistProducts.every(p => p.status === 'available') ? 'available' : 'in-build') as ProductStatus,
+  status: (bundleProducts.every(p => p.status === 'available') ? 'available' : 'in-build') as ProductStatus,
   statusNote: 'The bundle opens when the Vault does.',
   positioning:
     'The Kit organizes one show. The Calendar organizes one release. The Vault organizes everything across time.',

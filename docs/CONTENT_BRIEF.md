@@ -603,21 +603,30 @@ the catalog are converted on the way in, per the site-wide rule.
 | Show Media Brief Kit | artist | $17 | Media Brief & Post-Show Content Schedule | PDF + DOCX + XLSX | Built |
 | Release Rollout Calendar | artist | $19 | Rollout Plan & Asset Checklist | XLSX | Built |
 | The Content Vault | artist | $29 | Asset Library & Usage Log | XLSX | **In build** |
-| All Three Tools (bundle) | artist | $49 | vs $65 standalone, saves $16 | the three above | **Blocked on the Vault** |
+| Growth Systems Teardown | artist | $197 | Recorded Audit & Priority Fix List | Video + written, async | **In build** |
+| All Three Tools (bundle) | artist | $49 | vs $65 standalone, saves $16 | the three workbooks only | **Blocked on the Vault** |
 | Artist Outreach OS | creator | $199 | Outreach Tracker & Contact Directory | Google Sheet copy + Gmail | **Built, unproven** |
 
 **Artist-track positioning line, use verbatim:**
 > The Kit organizes one show. The Calendar organizes one release. The Vault
 > organizes everything across time.
 
-**The Outreach OS is not in that line and not in the bundle.** It is a
-different audience at four times the bundle price. A creator-track bundle is
-possible later if more creator tools follow; do not force it now.
+**The bundle is the three workbooks and nothing else.** Its contents are an
+explicit slug list in `products.ts`, not everything on the artist track. The
+$197 Teardown shares that track and is not in the bundle; the $199 Outreach OS
+is a different audience entirely. A creator-track bundle is possible later if
+more creator tools follow; do not force it now.
+
+**The Teardown is the rung above the workbooks**, from the Blueprint Ascension
+Ladder: $197, async, and fully credited toward the $1,000 Growth Blueprint
+Session within 30 days. Its upgrade line is *"This covered the what. The
+Session builds the how, with you."*
 
 **Who each one is for:**
 - **Kit** — artists and managers booking media for shows. Anyone who has hired a shooter and gotten back footage that missed the moment.
 - **Calendar** — artists with a single release coming up who announce two weeks out and watch it die three days after it drops. One release, not a rolling cadence.
 - **Vault** — artists a year or more into shooting regularly, with footage scattered across Drive, Dropbox, a phone, and a hard drive.
+- **Teardown** — artists who want to know what is broken before committing to a build. Feeds from the workbooks or a mid-range Readiness Score, and converges on the Session.
 - **Outreach OS** — the working concert photographer or videographer, two to ten shoots a month at local venues, whose pipeline is "DM the artist on Instagram and hope". Not for hobbyists without a portfolio, not for agencies that already have a CRM, not for anyone off Gmail.
 
 ### Rules for this section
@@ -701,6 +710,14 @@ would be the exact over-claiming the weddings tripod note got corrected for:
   fallback, never a form that silently drops submissions. Same honesty gate as
   the buy buttons.
 - Setup, including the Apps Script, is in `docs/PREFERRED_FORM_SETUP.md`.
+- **Fields are owner-specified** and live in `applicationSections`. Email and
+  primary market were added on top of that list and are not optional: one is
+  the only way to reply, the other is the whole premise of booking by city.
+- The skills matrix submits **one column per skill** (blank when unclaimed) so
+  the Sheet stays filterable, plus a `Skills summary` line because ten columns
+  read badly in an email. A ticked skill with no rating is a validation error;
+  stars stay disabled until the skill is ticked, so a rating can never be
+  recorded for something the applicant did not claim.
 
 ---
 

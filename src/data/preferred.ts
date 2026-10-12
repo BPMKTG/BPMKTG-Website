@@ -31,8 +31,15 @@ export interface ApplicationField {
 export interface ApplicationSection {
   legend: string;
   hint?: string;
-  fields: ApplicationField[];
+  fields?: ApplicationField[];
+  /** When present the section renders the self-rated skills matrix.
+   *  Each skill becomes its own submitted key, so the Sheet gets one
+   *  filterable column per skill rather than a blob of text. */
+  skills?: string[];
 }
+
+/** Stars per skill. Changing this changes the markup and the labels. */
+export const SKILL_MAX = 10;
 
 export const hero = {
   eyebrow: 'Blueprint Preferred™',
@@ -85,27 +92,28 @@ export const who = {
 // ─────────────────────────────────────────────────────────────
 export const applicationSections: ApplicationSection[] = [
   {
-    legend: 'You and your market',
+    legend: 'You',
     fields: [
-      { name: 'Name', label: 'Name', type: 'text', required: true, width: 'half', placeholder: 'First and last' },
+      { name: 'Name', label: 'First and last name', type: 'text', required: true, width: 'half', placeholder: 'First and last' },
+      // Email and market are not on the owner's original list but the
+      // network cannot function without them: one is the only way to
+      // reply, the other is the whole premise of booking by city.
       { name: 'Email', label: 'Email', type: 'email', required: true, width: 'half', placeholder: 'you@example.com' },
-      { name: 'Phone', label: 'Phone', type: 'tel', width: 'half', placeholder: 'Day-of contact', help: 'Optional, but we will need it before a show.' },
       { name: 'Primary market', label: 'Primary market', type: 'text', required: true, width: 'half', placeholder: 'City and state' },
       {
         name: 'Travel',
         label: 'How far you will travel',
         type: 'select',
-        required: true,
         width: 'half',
         options: ['My city only', 'Up to 3 hours', 'My whole region', 'Anywhere in the US'],
       },
+      { name: 'Phone', label: 'Phone', type: 'tel', width: 'half', placeholder: 'Day-of contact' },
       {
-        name: 'Discipline',
-        label: 'What you shoot',
-        type: 'select',
-        required: true,
+        name: 'Socials',
+        label: 'Instagram and other handles',
+        type: 'text',
         width: 'half',
-        options: ['Photo', 'Video', 'Both'],
+        placeholder: '@handle, and anywhere else you post',
       },
     ],
   },
@@ -121,55 +129,49 @@ export const applicationSections: ApplicationSection[] = [
         placeholder: 'https://',
         help: 'A site, a Drive folder, a reel. Anything we can open without an account.',
       },
-      { name: 'Instagram', label: 'Instagram', type: 'text', width: 'half', placeholder: '@handle' },
-      {
-        name: 'Years shooting shows',
-        label: 'Years shooting live shows',
-        type: 'select',
-        required: true,
-        width: 'half',
-        options: ['Under a year', '1 to 2 years', '3 to 5 years', 'More than 5 years'],
-      },
       {
         name: 'Notable work',
-        label: 'Venues, festivals or artists you have shot',
+        label: 'Artists and brands you have worked with',
         type: 'textarea',
         required: true,
-        placeholder: 'A few names is plenty.',
-      },
-      {
-        name: 'Gear',
-        label: 'Gear you own',
-        type: 'textarea',
-        required: true,
-        placeholder: 'Bodies, lenses, lighting, anything else that matters in a dark room.',
+        placeholder: 'A few names is plenty. Venues and festivals count.',
       },
     ],
   },
   {
-    legend: 'Logistics',
+    legend: 'Your skills',
+    hint: 'Tick what you actually do, then rate yourself out of ten on each. Be honest rather than generous; we would rather know you are a 9 at photo and a 3 at motion than find out on a show day.',
+    skills: [
+      'Photography',
+      'Videography',
+      'Video editing',
+      'Color grading',
+      'Motion graphics and VFX',
+      'Graphic design',
+      'Photo retouching',
+      'Drone',
+      'Lighting',
+      'Live streaming',
+    ],
     fields: [
       {
-        name: 'Turnaround',
-        label: 'Turnaround you can commit to',
-        type: 'select',
-        required: true,
-        width: 'half',
-        options: ['Within 24 hours', 'Within 48 hours', '3 to 5 days', 'A week or more'],
+        name: 'Other skills',
+        label: 'Anything else you are good at',
+        type: 'text',
+        placeholder: 'Not on the list above',
       },
+    ],
+  },
+  {
+    legend: 'A bit about you',
+    hint: 'The part that actually separates applications. We are picking people we will put in a room with a client.',
+    fields: [
       {
-        name: 'Vertical',
-        label: 'Can you deliver vertical?',
-        type: 'select',
-        required: true,
-        width: 'half',
-        options: ['Yes, shot vertical natively', 'Yes, cropped from horizontal', 'Not currently'],
-      },
-      {
-        name: 'Notes',
-        label: 'Anything else',
+        name: 'About',
+        label: 'Tell us about yourself',
         type: 'textarea',
-        placeholder: 'Optional. Rates, availability, anything we should know.',
+        required: true,
+        placeholder: 'What you care about, how you got here, what you do when you are not shooting. Anything that would make us want to work with you.',
       },
     ],
   },

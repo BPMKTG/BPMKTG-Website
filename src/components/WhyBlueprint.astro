@@ -15,6 +15,8 @@ const diffs = [
   {
     title: 'Blueprint Preferred™.',
     body: 'A vetted network of photographers and videographers across the U.S. Wherever you tour, Blueprint Preferred™ scales coverage to match your schedule without you sourcing crews city by city.',
+    href: '/blueprint-preferred',
+    linkLabel: 'Shoot shows? Apply to the network',
   },
   {
     title: 'Built on integrity.',
@@ -41,6 +43,12 @@ const diffs = [
           <span class="diff-num" data-icon-pop>{String(i + 1).padStart(2, '0')}</span>
           <h3>{d.title}</h3>
           <p>{d.body}</p>
+          {'href' in d && d.href && (
+            <a class="diff-link" href={d.href}>
+              {d.linkLabel}
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+          )}
         </article>
       ))}
     </div>
@@ -102,6 +110,21 @@ const diffs = [
   }
   .diff h3 { color: var(--ink); font-family: var(--font-display); text-transform: uppercase; font-size: 1.05rem; letter-spacing: 0.01em; }
   .diff p { color: var(--muted); font-size: 0.92rem; }
+  /* Only the Preferred card carries a link, now that the network has a
+     page to send shooters to. */
+  .diff-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.9rem;
+    color: var(--bp-blue);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .diff-link .arrow { transition: transform 0.2s ease; }
+  .diff-link:hover { color: var(--bp-light); }
+  .diff-link:hover .arrow { transform: translateX(3px); }
 
   @media (max-width: 980px) {
     .why-head { grid-template-columns: 1fr; }

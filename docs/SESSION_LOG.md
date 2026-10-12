@@ -2297,4 +2297,92 @@ commit; nothing was ever posted to Web3Forms.
 
 ---
 
+## Session 21 — 2026-10-12 — Form goes live, Teardown added, booking link swapped
+
+Four things, two of them one-liners.
+
+### Booking link
+
+`CALENDLY_URL` now points at Google Calendar appointments:
+`https://calendar.app.google/jdhwJZQBRRQQ8DxQA`. The constant name is kept, so
+every CTA on every page picked it up from one edit. Verified: no reference to
+calendly survives anywhere in the build.
+
+### The Preferred form is wired
+
+`WEB3FORMS_ACCESS_KEY` is set, so `/blueprint-preferred` renders the real form
+instead of the pending notice. The Sheet webhook is still empty and still
+optional; `docs/PREFERRED_FORM_SETUP.md` step 1 is now marked done.
+
+The homepage WhyBlueprint card for Blueprint Preferred™ is a link now that
+there is somewhere to send shooters.
+
+### Application fields rebuilt to the owner's spec
+
+Name, portfolio, socials, a rated skills matrix, notable artists and brands,
+and an about-you section. **Two fields were added on top of that list and are
+required: email and primary market.** The list as given had no way to contact
+an applicant and no way to know which city they cover, which is the entire
+premise of booking by market. Flagged to the owner rather than quietly added.
+
+**The skills matrix** is ten skills, each a checkbox plus a ten-star rating.
+Stars are radios in reverse DOM order so a pure-CSS sibling selector fills the
+chosen star and every lower one, with no JS needed for the visual state. They
+stay disabled until the skill is ticked, so a rating can never be submitted
+for something the applicant did not claim, and a ticked-but-unrated skill is
+its own validation error.
+
+Submission sends **one column per skill**, blank when unclaimed, so the Sheet
+keeps a stable filterable column set rather than a ragged one that depends on
+what each applicant ticked. A `Skills summary` line rides along for the email,
+which is a bad place to read ten columns.
+
+### A real bug the matrix exposed
+
+`fieldError` did `form.elements.namedItem(name).classList.toggle(...)`. For a
+radio group `namedItem` returns a **RadioNodeList**, not an element, so that
+threw. Because it threw inside the async submit handler it surfaced as an
+unhandled rejection rather than an error, and the visible symptom was the form
+doing absolutely nothing on submit: no errors, no request, no success. It is
+now guarded with `instanceof HTMLElement`.
+
+Worth remembering: a throw inside an async submit handler is invisible in the
+places you normally look. Testing with an `unhandledrejection` listener is
+what found it.
+
+### Growth Systems Teardown
+
+Added from the Blueprint Ascension Ladder (Notion). $197, async, fully
+credited toward the $1,000 Session within 30 days. Status `'in-build'`, since
+the process is not running yet.
+
+It is a **service**, so it carries the new `deliverables` field rather than
+`files` or `tabs`, and ProductSpecs renders that as "What you get". New
+`creditNote` renders the credit under the price in the offer card.
+
+**The bundle is now an explicit slug list.** It used to reduce over
+`artistProducts`, which was already fragile and would have broken the instant
+the $197 Teardown joined that track: a $49 bundle advertising a $213 saving on
+items it does not contain. `bundleSlugs` names the three workbooks. Verified
+in the built HTML: still "$65 separately", "saves $16".
+
+### Verified
+
+17 pages, build clean. Form tested with `fetch` stubbed so nothing reached
+Web3Forms, confirmed by `read_network_requests` finding no such request: all
+required fields flag inline, a ticked-unrated skill flags, the payload carries
+every skill column plus the summary, subject and reply-to are right, and the
+success panel shows. Skills matrix tested for tick, rate, untick-clears.
+
+### Open
+
+1. **Sheet webhook**, if applications in the inbox alone get unwieldy.
+2. **Five things the Preferred page still will not claim** (rates, spots per
+   market, response time, whether listing is free, insurance) remain open from
+   Session 20.
+3. **The Teardown needs its process running** before `status` flips.
+4. **Checkout URLs** for all five products, still.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*

@@ -102,6 +102,8 @@ const topTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
           <span class="prod-offer-price-note">one-time · yours to keep</span>
         </div>
 
+        {product.creditNote && <p class="prod-offer-credit">{product.creditNote}</p>}
+
         <ul class="prod-offer-highlights">
           {hero.highlights.map(h => (
             <li>
@@ -305,6 +307,17 @@ const topTicks = Array.from({ length: 19 }, (_, i) => 80 + i * 78);
     font-weight: 900; line-height: 1;
   }
   .prod-offer-price-note { color: var(--muted); font-size: 0.82rem; }
+
+  .prod-offer-credit {
+    margin: 0.7rem 0 0;
+    padding: 0.5rem 0.7rem;
+    border-radius: 8px;
+    background: rgba(227, 112, 59, 0.09);
+    border: 1px solid rgba(227, 112, 59, 0.22);
+    color: #e9b396;
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
 
   .prod-offer-highlights {
     list-style: none; padding: 0;
