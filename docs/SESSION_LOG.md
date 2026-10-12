@@ -2617,4 +2617,42 @@ permanently, each on a single line, no overflow at 375.
 
 ---
 
+## Session 27 — 2026-10-12 — The applications sheet exists, rail reordered
+
+### The sheet
+
+Owner tested the form, it works, and asked where the results sheet was. There
+wasn't one: only the Apps Script and the instructions had ever been written,
+and `APPLICATION_SHEET_WEBHOOK` has been empty since Session 20. Said so
+plainly rather than papering over it.
+
+Created it in the owner's Drive via the Drive connector:
+**Blueprint Preferred Applications**,
+`1sMVZFrJpwLCtubwwbQHtMdy-MM_bs5veszUo8ikEpvg`.
+
+**Headers were generated from `applicationSections`, not hand-typed**, so the
+26 columns cannot drift from the keys the form actually submits. One column
+per question, plus submittedAt and Skills summary.
+
+What could not be done from here: **creating and deploying the Apps Script**.
+That needs the Apps Script editor UI and the owner's authorisation, so it
+stays four manual clicks. The webhook constant stays empty until the `/exec`
+URL comes back.
+
+### Two script changes the real sheet forced
+
+- **It takes the first sheet, not a tab named `Applications`.** A CSV import
+  names the tab "Untitled", and the original script would have silently found
+  nothing. Renaming a tab should not be able to break intake.
+- **Unknown keys now get a column appended** rather than being dropped. Given
+  how often fields have been added to this form, a question whose answers
+  silently vanish was a real risk.
+
+### Rail reordered
+
+Now @epadronmedia, @still.noize, @bytorbs, @masoncelum.media. The rail has no
+per-position styling, so this was a pure data reorder.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*

@@ -26,7 +26,7 @@ with reply-to set to the applicant so you can answer directly from your inbox.
 
 ---
 
-## 2. Also log to a Google Sheet (optional)
+## 2. Also log to a Google Sheet
 
 Applications in an inbox are hard to shortlist by market. This appends every
 submission to a sheet as well.
@@ -36,28 +36,56 @@ Web3Forms call and its result is ignored, so if the script breaks or Google is
 down, the applicant still sees success and the application is still in your
 email. Nothing can be lost by the spreadsheet failing.
 
+### The sheet already exists
+
+**Blueprint Preferred Applications**
+https://docs.google.com/spreadsheets/d/1sMVZFrJpwLCtubwwbQHtMdy-MM_bs5veszUo8ikEpvg/edit
+
+Row 1 already holds all 26 columns, one per question, generated from
+`applicationSections` in `src/data/preferred.ts` so the headers cannot drift
+from the keys the form actually submits. The order is: submittedAt, the You
+section, Your work, the eight skills, Skills summary, Other skills, the rates
+fields, then About.
+
+Its tab is named **Untitled**, which is what a CSV import produces. That does
+not matter: the script below takes the first sheet rather than a named one.
+
 ### Steps
 
-1. Make a Google Sheet. Name the first tab `Applications`.
+1. Open the sheet above.
 2. **Extensions → Apps Script**, delete what's there, paste this:
 
 ```javascript
 // Appends each Blueprint Preferred application as a row.
-// Columns are created from the first submission's keys, then reused.
+//
+// Maps by header name, so the column ORDER in the sheet is yours to
+// change freely. Any key that has no column yet gets one appended, so
+// adding a question to the form does not silently drop its answers.
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Applications');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    // First sheet, not a named one: the tab is "Untitled" from the CSV
+    // import, and renaming it should not be able to break intake.
+    const sheet = ss.getSheetByName('Applications') || ss.getSheets()[0];
     const data = JSON.parse(e.postData.contents);
 
-    // First run: write the header row from the payload's keys.
+    // Empty sheet: lay the headers down from the payload itself.
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(Object.keys(data));
     }
 
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    sheet.appendRow(headers.map(h => data[h] ?? ''));
+    let headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+    // New question on the form? Give it a column rather than dropping it.
+    const unknown = Object.keys(data).filter(k => headers.indexOf(k) === -1);
+    if (unknown.length) {
+      sheet.getRange(1, headers.length + 1, 1, unknown.length).setValues([unknown]);
+      headers = headers.concat(unknown);
+    }
+
+    sheet.appendRow(headers.map(h => (data[h] !== undefined ? data[h] : '')));
 
     return ContentService.createTextOutput(JSON.stringify({ ok: true }))
       .setMimeType(ContentService.MimeType.JSON);
