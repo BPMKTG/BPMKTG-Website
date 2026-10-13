@@ -343,7 +343,7 @@ const total = intakeSteps.length;
   .intake-shell { max-width: 820px; }
 
   /* ── Progress ── */
-  .intake-progress { margin-bottom: 1.5rem; }
+  .intake-progress { margin-bottom: 2.25rem; }
   .intake-progress-head {
     display: flex;
     align-items: baseline;
@@ -547,6 +547,11 @@ const total = intakeSteps.length;
   .intake-actions [data-next],
   .intake-actions [data-submit] { margin-left: auto; }
   .intake-actions button[disabled] { opacity: 0.6; cursor: progress; }
+  /* .button sets display: inline-flex, which beats the user agent's
+     [hidden] { display: none } on specificity, so Back and Send It Over
+     both rendered on step one. Needs an explicit rule, not the
+     attribute alone. */
+  .intake-actions [hidden] { display: none; }
   .intake-saved {
     flex-basis: 100%;
     margin: 0;

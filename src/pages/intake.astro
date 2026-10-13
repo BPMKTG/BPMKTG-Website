@@ -17,6 +17,51 @@ import IntakeForm from '../components/intake/IntakeForm.astro';
     <div class="intake-hero-base" aria-hidden="true"></div>
     <div class="intake-hero-grid" aria-hidden="true"></div>
 
+    {/* Same HUD vocabulary as the tier and product heroes: viewfinder
+        brackets, orbital arcs, a radar cluster and edge ticks. Sits on
+        the right, where the copy is not. */}
+    <svg class="intake-hud" viewBox="0 0 1600 480" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <g class="hud-stroke" fill="none">
+        <path d="M 24 56 L 24 24 L 56 24" />
+        <path d="M 1544 24 L 1576 24 L 1576 56" />
+        <path d="M 24 424 L 24 456 L 56 456" />
+        <path d="M 1544 456 L 1576 456 L 1576 424" />
+      </g>
+
+      <g class="hud-stroke hud-orbits" fill="none">
+        <circle cx="1460" cy="250" r="520" />
+        <circle cx="1460" cy="250" r="400" />
+        <circle cx="1460" cy="250" r="290" />
+      </g>
+
+      <g class="hud-stroke hud-radar" fill="none" transform="translate(1270, 190)">
+        <circle r="128" />
+        <circle r="88" />
+        <circle r="52" />
+        <circle r="22" />
+        <line x1="-150" y1="0" x2="150" y2="0" stroke-dasharray="2 9" />
+        <line x1="0" y1="-150" x2="0" y2="150" stroke-dasharray="2 9" />
+        <circle cx="88" cy="-52" r="8" />
+        <circle cx="88" cy="-52" r="3.5" class="hud-marker-dot" />
+      </g>
+
+      <g class="hud-stroke hud-ticks" fill="none">
+        {Array.from({ length: 19 }, (_, i) => 80 + i * 78).map(x => (
+          <line x1={x} y1="8" x2={x} y2="22" />
+        ))}
+      </g>
+
+      <g class="hud-fill">
+        <circle cx="60" cy="110" r="2.2" />
+        <circle cx="190" cy="40" r="1.5" />
+        <circle cx="1500" cy="150" r="2.2" />
+        <circle cx="1420" cy="410" r="1.6" />
+        <circle cx="1180" cy="60" r="1.8" />
+      </g>
+
+      <line x1="240" y1="452" x2="900" y2="452" class="hud-horizon" stroke-linecap="round" />
+    </svg>
+
     <div class="container intake-hero-inner">
       <p class="label" data-reveal="left">Client intake</p>
       <h1 data-reveal>Let's build your Blueprint.</h1>
@@ -55,11 +100,30 @@ import IntakeForm from '../components/intake/IntakeForm.astro';
     mask-image: radial-gradient(75% 75% at 35% 50%, #000 45%, transparent 100%);
     pointer-events: none;
   }
+
+  /* ─── HUD vector ─── */
+  .intake-hud {
+    position: absolute; inset: 0; z-index: 2;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .intake-hud :global(.hud-stroke) { stroke: rgba(98, 166, 219, 0.3); stroke-width: 1; }
+  .intake-hud :global(.hud-orbits) { stroke: rgba(98, 166, 219, 0.14); }
+  .intake-hud :global(.hud-radar)  { stroke: rgba(98, 166, 219, 0.24); }
+  .intake-hud :global(.hud-ticks)  { stroke: rgba(98, 166, 219, 0.34); }
+  .intake-hud :global(.hud-fill)   { fill: rgba(98, 166, 219, 0.45); }
+  .intake-hud :global(.hud-marker-dot) { fill: var(--bp-blue); }
+  .intake-hud :global(.hud-horizon) {
+    stroke: rgba(98, 166, 219, 0.5);
+    stroke-width: 1.5;
+    filter: drop-shadow(0 0 4px rgba(98, 166, 219, 0.55));
+  }
+
   .intake-hero-inner {
     position: relative;
-    z-index: 2;
+    z-index: 3;
     width: 100%;                 /* flex parent + .container's auto margins */
-    padding: 7rem 1.5rem 2.5rem;
+    padding: 8rem 1.5rem 4.5rem;
   }
   .intake-hero h1 {
     font-family: var(--font-display);
@@ -78,10 +142,16 @@ import IntakeForm from '../components/intake/IntakeForm.astro';
     margin: 0;
   }
 
-  .intake { padding: 2.5rem 0 5.5rem; }
+  .intake-hero {
+    /* The hero and the form were butting up against each other, which is
+       most of why the page read squished. */
+    margin-bottom: 1rem;
+  }
+  .intake { padding: 4rem 0 7rem; }
 
   @media (max-width: 760px) {
-    .intake-hero-inner { padding: 6rem 1.25rem 2.25rem; }
-    .intake { padding: 2rem 0 4rem; }
+    .intake-hero { min-height: clamp(260px, 32vh, 340px); margin-bottom: 0; }
+    .intake-hero-inner { padding: 6.5rem 1.25rem 3rem; }
+    .intake { padding: 2.5rem 0 4.5rem; }
   }
 </style>
