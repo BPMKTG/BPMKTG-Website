@@ -439,7 +439,9 @@ const contentVault: Product = {
 // ─────────────────────────────────────────────────────────────
 const artistOutreachOS: Product = {
   slug: 'artist-outreach-os',
-  number: '04',
+  // 05, not 04: the artist track runs 01 to 04 and the creator track
+  // picks up after it, so the shop reads in order down the page.
+  number: '05',
   name: 'Artist Outreach OS',
   shortName: 'Outreach OS',
   subtitle: 'Outreach Tracker & Contact Directory',
@@ -570,7 +572,7 @@ const artistOutreachOS: Product = {
 // ─────────────────────────────────────────────────────────────
 const growthSystemsTeardown: Product = {
   slug: 'growth-systems-teardown',
-  number: '05',
+  number: '04',
   name: 'Growth Systems Teardown',
   shortName: 'The Teardown',
   subtitle: 'Recorded Audit & Priority Fix List',
