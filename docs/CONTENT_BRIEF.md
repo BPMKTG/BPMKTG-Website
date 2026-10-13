@@ -730,6 +730,9 @@ would be the exact over-claiming the weddings tripod note got corrected for:
   abandon forms over, and a willing ballpark beats a squeezed number. Flip
   `required: true` on Currency and Rate per show if patchy data becomes the
   bigger problem.
+- Gear is required. It sits in Your work with the other capability
+  questions, not in the optional rates block, for the same reason delivery
+  timeframe does: it is something we screen on.
 - Skills are owner-curated. Photo retouching and Lighting were removed in Oct
   2026; the list is eight, Photography through Live streaming.
 - The skills matrix submits **one column per skill** (blank when unclaimed) so

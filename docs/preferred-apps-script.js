@@ -58,6 +58,23 @@ function colOf_(heads, name) {
   return s;
 }
 
+/** Make sure a column exists, in a sensible place.
+ *
+ *  doPost appends unknown keys at the far right, which is fine for not
+ *  losing data but would strand a new question after submittedAt. This
+ *  puts it where a human would expect it instead. Inserting a column
+ *  shifts data right as a block, so existing rows stay under their own
+ *  headers.
+ */
+function ensureColumn_(sheet, name, afterName) {
+  const heads = headers_(sheet);
+  if (heads.indexOf(name) !== -1) return;
+  const after = heads.indexOf(afterName);
+  const at = after === -1 ? heads.length + 1 : after + 2;
+  sheet.insertColumnBefore(at);
+  sheet.getRange(1, at).setValue(name);
+}
+
 /** submittedAt is the least interesting column to read first, so it
  *  lives at the far right. Moved before anything else in setup, so the
  *  dashboard formulas are built against the final column positions. */
@@ -127,6 +144,7 @@ function setupWorkbook() {
   const sheet = dataSheet_(ss);
   sheet.setName(DATA_TAB);
 
+  ensureColumn_(sheet, 'Gear', 'Notable work');
   moveSubmittedAtLast_(sheet);
 
   const heads = headers_(sheet);
@@ -154,7 +172,7 @@ function setupWorkbook() {
   const WIDE = {
     'submittedAt': 150, 'Name': 150, 'Email': 210, 'Primary market': 160,
     'Travel': 150, 'Phone': 130, 'Socials': 170, 'Portfolio': 230,
-    'Notable work': 260, 'Delivery timeframe': 165, 'Skills summary': 280,
+    'Notable work': 260, 'Gear': 300, 'Delivery timeframe': 165, 'Skills summary': 280,
     'Other skills': 170, 'Currency': 90, 'Rate per show': 120,
     'Rate per festival day': 140, 'Travel costs': 160, 'Rate notes': 280,
     'About': 340

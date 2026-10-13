@@ -163,6 +163,14 @@ export const applicationSections: ApplicationSection[] = [
         placeholder: 'A few names is plenty. Venues and festivals count.',
       },
       {
+        name: 'Gear',
+        label: 'Gear you would bring to a booking',
+        type: 'textarea',
+        required: true,
+        placeholder: 'Bodies, lenses, lighting, audio, drone, stabilisers, anything else you would actually turn up with.',
+        help: 'What you own or have reliable access to. Low light is most of this job, so be specific about glass.',
+      },
+      {
         // Lives here rather than in the rates section: it is a criterion
         // we screen on ("you can turn work around on a deadline"), and
         // the rates block is optional, which would get this skipped.
