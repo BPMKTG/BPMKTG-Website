@@ -14,11 +14,15 @@ import '../styles/global.css';
 interface Props {
   title: string;
   description?: string;
+  /** Keep the page out of search results. For client-specific pages
+   *  that are unlisted rather than secret, like /intake. */
+  noindex?: boolean;
 }
 
 const {
   title,
   description = 'Blueprint Marketing builds growth systems for EDM artists, turning content, shows, and releases into real fans and real revenue.',
+  noindex = false,
 } = Astro.props;
 ---
 <!doctype html>
@@ -28,6 +32,7 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#0a0a0f" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     <link rel="icon" type="image/svg+xml" href="/brand/icon-white.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

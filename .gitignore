@@ -25,3 +25,11 @@ pnpm-debug.log*
 
 # cloudflare
 .wrangler/
+# Local secrets for Pages Functions (NOTION_TOKEN etc). Never commit.
+.dev.vars
+.dev.vars.*
+# ...but the placeholder template is meant to be committed.
+!.dev.vars.example
+
+# transient bundle used by `npm run test:intake`
+.tmp-intake-lib.mjs

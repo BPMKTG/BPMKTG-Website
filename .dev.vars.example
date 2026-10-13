@@ -1,0 +1,9 @@
+# Local secrets for `wrangler pages dev`. Copy to .dev.vars and fill in.
+# .dev.vars is gitignored; this example file is not.
+#
+# Notion integration token. The integration must be shared with BOTH the
+# Artist Intake and Clients databases, or every write 404s.
+NOTION_TOKEN=secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Optional. Set to get an email when an intake lands. Omit to skip.
+WEB3FORMS_KEY=

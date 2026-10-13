@@ -8,7 +8,8 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test:intake": "esbuild functions/api/intake.ts --bundle --format=esm --platform=neutral --outfile=.tmp-intake-lib.mjs && node tests/intake-shaping.test.mjs; rm -f .tmp-intake-lib.mjs"
   },
   "dependencies": {
     "astro": "^6.3.3"

@@ -2704,4 +2704,69 @@ debug endpoint on a public URL is a data leak, not a convenience.
 
 ---
 
+## Session 29 — 2026-10-13 — `/intake`: client intake into Notion
+
+A branded, multi-step client intake form that writes into the Artist Intake
+Notion database and links each row to the right Client.
+
+### Pages Function, not an Astro API route
+
+`astro.config.mjs` is `output: 'static'` with no adapter, so there is no
+server for an API route to run on. Cloudflare Pages runs anything under
+`/functions`, so the endpoint is `functions/api/intake.ts` at
+`POST /api/intake`. This is the repo's first server-side code.
+
+### One schema, two consumers
+
+`src/data/intake.ts` defines the steps, fields, Notion property names and
+allowed options, and is imported by **both** the Astro component and the
+Pages Function. Notion silently ignores a property it does not recognise, so
+a drifted name looks like a field that simply will not save; two copies of
+the list would eventually drift. Verified the cross-directory import survives
+Cloudflare's bundling by running esbuild over the function and checking the
+schema is inlined.
+
+It also throws at build time on duplicate property names, same guard as the
+Preferred form.
+
+### Shaping rules worth remembering
+
+- Text is chunked at 2000 characters, Notion's per-object limit, so long
+  answers are split rather than truncated or rejected.
+- A url gets `https://` prepended if missing. If it still will not parse it
+  is **not** dropped: it is appended to "Other links" as `Property: raw`, so a
+  mistyped link still reaches a person.
+- select and multi_select are allow-listed. Posting an unknown select value
+  would otherwise make Notion create a new option out of it.
+- An unmatched client slug does not fail the submission; the row arrives
+  unlinked. Losing an intake to a typo is worse than linking by hand.
+
+### Tested rather than assumed
+
+`npm run test:intake` bundles the function and asserts the shaping: chunking,
+URL normalisation, allow-listing, omissions, and the Other-links fallback.
+16 assertions, all passing. Worth keeping because that logic is invisible
+until a real submission goes wrong.
+
+The form itself was exercised in the browser: per-step validation blocks
+advancing, Back preserves answers, progress restores from localStorage after
+a reload, the slug reaches the payload, multi-selects arrive as arrays, and a
+successful submit clears storage.
+
+### One thing caught late
+
+The first `.gitignore` rule was `.dev.vars.*`, which also hid
+`.dev.vars.example` — the template that is supposed to be committed. Fixed
+with a negation. The real `.dev.vars` is still ignored; checked both.
+
+### Open
+
+1. **End-to-end against real Notion** has not been run from here: it needs
+   `NOTION_TOKEN`, which lives in Cloudflare. The first preview-deploy
+   submission is the real test.
+2. **The integration must be shared with both databases** in Notion, or every
+   write 404s in a way that reads like a wrong database id.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*

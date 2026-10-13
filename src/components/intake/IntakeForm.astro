@@ -1,0 +1,622 @@
+---
+// Client intake form.
+//
+// Same visual language as the Blueprint Preferred application: the same
+// input, select, label, help and error treatments, the same inline
+// validation instead of browser popups, the same honeypot. The
+// difference is that this one is stepped, and it posts to our own
+// endpoint at /api/intake rather than to Web3Forms.
+import { intakeSteps } from '../../data/intake';
+import { CONTACT_EMAIL } from '../../config/cta';
+
+const fieldId = (prop: string) => 'f-' + prop.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const total = intakeSteps.length;
+---
+<section class="intake" id="form">
+  <div class="container intake-shell">
+    <!-- Progress -->
+    <div class="intake-progress" data-progress>
+      <div class="intake-progress-head">
+        <p class="intake-step-count">Step <span data-step-now>1</span> of {total}</p>
+        <p class="intake-step-name" data-step-name>{intakeSteps[0].title}</p>
+      </div>
+      <div class="intake-bar" role="progressbar" aria-valuemin="0" aria-valuemax={total} aria-valuenow="1">
+        <span class="intake-bar-fill" data-bar></span>
+      </div>
+    </div>
+
+    <form class="intake-form" data-intake-form novalidate>
+      {intakeSteps.map((step, si) => (
+        <fieldset class="intake-step" data-step={si} hidden={si !== 0}>
+          <legend>{step.title}</legend>
+          {step.blurb && <p class="intake-blurb">{step.blurb}</p>}
+
+          <div class="intake-rows">
+            {step.fields.map(f => (
+              <div class:list={['intake-field', `is-${f.width ?? 'full'}`]}>
+                {f.input === 'multiselect' ? (
+                  <fieldset class="intake-checks" data-group={f.prop}>
+                    <legend class="intake-label">
+                      {f.label}
+                      {f.required
+                        ? <span class="intake-req" aria-hidden="true">*</span>
+                        : <span class="intake-opt">optional</span>}
+                    </legend>
+                    <div class="intake-check-grid">
+                      {f.options?.map(o => (
+                        <label class="intake-check">
+                          <input type="checkbox" name={f.prop} value={o} />
+                          <span class="intake-box" aria-hidden="true"></span>
+                          <span>{o}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                ) : (
+                  <>
+                    <label class="intake-label" for={fieldId(f.prop)}>
+                      {f.label}
+                      {f.required
+                        ? <span class="intake-req" aria-hidden="true">*</span>
+                        : <span class="intake-opt">optional</span>}
+                    </label>
+
+                    {f.input === 'textarea' ? (
+                      <textarea id={fieldId(f.prop)} name={f.prop} rows="3" required={f.required} placeholder={f.placeholder}></textarea>
+                    ) : f.input === 'select' ? (
+                      <select id={fieldId(f.prop)} name={f.prop} required={f.required}>
+                        <option value="">Choose one</option>
+                        {f.options?.map(o => <option value={o}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        id={fieldId(f.prop)}
+                        type={f.input === 'url' ? 'text' : f.input}
+                        inputmode={f.input === 'url' ? 'url' : undefined}
+                        name={f.prop}
+                        required={f.required}
+                        placeholder={f.placeholder}
+                      />
+                    )}
+                  </>
+                )}
+
+                {f.help && <p class="intake-help">{f.help}</p>}
+                <p class="intake-error" data-error-for={f.prop} hidden></p>
+              </div>
+            ))}
+          </div>
+
+          {step.note && (
+            <p class="intake-note">
+              <span class="intake-note-dot" aria-hidden="true"></span>
+              {step.note}
+            </p>
+          )}
+        </fieldset>
+      ))}
+
+      {/* Bots fill this; people never see it. */}
+      <input type="text" name="company_website" class="intake-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+      <div class="intake-actions">
+        <button type="button" class="button ghost" data-back hidden>Back</button>
+        <button type="button" class="button accent" data-next>
+          Next
+          <span class="arrow" aria-hidden="true">→</span>
+        </button>
+        <button type="submit" class="button accent" data-submit hidden>
+          <span data-submit-label>Send it over</span>
+          <span class="arrow" aria-hidden="true">→</span>
+        </button>
+        <p class="intake-saved" data-saved hidden>Progress saved</p>
+      </div>
+
+      <p class="intake-formerror" data-form-error hidden role="alert">
+        <span data-form-error-text></span>{' '}
+        <button type="button" class="intake-retry" data-retry>Try again</button>
+        {' '}or email <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+      </p>
+    </form>
+
+    <div class="intake-success" data-success hidden role="status">
+      <span class="intake-success-mark" aria-hidden="true">✓</span>
+      <h2>You're in.</h2>
+      <p>We'll review everything and come to our kickoff call with your audit ready.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { intakeSteps } from '../../data/intake';
+
+  const init = () => {
+    const form = document.querySelector<HTMLFormElement>('[data-intake-form]');
+    if (!form || form.dataset.bound === 'true') return;
+    form.dataset.bound = 'true';
+
+    const shell = form.closest('.intake-shell');
+    const steps = Array.from(form.querySelectorAll<HTMLElement>('[data-step]'));
+    const back = form.querySelector<HTMLButtonElement>('[data-back]');
+    const next = form.querySelector<HTMLButtonElement>('[data-next]');
+    const submit = form.querySelector<HTMLButtonElement>('[data-submit]');
+    const submitLabel = form.querySelector<HTMLElement>('[data-submit-label]');
+    const bar = form.querySelector<HTMLElement>('[data-bar]') ??
+                shell?.querySelector<HTMLElement>('[data-bar]');
+    const stepNow = shell?.querySelector<HTMLElement>('[data-step-now]');
+    const stepName = shell?.querySelector<HTMLElement>('[data-step-name]');
+    const progress = shell?.querySelector<HTMLElement>('[data-progress]');
+    const success = shell?.querySelector<HTMLElement>('[data-success]');
+    const formError = form.querySelector<HTMLElement>('[data-form-error]');
+    const formErrorText = form.querySelector<HTMLElement>('[data-form-error-text]');
+    const savedFlag = form.querySelector<HTMLElement>('[data-saved]');
+
+    const total = steps.length;
+    let current = 0;
+
+    // ── client slug from the URL, e.g. /intake?client=sean-comma ──
+    const slug = (new URLSearchParams(location.search).get('client') || '')
+      .trim().toLowerCase().slice(0, 100);
+    const storageKey = 'bp-intake:' + (slug || 'default');
+
+    // ── storage, defensive on every call ──────────────────────────
+    // Private windows, blocked site data and full quotas all throw
+    // rather than returning null, and none of them should cost the
+    // applicant their form.
+    const save = () => {
+      try {
+        const data: Record<string, unknown> = {};
+        new FormData(form).forEach((v, k) => {
+          if (k === 'company_website') return;
+          if (data[k] === undefined) data[k] = v;
+          else if (Array.isArray(data[k])) (data[k] as string[]).push(String(v));
+          else data[k] = [String(data[k]), String(v)];
+        });
+        localStorage.setItem(storageKey, JSON.stringify({ step: current, data }));
+        if (savedFlag) {
+          savedFlag.hidden = false;
+          window.clearTimeout((savedFlag as any)._t);
+          (savedFlag as any)._t = window.setTimeout(() => { savedFlag.hidden = true; }, 1600);
+        }
+      } catch { /* storage unavailable; the form still works */ }
+    };
+
+    const restore = () => {
+      let raw: string | null = null;
+      try { raw = localStorage.getItem(storageKey); } catch { return; }
+      if (!raw) return;
+      try {
+        const { step, data } = JSON.parse(raw) as { step: number; data: Record<string, any> };
+        Object.entries(data || {}).forEach(([k, v]) => {
+          const nodes = form.querySelectorAll<HTMLInputElement>(`[name="${CSS.escape(k)}"]`);
+          if (!nodes.length) return;
+          if (nodes[0].type === 'checkbox') {
+            const values = Array.isArray(v) ? v.map(String) : [String(v)];
+            nodes.forEach(n => { n.checked = values.indexOf(n.value) !== -1; });
+          } else {
+            nodes[0].value = String(v ?? '');
+          }
+        });
+        if (typeof step === 'number' && step >= 0 && step < total) current = step;
+      } catch { /* corrupt entry: start clean rather than crash */ }
+    };
+
+    const clearSaved = () => { try { localStorage.removeItem(storageKey); } catch {} };
+
+    // ── validation ────────────────────────────────────────────────
+    const fieldError = (prop: string, message: string | null) => {
+      const el = form.querySelector<HTMLElement>(`[data-error-for="${CSS.escape(prop)}"]`);
+      if (el) { el.textContent = message ?? ''; el.hidden = !message; }
+      const control = form.elements.namedItem(prop);
+      // A checkbox group resolves to a RadioNodeList, which has no
+      // classList; guarding this is what stops the whole handler
+      // throwing inside a promise and doing nothing visible.
+      if (control instanceof HTMLElement) control.classList.toggle('has-error', Boolean(message));
+    };
+
+    const validateStep = (index: number) => {
+      let firstBad: HTMLElement | null = null;
+      const controls = Array.from(
+        steps[index].querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input[name], select[name], textarea[name]'),
+      ).filter(c => c.type !== 'checkbox');
+
+      controls.forEach(c => {
+        if (c.checkValidity()) { fieldError(c.name, null); return; }
+        const message = c.validity.valueMissing
+          ? 'This one is required.'
+          : c.validity.typeMismatch && c.type === 'email'
+            ? 'That does not look like an email address.'
+            : 'Check this one.';
+        fieldError(c.name, message);
+        if (!firstBad) firstBad = c;
+      });
+
+      if (firstBad) {
+        (firstBad as HTMLElement).focus();
+        (firstBad as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+      return !firstBad;
+    };
+
+    // ── stepping ──────────────────────────────────────────────────
+    const render = () => {
+      steps.forEach((s, i) => { s.hidden = i !== current; });
+      if (back) back.hidden = current === 0;
+      if (next) next.hidden = current === total - 1;
+      if (submit) submit.hidden = current !== total - 1;
+      if (stepNow) stepNow.textContent = String(current + 1);
+      if (stepName) stepName.textContent = intakeSteps[current]?.title ?? '';
+      if (bar) bar.style.width = ((current + 1) / total) * 100 + '%';
+      progress?.querySelector('.intake-bar')?.setAttribute('aria-valuenow', String(current + 1));
+    };
+
+    const go = (to: number, validate = true) => {
+      if (validate && to > current && !validateStep(current)) return;
+      current = Math.max(0, Math.min(total - 1, to));
+      render();
+      save();
+      const top = shell?.getBoundingClientRect().top ?? 0;
+      if (top < 0) shell?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    };
+
+    next?.addEventListener('click', () => go(current + 1));
+    back?.addEventListener('click', () => go(current - 1, false));
+
+    form.addEventListener('input', (e) => {
+      const t = e.target as HTMLInputElement | null;
+      if (t?.name && t.checkValidity()) fieldError(t.name, null);
+      save();
+    });
+    form.addEventListener('change', save);
+
+    // ── submit ────────────────────────────────────────────────────
+    const send = async () => {
+      if (formError) formError.hidden = true;
+      // Re-check every step, not just the last: a required field can be
+      // reached by restoring a saved draft straight onto a later step.
+      for (let i = 0; i < total; i++) {
+        if (!validateStep(i)) { current = i; render(); return; }
+      }
+
+      const payload: Record<string, any> = {};
+      new FormData(form).forEach((v, k) => {
+        const value = String(v);
+        if (k === 'company_website') { payload[k] = value; return; }
+        if (payload[k] === undefined) payload[k] = value;
+        else if (Array.isArray(payload[k])) payload[k].push(value);
+        else payload[k] = [payload[k], value];
+      });
+
+      const body = {
+        client: slug,
+        honeypot: payload['company_website'] ?? '',
+        fields: (() => { const f = { ...payload }; delete f['company_website']; return f; })(),
+      };
+
+      if (submit) submit.disabled = true;
+      if (submitLabel) submitLabel.textContent = 'Sending…';
+
+      try {
+        const res = await fetch('/api/intake', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const json = await res.json().catch(() => ({}));
+
+        if (res.ok && json.ok) {
+          clearSaved();
+          form.hidden = true;
+          if (progress) progress.hidden = true;
+          if (success) {
+            success.hidden = false;
+            success.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          }
+          return;
+        }
+        throw new Error(json.message || 'That did not go through.');
+      } catch (err) {
+        // Answers are deliberately left in place, and still in storage.
+        if (formErrorText) {
+          formErrorText.textContent =
+            (err instanceof Error && err.message) ? err.message : 'That did not go through.';
+        }
+        if (formError) formError.hidden = false;
+      } finally {
+        if (submit) submit.disabled = false;
+        if (submitLabel) submitLabel.textContent = 'Send it over';
+      }
+    };
+
+    form.addEventListener('submit', (e) => { e.preventDefault(); send(); });
+    form.querySelector('[data-retry]')?.addEventListener('click', () => send());
+
+    restore();
+    render();
+  };
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
+</script>
+
+<style>
+  .intake-shell { max-width: 820px; }
+
+  /* ── Progress ── */
+  .intake-progress { margin-bottom: 1.5rem; }
+  .intake-progress-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.6rem;
+  }
+  .intake-step-count {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--bp-blue);
+  }
+  .intake-step-name { margin: 0; font-size: 0.85rem; color: var(--muted); }
+  .intake-bar {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .intake-bar-fill {
+    display: block;
+    height: 100%;
+    width: 12.5%;
+    background: linear-gradient(90deg, var(--bp-deep), var(--bp-blue));
+    border-radius: 999px;
+    transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* ── Form shell ── */
+  .intake-form {
+    padding: clamp(1.5rem, 3.5vw, 2.5rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+  }
+  .intake-step { border: 0; padding: 0; margin: 0; min-width: 0; }
+  .intake-step legend {
+    padding: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.15rem, 2.4vw, 1.5rem);
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .intake-blurb {
+    margin: 0.6rem 0 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.65;
+    max-width: 60ch;
+  }
+
+  .intake-rows {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem;
+    margin-top: 1.5rem;
+  }
+  .intake-field { min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .intake-field.is-full { grid-column: 1 / -1; }
+
+  .intake-label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    padding: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .intake-req { color: var(--bp-orange); }
+  .intake-opt { font-weight: 400; font-size: 0.72rem; color: var(--dim); letter-spacing: 0.04em; }
+
+  .intake-field input,
+  .intake-field select,
+  .intake-field textarea {
+    width: 100%;
+    min-width: 0;
+    font-family: inherit;
+    font-size: 0.93rem;
+    color: var(--ink);
+    background: rgba(8, 8, 16, 0.6);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  }
+  .intake-field textarea { resize: vertical; line-height: 1.6; }
+  .intake-field select {
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+                      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 18px) calc(50% + 2px), calc(100% - 13px) calc(50% + 2px);
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 2.25rem;
+  }
+  .intake-field select option { background: #12131c; color: var(--ink); }
+  .intake-field input::placeholder,
+  .intake-field textarea::placeholder { color: var(--dim); }
+
+  .intake-field input:focus,
+  .intake-field select:focus,
+  .intake-field textarea:focus {
+    outline: none;
+    border-color: rgba(98, 166, 219, 0.55);
+    background: rgba(12, 14, 24, 0.85);
+    box-shadow: 0 0 0 3px rgba(98, 166, 219, 0.14);
+  }
+  .intake-field :global(.has-error) { border-color: rgba(227, 112, 59, 0.6); }
+
+  .intake-help { margin: 0; font-size: 0.78rem; color: var(--dim); line-height: 1.5; }
+  .intake-error { margin: 0; font-size: 0.78rem; color: var(--bp-orange); }
+
+  /* ── Checkbox groups ── */
+  .intake-checks { border: 0; padding: 0; margin: 0; min-width: 0; }
+  .intake-check-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 0.45rem;
+    margin-top: 0.6rem;
+  }
+  .intake-check {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 9px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--muted);
+    transition: background 0.18s ease, border-color 0.18s ease;
+  }
+  .intake-check:hover { background: rgba(255, 255, 255, 0.02); }
+  .intake-check input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .intake-box {
+    width: 17px; height: 17px; flex: none;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 5px;
+    position: relative;
+    transition: border-color 0.18s ease, background 0.18s ease;
+  }
+  .intake-check input:checked + .intake-box {
+    background: var(--bp-blue);
+    border-color: var(--bp-blue);
+  }
+  .intake-check input:checked + .intake-box::after {
+    content: '';
+    position: absolute;
+    left: 5px; top: 1px;
+    width: 4px; height: 9px;
+    border: solid #07121d;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .intake-check input:checked ~ span { color: var(--ink); }
+  .intake-check input:focus-visible + .intake-box { box-shadow: 0 0 0 3px rgba(98, 166, 219, 0.3); }
+
+  /* ── Step note ── */
+  .intake-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin: 1.5rem 0 0;
+    padding: 0.8rem 1rem;
+    border-left: 2px solid var(--bp-orange);
+    background: rgba(227, 112, 59, 0.06);
+    border-radius: 0 8px 8px 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+  .intake-note-dot {
+    width: 7px; height: 7px; flex: none;
+    margin-top: 0.45rem;
+    border-radius: 50%;
+    background: var(--bp-orange);
+  }
+
+  .intake-honeypot {
+    position: absolute !important;
+    left: -9999px !important;
+    width: 1px; height: 1px; opacity: 0;
+  }
+
+  /* ── Actions ── */
+  .intake-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    padding-top: 1.35rem;
+    border-top: 1px solid var(--line);
+  }
+  .intake-actions [data-next],
+  .intake-actions [data-submit] { margin-left: auto; }
+  .intake-actions button[disabled] { opacity: 0.6; cursor: progress; }
+  .intake-saved {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--dim);
+  }
+
+  .intake-formerror {
+    margin: 1.1rem 0 0;
+    padding: 0.85rem 1rem;
+    border-left: 2px solid var(--bp-orange);
+    background: rgba(227, 112, 59, 0.07);
+    border-radius: 0 8px 8px 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+  .intake-formerror a { color: var(--bp-light); }
+  .intake-retry {
+    appearance: none;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--bp-light);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  /* ── Success ── */
+  .intake-success {
+    text-align: center;
+    padding: clamp(2rem, 5vw, 3.5rem) 1rem;
+    border: 1px solid rgba(98, 166, 219, 0.22);
+    border-radius: var(--radius-lg);
+    background:
+      radial-gradient(ellipse 70% 130% at 50% 0%, rgba(38, 79, 160, 0.2), transparent 65%),
+      var(--card);
+  }
+  .intake-success-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    border: 1px solid rgba(98, 166, 219, 0.5);
+    color: var(--bp-light);
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .intake-success h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 800;
+    margin: 0 0 0.75rem;
+  }
+  .intake-success p {
+    margin: 0 auto;
+    max-width: 46ch;
+    color: var(--muted);
+    font-size: 0.97rem;
+    line-height: 1.75;
+  }
+
+  @media (max-width: 640px) {
+    .intake-rows { grid-template-columns: minmax(0, 1fr); }
+    .intake-actions { flex-direction: column-reverse; align-items: stretch; }
+    .intake-actions [data-next],
+    .intake-actions [data-submit],
+    .intake-actions [data-back] { margin-left: 0; justify-content: center; }
+    .intake-saved { text-align: center; }
+  }
+</style>

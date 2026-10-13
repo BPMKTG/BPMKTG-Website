@@ -1,0 +1,87 @@
+---
+// /intake — client intake form. Unlisted: not in any nav, and noindex.
+//
+// Reached as /intake?client=<slug>, where the slug matches an "Intake
+// Slug" in the Clients database. The slug is read client-side and sent
+// with the submission so the server can link the row to that client.
+// Without one the form still works; the row just arrives unlinked.
+import Layout from '../layouts/Layout.astro';
+import IntakeForm from '../components/intake/IntakeForm.astro';
+---
+<Layout
+  title="Client Intake | Blueprint Marketing"
+  description="Client intake form for Blueprint Marketing."
+  noindex={true}
+>
+  <section class="intake-hero">
+    <div class="intake-hero-base" aria-hidden="true"></div>
+    <div class="intake-hero-grid" aria-hidden="true"></div>
+
+    <div class="container intake-hero-inner">
+      <p class="label" data-reveal="left">Client intake</p>
+      <h1 data-reveal>Let's build your Blueprint.</h1>
+      <p class="intake-hero-sub" data-reveal>
+        This takes about 15 minutes. Everything here shapes your audit, your
+        calendar, and your first month of content.
+      </p>
+    </div>
+  </section>
+
+  <IntakeForm />
+</Layout>
+
+<style>
+  .intake-hero {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    display: flex;
+    align-items: flex-end;
+    min-height: clamp(300px, 38vh, 420px);
+  }
+  .intake-hero-base {
+    position: absolute; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 60% at 20% 100%, rgba(38, 79, 160, 0.3), transparent 70%),
+      radial-gradient(ellipse 50% 60% at 92% 5%, rgba(227, 112, 59, 0.1), transparent 65%),
+      linear-gradient(180deg, #050514 0%, #02020a 100%);
+  }
+  .intake-hero-grid {
+    position: absolute; inset: 0; z-index: 1;
+    background-image:
+      linear-gradient(rgba(98, 166, 219, 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(98, 166, 219, 0.07) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(75% 75% at 35% 50%, #000 45%, transparent 100%);
+    pointer-events: none;
+  }
+  .intake-hero-inner {
+    position: relative;
+    z-index: 2;
+    width: 100%;                 /* flex parent + .container's auto margins */
+    padding: 7rem 1.5rem 2.5rem;
+  }
+  .intake-hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 4.4vw, 3rem);
+    font-weight: 900;
+    line-height: 1.07;
+    letter-spacing: -0.015em;
+    margin: 0.75rem 0 1rem;
+    max-width: 18ch;
+  }
+  .intake-hero-sub {
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.75;
+    max-width: 56ch;
+    margin: 0;
+  }
+
+  .intake { padding: 2.5rem 0 5.5rem; }
+
+  @media (max-width: 760px) {
+    .intake-hero-inner { padding: 6rem 1.25rem 2.25rem; }
+    .intake { padding: 2rem 0 4rem; }
+  }
+</style>
