@@ -2769,4 +2769,44 @@ with a negation. The real `.dev.vars` is still ignored; checked both.
 
 ---
 
+## Session 30 — 2026-10-13 — Two intake bugs that both hid behind a check
+
+Polish pass on `/intake` that turned up two real faults, both of which had
+passed a verification that was asking the wrong question.
+
+### Back and Send It Over rendered on step one
+
+The step logic was right and the `hidden` attribute was being set. But
+`.button` carries `display: inline-flex`, which outranks the user agent's
+`[hidden] { display: none }`, so the attribute changed nothing visually.
+Fixed with an explicit `.intake-actions [hidden]` rule.
+
+**Why it passed review:** the check asserted `element.hidden`, which was
+`true` throughout. That tests the intent, not the rendering. Re-verified
+against computed `display` across the first, a middle and the last step.
+
+### The section had no padding at all, ever
+
+`.intake { padding: 4rem 0 7rem }` was written in `intake.astro`, but
+`.intake` is rendered by `IntakeForm.astro`. **Astro scopes styles to the
+component that renders the element**, so the rule matched nothing and the
+section had `0px` top and bottom padding from the start. The success card's
+bottom edge was touching the footer exactly, measured at a 0px gap.
+
+Moved into the component, where it applies: hero to card went 16px to 120px,
+card to footer 0px to 152px. The success state also gets its own margin and
+deeper internal padding, since with the form hidden there is nothing else
+between the hero and the footer.
+
+A comment now sits in `intake.astro` saying where that padding lives and why
+it cannot live there.
+
+### The lesson worth keeping
+
+Both bugs produced correct-looking state and wrong-looking pages. Asserting a
+property or an attribute is not the same as asserting what renders; for
+anything visual, measure the computed value or the geometry.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*

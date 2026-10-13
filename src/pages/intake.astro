@@ -147,11 +147,13 @@ import IntakeForm from '../components/intake/IntakeForm.astro';
        most of why the page read squished. */
     margin-bottom: 1rem;
   }
-  .intake { padding: 4rem 0 7rem; }
+  /* NOTE: the .intake section's own padding lives in IntakeForm.astro,
+     not here. Astro scopes styles to the component that renders the
+     element, and .intake is rendered there, so a rule for it in this
+     file silently matches nothing. */
 
   @media (max-width: 760px) {
     .intake-hero { min-height: clamp(260px, 32vh, 340px); margin-bottom: 0; }
     .intake-hero-inner { padding: 6.5rem 1.25rem 3rem; }
-    .intake { padding: 2.5rem 0 4.5rem; }
   }
 </style>
