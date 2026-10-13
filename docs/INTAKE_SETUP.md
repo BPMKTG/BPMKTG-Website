@@ -85,6 +85,24 @@ Per type:
 
 `Client`, `Reviewed` and `Submitted` are not on the form by design.
 
+### Required fields
+
+Eight, flagged by `required: true` in the schema so the form and the server
+agree: Artist Name, Your Name, Email, "In one sentence, what is your project
+about?", "Who is your ideal fan?", "Footage you already have", "How often do
+you post right now?" and "What does a win look like in 90 days?".
+
+Required is **type-aware** on the server, which matters for two of them:
+
+- a required **multi_select** must contain at least one *allowed* option. It
+  arrives as an array, or as a bare string when exactly one box is ticked, so
+  a string-only check would report every one of them as missing.
+- a required **select** must be one of the allowed options, since an unknown
+  value is dropped during shaping and would otherwise arrive blank.
+
+Everything else is optional, and the form says so once under the header
+rather than labelling thirty fields.
+
 ---
 
 ## Testing the shaping

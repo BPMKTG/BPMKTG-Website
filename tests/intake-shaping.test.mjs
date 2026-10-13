@@ -1,4 +1,4 @@
-import { buildProperties, normaliseUrl, textObjects } from '../.tmp-intake-lib.mjs';
+import { buildProperties, normaliseUrl, textObjects, missingRequired } from '../.tmp-intake-lib.mjs';
 let pass = 0, fail = 0;
 const is = (name, got, want) => {
   const g = JSON.stringify(got), w = JSON.stringify(want);
@@ -45,6 +45,52 @@ is('bad url not written as url', 'Instagram' in props, false);
 is('bad url salvaged into Other links',
    props['Other links'].rich_text[0].text.content,
    'soundcloud.com/x\nInstagram: not a url at all');
+
+// ── Required-field validation ──────────────────────────────────
+// A complete, valid submission for the eight required fields.
+const complete = {
+  'Artist Name': 'Sean Comma',
+  'Your Name': 'Sean C',
+  'Email': 'sean@example.com',
+  'In one sentence, what is your project about?': 'Bass music with a message.',
+  'Who is your ideal fan?': 'Festival regulars in their twenties.',
+  'Footage you already have': ['Live show footage', 'Photos'],
+  'How often do you post right now?': 'Weekly',
+  'What does a win look like in 90 days?': 'A real audience.',
+};
+
+is('required: complete submission passes', missingRequired(complete), []);
+
+is('required: all eight reported when empty',
+   missingRequired({}).length, 8);
+
+is('required: blank string counts as missing',
+   missingRequired({ ...complete, 'Who is your ideal fan?': '   ' }),
+   ['Who is your ideal fan?']);
+
+// The multi_select cases are the ones the old string-only check got wrong.
+is('required: empty multi_select missing',
+   missingRequired({ ...complete, 'Footage you already have': [] }),
+   ['Footage you already have']);
+
+is('required: single-value multi_select accepted as a bare string',
+   missingRequired({ ...complete, 'Footage you already have': 'Photos' }),
+   []);
+
+is('required: multi_select of junk does not satisfy',
+   missingRequired({ ...complete, 'Footage you already have': ['Nonsense'] }),
+   ['Footage you already have']);
+
+is('required: select must be a real option',
+   missingRequired({ ...complete, 'How often do you post right now?': 'Occasionally' }),
+   ['How often do you post right now?']);
+
+is('required: optional fields never reported',
+   missingRequired({ ...complete, 'Phone': '', 'Distributor': '' }), []);
+
+// Reported by label, which is what the person actually sees.
+is('required: reported by label not property',
+   missingRequired({ ...complete, 'Artist Name': '' }), ['Artist name']);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

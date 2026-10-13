@@ -35,12 +35,10 @@ const total = intakeSteps.length;
             {step.fields.map(f => (
               <div class:list={['intake-field', `is-${f.width ?? 'full'}`]}>
                 {f.input === 'multiselect' ? (
-                  <fieldset class="intake-checks" data-group={f.prop}>
+                  <fieldset class="intake-checks" data-group={f.prop} data-required={f.required ? "true" : undefined}>
                     <legend class="intake-label">
                       {f.label}
-                      {f.required
-                        ? <span class="intake-req" aria-hidden="true">*</span>
-                        : <span class="intake-opt">optional</span>}
+                      {f.required && <span class="intake-req" aria-hidden="true">*</span>}
                     </legend>
                     <div class="intake-check-grid">
                       {f.options?.map(o => (
@@ -56,9 +54,7 @@ const total = intakeSteps.length;
                   <>
                     <label class="intake-label" for={fieldId(f.prop)}>
                       {f.label}
-                      {f.required
-                        ? <span class="intake-req" aria-hidden="true">*</span>
-                        : <span class="intake-opt">optional</span>}
+                      {f.required && <span class="intake-req" aria-hidden="true">*</span>}
                     </label>
 
                     {f.input === 'textarea' ? (
@@ -231,6 +227,16 @@ const total = intakeSteps.length;
         if (!firstBad) firstBad = c;
       });
 
+      // Required checkbox groups: native validation cannot express
+      // "at least one of these", so it is checked explicitly.
+      steps[index].querySelectorAll<HTMLElement>('[data-group][data-required]').forEach(group => {
+        const prop = group.dataset.group ?? '';
+        const boxes = Array.from(group.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+        if (boxes.some(b => b.checked)) { fieldError(prop, null); return; }
+        fieldError(prop, 'Pick at least one.');
+        if (!firstBad) firstBad = boxes[0];
+      });
+
       if (firstBad) {
         (firstBad as HTMLElement).focus();
         (firstBad as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -267,7 +273,16 @@ const total = intakeSteps.length;
       if (t?.name && t.checkValidity()) fieldError(t.name, null);
       save();
     });
-    form.addEventListener('change', save);
+    form.addEventListener('change', (e) => {
+      const t = e.target as HTMLInputElement | null;
+      if (t?.type === 'checkbox') {
+        const group = t.closest<HTMLElement>('[data-group]');
+        if (group?.querySelector('input[type="checkbox"]:checked')) {
+          fieldError(group.dataset.group ?? '', null);
+        }
+      }
+      save();
+    });
 
     // ── submit ────────────────────────────────────────────────────
     const send = async () => {
@@ -385,7 +400,9 @@ const total = intakeSteps.length;
     background: var(--card);
   }
   .intake-step { border: 0; padding: 0; margin: 0; min-width: 0; }
-  .intake-step legend {
+  /* Direct child only: a multi-select group is itself a fieldset with a
+     legend, and without the `>` it inherited the step heading's size. */
+  .intake-step > legend {
     padding: 0;
     font-family: var(--font-display);
     font-size: clamp(1.15rem, 2.4vw, 1.5rem);
@@ -420,7 +437,6 @@ const total = intakeSteps.length;
     line-height: 1.4;
   }
   .intake-req { color: var(--bp-orange); }
-  .intake-opt { font-weight: 400; font-size: 0.72rem; color: var(--dim); letter-spacing: 0.04em; }
 
   .intake-field input,
   .intake-field select,

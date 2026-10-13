@@ -61,10 +61,10 @@ export const intakeSteps: IntakeStep[] = [
     title: 'Your brand',
     blurb: 'What the project is actually about. This shapes every caption and cut we make.',
     fields: [
-      { prop: 'In one sentence, what is your project about?', label: 'In one sentence, what is your project about?', input: 'textarea', notion: 'rich_text', placeholder: 'One sentence is genuinely enough.' },
+      { prop: 'In one sentence, what is your project about?', label: 'In one sentence, what is your project about?', input: 'textarea', notion: 'rich_text', required: true, placeholder: 'One sentence is genuinely enough.' },
       { prop: 'What do you want fans to feel or take away from your music?', label: 'What do you want fans to feel or take away from your music?', input: 'textarea', notion: 'rich_text' },
       { prop: 'What values or message sit behind the project?', label: 'What values or message sit behind the project?', input: 'textarea', notion: 'rich_text' },
-      { prop: 'Who is your ideal fan?', label: 'Who is your ideal fan?', input: 'textarea', notion: 'rich_text', placeholder: 'Age, scene, what else they listen to, where they are.' },
+      { prop: 'Who is your ideal fan?', label: 'Who is your ideal fan?', input: 'textarea', notion: 'rich_text', required: true, placeholder: 'Age, scene, what else they listen to, where they are.' },
       { prop: '3 to 5 artists you are inspired by or compared to', label: "3 to 5 artists you're inspired by or compared to", input: 'textarea', notion: 'rich_text' },
       { prop: 'Off-limits: anything you never want posted or associated with you', label: 'Off-limits: anything you never want posted or associated with you', input: 'textarea', notion: 'rich_text', help: 'Topics, imagery, old material, anything. Easier to know now than to undo later.' },
     ],
@@ -100,6 +100,7 @@ export const intakeSteps: IntakeStep[] = [
     fields: [
       {
         prop: 'Footage you already have', label: 'Footage you already have', input: 'multiselect', notion: 'multi_select',
+        required: true,
         options: ['Live show footage', 'Studio and production', 'Behind the scenes', 'Photos', 'Talking to camera', 'Old social content', 'None yet'],
       },
       { prop: 'Link to your footage folder', label: 'Link to your footage folder', input: 'url', notion: 'url', placeholder: 'Drive, Dropbox, anything we can open', help: 'Set it to anyone-with-the-link before you paste it.' },
@@ -126,7 +127,7 @@ export const intakeSteps: IntakeStep[] = [
       { prop: 'Other links', label: 'Other links', input: 'textarea', notion: 'rich_text', placeholder: 'SoundCloud, Bandcamp, Apple Music, anything else.' },
       {
         prop: 'How often do you post right now?', label: 'How often do you post right now?', input: 'select', notion: 'select',
-        width: 'half', options: ['Daily', 'A few times a week', 'Weekly', 'Rarely', 'Not at all'],
+        required: true, width: 'half', options: ['Daily', 'A few times a week', 'Weekly', 'Rarely', 'Not at all'],
       },
       { prop: 'Who else posts or manages your accounts?', label: 'Who else posts or manages your accounts?', input: 'text', notion: 'rich_text', width: 'half' },
       { prop: 'Link to your best-performing post so far', label: 'Link to your best-performing post so far', input: 'url', notion: 'url', placeholder: 'https://' },
@@ -145,7 +146,7 @@ export const intakeSteps: IntakeStep[] = [
     title: 'Goals',
     blurb: 'What winning looks like to you, so we are aiming at the same thing.',
     fields: [
-      { prop: 'What does a win look like in 90 days?', label: 'What does a win look like in 90 days?', input: 'textarea', notion: 'rich_text' },
+      { prop: 'What does a win look like in 90 days?', label: 'What does a win look like in 90 days?', input: 'textarea', notion: 'rich_text', required: true },
       { prop: 'What does a win look like in 6 months?', label: 'What does a win look like in 6 months?', input: 'textarea', notion: 'rich_text' },
       { prop: 'Biggest frustration with your growth right now', label: 'Biggest frustration with your growth right now', input: 'textarea', notion: 'rich_text' },
       { prop: 'Anything else we should know?', label: 'Anything else we should know?', input: 'textarea', notion: 'rich_text' },
@@ -155,12 +156,6 @@ export const intakeSteps: IntakeStep[] = [
 
 /** Flat list, used by the server to validate and map. */
 export const intakeFields: IntakeField[] = intakeSteps.flatMap(s => s.fields);
-
-export const requiredProps: string[] = intakeFields.filter(f => f.required).map(f => f.prop);
-
-export function fieldByProp(prop: string): IntakeField | undefined {
-  return intakeFields.find(f => f.prop === prop);
-}
 
 /** Where a url that will not parse gets appended instead of dropped. */
 export const URL_FALLBACK_PROP = 'Other links';

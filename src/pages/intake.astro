@@ -69,6 +69,9 @@ import IntakeForm from '../components/intake/IntakeForm.astro';
         This takes about 15 minutes. Everything here shapes your audit, your
         calendar, and your first month of content.
       </p>
+      <p class="intake-hero-req" data-reveal>
+        Only starred questions are required. Skip anything that doesn't apply yet.
+      </p>
     </div>
   </section>
 
@@ -140,6 +143,17 @@ import IntakeForm from '../components/intake/IntakeForm.astro';
     line-height: 1.75;
     max-width: 56ch;
     margin: 0;
+  }
+  /* The asterisk is now the only required marker, so it gets explained
+     once here rather than repeating "optional" on 30 fields. */
+  .intake-hero-req {
+    margin: 0.9rem 0 0;
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--bp-orange);
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    max-width: 52ch;
   }
 
   .intake-hero {

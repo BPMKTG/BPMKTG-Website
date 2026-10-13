@@ -15,13 +15,7 @@
    form exactly, and two copies would eventually disagree.
    ────────────────────────────────────────────────────────────── */
 
-import {
-  intakeFields,
-  requiredProps,
-  fieldByProp,
-  URL_FALLBACK_PROP,
-  type IntakeField,
-} from '../../src/data/intake';
+import { intakeFields, URL_FALLBACK_PROP, type IntakeField } from '../../src/data/intake';
 
 const NOTION_VERSION = '2022-06-28';
 const INTAKE_DB = 'e992eaab-da11-4c65-bcda-b6a40a1db965';
@@ -146,6 +140,36 @@ export function buildProperties(fields: Record<string, unknown>) {
   return properties;
 }
 
+/** Required props that are missing, by label, type-aware.
+ *
+ *  A required multi_select arrives as an array (or as a bare string when
+ *  exactly one box is ticked), so the old string-only check would have
+ *  reported every one of them as missing. It also has to be at least one
+ *  ALLOWED option: posting junk should not satisfy a requirement when
+ *  the shaping step is going to filter it out anyway.
+ */
+export function missingRequired(fields: Record<string, unknown>): string[] {
+  const missing: string[] = [];
+  for (const def of intakeFields as IntakeField[]) {
+    if (!def.required) continue;
+
+    if (def.notion === 'multi_select') {
+      const allowed = new Set(def.options ?? []);
+      if (!asArray(fields[def.prop]).some(v => allowed.has(v))) missing.push(def.label);
+      continue;
+    }
+
+    const v = fields[def.prop];
+    const value = typeof v === 'string' ? v.trim() : v == null ? '' : String(v).trim();
+    if (!value) { missing.push(def.label); continue; }
+
+    // A required select must be a real option, for the same reason: an
+    // unknown value is dropped during shaping and would arrive blank.
+    if (def.notion === 'select' && !(def.options ?? []).includes(value)) missing.push(def.label);
+  }
+  return missing;
+}
+
 /* ── client lookup ─────────────────────────────────────────────── */
 
 /** Page id of the single Client whose Intake Slug matches, else null.
@@ -225,13 +249,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   const fields = body.fields && typeof body.fields === 'object' ? body.fields : {};
 
-  const missing = requiredProps.filter(p => {
-    const v = fields[p];
-    return typeof v !== 'string' || v.trim() === '';
-  });
+  const missing = missingRequired(fields);
   if (missing.length) {
-    const labels = missing.map(p => fieldByProp(p)?.label ?? p);
-    return json(400, { ok: false, message: `Still needed: ${labels.join(', ')}.` });
+    return json(400, { ok: false, message: `Still needed: ${missing.join(', ')}.` });
   }
 
   const email = String(fields['Email'] ?? '').trim();
