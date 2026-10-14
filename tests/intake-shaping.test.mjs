@@ -46,6 +46,45 @@ is('bad url salvaged into Other links',
    props['Other links'].rich_text[0].text.content,
    'soundcloud.com/x\nInstagram: not a url at all');
 
+// ── The step 6 platform links ──────────────────────────────────
+// Every one is a Notion url property, so all three paths matter:
+// already-valid, missing scheme, and unsalvageable.
+const links = buildProperties({
+  'Instagram': 'https://instagram.com/seancomma',
+  'TikTok': 'tiktok.com/@seancomma',
+  'Threads': 'threads.net/@seancomma',
+  'X (Twitter)': 'https://x.com/seancomma',
+  'YouTube': 'youtube.com/@seancomma',
+  'Spotify': 'https://open.spotify.com/artist/abc',
+  'Apple Music': 'music.apple.com/artist/seancomma',
+  'SoundCloud': 'soundcloud.com/seancomma',
+});
+
+is('threads: scheme prepended', links['Threads'], { url: 'https://threads.net/@seancomma' });
+is('x (twitter): kept as given', links['X (Twitter)'], { url: 'https://x.com/seancomma' });
+is('apple music: scheme prepended', links['Apple Music'], { url: 'https://music.apple.com/artist/seancomma' });
+is('soundcloud: scheme prepended', links['SoundCloud'], { url: 'https://soundcloud.com/seancomma' });
+is('tiktok still fine alongside', links['TikTok'], { url: 'https://tiktok.com/@seancomma' });
+
+// Unsalvageable values go to Other links rather than failing the write.
+const badLinks = buildProperties({
+  'Threads': 'my threads handle',
+  'X (Twitter)': '@seancomma',
+  'Apple Music': 'ask me',
+  'SoundCloud': 'soundcloud',          // bare word, no dot
+  'Other links': 'Bandcamp: example',
+});
+
+is('bad platform links are not written as urls',
+   ['Threads', 'X (Twitter)', 'Apple Music', 'SoundCloud'].some(k => k in badLinks),
+   false);
+is('bad platform links salvaged into Other links',
+   badLinks['Other links'].rich_text[0].text.content,
+   'Bandcamp: example\nThreads: my threads handle\nX (Twitter): @seancomma\nApple Music: ask me\nSoundCloud: soundcloud');
+
+is('empty platform links omitted',
+   Object.keys(buildProperties({ 'Threads': '', 'SoundCloud': '   ' })).length, 0);
+
 // ── Required-field validation ──────────────────────────────────
 // A complete, valid submission for the eight required fields.
 const complete = {

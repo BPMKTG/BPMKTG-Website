@@ -122,9 +122,13 @@ export const intakeSteps: IntakeStep[] = [
     fields: [
       { prop: 'Instagram', label: 'Instagram', input: 'url', notion: 'url', width: 'half', placeholder: 'instagram.com/…' },
       { prop: 'TikTok', label: 'TikTok', input: 'url', notion: 'url', width: 'half', placeholder: 'tiktok.com/@…' },
+      { prop: 'Threads', label: 'Threads', input: 'url', notion: 'url', width: 'half', placeholder: 'threads.net/@…' },
+      { prop: 'X (Twitter)', label: 'X (Twitter)', input: 'url', notion: 'url', width: 'half', placeholder: 'x.com/…' },
       { prop: 'YouTube', label: 'YouTube', input: 'url', notion: 'url', width: 'half', placeholder: 'youtube.com/@…' },
       { prop: 'Spotify', label: 'Spotify', input: 'url', notion: 'url', width: 'half', placeholder: 'open.spotify.com/artist/…' },
-      { prop: 'Other links', label: 'Other links', input: 'textarea', notion: 'rich_text', placeholder: 'SoundCloud, Bandcamp, Apple Music, anything else.' },
+      { prop: 'Apple Music', label: 'Apple Music', input: 'url', notion: 'url', width: 'half', placeholder: 'music.apple.com/artist/…' },
+      { prop: 'SoundCloud', label: 'SoundCloud', input: 'url', notion: 'url', width: 'half', placeholder: 'soundcloud.com/…' },
+      { prop: 'Other links', label: 'Other links', input: 'textarea', notion: 'rich_text', placeholder: 'Bandcamp, Linktree, Beatport, anything else.' },
       {
         prop: 'How often do you post right now?', label: 'How often do you post right now?', input: 'select', notion: 'select',
         required: true, width: 'half', options: ['Daily', 'A few times a week', 'Weekly', 'Rarely', 'Not at all'],
