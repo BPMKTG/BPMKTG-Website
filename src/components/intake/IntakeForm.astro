@@ -221,7 +221,7 @@ const total = intakeSteps.length;
         const message = c.validity.valueMissing
           ? 'This one is required.'
           : c.validity.typeMismatch && c.type === 'email'
-            ? 'That does not look like an email address.'
+            ? "That doesn't look like an email address."
             : 'Check this one.';
         fieldError(c.name, message);
         if (!firstBad) firstBad = c;
@@ -329,12 +329,12 @@ const total = intakeSteps.length;
           }
           return;
         }
-        throw new Error(json.message || 'That did not go through.');
+        throw new Error(json.message || "That didn't go through.");
       } catch (err) {
         // Answers are deliberately left in place, and still in storage.
         if (formErrorText) {
           formErrorText.textContent =
-            (err instanceof Error && err.message) ? err.message : 'That did not go through.';
+            (err instanceof Error && err.message) ? err.message : "That didn't go through.";
         }
         if (formError) formError.hidden = false;
       } finally {

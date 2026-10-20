@@ -160,7 +160,7 @@ const tier01: Tier = {
     steps: [
       { title: 'Intake',           body: 'We audit your current content and growth to find exactly where the opportunity is.' },
       { title: 'Audit & Analysis', body: "We pull data across every platform, watch your existing content, identify what's working and what's wasted. No assumptions, no templates." },
-      { title: 'Strategy Build',   body: 'We build your specific content direction, posting plan, and platform optimizations, all EDM-native, all tailored to where you are right now.' },
+      { title: 'Strategy Build',   body: "We build your specific content direction, posting plan, and platform optimizations, all EDM-native, all tailored to where you're right now." },
       { title: 'Delivery Session', body: "60 to 90 minutes, live, just us and you. We walk through every finding, every recommendation, and every clip we've cut from your footage." },
       { title: 'You Run It',       body: 'You walk out with the audit, the strategy doc, the clips, and the 2-4 week plan. You execute. If you want help running it, Tier 02 is the next step.' },
     ],
@@ -264,7 +264,7 @@ const tier02: Tier = {
       { title: 'Ready to run a monthly rollout.',            body: "You're done improvising every Monday. You want a content engine running underneath you so you can focus on music, not on what to post next." },
       { title: 'Touring 2-6 shows a month.',                 body: 'You have footage coming in regularly. We turn that footage into a feed instead of letting it sit on a hard drive.' },
       { title: 'Building toward a release cycle.',           body: 'Single coming in 2-4 months. You want consistent monthly visibility now so the release lands on warm audience instead of cold scroll.' },
-      { title: 'Tired of guessing what to post next.',       body: "Every Monday should not be a strategic crisis. Tier 02 hands you the calendar so you focus on music, not captions." },
+      { title: 'Tired of guessing what to post next.',       body: "Every Monday shouldn't be a strategic crisis. Tier 02 hands you the calendar so you focus on music, not captions." },
     ],
   },
 

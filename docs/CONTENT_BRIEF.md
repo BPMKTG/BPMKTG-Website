@@ -13,6 +13,11 @@
 no second founder and no CTO. A trial partnership with Clayton Ward ended and every
 reference to him was removed from the site. Do not reintroduce co-founder, "two
 friends", or "the two people behind the system" copy.
+**Contractions:** Use them. The site reads robotic without them, and the
+owner speaks with them. "don't", "it's", "you're", "can't", "isn't". Two
+places they do not go: a contraction cannot end a clause ("where they are."
+never becomes "where they're."), and "you have"/"we have" only contract
+before a past participle, so leave them alone.
 **Voice:** Still first-person plural ("we"). Sole ownership does not mean the site
 speaks as "I"; Blueprint works with contractors and the Blueprint Preferred™ network.
 **Tagline:** "Amplifying and elevating your story."

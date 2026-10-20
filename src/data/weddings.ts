@@ -412,7 +412,7 @@ export const processSteps = [
   },
   {
     title: 'The engagement session',
-    body: 'Shot months before the wedding, so you are comfortable on camera before it counts. You get a gallery and a short film for save-the-dates and invites.',
+    body: "Shot months before the wedding, so you're comfortable on camera before it counts. You get a gallery and a short film for save-the-dates and invites.",
   },
   {
     title: 'The shot plan',
@@ -434,23 +434,23 @@ export const processSteps = [
 export const faqs = [
   {
     q: 'What does "his and hers" actually mean?',
-    a: 'It means one of us is with the groomsmen and one of us is with the bridesmaids, at the same time, on the two- and three-person packages. While you are apart we both shoot hybrid, photo and video, so neither room trades stills for footage and nobody is waiting on a shooter to finish one side and drive to the other. Once you are together we go back to our lanes: Makenzie on photo, Mason on video. We are married, so this is not a crew we assemble per wedding. It is the two of us either way. One thing worth being clear on: shooting hybrid is how we cover the morning, not what every package delivers. The film packages deliver film. An edited photo gallery comes with The Legacy, or as a photo add-on on any package.',
+    a: "It means one of us is with the groomsmen and one of us is with the bridesmaids, at the same time, on the two- and three-person packages. While you're apart we both shoot hybrid, photo and video, so neither room trades stills for footage and nobody is waiting on a shooter to finish one side and drive to the other. Once you're together we go back to our lanes: Makenzie on photo, Mason on video. We're married, so this isn't a crew we assemble per wedding. It's the two of us either way. One thing worth being clear on: shooting hybrid is how we cover the morning, not what every package delivers. The film packages deliver film. An edited photo gallery comes with The Legacy, or as a photo add-on on any package.",
   },
   {
-    q: 'I do not love the idea of a stranger filming me getting ready.',
-    a: 'Most people do not, and that is exactly why we built it this way. You get a girl with the bridesmaids and a guy with the groomsmen, so it never feels like a stranger of the wrong gender in the room during the most unguarded hour of your day. That comfort is the difference between footage that looks natural and footage where everyone is holding their breath.',
+    q: "I don't love the idea of a stranger filming me getting ready.",
+    a: "Most people don't, and that's exactly why we built it this way. You get a girl with the bridesmaids and a guy with the groomsmen, so it never feels like a stranger of the wrong gender in the room during the most unguarded hour of your day. That comfort is the difference between footage that looks natural and footage where everyone is holding their breath.",
   },
   {
     q: 'Do you shoot photo as well as video?',
-    a: 'Both, from one team. They are not competing: photos freeze a moment you can print and frame, video lets you hear your vows again, hear the room laugh, watch the first dance. Most couples who book only one end up wishing they had both, and you cannot go back for the other half. If you genuinely only want one, book only one. Photo is delivered on The Legacy or as an add-on to either film package, and the a la carte menu prices both separately.',
+    a: "Both, from one team. They aren't competing: photos freeze a moment you can print and frame, video lets you hear your vows again, hear the room laugh, watch the first dance. Most couples who book only one end up wishing they had both, and you can't go back for the other half. If you genuinely only want one, book only one. Photo is delivered on The Legacy or as an add-on to either film package, and the a la carte menu prices both separately.",
   },
   {
-    q: 'That is more than we budgeted for.',
-    a: 'Most couples come in assuming they can only afford one or the other, because two vendors means two invoices and two timelines. Booking one team covering both sides of your day costs less than hiring a separate photographer and videographer, and there is only one version of this day you will ever get. If the number is still wrong for you, the a la carte menu lets you build exactly what you want and nothing you do not.',
+    q: "That's more than we budgeted for.",
+    a: "Most couples come in assuming they can only afford one or the other, because two vendors means two invoices and two timelines. Booking one team covering both sides of your day costs less than hiring a separate photographer and videographer, and there's only one version of this day you'll ever get. If the number is still wrong for you, the a la carte menu lets you build exactly what you want and nothing you don't.",
   },
   {
     q: 'A friend offered to shoot it for free.',
-    a: 'That is a real option, and sometimes it works out. The difference is six years of shooting weddings, a written plan for every part of your day, and a team that is not also trying to be a guest at your wedding. A free shooter is not a bad person, they are just an unplanned one.',
+    a: "That's a real option, and sometimes it works out. The difference is six years of shooting weddings, a written plan for every part of your day, and a team that isn't also trying to be a guest at your wedding. A free shooter isn't a bad person, they're just an unplanned one.",
   },
   {
     q: 'How far in advance should we book?',
@@ -458,7 +458,7 @@ export const faqs = [
   },
   {
     q: 'When do we get everything?',
-    a: 'Your teaser lands within 72 hours, and your full film and gallery within six weeks. You get that delivery date in writing when you book, so there is no vague timeline and no chasing us down. Rush delivery pulls the full film inside 14 days if you want it sooner.',
+    a: "Your teaser lands within 72 hours, and your full film and gallery within six weeks. You get that delivery date in writing when you book, so there's no vague timeline and no chasing us down. Rush delivery pulls the full film inside 14 days if you want it sooner.",
   },
   {
     q: 'What is a "video moment"?',
@@ -466,18 +466,18 @@ export const faqs = [
   },
   {
     q: 'Will you be in our faces all day?',
-    a: 'No. We came up shooting live music, where you get one take and you do not get to interrupt the show. That habit carries over: we work long lenses, we stay quiet, and we do not stop your wedding to restage a moment that already happened.',
+    a: "No. We came up shooting live music, where you get one take and you don't get to interrupt the show. That habit carries over: we work long lenses, we stay quiet, and we don't stop your wedding to restage a moment that already happened.",
   },
   {
     q: 'Will our film look like everyone else\'s?',
-    a: 'Not if we do our job. The reason most wedding films feel interchangeable is that they are built from a template: same drone shot, same slow-motion first dance, same acoustic cover. We plan your day around your actual people and your actual venue, and we cut to music that means something to you.',
+    a: "Not if we do our job. The reason most wedding films feel interchangeable is that they're built from a template: same drone shot, same slow-motion first dance, same acoustic cover. We plan your day around your actual people and your actual venue, and we cut to music that means something to you.",
   },
   {
     q: 'Do you travel?',
-    a: 'Yes. Travel within 90 miles is included. Beyond that we quote travel and lodging up front, so there is never a surprise line item after the fact.',
+    a: "Yes. Travel within 90 miles is included. Beyond that we quote travel and lodging up front, so there's never a surprise line item after the fact.",
   },
   {
     q: 'What do you need from us to hold a date?',
-    a: 'A signed agreement and a 30% retainer. The balance is due two weeks before the wedding, and we can split it across the months in between if that is easier.',
+    a: "A signed agreement and a 30% retainer. The balance is due two weeks before the wedding, and we can split it across the months in between if that's easier.",
   },
 ];

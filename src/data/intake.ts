@@ -44,9 +44,9 @@ export interface IntakeStep {
 export const intakeSteps: IntakeStep[] = [
   {
     title: 'About you',
-    blurb: 'The basics, so we know who we are talking to and how to reach you.',
+    blurb: "The basics, so we know who we're talking to and how to reach you.",
     fields: [
-      { prop: 'Artist Name', label: 'Artist name', input: 'text', notion: 'title', required: true, width: 'half', placeholder: 'How you are billed' },
+      { prop: 'Artist Name', label: 'Artist name', input: 'text', notion: 'title', required: true, width: 'half', placeholder: "How you're billed" },
       { prop: 'Your Name', label: 'Your name', input: 'text', notion: 'rich_text', required: true, width: 'half', placeholder: 'Your real name' },
       { prop: 'Email', label: 'Email', input: 'email', notion: 'email', required: true, width: 'half', placeholder: 'you@example.com' },
       { prop: 'Phone', label: 'Phone', input: 'tel', notion: 'phone_number', width: 'half', placeholder: 'Best number for show days' },
@@ -117,7 +117,7 @@ export const intakeSteps: IntakeStep[] = [
   },
   {
     title: 'Your accounts',
-    blurb: 'Where you post now, and how it is going.',
+    blurb: "Where you post now, and how it's going.",
     note: "Please don't enter passwords here. We'll set up account access separately and securely.",
     fields: [
       { prop: 'Instagram', label: 'Instagram', input: 'url', notion: 'url', width: 'half', placeholder: 'instagram.com/…' },
@@ -148,7 +148,7 @@ export const intakeSteps: IntakeStep[] = [
   },
   {
     title: 'Goals',
-    blurb: 'What winning looks like to you, so we are aiming at the same thing.',
+    blurb: "What winning looks like to you, so we're aiming at the same thing.",
     fields: [
       { prop: 'What does a win look like in 90 days?', label: 'What does a win look like in 90 days?', input: 'textarea', notion: 'rich_text', required: true },
       { prop: 'What does a win look like in 6 months?', label: 'What does a win look like in 6 months?', input: 'textarea', notion: 'rich_text' },

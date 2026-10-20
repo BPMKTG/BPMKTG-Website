@@ -263,7 +263,7 @@ const releaseRolloutCalendar: Product = {
   summary: [
     'Most releases get announced two weeks out and die three days after they drop.',
     'Enter your release date and the Calendar builds the six weeks before it, backward: what to post, when, and why, with the deadlines that actually have consequences marked separately from the posts that can move. Then it keeps going for four weeks after, which is where most artists go quiet and most streams get left behind.',
-    'The Asset Checklist tells you what you need and when you need it, so you are capturing in week six instead of scrambling in week two.',
+    "The Asset Checklist tells you what you need and when you need it, so you're capturing in week six instead of scrambling in week two.",
   ],
 
   hero: {
@@ -318,7 +318,7 @@ const releaseRolloutCalendar: Product = {
       },
       {
         title: 'Asset Checklist',
-        body: 'Every asset the plan needs, when it is needed, and a running count of what is still missing.',
+        body: "Every asset the plan needs, when it's needed, and a running count of what is still missing.",
       },
       {
         title: 'Admin and content, separated',
@@ -333,7 +333,7 @@ const releaseRolloutCalendar: Product = {
   ],
 
   caveats: [
-    'It does not assert your distributor or editorial deadlines. Those vary by service and change, so you enter your own.',
+    "It doesn't assert your distributor or editorial deadlines. Those vary by service and change, so you enter your own.",
     'The worked example uses a Friday release, the industry convention.',
   ],
 };
@@ -361,10 +361,10 @@ const contentVault: Product = {
   positioning: 'The Vault organizes everything, across time.',
 
   cardBlurb:
-    'You have the shot. You just cannot find it. Log every file once and it stays findable: what it is, where it came from, how good it is, and whether you have used it.',
+    "You have the shot. You just can't find it. Log every file once and it stays findable: what it is, where it came from, how good it is, and whether you have used it.",
 
   summary: [
-    'You have the shot. You just cannot find it.',
+    "You have the shot. You just can't find it.",
     'The Vault is where every photo and clip gets logged once and stays findable: what it is, where it came from, how good it is, and whether you have used it. Filter to unused vertical video from the last six months, or every crowd shot you own, in one click.',
     'The footage you paid for in March should still be working for you in October.',
   ],
@@ -372,7 +372,7 @@ const contentVault: Product = {
   hero: {
     eyebrow: 'Content Library',
     headline: "Your best shot is in a folder you'll <span class=\"highlight\">never open again</span>.",
-    sub: 'Point it at your Drive folder and hit Sync. It logs what you own, and tells you what you are short on.',
+    sub: "Point it at your Drive folder and hit Sync. It logs what you own, and tells you what you're short on.",
     pills: [
       'Syncs from Google Drive',
       'Eleven logged fields',
@@ -389,7 +389,7 @@ const contentVault: Product = {
   },
 
   story: {
-    headline: 'You already own the content you are about to go re-shoot.',
+    headline: "You already own the content you're about to go re-shoot.",
     paragraphs: [
       'Every artist has the same problem. A year of shows, a dozen shooters, thousands of files across Drive, Dropbox, a phone, and a hard drive somewhere. When you need one specific frame for a tour announcement, you know it exists and you spend forty minutes looking for it.',
       'Then you give up and post something worse.',
@@ -403,7 +403,7 @@ const contentVault: Product = {
       },
       {
         title: 'You stop re-shooting what you own.',
-        body: 'Most artists commission content they already have, because they cannot find it.',
+        body: "Most artists commission content they already have, because they can't find it.",
       },
       {
         title: 'Gaps become visible.',
@@ -424,8 +424,8 @@ const contentVault: Product = {
         body: 'Point it at your Drive folder and hit Sync. It pulls in every new file with the name, shoot folder, date, format, orientation and a clickable link straight to the file. You add a rating and a tag to the ones worth keeping, and delete the rest. Run it again after your next delivery and it only brings in what is new.',
       },
       {
-        title: 'It tells you what you are short on.',
-        body: 'The Gaps tab keeps live counts of what you are holding and what you are missing. Unused vertical video. Unused Hero-rated anything. ID clips waiting on a release date. A zero next to unused vertical video is not a spreadsheet problem, it is the brief for your next shoot.',
+        title: "It tells you what you're short on.",
+        body: "The Gaps tab keeps live counts of what you're holding and what you're missing. Unused vertical video. Unused Hero-rated anything. ID clips waiting on a release date. A zero next to unused vertical video isn't a spreadsheet problem, it's the brief for your next shoot.",
       },
     ],
   },
@@ -436,7 +436,7 @@ const contentVault: Product = {
     items: [
       {
         title: 'Eleven logged fields',
-        body: 'File name, shoot folder, date, type, orientation, rating, source, tags, used or not, where it was used, and what release it is being held for. Plus an Open column that links straight to the file in Drive.',
+        body: "File name, shoot folder, date, type, orientation, rating, source, tags, used or not, where it was used, and what release it's being held for. Plus an Open column that links straight to the file in Drive.",
       },
       {
         title: 'Filter arrows on every column',
@@ -454,7 +454,7 @@ const contentVault: Product = {
   },
 
   deliveryFootnote:
-    'Click the link and make a copy. It lands in your own Google Drive and it is yours. The first time you sync, Google asks for permission to read your Drive folder, because that is what the tool does. It runs entirely inside your own account and nothing is sent anywhere else.',
+    "Click the link and make a copy. It lands in your own Google Drive and it's yours. The first time you sync, Google asks for permission to read your Drive folder, because that's what the tool does. It runs entirely inside your own account and nothing is sent anywhere else.",
 
   files: [],
 };
@@ -486,7 +486,7 @@ const artistOutreachOS: Product = {
   fileTypes: ['Google Sheets', 'Gmail'],
   formatNote: 'A Google Sheet copied into your own Drive, plus 21 templates installed in your Gmail',
   requirement:
-    'Gmail only. Drafting, send detection, reply detection, bounce tracking and threading all run through Gmail or Google Workspace. On Outlook or anything else it still works as a tracker, but the automation does not.',
+    "Gmail only. Drafting, send detection, reply detection, bounce tracking and threading all run through Gmail or Google Workspace. On Outlook or anything else it still works as a tracker, but the automation doesn't.",
   deliveryNote:
     'You get one link that copies the sheet into your own Google Drive, so you own it outright rather than being given access to ours. A fresh copy has a single tab, Start Here. One menu click, Run full setup, builds the other seven tabs, the dropdowns, the automation and the Gmail labels. Everything runs in your account, against your mailbox. We never see your data.',
 
@@ -498,9 +498,9 @@ const artistOutreachOS: Product = {
     'You found out they were playing your city the week after the show. This is the pipeline and the contact book that stops that happening, with follow-ups that fire on their own.',
 
   summary: [
-    'You can already deliver. What you cannot do is reliably find the right manager, pitch before the routing is locked, and remember who you chased.',
+    "You can already deliver. What you can't do is reliably find the right manager, pitch before the routing is locked, and remember who you chased.",
     'Paste a manager’s details from anywhere and the row fills itself in. The OS drafts the email into your Gmail, notices when you actually send it, and runs a three-stage follow-up that stops the moment someone replies.',
-    'It will not let you email the same manager twice, and it never sends anything on your behalf.',
+    "It won't let you email the same manager twice, and it never sends anything on your behalf.",
   ],
 
   hero: {
@@ -526,8 +526,8 @@ const artistOutreachOS: Product = {
     headline: 'The money is in touch two and three.',
     paragraphs: [
       "You found out they were playing your city the week after the show. The three times you did get in early, you DM'd the artist's Instagram, got read by an intern, and never followed up, because there was nowhere to write down that you had tried.",
-      'Three failures, in the order they bite. You do not know who to email, so you message the artist. You send once, hear nothing, and forget. And you cannot recall who you pitched, when, or what they said.',
-      'None of that is a talent problem. It is a memory problem, and a spreadsheet with a script attached fixes it.',
+      "Three failures, in the order they bite. You don't know who to email, so you message the artist. You send once, hear nothing, and forget. And you can't recall who you pitched, when, or what they said.",
+      "None of that's a talent problem. It's a memory problem, and a spreadsheet with a script attached fixes it.",
     ],
     points: [
       {
@@ -536,14 +536,14 @@ const artistOutreachOS: Product = {
       },
       {
         title: 'It drafts. It never sends.',
-        body: 'Every email lands in your Gmail drafts for you to read and change. There is no button anywhere that sends mail on your behalf. A mail-merge tool sends first and apologises afterwards.',
+        body: "Every email lands in your Gmail drafts for you to read and change. There's no button anywhere that sends mail on your behalf. A mail-merge tool sends first and apologises afterwards.",
       },
       {
         title: 'The follow-up clock starts when you actually send.',
         body: 'Not when you wrote the draft. The sheet watches Gmail and notices. Follow-ups go out as replies on the same thread, three stages deep, and the sequence stops the moment someone answers.',
       },
       {
-        title: 'It will not let you email the same manager twice.',
+        title: "It won't let you email the same manager twice.",
         body: 'It refuses to re-draft a row that already went out, warns when one contact is about to get several emails from a single batch, and can merge nearby dates into one email, "Austin & Dallas, TX on July 3 & July 5", instead of three near-identical pitches to the same person.',
       },
     ],
@@ -563,7 +563,7 @@ const artistOutreachOS: Product = {
       },
       {
         title: '21 email templates',
-        body: 'Installed as drafts in your own Gmail, where you can edit them freely. They are yours, not ours, and not locked in a file.',
+        body: "Installed as drafts in your own Gmail, where you can edit them freely. They're yours, not ours, and not locked in a file.",
       },
       {
         title: 'The automation',
@@ -585,11 +585,11 @@ const artistOutreachOS: Product = {
   hiddenTabs: ['Automation Control (settings)', 'Logic (reference lists)', 'Contact Archive (raw pasted blocks)'],
 
   caveats: [
-    'It cannot promise bookings. It finds nothing for you and guarantees no replies. It makes sure you pitch the right person, early, and then follow up, which is the part most people skip.',
-    'It does not find contacts. You still need a source. It removes the retyping, not the research.',
-    'It does not pull tour dates automatically. It opens the right searches for the artist on that row; you read the dates and fill them in.',
-    'It never sends. You will always press send yourself.',
-    'Google shows an "unverified app" warning the first time you run setup. That is unavoidable: you own your copy, so you are authorising your own script, not ours.',
+    "It can't promise bookings. It finds nothing for you and guarantees no replies. It makes sure you pitch the right person, early, and then follow up, which is the part most people skip.",
+    "It doesn't find contacts. You still need a source. It removes the retyping, not the research.",
+    "It doesn't pull tour dates automatically. It opens the right searches for the artist on that row; you read the dates and fill them in.",
+    "It never sends. You'll always press send yourself.",
+    'Google shows an "unverified app" warning the first time you run setup. That\'s unavoidable: you own your copy, so you\'re authorising your own script, not ours.',
   ],
 };
 
@@ -611,7 +611,7 @@ const growthSystemsTeardown: Product = {
   priceValue: 197,
   status: 'in-build',
   statusNote:
-    'The Teardown is not open yet. It is described here in full, but we are not taking bookings for it until the process is running.',
+    "The Teardown isn't open yet. It's described here in full, but we aren't taking bookings for it until the process is running.",
   track: 'artist',
 
   fileTypes: ['Video', 'Written'],
@@ -621,16 +621,16 @@ const growthSystemsTeardown: Product = {
     'Nothing is scheduled. You send your socials, your recent releases and whatever content archive you have. We go through it properly and send back a recorded walkthrough with a written fix list ordered by what matters first. No call, no timezone maths, nothing in your calendar.',
 
   whoFor:
-    'Artists who want to know what is actually broken before committing to a build. You suspect the problem is not effort, you just cannot see the system from inside it.',
+    "Artists who want to know what is actually broken before committing to a build. You suspect the problem isn't effort, you just can't see the system from inside it.",
   positioning: 'The Teardown tells you what is leaking.',
 
   cardBlurb:
     'Send your socials, releases and content archive. Get back a recorded walkthrough of what is leaking, what to fix first, and what to build in what order. The full $197 comes off the Session.',
 
   summary: [
-    'Most artists do not need more content. They need someone to look at what they already have and say, plainly, which part is losing them the growth.',
+    "Most artists don't need more content. They need someone to look at what they already have and say, plainly, which part is losing them the growth.",
     'You submit your socials, your recent releases and your content archive. We return a twenty-minute recorded walkthrough of what is leaking, what to fix first, and what to build in what order, plus the written version so you can work from it.',
-    'It is async on purpose. No scheduling, no timezones, watched on a bus at 2am if that is when you have twenty minutes.',
+    "It's async on purpose. No scheduling, no timezones, watched on a bus at 2am if that's when you have twenty minutes.",
   ],
 
   hero: {
@@ -655,17 +655,17 @@ const growthSystemsTeardown: Product = {
   story: {
     headline: 'A demonstration, not a promise.',
     paragraphs: [
-      'Every agency will tell you what they would do. Almost none of them will show you, because showing you costs them an afternoon and gives away the part they are actually selling.',
+      "Every agency will tell you what they would do. Almost none of them will show you, because showing you costs them an afternoon and gives away the part they're actually selling.",
       'The Teardown is that afternoon. You experience the thinking before you spend a thousand pounds on it, which means the Session stops being a leap of faith and becomes an obvious next step or an obvious no.',
-      'And it is yours either way. If you never book anything else, you still have a prioritised list of what is costing you growth.',
+      "And it's yours either way. If you never book anything else, you still have a prioritised list of what is costing you growth.",
     ],
     points: [
       {
-        title: 'It is tour-proof.',
-        body: 'No scheduling, no timezones, nothing that needs you at a desk. It is a recording, so it survives a bus at 2am and a festival weekend.',
+        title: "It's tour-proof.",
+        body: "No scheduling, no timezones, nothing that needs you at a desk. It's a recording, so it survives a bus at 2am and a festival weekend.",
       },
       {
-        title: 'It is a miniature of the real thing.',
+        title: "It's a miniature of the real thing.",
         body: 'The Growth Blueprint Session™ is this thinking applied with you, in the room, building the plan together. The Teardown is the same eye, one-way. That makes the upgrade obvious instead of salesy.',
       },
       {
@@ -703,8 +703,8 @@ const growthSystemsTeardown: Product = {
   ],
 
   caveats: [
-    'You have to send real material. Socials, recent releases and whatever archive you have; a teardown of an empty account is not worth either of our time.',
-    'It is a diagnosis, not a build. It tells you what to fix and in what order. Doing it is either your job or the Session.',
+    "You have to send real material. Socials, recent releases and whatever archive you have; a teardown of an empty account isn't worth either of our time.",
+    "It's a diagnosis, not a build. It tells you what to fix and in what order. Doing it is either your job or the Session.",
     'The credit runs 30 days. After that the $197 is just the Teardown.',
   ],
 };

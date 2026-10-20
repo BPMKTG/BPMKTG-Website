@@ -228,8 +228,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
 
   if (!env.NOTION_TOKEN) {
-    console.error('intake: NOTION_TOKEN is not set');
-    return json(500, { ok: false, message: 'The form is not configured yet.' });
+    console.error("intake: NOTION_TOKEN isn't set");
+    return json(500, { ok: false, message: "The form isn't configured yet." });
   }
 
   let body: { client?: string; honeypot?: string; fields?: Record<string, unknown> };
@@ -238,7 +238,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (raw.length > MAX_BODY) return json(400, { ok: false, message: 'That submission is too large.' });
     body = JSON.parse(raw);
   } catch {
-    return json(400, { ok: false, message: 'That submission could not be read.' });
+    return json(400, { ok: false, message: "That submission couldn't be read." });
   }
 
   // Honeypot: pretend it worked. Telling a bot why it failed only helps
@@ -256,7 +256,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   const email = String(fields['Email'] ?? '').trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return json(400, { ok: false, message: 'That email address does not look right.' });
+    return json(400, { ok: false, message: "That email address doesn't look right." });
   }
 
   const properties = buildProperties(fields);
@@ -279,11 +279,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       // only useful thing when a name drifts. Server-side only: it can
       // echo submitted values.
       console.error('intake: notion create failed', res.status, await res.text());
-      return json(500, { ok: false, message: 'We could not save that. Please try again.' });
+      return json(500, { ok: false, message: "We couldn't save that. Please try again." });
     }
   } catch (err) {
     console.error('intake: notion create threw', err);
-    return json(500, { ok: false, message: 'We could not save that. Please try again.' });
+    return json(500, { ok: false, message: "We couldn't save that. Please try again." });
   }
 
   if (env.WEB3FORMS_KEY) {

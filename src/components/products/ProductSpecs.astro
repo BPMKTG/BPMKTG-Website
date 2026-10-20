@@ -28,7 +28,7 @@ const { product } = Astro.props;
           "what you download" would be plainly untrue, so the heading
           and the contents both switch. */}
       {/* "Download" only when something actually downloads. A sheet you
-          copy, or a service that produces something for you, is not a
+          copy, or a service that produces something for you, isn't a
           download, and saying so on the Vault page was wrong. */}
       <p class="label">{product.files.length > 0 ? 'What you download' : 'What you get'}</p>
 
@@ -70,7 +70,7 @@ const { product } = Astro.props;
       ) : product.status !== 'available' ? (
         <p class="prod-files-empty">
           The file manifest gets published here once the workbook is finished.
-          Everything described above is what it is being built to do.
+          Everything described above is what it's being built to do.
         </p>
       ) : null}
 

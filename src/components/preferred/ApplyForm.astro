@@ -154,7 +154,7 @@ const skillId = (skill: string) => skill.toLowerCase().replace(/[^a-z0-9]+/g, '-
         <p>
           {formCopy.pendingNote} In the meantime, email{' '}
           <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> with your portfolio
-          and your market, and we will add you by hand.
+          and your market, and we'll add you by hand.
         </p>
       </div>
     )}
@@ -244,7 +244,7 @@ const skillId = (skill: string) => skill.toLowerCase().replace(/[^a-z0-9]+/g, '-
         const message = c.validity.valueMissing
           ? 'This one is required.'
           : c.validity.typeMismatch && c.type === 'email'
-            ? 'That does not look like an email address.'
+            ? "That doesn't look like an email address."
             : c.validity.typeMismatch && c.type === 'url'
               ? 'Include the full link, starting with https://'
               : 'Check this one.';

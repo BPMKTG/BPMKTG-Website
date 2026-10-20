@@ -52,13 +52,13 @@ export const what = {
   eyebrow: 'What it is',
   headline: 'Coverage that scales with a tour, without sourcing crews city by city.',
   paragraphs: [
-    'Blueprint runs growth systems for touring artists, and those artists play cities we are not in. Flying a crew to every date does not work, and finding a competent shooter in an unfamiliar city three days before doors works even less. That gets harder, not easier, once a tour crosses a border.',
-    'So we keep a list. When a Tier 03 or Tier 04 client has a show in your city, we staff it ourselves or we coordinate it through Blueprint Preferred™, depending on where it is and what the scope is. The brief goes out the same way it does for our own shoots, so you know what the night needs before you get there.',
+    "Blueprint runs growth systems for touring artists, and those artists play cities we aren't in. Flying a crew to every date doesn't work, and finding a competent shooter in an unfamiliar city three days before doors works even less. That gets harder, not easier, once a tour crosses a border.",
+    "So we keep a list. When a Tier 03 or Tier 04 client has a show in your city, we staff it ourselves or we coordinate it through Blueprint Preferred™, depending on where it is and what the scope is. The brief goes out the same way it does for our own shoots, so you know what the night needs before you get there.",
   ],
   points: [
     {
       title: 'Real work, not a directory listing.',
-      body: 'This is not a marketplace that takes a cut of jobs you find yourself. We come to you when we have a show in your market that needs covering.',
+      body: "This isn't a marketplace that takes a cut of jobs you find yourself. We come to you when we have a show in your market that needs covering.",
     },
     {
       title: 'You get briefed properly.',
@@ -66,7 +66,7 @@ export const what = {
     },
     {
       title: 'You keep your own clients.',
-      body: 'Being on the list is not exclusive and does not touch the work you already do. It adds dates, it does not take any.',
+      body: "Being on the list isn't exclusive and doesn't touch the work you already do. It adds dates, it doesn't take any.",
     },
   ],
 };
@@ -84,7 +84,7 @@ export const process = {
     },
     {
       title: 'We come to you',
-      body: 'When an artist we work with has a show in your city, we check the list first. You are not pitching for it.',
+      body: "When an artist we work with has a show in your city, we check the list first. You aren't pitching for it.",
     },
     {
       title: 'The brief lands first',
@@ -106,7 +106,7 @@ export const who = {
     'You own your gear, and it can handle a venue. Low light is the whole job.',
     'You can turn work around on a deadline. A recap that lands two weeks late is a recap nobody posts.',
     'You can deliver vertical. Most of what we do with show media ends up on a phone.',
-    'You are reachable on a show day. The brief goes out in advance, but things move.',
+    "You're reachable on a show day. The brief goes out in advance, but things move.",
   ],
 };
 
@@ -128,7 +128,7 @@ export const applicationSections: ApplicationSection[] = [
       { name: 'Primary market', label: 'Primary market', type: 'text', required: true, width: 'half', placeholder: 'City, state, and country' },
       {
         name: 'Travel',
-        label: 'How far you will travel',
+        label: "How far you'll travel",
         type: 'select',
         width: 'half',
         options: ['My city only', 'A few hours from me', 'Anywhere in my country', 'Internationally'],
@@ -192,7 +192,7 @@ export const applicationSections: ApplicationSection[] = [
   },
   {
     legend: 'Your skills',
-    hint: 'Tick what you actually do, then rate yourself out of ten on each. Be honest rather than generous; we would rather know you are a 9 at photo and a 3 at motion than find out on a show day.',
+    hint: "Tick what you actually do, then rate yourself out of ten on each. Be honest rather than generous; we would rather know you're a 9 at photo and a 3 at motion than find out on a show day.",
     skills: [
       'Photography',
       'Videography',
@@ -206,7 +206,7 @@ export const applicationSections: ApplicationSection[] = [
     fields: [
       {
         name: 'Other skills',
-        label: 'Anything else you are good at',
+        label: "Anything else you're good at",
         type: 'text',
         placeholder: 'Not on the list above',
       },
@@ -218,7 +218,7 @@ export const applicationSections: ApplicationSection[] = [
     // forms over, and a ballpark given willingly is worth more than a
     // number squeezed out of someone. Currency is a select rather than
     // free text so the Sheet stays sortable now the network is global.
-    hint: 'Ballparks, not quotes. We will not hold you to these, and leaving them blank will not cost you the application. It just saves a round of emails when something comes up in your city.',
+    hint: "Ballparks, not quotes. We won't hold you to these, and leaving them blank won't cost you the application. It just saves a round of emails when something comes up in your city.",
     fields: [
       {
         name: 'Currency',
@@ -267,14 +267,14 @@ export const applicationSections: ApplicationSection[] = [
   },
   {
     legend: 'A bit about you',
-    hint: 'The part that actually separates applications. We are picking people we will put in a room with a client.',
+    hint: "The part that actually separates applications. We're picking people we'll put in a room with a client.",
     fields: [
       {
         name: 'About',
         label: 'Tell us about yourself',
         type: 'textarea',
         required: true,
-        placeholder: 'What you care about, how you got here, what you do when you are not shooting. Anything that would make us want to work with you.',
+        placeholder: "What you care about, how you got here, what you do when you aren't shooting. Anything that would make us want to work with you.",
       },
     ],
   },
@@ -302,11 +302,11 @@ if (duplicateNames.length > 0) {
 export const formCopy = {
   eyebrow: 'Apply',
   headline: 'Get on the list.',
-  lede: 'Every application is read by a person. If your work fits, we will reach out when there is a show in your market.',
+  lede: "Every application is read by a person. If your work fits, we'll reach out when there's a show in your market.",
   submitLabel: 'Send application',
   successHeadline: "That's in.",
   successBody:
-    'We read every application by hand, so this is not instant. If your work fits what we need in your market, you will hear from us directly.',
+    "We read every application by hand, so this isn't instant. If your work fits what we need in your market, you'll hear from us directly.",
   errorBody: 'Something went wrong sending that. Nothing was lost on your end, but the quickest fix is to email us directly.',
   pendingNote: 'Applications open soon. The form goes live here shortly.',
 };
