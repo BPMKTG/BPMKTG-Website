@@ -69,6 +69,19 @@ export interface Product {
   /** How the product actually reaches the buyer, when it isn't a
    *  download. The Outreach OS copies a sheet into their own Drive. */
   deliveryNote?: string;
+
+  /** The quiet version of the above: a short, matter-of-fact note set
+   *  low on the page rather than its own headlined section. */
+  deliveryFootnote?: string;
+
+  /** Capability blocks, set high on the page above the contents list.
+   *  For the thing a buyer needs to understand before the detail: the
+   *  Vault syncing itself from Drive is the reason it is worth paying
+   *  for, and it reads as a footnote anywhere further down. */
+  features?: {
+    eyebrow: string;
+    items: ProductPoint[];
+  };
   whoFor: string;
   positioning: string;     // one line, used in cross-sell + meta
 
@@ -336,12 +349,13 @@ const contentVault: Product = {
   subtitle: 'Asset Library & Usage Log',
   price: '$29',
   priceValue: 29,
-  status: 'in-build',
-  statusNote: 'The Vault is still being built. It is described here in full, but it is not for sale yet.',
+  status: 'available',
   track: 'artist',
 
-  fileTypes: ['XLSX'],
-  formatNote: 'Excel or Google Sheets workbook',
+  // Google Sheets only, and not by omission: the sync runs on Apps
+  // Script, which has no Excel equivalent. Do not re-add Excel here.
+  fileTypes: ['Google Sheets'],
+  formatNote: 'A Google Sheet, copied into your own Drive',
   whoFor:
     'Artists a year or more into shooting regularly, with footage scattered across Drive, Dropbox, a phone, and a hard drive. The tool for people who own more than they can find.',
   positioning: 'The Vault organizes everything, across time.',
@@ -358,19 +372,19 @@ const contentVault: Product = {
   hero: {
     eyebrow: 'Content Library',
     headline: "Your best shot is in a folder you'll <span class=\"highlight\">never open again</span>.",
-    sub: 'Log each file once when it arrives. After that, finding anything takes seconds.',
+    sub: 'Point it at your Drive folder and hit Sync. It logs what you own, and tells you what you are short on.',
     pills: [
-      'Eight logged fields',
-      'Pre-built filter views',
-      'Source tracking',
-      'Usage log',
-      'Sheets or Excel',
+      'Syncs from Google Drive',
+      'Eleven logged fields',
+      'Filter arrows on every column',
+      'Live gap counts',
+      'Google Sheets',
     ],
     highlights: [
-      { value: '8', unit: 'logged fields' },
-      { value: '4', unit: 'source types' },
-      { value: '1', unit: 'habit to keep' },
-      { value: '∞', unit: 'shelf life' },
+      { value: '11', unit: 'logged fields' },
+      { value: '5', unit: 'source types' },
+      { value: '1', unit: 'click to sync' },
+      { value: '\u221e', unit: 'shelf life' },
     ],
   },
 
@@ -379,7 +393,7 @@ const contentVault: Product = {
     paragraphs: [
       'Every artist has the same problem. A year of shows, a dozen shooters, thousands of files across Drive, Dropbox, a phone, and a hard drive somewhere. When you need one specific frame for a tour announcement, you know it exists and you spend forty minutes looking for it.',
       'Then you give up and post something worse.',
-      'The Content Vault fixes that with one habit: log each file once when it arrives. Type, orientation, rating, where it came from, which show, whether you have used it and where.',
+      'The Content Vault reads your Drive folder and logs what is in it. Name, shoot folder, date, format, orientation, and a link straight back to the file. You rate the ones worth keeping and delete the rest.',
       'After that, finding anything takes seconds. Unused vertical video. Everything from a festival. Every crowd shot rated Hero. The strongest thing you have never posted.',
     ],
     points: [
@@ -402,21 +416,35 @@ const contentVault: Product = {
     ],
   },
 
-  inside: {
-    eyebrow: "What's inside",
-    headline: 'Log it once. Find it forever.',
+  features: {
+    eyebrow: 'What it does',
     items: [
       {
-        title: 'The Vault',
-        body: 'Tagged fields and dropdowns, no setup. File name, type, orientation, rating, source, show or festival, used where, date used.',
+        title: 'It fills itself in.',
+        body: 'Point it at your Drive folder and hit Sync. It pulls in every new file with the name, shoot folder, date, format, orientation and a clickable link straight to the file. You add a rating and a tag to the ones worth keeping, and delete the rest. Run it again after your next delivery and it only brings in what is new.',
       },
       {
-        title: 'Filter views',
-        body: 'Pre-built for the searches you will actually run, which is the difference between this and a blank spreadsheet.',
+        title: 'It tells you what you are short on.',
+        body: 'The Gaps tab keeps live counts of what you are holding and what you are missing. Unused vertical video. Unused Hero-rated anything. ID clips waiting on a release date. A zero next to unused vertical video is not a spreadsheet problem, it is the brief for your next shoot.',
+      },
+    ],
+  },
+
+  inside: {
+    eyebrow: "What's inside",
+    headline: 'Synced, rated, and findable.',
+    items: [
+      {
+        title: 'Eleven logged fields',
+        body: 'File name, shoot folder, date, type, orientation, rating, source, tags, used or not, where it was used, and what release it is being held for. Plus an Open column that links straight to the file in Drive.',
       },
       {
-        title: 'Source tracking',
-        body: 'Your shooter, the crowd, other artists, your own phone, all in one place.',
+        title: 'Filter arrows on every column',
+        body: 'Native column filters, so you can stack them: unused, vertical, rated Hero, from a festival. No setup and nothing to learn.',
+      },
+      {
+        title: 'Five source types',
+        body: 'Own shooter, crowd, other artist, phone, festival. So you know what you paid for and what simply turned up.',
       },
       {
         title: 'Usage log',
@@ -424,6 +452,9 @@ const contentVault: Product = {
       },
     ],
   },
+
+  deliveryFootnote:
+    'Click the link and make a copy. It lands in your own Google Drive and it is yours. The first time you sync, Google asks for permission to read your Drive folder, because that is what the tool does. It runs entirely inside your own account and nothing is sent anywhere else.',
 
   files: [],
 };

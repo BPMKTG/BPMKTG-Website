@@ -602,9 +602,9 @@ the catalog are converted on the way in, per the site-wide rule.
 |---------|-------|-------|----------|----------|--------|
 | Show Media Brief Kit | artist | $17 | Media Brief & Post-Show Content Schedule | PDF + DOCX + XLSX | Built |
 | Release Rollout Calendar | artist | $19 | Rollout Plan & Asset Checklist | XLSX | Built |
-| The Content Vault | artist | $29 | Asset Library & Usage Log | XLSX | **In build** |
+| The Content Vault | artist | $29 | Asset Library & Usage Log | Google Sheets only | Built |
 | Growth Systems Teardown | artist | $197 | Recorded Audit & Priority Fix List | Video + written, async | **In build** |
-| All Three Tools (bundle) | artist | $49 | vs $65 standalone, saves $16 | the three workbooks only | **Blocked on the Vault** |
+| All Three Tools (bundle) | artist | $49 | vs $65 standalone, saves $16 | the three workbooks only | Unblocked, awaiting checkout |
 | Artist Outreach OS | creator | $199 | Outreach Tracker & Contact Directory | Google Sheet copy + Gmail | **Built, unproven** |
 
 **Artist-track positioning line, use verbatim:**
@@ -625,7 +625,7 @@ Session builds the how, with you."*
 **Who each one is for:**
 - **Kit** — artists and managers booking media for shows. Anyone who has hired a shooter and gotten back footage that missed the moment.
 - **Calendar** — artists with a single release coming up who announce two weeks out and watch it die three days after it drops. One release, not a rolling cadence.
-- **Vault** — artists a year or more into shooting regularly, with footage scattered across Drive, Dropbox, a phone, and a hard drive.
+- **Vault** — artists a year or more into shooting regularly, with footage scattered across Drive, Dropbox, a phone, and a hard drive. **Google Sheets only**: it runs on Apps Script and there is no Excel version, so never offer one. It syncs itself from a Drive folder rather than being logged by hand, has eleven logged fields plus a clickable Open column, five source types, native column filter arrows (not saved views), and a Gaps tab with live counts.
 - **Teardown** — artists who want to know what is broken before committing to a build. Feeds from the workbooks or a mid-range Readiness Score, and converges on the Session.
 - **Outreach OS** — the working concert photographer or videographer, two to ten shoots a month at local venues, whose pipeline is "DM the artist on Instagram and hope". Not for hobbyists without a portfolio, not for agencies that already have a CRM, not for anyone off Gmail.
 

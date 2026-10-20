@@ -2809,4 +2809,53 @@ anything visual, measure the computed value or the geometry.
 
 ---
 
+## Session 31 — 2026-10-20 — The Vault shipped, and the page was describing a different tool
+
+The Content Vault is built. The page still described an earlier design, so
+this was a correction pass as much as a status change.
+
+### Status, and what it cascaded into
+
+`status: 'in-build'` to `'available'`. That one field did four things on its
+own, all of them wanted: the badge became "Checkout opening soon" like the
+other two tools, the orange in-build strip disappeared, the shop card stopped
+rendering dimmed, and **the bundle unblocked**, because its status is derived
+from its contents. "The bundle opens when the Vault does" would now have been
+a lie. Bundle pricing is untouched: still $65 standalone, $49, saves $16.
+
+### Facts corrected
+
+- **Google Sheets only.** It runs on Apps Script; there is no Excel version.
+  Removed from the Vault's format, chips and pills, and the shop FAQ no longer
+  claims every workbook opens in Excel, since for this one it does not.
+- Eight logged fields to **eleven**, plus the clickable Open column.
+- Four source types to **five** (festival added).
+- "Pre-built filter views" to **filter arrows on every column**. It has native
+  column filters, not saved views, and the page should not promise views.
+
+### The feature that was missing
+
+The page described manual logging, which is no longer how it works. Two new
+blocks now sit above the contents list, in a new `features` field rendered by
+`ProductFeatures.astro`: "It fills itself in" (the Drive sync) and "It tells
+you what you are short on" (the Gaps tab). They are deliberately louder than
+the inside cards; the sync is the reason the thing is worth $29 and it read
+as a footnote anywhere lower.
+
+Also new: `deliveryFootnote`, the quiet counterpart to `deliveryNote`. Low on
+the page, small, no border or tint, because the Drive permission prompt is
+small print a buyer wants before paying, not a warning.
+
+### A stale placeholder the status change exposed
+
+With files empty and status no longer in-build, the specs column still read
+"The file manifest gets published here once the workbook is finished" under a
+heading of "What you download". Both wrong: the workbook is finished, and a
+Sheet you copy is not a download. The placeholder now only renders for
+products that are genuinely not available, and the heading keys off whether
+there are real files rather than off what else happens to be set. The Outreach
+OS was already right by accident; now it is right on purpose.
+
+---
+
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*

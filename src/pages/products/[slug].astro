@@ -5,6 +5,7 @@
 import Layout from '../../layouts/Layout.astro';
 import ProductHero from '../../components/products/ProductHero.astro';
 import ProductStory from '../../components/products/ProductStory.astro';
+import ProductFeatures from '../../components/products/ProductFeatures.astro';
 import ProductInside from '../../components/products/ProductInside.astro';
 import ProductSpecs from '../../components/products/ProductSpecs.astro';
 import ProductBundle from '../../components/products/ProductBundle.astro';
@@ -39,6 +40,7 @@ const { product } = Astro.props as { product: Product };
   )}
 
   <ProductStory product={product} />
+  <ProductFeatures product={product} />
   <ProductInside product={product} />
 
   {/* Setup is one menu click, and saying so up front is what stops it
@@ -54,6 +56,15 @@ const { product } = Astro.props as { product: Product };
   )}
 
   <ProductSpecs product={product} />
+
+  {product.deliveryFootnote && (
+    <section class="prod-delivery-foot">
+      <div class="container">
+        <p class="label">How you get it</p>
+        <p>{product.deliveryFootnote}</p>
+      </div>
+    </section>
+  )}
 
   <section class="section prod-close">
     <div class="container prod-close-inner" data-reveal>
@@ -198,6 +209,18 @@ const { product } = Astro.props as { product: Product };
     color: var(--muted);
     font-size: 0.97rem;
     line-height: 1.75;
+  }
+
+  /* ─── Delivery footnote ─── */
+  /* Matter of fact, not a warning: no border, no tint, no icon. It is
+     the small print a buyer wants before paying, not an alert. */
+  .prod-delivery-foot { padding: 0 0 1rem; }
+  .prod-delivery-foot p:not(.label) {
+    margin: 0.6rem 0 0;
+    max-width: 68ch;
+    color: var(--dim);
+    font-size: 0.85rem;
+    line-height: 1.7;
   }
 
   /* ─── Blueprint Preferred close ─── */

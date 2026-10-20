@@ -27,9 +27,10 @@ const { product } = Astro.props;
       {/* A sheet-based product has tabs, not files. Calling that list
           "what you download" would be plainly untrue, so the heading
           and the contents both switch. */}
-      <p class="label">
-        {product.tabs || product.deliverables ? 'What you get' : 'What you download'}
-      </p>
+      {/* "Download" only when something actually downloads. A sheet you
+          copy, or a service that produces something for you, is not a
+          download, and saying so on the Vault page was wrong. */}
+      <p class="label">{product.files.length > 0 ? 'What you download' : 'What you get'}</p>
 
       {product.deliverables ? (
         <ul class="prod-files">
@@ -66,12 +67,12 @@ const { product } = Astro.props;
             </li>
           ))}
         </ul>
-      ) : (
+      ) : product.status !== 'available' ? (
         <p class="prod-files-empty">
           The file manifest gets published here once the workbook is finished.
           Everything described above is what it is being built to do.
         </p>
-      )}
+      ) : null}
 
       <p class="prod-format-note">{product.formatNote}</p>
     </div>

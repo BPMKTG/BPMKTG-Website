@@ -1,0 +1,67 @@
+---
+// Capability blocks, set high on the page above the contents list.
+//
+// Deliberately heavier than the "What's inside" cards: these carry the
+// one or two things a buyer has to understand before the detail means
+// anything. The Vault syncing itself from Drive is the whole reason it
+// is worth paying for, and it reads as a footnote anywhere lower down.
+import type { Product } from '../../data/products';
+
+interface Props { product: Product; }
+const { product } = Astro.props;
+const features = product.features;
+---
+{features && (
+  <section class="section prod-features" id="what-it-does">
+    <div class="container">
+      <p class="label" data-reveal="left">{features.eyebrow}</p>
+
+      <ul class="prod-features-grid" data-reveal-group>
+        {features.items.map(item => (
+          <li class="prod-feature card-trace card-inner-glow" data-reveal>
+            <h2>{item.title}</h2>
+            <p>{item.body}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+)}
+
+<style>
+  .prod-features-grid {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
+  }
+  .prod-feature {
+    min-width: 0;
+    padding: clamp(1.6rem, 3vw, 2.25rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+    --trace-color: var(--bp-blue);
+  }
+  .prod-feature:nth-child(2) { --trace-color: var(--bp-orange); }
+
+  .prod-feature h2 {
+    margin: 0 0 0.85rem;
+    font-family: var(--font-display);
+    /* Below the section headings, above the inside-card titles: these
+       are the page's second-loudest voice. */
+    font-size: clamp(1.25rem, 2.3vw, 1.6rem);
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  .prod-feature p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.97rem;
+    line-height: 1.75;
+    overflow-wrap: break-word;
+  }
+</style>
