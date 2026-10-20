@@ -74,6 +74,11 @@ const tracks = [
             </li>
           ))}
         </ul>
+
+        {/* The bundle is an artist-track offer, so the page slots it in
+            here rather than after both tracks, where it would read as
+            applying to the creator tool as well. */}
+        {track.key === 'artist' && <slot name="after-artist-track" />}
       </div>
     ))}
   </div>
@@ -113,7 +118,13 @@ const tracks = [
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--bp-light);
+    /* Keeps the label beside its blurb on a wide row. Released below,
+       because "For photographers and videographers" is 459px of
+       unbreakable text and was pushing the page sideways on a phone. */
     white-space: nowrap;
+  }
+  @media (max-width: 760px) {
+    .prod-track-head h3 { white-space: normal; }
   }
   .prod-track-head p {
     margin: 0;

@@ -96,8 +96,9 @@ const faqs = [
     </div>
   </section>
 
-  <ProductGrid />
-  <ProductBundle />
+  <ProductGrid>
+    <ProductBundle slot="after-artist-track" />
+  </ProductGrid>
 
   <section class="section shop-ladder">
     <div class="container shop-ladder-inner" data-reveal>
