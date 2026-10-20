@@ -1,13 +1,22 @@
 ---
 import { CALENDLY_URL } from '../config/cta';
 
+// Ordered as the funnel reads: what we do, what you can buy, why us,
+// the proof, who we are. Then the two self-serve doors, which are their
+// own destinations rather than steps in the pitch.
+//
+// The nav says "Portfolio" while the page and the home carousel still
+// say "In The Field". That is deliberate: the nav has to be findable by
+// someone scanning for it, and the section label is the framing that
+// keeps press access from reading as client work.
 const navItems = [
-  { href: '/#process',     label: 'How It Works' },
-  { href: '/#offers',      label: 'Offers' },
-  { href: '/products',     label: 'Tools' },
-  { href: '/#why',         label: 'Why Blueprint' },
-  { href: '/portfolio',    label: 'In The Field' },
-  { href: '/about',        label: 'About' },
+  { href: '/#process',            label: 'How It Works' },
+  { href: '/#offers',             label: 'Offers' },
+  { href: '/#why',                label: 'Why Blueprint' },
+  { href: '/portfolio',           label: 'Portfolio' },
+  { href: '/about',               label: 'About' },
+  { href: '/products',            label: 'Tools' },
+  { href: '/blueprint-preferred', label: 'Blueprint Preferred' },
 ];
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
@@ -186,7 +195,10 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
   }
   .nav-pill a {
     display: inline-block;
-    padding: 0.55rem 1rem;
+    /* Seven items now, two of them two words. Without this the labels
+       break mid-phrase and the pill grows to two lines. */
+    white-space: nowrap;
+    padding: 0.55rem 0.82rem;
     color: var(--ink);
     opacity: 0.78;
     font-size: 0.85rem;
@@ -198,7 +210,7 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
   .nav-pill a:hover { opacity: 1; background: rgba(255,255,255,0.06); }
   .nav-pill a.active { background: rgba(98, 166, 219, 0.18); color: var(--bp-light); opacity: 1; }
 
-  .cta-link { padding: 0.65rem 1.1rem; font-size: 0.78rem; }
+  .cta-link { padding: 0.65rem 1.1rem; font-size: 0.78rem; white-space: nowrap; }
 
   /* ── Mobile hamburger ── */
   .nav-toggle {
@@ -374,7 +386,10 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
     padding: 1rem 1.25rem;
   }
 
-  @media (max-width: 980px) {
+  /* The pill only shows where all seven labels fit on one line next to
+     the logo and the CTA. Measured at 1083px; the hamburger takes over
+     below that rather than letting the nav wrap or crush the CTA. */
+  @media (max-width: 1120px) {
     .nav-pill { display: none; }
     .nav-toggle { display: flex; align-items: center; justify-content: center; flex-direction: column; }
   }
