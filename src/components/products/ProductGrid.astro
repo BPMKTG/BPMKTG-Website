@@ -38,6 +38,7 @@ const tracks = [
               class:list={[
                 'prod-card', 'card-trace', 'card-inner-glow',
                 { 'is-building': p.status !== 'available' },
+                { 'prod-card--wide': p.wideCard },
               ]}
               data-reveal
             >
@@ -101,6 +102,16 @@ const tracks = [
 
   /* ─── Track sections ─── */
   .prod-track + .prod-track { margin-top: 4rem; }
+
+  /* The bundle is slotted in here, inside this component's .container, so
+     its own .container pads a second time and the band lands 48px narrower
+     than every card row above it. Neutralise the inner one so the bundle
+     and the full-width Teardown card share an edge. */
+  .prod-track :global(.prod-bundle > .container) {
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+  }
   .prod-track-head {
     display: flex;
     flex-wrap: wrap;
@@ -249,4 +260,64 @@ const tracks = [
   .prod-card-more:hover .arrow { transform: translateX(3px); }
 
   .prod-card-buy { margin-top: 1rem; display: flex; }
+
+  /* ─── Full-width card ───
+     Spans the row and lays out sideways, so it reads as the thing the
+     cards above feed into without becoming a tall slab. Copy on the
+     left, price and buy on a rail to the right. */
+  .prod-card--wide {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 260px);
+    grid-template-rows: auto auto auto;
+    column-gap: clamp(1.5rem, 4vw, 3.5rem);
+    align-items: start;
+    padding: clamp(1.75rem, 3vw, 2.25rem);
+  }
+  .prod-card--wide > .prod-card-head    { grid-column: 1; grid-row: 1; margin-bottom: 0.9rem; }
+  .prod-card--wide > .prod-card-summary { grid-column: 1; grid-row: 2; margin-bottom: 1rem; max-width: 70ch; }
+  .prod-card--wide > .prod-card-files   { grid-column: 1; grid-row: 3; margin: 0; align-self: end; }
+
+  /* The rail: no top border or auto margin, since it is no longer the
+     bottom of a stack. */
+  .prod-card--wide > .prod-card-foot {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+  .prod-card--wide > .prod-card-buy {
+    grid-column: 2;
+    grid-row: 3;
+    margin-top: 0;
+    align-self: end;
+  }
+
+  @media (max-width: 760px) {
+    /* Back to a normal stacked card: a two-column rail at phone width
+       would squeeze both halves. */
+    .prod-card--wide {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: none;
+      row-gap: 0;
+    }
+    .prod-card--wide > .prod-card-head,
+    .prod-card--wide > .prod-card-summary,
+    .prod-card--wide > .prod-card-files,
+    .prod-card--wide > .prod-card-foot,
+    .prod-card--wide > .prod-card-buy { grid-column: 1; grid-row: auto; }
+    .prod-card--wide > .prod-card-files { margin: 0 0 1.25rem; }
+    .prod-card--wide > .prod-card-foot {
+      flex-direction: row;
+      align-items: baseline;
+      justify-content: space-between;
+      padding-top: 1rem;
+      border-top: 1px solid var(--line);
+    }
+    .prod-card--wide > .prod-card-buy { margin-top: 1rem; }
+  }
 </style>

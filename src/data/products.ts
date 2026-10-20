@@ -74,6 +74,12 @@ export interface Product {
    *  low on the page rather than its own headlined section. */
   deliveryFootnote?: string;
 
+  /** Spans the full width of the shop grid instead of taking a card
+   *  slot. For a product the others feed into: the Teardown is where
+   *  the three workbooks converge, and a third-width card alone on a
+   *  row read like an afterthought rather than the next rung. */
+  wideCard?: boolean;
+
   /** Capability blocks, set high on the page above the contents list.
    *  For the thing a buyer needs to understand before the detail: the
    *  Vault syncing itself from Drive is the reason it is worth paying
@@ -613,6 +619,7 @@ const growthSystemsTeardown: Product = {
   statusNote:
     "The Teardown isn't open yet. It's described here in full, but we aren't taking bookings for it until the process is running.",
   track: 'artist',
+  wideCard: true,
 
   fileTypes: ['Video', 'Written'],
   formatNote: 'A 20-minute recorded walkthrough plus a written priority fix list',
