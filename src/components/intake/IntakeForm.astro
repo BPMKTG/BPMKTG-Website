@@ -31,6 +31,25 @@ const total = intakeSteps.length;
           <legend>{step.title}</legend>
           {step.blurb && <p class="intake-blurb">{step.blurb}</p>}
 
+          {step.guide && (
+            <div class="access-guide">
+              {/* Rendered open. JS closes them on narrow viewports, so a
+                  phone gets a scannable list while a browser with no JS
+                  still shows every instruction rather than hiding them
+                  behind a control that will not open. */}
+              {step.guide.map(g => (
+                <details class="access-item" open data-access-item>
+                  <summary>
+                    <span class="access-platform">{g.platform}</span>
+                    <span class="access-chevron" aria-hidden="true"></span>
+                  </summary>
+                  <p class="access-steps">{g.steps}</p>
+                </details>
+              ))}
+              {step.guideNote && <p class="access-guide-note">{step.guideNote}</p>}
+            </div>
+          )}
+
           <div class="intake-rows">
             {step.fields.map(f => (
               <div class:list={['intake-field', `is-${f.width ?? 'full'}`]}>
@@ -265,6 +284,25 @@ const total = intakeSteps.length;
       if (top < 0) shell?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     };
 
+    // ── access guide: collapse on narrow screens ──────────────────
+    // The markup ships open so a no-JS browser shows every instruction.
+    // Here it folds down to one line per platform on a phone, where
+    // seven paragraphs would bury the fields underneath them.
+    const accessItems = Array.from(form.querySelectorAll<HTMLDetailsElement>('[data-access-item]'));
+    if (accessItems.length) {
+      const narrow = window.matchMedia('(max-width: 760px)');
+      const syncAccess = (collapse: boolean) => {
+        accessItems.forEach(d => { d.open = !collapse; });
+      };
+      syncAccess(narrow.matches);
+      // Safari below 14 has addListener only; neither path should throw.
+      if (typeof narrow.addEventListener === 'function') {
+        narrow.addEventListener('change', e => syncAccess(e.matches));
+      } else if (typeof (narrow as any).addListener === 'function') {
+        (narrow as any).addListener((e: MediaQueryListEvent) => syncAccess(e.matches));
+      }
+    }
+
     next?.addEventListener('click', () => go(current + 1));
     back?.addEventListener('click', () => go(current - 1, false));
 
@@ -415,6 +453,64 @@ const total = intakeSteps.length;
     font-size: 0.92rem;
     line-height: 1.65;
     max-width: 60ch;
+  }
+
+  /* ── Access guide (step 7) ──────────────────────────────────── */
+  .access-guide {
+    margin: 1.4rem 0 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+  }
+  .access-item + .access-item { border-top: 1px solid var(--line); }
+  .access-item > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.7rem 1rem;
+    cursor: pointer;
+    list-style: none;
+    color: var(--ink);
+    font-size: 0.86rem;
+    font-weight: 600;
+  }
+  .access-item > summary::-webkit-details-marker { display: none; }
+  .access-item > summary:hover { background: rgba(255, 255, 255, 0.03); }
+  .access-platform { min-width: 0; }
+  .access-chevron {
+    flex: none;
+    width: 7px; height: 7px;
+    border-right: 1.5px solid var(--bp-blue);
+    border-bottom: 1.5px solid var(--bp-blue);
+    transform: rotate(45deg);
+    transition: transform 0.15s;
+  }
+  .access-item[open] > summary > .access-chevron { transform: rotate(-135deg); }
+  .access-steps {
+    margin: 0;
+    padding: 0 1rem 0.9rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.65;
+    max-width: 70ch;
+  }
+  .access-guide-note {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--line);
+    background: rgba(98, 166, 219, 0.05);
+    color: var(--muted);
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
+  /* Above the collapse breakpoint the summary is a heading, not a
+     control, so it should not advertise itself as clickable. */
+  @media (min-width: 761px) {
+    .access-item > summary { cursor: default; }
+    .access-item > summary:hover { background: none; }
+    .access-chevron { display: none; }
   }
 
   .intake-rows {

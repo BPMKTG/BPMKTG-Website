@@ -33,13 +33,27 @@ export interface IntakeField {
   width?: 'full' | 'half';
 }
 
+/** One platform's instructions on the access step. */
+export interface AccessGuideItem {
+  platform: string;
+  steps: string;
+}
+
 export interface IntakeStep {
   title: string;
   blurb?: string;
   /** Rendered as a standing note under the step's fields. */
   note?: string;
+  /** Platform-by-platform instructions, rendered above the fields. */
+  guide?: AccessGuideItem[];
+  /** Standing line under the guide list. */
+  guideNote?: string;
   fields: IntakeField[];
 }
+
+/** Where account invites go. Deliberately not CONTACT_EMAIL: an invite
+ *  has to land on a person's own account, not a shared inbox. */
+export const ACCESS_EMAIL = 'mason@bpmktg.com';
 
 export const intakeSteps: IntakeStep[] = [
   {
@@ -135,6 +149,55 @@ export const intakeSteps: IntakeStep[] = [
       },
       { prop: 'Who else posts or manages your accounts?', label: 'Who else posts or manages your accounts?', input: 'text', notion: 'rich_text', width: 'half' },
       { prop: 'Link to your best-performing post so far', label: 'Link to your best-performing post so far', input: 'url', notion: 'url', placeholder: 'https://' },
+    ],
+  },
+  {
+    title: 'Give us access',
+    blurb: 'Adding us to your accounts lets us audit your real numbers before our kickoff call. Use the invites below.',
+    note: `Never send passwords by text, email, or this form. Everything goes to ${ACCESS_EMAIL}.`,
+    // Menus move and the wording drifts, so the checklist below records
+    // what the artist believes they finished rather than what we can
+    // verify. The help textarea is where a stuck step gets caught.
+    guide: [
+      {
+        platform: 'Instagram + Facebook',
+        steps: `Meta Business Suite → Settings → People → invite ${ACCESS_EMAIL}. Instagram needs to be a professional account linked to a Facebook Page.`,
+      },
+      {
+        platform: 'TikTok',
+        steps: "TikTok doesn't have simple team access for most creator accounts. If you use TikTok Business Center, add us there; otherwise skip it and we'll set it up together.",
+      },
+      { platform: 'YouTube', steps: 'YouTube Studio → Settings → Permissions → Invite.' },
+      { platform: 'Spotify for Artists', steps: 'Team → Invite.' },
+      { platform: 'Apple Music for Artists', steps: 'Team → add member.' },
+      {
+        platform: 'Email or SMS tools (HubSpot, Laylo, etc.)',
+        steps: `add ${ACCESS_EMAIL} as a user.`,
+      },
+      { platform: 'SoundCloud and X', steps: "skip for now, we'll cover these on the call." },
+    ],
+    guideNote: "Menu names change sometimes. If something doesn't match, check the box for what you finished and tell us what's stuck below.",
+    fields: [
+      {
+        // Apostrophe is a straight quote, matching the Notion property
+        // character for character. Do not tidy it into a curly one.
+        prop: "Access I've granted", label: "Access I've granted", input: 'multiselect', notion: 'multi_select',
+        options: [
+          'Instagram + Facebook (Meta Business Suite)',
+          'TikTok',
+          'YouTube',
+          'Spotify for Artists',
+          'Apple Music for Artists',
+          'SoundCloud',
+          'X',
+          'Email platform',
+          'SMS platform',
+        ],
+      },
+      {
+        prop: 'Need help with access?', label: 'Need help with access?', input: 'textarea', notion: 'rich_text',
+        placeholder: "Anything you couldn't find or weren't sure about.",
+      },
     ],
   },
   {

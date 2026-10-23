@@ -85,6 +85,56 @@ is('bad platform links salvaged into Other links',
 is('empty platform links omitted',
    Object.keys(buildProperties({ 'Threads': '', 'SoundCloud': '   ' })).length, 0);
 
+// ── The access step (step 7) ───────────────────────────────────
+// The multi_select is the risk here: an unknown option would make
+// Notion create a brand new option from whatever was posted, so the
+// allow-list has to hold against junk arriving alongside real picks.
+const access = buildProperties({
+  "Access I've granted": [
+    'Instagram + Facebook (Meta Business Suite)',
+    'Spotify for Artists',
+  ],
+  'Need help with access?': "Could not find Permissions in YouTube Studio.",
+});
+
+is('access: valid multi_select options kept',
+   access["Access I've granted"],
+   { multi_select: [
+     { name: 'Instagram + Facebook (Meta Business Suite)' },
+     { name: 'Spotify for Artists' },
+   ] });
+
+is('access: help note written as rich_text',
+   access['Need help with access?'],
+   { rich_text: [{ type: 'text', text: { content: 'Could not find Permissions in YouTube Studio.' } }] });
+
+is('access: unknown options dropped, valid ones survive',
+   buildProperties({
+     "Access I've granted": ['YouTube', 'Myspace', 'X', '<script>'],
+   })["Access I've granted"],
+   { multi_select: [{ name: 'YouTube' }, { name: 'X' }] });
+
+is('access: all-unknown multi_select omitted entirely',
+   "Access I've granted" in buildProperties({ "Access I've granted": ['Myspace'] }),
+   false);
+
+is('access: nothing checked omits the property',
+   "Access I've granted" in buildProperties({ "Access I've granted": [] }),
+   false);
+
+is('access: a single checkbox arrives as a bare string',
+   buildProperties({ "Access I've granted": 'SMS platform' })["Access I've granted"],
+   { multi_select: [{ name: 'SMS platform' }] });
+
+is('access: blank help note omitted',
+   'Need help with access?' in buildProperties({ 'Need help with access?': '   ' }),
+   false);
+
+is('access: long help note chunked at 2000',
+   buildProperties({ 'Need help with access?': 'y'.repeat(2500) })['Need help with access?']
+     .rich_text.map(c => c.text.content.length),
+   [2000, 500]);
+
 // ── Required-field validation ──────────────────────────────────
 // A complete, valid submission for the eight required fields.
 const complete = {
@@ -126,6 +176,10 @@ is('required: select must be a real option',
 
 is('required: optional fields never reported',
    missingRequired({ ...complete, 'Phone': '', 'Distributor': '' }), []);
+
+// Neither access field is required, so neither may ever block a send.
+is('required: access fields never reported',
+   missingRequired({ ...complete, "Access I've granted": [], 'Need help with access?': '' }), []);
 
 // Reported by label, which is what the person actually sees.
 is('required: reported by label not property',
