@@ -2856,6 +2856,35 @@ products that are genuinely not available, and the heading keys off whether
 there are real files rather than off what else happens to be set. The Outreach
 OS was already right by accident; now it is right on purpose.
 
+## Session 32 — the /intake access step
+
+`Give us access`, step 7 of 9, straight after the accounts links. The links
+say where an artist posts; this says what we can actually see. Without it the
+kickoff audit is guesswork off public-facing numbers.
+
+Both Notion properties already existed in Artist Intake with matching names,
+types and the nine option names, and the page layout already had an Access
+section, so nothing had to be created there. The endpoint needed no change at
+all: it maps whatever `intake.ts` defines, and the multi_select allow-list
+already drops anything not in `options`.
+
+### Decisions worth keeping
+
+- **The guide ships open and JS collapses it**, not the other way round. A
+  browser without JS then shows every instruction rather than hiding them
+  behind a `<details>` nobody can expand. Collapse fires below 760px.
+- **TikTok and SoundCloud/X say to skip.** There is no simple team access for
+  most creator accounts, and inventing a menu path would strand people.
+- **The checklist records belief, not fact.** We cannot verify an invite from
+  the form, so the guide note points a stuck artist at the help textarea
+  instead of leaving them stalled on a step they cannot finish.
+- **The password warning lives in `note`**, not the intro, so it gets the
+  same standing-warning treatment the accounts step already uses.
+
+Verified end to end against production: a submission at
+`/intake?client=sean-comma` wrote both multi_select options, the help note and
+the client relation. 42 test assertions, up from 33.
+
 ---
 
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
