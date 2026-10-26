@@ -2951,6 +2951,72 @@ leaves `data.ts`, the cookie, the whitelists and the page untouched.
 
 131 portal assertions, plus the 42 intake ones; `npm test` runs both.
 
+## Session 34 — verifying the portal, and two traps that cost a round each
+
+Portal V1 merged to main and verified on production. The build was
+already right; everything below was about finding that out.
+
+### Both failures looked identical, because they are meant to
+
+The portal answers every failure with the same 404. That is correct, and
+it means a misconfiguration is indistinguishable from an attack, so
+diagnosis has to come from outside the response. Two separate problems
+produced the same blank 404 on the preview, and I misattributed the first
+one twice before measuring anything.
+
+**Trap 1: a Pages environment variable does not reach a deployment that
+already exists.** Variables bind when a deployment is created. The
+preview was built before `NOTION_TOKEN` was set, so the guard at the top
+of `auth.ts` returned the house 404 for every request, without ever
+reading the Notion row. Pushing a commit fixed it.
+
+**Trap 2: the rate limit window is ten minutes since the LAST attempt**,
+not the first, because every failure rewrites the counter with a fresh
+TTL. Correct against a script, a trap while testing. I blamed this for
+Trap 1's symptom and waited out a window for nothing — the counter was
+never even incremented, since `recordFailure` runs after the key check
+and execution returned above it.
+
+The tell that actually settled it was **timing**: ~115ms is too fast to
+have asked Notion anything. Both traps are now in `PORTAL_SETUP.md`
+along with the Functions log line that names Trap 1 outright.
+
+### The lesson worth keeping
+
+A deliberately uninformative failure mode needs a documented way in.
+`console.error` + real-time logs + response timing is that way, and it
+only helps if the doc says so. It does now.
+
+### A test that cried leak
+
+Hashing `/portal/<real>` against `/portal/<fake>` reported DIFFERENT.
+Not a leak: Cloudflare's email obfuscation rewrites the footer address
+with a **random XOR key per response**, so the same slug also differs
+from itself between two fetches. Normalise that token and a real client,
+a fake slug and a second real client all hash identically, at the same
+7757 bytes. Worth remembering before trusting a byte-compare on anything
+Cloudflare has rewritten.
+
+### Verified on production
+
+Key strips from the URL; reload works from the HttpOnly cookie alone;
+wrong key, fake slug, missing cookie and wrong method all return the
+same 32-byte 404. The raw `/data` payload carries exactly the whitelist
+and nothing else: zero unexpected fields in all three collections, no
+portal key, no `@` anywhere in 8201 bytes. Engagement decimals render as
+percentages (0.074 → 7.4%). No horizontal overflow at 375px.
+
+### Still open
+
+- **Kindrix's `Intake Slug` is `Kindrix`.** `isValidSlug` is
+  lowercase-only, so that portal cannot work until it is `kindrix`.
+  Check whether the capitalised slug is already in a live intake link.
+- The site ships **no sitemap and no robots.txt** at all. The portal is
+  covered by noindex and `X-Robots-Tag` regardless, but the absence is
+  worth a decision rather than an accident.
+
+---
+
 ---
 
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*
