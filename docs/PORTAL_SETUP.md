@@ -166,6 +166,23 @@ encrypted variables. **Set them for Preview as well as Production** if you
 want portals to work on preview deploys; Pages does not share variables
 between the two environments.
 
+**A variable added after a deployment does not reach that deployment.**
+Pages binds variables when a deployment is created, so an existing
+preview keeps running without them until you redeploy. Push a commit, or
+use **Retry deployment** in the dashboard.
+
+With `NOTION_TOKEN` missing the portal returns the same 404 as every
+other failure, by design, so there is nothing on the page to tell you
+this is what happened. The giveaway is in **Workers & Pages → the
+project → the deployment → Functions → Real-time logs**:
+
+```
+portal: NOTION_TOKEN isn't set
+```
+
+A response that comes back in roughly 100ms is the same hint, since that
+is too fast to have asked Notion anything.
+
 Locally they come from `.dev.vars` (gitignored). See `.dev.vars.example`.
 
 ---
@@ -173,7 +190,15 @@ Locally they come from `.dev.vars` (gitignored). See `.dev.vars.example`.
 ## Rate limiting
 
 Failed key checks are counted per IP in the Cloudflare Cache API: eight
-failures in ten minutes and everything from that IP 404s.
+failures and everything from that IP 404s.
+
+**The window is ten minutes since the last attempt, not since the first.**
+Every failure rewrites the counter with a fresh ten minute TTL, so a
+script that keeps hammering stays locked out indefinitely. That is the
+behaviour you want against an attacker, and a trap when you are the one
+testing: once you are over the limit, the gate runs *before* the key is
+read, so a **correct** key also returns 404 and looks like a bad key.
+Stop for ten full minutes, then try once.
 
 **Be honest about what this is.** The cache is per datacenter and the
 read-modify-write races, so an attacker spread across colos gets more
