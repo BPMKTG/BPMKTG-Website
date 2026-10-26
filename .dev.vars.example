@@ -7,3 +7,9 @@ NOTION_TOKEN=secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Optional. Set to get an email when an intake lands. Omit to skip.
 WEB3FORMS_KEY=
+
+# Optional. Signs client-portal session cookies. Any random string of 16+
+# characters. When unset the portal falls back to signing with
+# NOTION_TOKEN, which works fine; the only difference is that rotating the
+# Notion token then signs every client out.
+PORTAL_SECRET=

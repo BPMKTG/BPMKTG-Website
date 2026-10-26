@@ -2885,6 +2885,72 @@ Verified end to end against production: a submission at
 `/intake?client=sean-comma` wrote both multi_select options, the help note and
 the client relation. 42 test assertions, up from 33.
 
+## Session 33 — client portal V1
+
+`/portal/<slug>`, read-only, one page per client, data straight out of
+Notion. Full write-up in `docs/PORTAL_SETUP.md`; this is the why.
+
+### The routing problem, and why there is a Function serving HTML
+
+The site is `output: 'static'`, so `/portal/<slug>` has no page to build
+unless every slug is known at build time. It also must not matter whether
+a slug is real: if a client's portal returned a page and an invented slug
+returned the 404, the URL alone would answer "is this artist a Blueprint
+client?".
+
+So `functions/portal/[slug]/index.ts` serves the SAME static shell for
+every slug, through the ASSETS binding, checking nothing. Whether there is
+anything behind the door is decided by `./auth` and `./data`, which answer
+identically when there is not. Verified: the two responses are byte-equal.
+
+### Why the endpoints live under /portal/<slug>/ and not /api/
+
+The spec asked for a cookie scoped to `/portal/<slug>`. A cookie scoped
+that way is never sent to `/api/anything`. Putting `auth` and `data`
+underneath the client's own path is what makes the scoping work, rather
+than widening the cookie to `/`.
+
+### Whitelist, not blocklist
+
+Every one of these three databases holds something a client must never
+see: their own rate, our internal notes, the portal key itself. Nothing
+is copied wholesale from a Notion page anywhere in `portal-notion.ts` —
+each field is read by name from the lists in `src/data/portal.ts`. A
+property added in Notion is invisible until someone adds it on purpose.
+
+The tests prove it the only way worth proving: fixtures that deliberately
+contain `SUPERSECRETPORTALKEY`, a monthly rate and three internal notes,
+then assert none of those strings appear in the serialised payload.
+
+### Decisions worth keeping
+
+- **The visibility rule runs twice.** Notion filters the query, and then
+  every returned row is checked again by `isVisibleToClient`. The filter
+  is a performance decision; the second pass is the actual rule, so a
+  filter that silently stops matching cannot widen what a client sees.
+- **A blank Portal Key opens nothing.** It would otherwise match a blank
+  `?key=` and admit anyone who guessed a slug.
+- **Constant-time compare hashes first**, so the timing says nothing
+  about the length of the real key either.
+- **URLs out of Notion are http(s) only.** A `javascript:` URL typed into
+  a Ticket Link field would otherwise become a live link in a client's
+  browser. There is a test for it.
+- **Auth runs before the cache read**, so a cached payload can never
+  reach someone without a session.
+- **Rate limiting is a speed bump and is documented as one.** The Cache
+  API is per-colo and races; a Cloudflare Rate Limiting rule is the real
+  answer and is written up rather than pretended at.
+- **noindex, not robots.txt Disallow.** A disallowed path cannot be
+  crawled, so the noindex is never seen and a known URL lingers in
+  results. Sent as both a meta tag and an `X-Robots-Tag` header.
+
+### Cloudflare Access later
+
+Only `auth.ts` knows what a portal key is. Swapping it for an Access JWT
+leaves `data.ts`, the cookie, the whitelists and the page untouched.
+
+131 portal assertions, plus the 42 intake ones; `npm test` runs both.
+
 ---
 
 *Add a new section above this line each session. Keep entries short and decision-focused — this is a context primer, not a changelog (use `git log` for that).*

@@ -14,6 +14,8 @@
 // ─────────────────────────────────────────────────────────────
 
 /** How the field is rendered. */
+import { DIRECT_EMAIL } from '../config/cta';
+
 export type IntakeInput = 'text' | 'email' | 'tel' | 'url' | 'textarea' | 'select' | 'multiselect';
 
 /** How the value is written to Notion. */
@@ -53,7 +55,7 @@ export interface IntakeStep {
 
 /** Where account invites go. Deliberately not CONTACT_EMAIL: an invite
  *  has to land on a person's own account, not a shared inbox. */
-export const ACCESS_EMAIL = 'mason@bpmktg.com';
+export const ACCESS_EMAIL = DIRECT_EMAIL;
 
 export const intakeSteps: IntakeStep[] = [
   {

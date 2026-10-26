@@ -25,6 +25,11 @@ export const YOUTUBE_URL   = '[YOUTUBE-URL]';
 export const X_URL         = '[X-URL]';
 export const CONTACT_EMAIL = 'info@bpmktg.com';
 
+/** Mason directly, rather than the shared inbox. For the places where a
+ *  person is the point: account invites, and a client in their portal
+ *  who needs an actual answer rather than a ticket. */
+export const DIRECT_EMAIL = 'mason@bpmktg.com';
+
 // HTML-attribute helpers — every booking CTA should also open in a
 // new tab with safe relationship attributes. Use these together:
 //

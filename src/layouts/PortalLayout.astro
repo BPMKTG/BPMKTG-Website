@@ -1,0 +1,121 @@
+---
+// Chrome for the client portal.
+//
+// Deliberately NOT the marketing Layout. A client who is already paying
+// should not be looking at "Book a Strategy Call" and a nav full of
+// sales pages. Same fonts, same tokens, same dark surface treatment, so
+// it still reads as Blueprint; everything else is stripped.
+import '../styles/global.css';
+import { DIRECT_EMAIL } from '../config/cta';
+
+interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080810" />
+    <!-- Never indexed. noindex rather than a robots.txt Disallow on
+         purpose: a disallowed path cannot be crawled, so a search engine
+         never sees the noindex and an already-known URL can linger in
+         results. The same value is also sent as an X-Robots-Tag header
+         by every /portal route. -->
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" type="image/svg+xml" href="/brand/icon-white.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Roboto:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title}</title>
+  </head>
+  <body class="portal-body">
+    <div class="portal-wash" aria-hidden="true"></div>
+    <div class="portal-grid-lines" aria-hidden="true"></div>
+
+    <header class="portal-chrome">
+      <a href="/" class="portal-brand" aria-label="Blueprint Marketing home">
+        <img src="/brand/logo-header.svg" alt="Blueprint Marketing" />
+      </a>
+      <span class="portal-chrome-tag">Client portal</span>
+    </header>
+
+    <main class="portal-main">
+      <slot />
+    </main>
+
+    <footer class="portal-foot">
+      <p>
+        Something look wrong? Email
+        <a href={`mailto:${DIRECT_EMAIL}`}>{DIRECT_EMAIL}</a>.
+      </p>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .portal-body {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+  .portal-wash {
+    position: fixed; inset: 0; z-index: -2; pointer-events: none;
+    background:
+      radial-gradient(ellipse 70% 50% at 15% 0%, rgba(38, 79, 160, 0.26), transparent 70%),
+      radial-gradient(ellipse 60% 50% at 95% 10%, rgba(227, 112, 59, 0.09), transparent 65%),
+      linear-gradient(180deg, #080810 0%, #05050c 100%);
+  }
+  .portal-grid-lines {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(98, 166, 219, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(98, 166, 219, 0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(90% 60% at 50% 0%, #000 20%, transparent 100%);
+  }
+
+  .portal-chrome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .portal-brand img { height: 26px; width: auto; display: block; }
+  .portal-chrome-tag {
+    font-family: var(--font-display);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--bp-light);
+    opacity: 0.8;
+  }
+
+  .portal-main { flex: 1; width: 100%; }
+
+  .portal-foot {
+    border-top: 1px solid var(--line);
+    padding: 1.5rem 1.25rem 2.5rem;
+    color: var(--dim);
+    font-size: 0.82rem;
+    text-align: center;
+  }
+  .portal-foot p { margin: 0; }
+  .portal-foot a { color: var(--bp-blue); }
+
+  @media (min-width: 760px) {
+    .portal-chrome { padding: 1.1rem 2rem; }
+    .portal-brand img { height: 30px; }
+  }
+</style>
