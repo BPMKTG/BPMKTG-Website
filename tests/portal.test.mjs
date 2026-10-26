@@ -112,18 +112,39 @@ is('todo: client-owned and done is closed', isOpenClientTodo({ owner: 'Client', 
 is('todo: client-owned and skipped is closed', isOpenClientTodo({ owner: 'Client', status: 'Skipped' }), false);
 is('todo: Blueprint-owned is never a client to-do', isOpenClientTodo({ owner: 'Blueprint', status: 'Not Started' }), false);
 
+// The term is INCLUSIVE of both end months. Sean's real term, Nov 1 to
+// Apr 30, is six months: Nov, Dec, Jan, Feb, Mar, Apr. Counting the
+// difference in month index alone gives five, which was the bug.
+const sean = termProgress('2026-11-01', '2027-04-30', new Date(2026, 11, 10));
+is('term: Nov 1 to Apr 30 is six months, not five', sean.total, 6);
+is('term: December is month 2', sean.month, 2);
+is('term: mid-term reports during', sean.state, 'during');
+
 const midTerm = termProgress('2026-09-01', '2027-03-01', new Date(2026, 9, 15));
-is('term: month 2 of 6', [midTerm.month, midTerm.total], [2, 6]);
-// Sep 1 to Mar 1 is 181 days; Oct 15 is day 44.
-is('term: the bar is a real fraction of the term', midTerm.fraction.toFixed(3), (44 / 181).toFixed(3));
-is('term: the bar never exceeds 1',
-   termProgress('2026-09-01', '2027-03-01', new Date(2028, 0, 1)).fraction, 1);
-is('term: the bar never goes negative',
-   termProgress('2026-09-01', '2027-03-01', new Date(2026, 0, 1)).fraction, 0);
-is('term: clamps past the end',
-   termProgress('2026-09-01', '2027-03-01', new Date(2028, 0, 1)).month, 6);
-is('term: clamps before the start',
-   termProgress('2026-09-01', '2027-03-01', new Date(2026, 0, 1)).month, 1);
+is('term: month 2 of 7', [midTerm.month, midTerm.total], [2, 7]);
+// Sep 1 to Mar 1 inclusive of the final day is 182 days; Oct 15 is day 44.
+is('term: the bar is a real fraction of the term', midTerm.fraction.toFixed(3), (44 / 182).toFixed(3));
+
+// Before the term there is no month to be in yet.
+const early = termProgress('2026-11-01', '2027-04-30', new Date(2026, 9, 26));
+is('term: before the start reports before', early.state, 'before');
+is('term: before the start counts the days', early.daysUntilStart, 6);
+is('term: before the start has an empty bar', early.fraction, 0);
+is('term: before the start is not month 1', early.month, 0);
+
+// The last day of the term is still inside it.
+const lastDay = termProgress('2026-11-01', '2027-04-30', new Date(2027, 3, 30));
+is('term: the final day is still during', lastDay.state, 'during');
+// Not 1: on the MORNING of the last day the term is not over yet. It
+// reaches 1 only once that day has passed, which is the 'after' case.
+is('term: the final day is nearly full but not complete',
+   lastDay.fraction > 0.99 && lastDay.fraction < 1, true);
+is('term: the final day is the last month', lastDay.month, 6);
+
+const done = termProgress('2026-11-01', '2027-04-30', new Date(2027, 4, 1));
+is('term: past the end reports after', done.state, 'after');
+is('term: past the end is full', [done.month, done.fraction], [6, 1]);
+
 is('term: missing dates give nothing', termProgress(null, '2027-03-01'), null);
 is('term: an end before the start gives nothing', termProgress('2027-03-01', '2026-09-01'), null);
 

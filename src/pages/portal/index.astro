@@ -1,448 +1,182 @@
 ---
 // The client portal shell.
 //
-// ONE page serves every client. Cloudflare rewrites /portal/<slug> to
-// this file (see functions/portal/[slug]/index.ts), so the html is
-// byte-identical whether the slug is a real client or someone guessing.
-// Everything below is an empty skeleton until the browser has a session
-// and /portal/<slug>/data answers.
+// One static page serves EVERY slug: functions/portal/[slug]/index.ts
+// returns this same HTML whatever is in the URL, so the markup can
+// never hint at whether a client exists. Everything real arrives from
+// /portal/<slug>/data after the cookie is checked, and is rendered by
+// the script below.
 //
-// Nothing about a client is rendered at build time. There is nothing to
-// leak in view-source, and adding a client needs no deploy.
+// Nothing here is per-client, and nothing here may become per-client.
 import PortalLayout from '../../layouts/PortalLayout.astro';
+import { DIRECT_EMAIL } from '../../config/cta';
+
+const NAV = [
+  { id: 'home',     label: 'Home',     icon: 'home' },
+  { id: 'calendar', label: 'Calendar', icon: 'cal' },
+  { id: 'reports',  label: 'Reports',  icon: 'chart' },
+  { id: 'files',    label: 'Files',    icon: 'folder' },
+];
 ---
+
 <PortalLayout title="Client Portal | Blueprint Marketing">
-  <div class="pt-wrap">
-    <!-- Three mutually exclusive states. The skeleton is what a client
-         sees for the half second the data takes. -->
-    <div class="pt-state" data-state="loading">
-      <span class="pt-spinner" aria-hidden="true"></span>
-      <p>Opening your portal…</p>
-    </div>
+  {/* Icon sprite. Referenced with <use href="#pt-i-…"> from both the
+      template and the script, so script-built nodes never need
+      innerHTML to get an icon. */}
+  <svg class="pt-visually-hidden" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="pt-i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M9.5 20v-6h5v6"/>
+      </symbol>
+      <symbol id="pt-i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>
+      </symbol>
+      <symbol id="pt-i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
+      </symbol>
+      <symbol id="pt-i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.3a1.5 1.5 0 0 1 1.1.5l1.3 1.5h7.3A1.5 1.5 0 0 1 20 9.5v8A1.5 1.5 0 0 1 18.5 19h-14A1.5 1.5 0 0 1 3 17.5z"/>
+      </symbol>
+      <symbol id="pt-i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m9 5 7 7-7 7"/>
+      </symbol>
+      <symbol id="pt-i-chev-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 5-7 7 7 7"/>
+      </symbol>
+      <symbol id="pt-i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M6 6l12 12M18 6 6 18"/>
+      </symbol>
+      <symbol id="pt-i-ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>
+      </symbol>
+      <symbol id="pt-i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m4 12.5 5.5 5.5L20 7"/>
+      </symbol>
+      <symbol id="pt-i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.6v.5"/>
+      </symbol>
+      <symbol id="pt-i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m5 15 7-7 7 7"/>
+      </symbol>
+      <symbol id="pt-i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m5 9 7 7 7-7"/>
+      </symbol>
+      <symbol id="pt-i-ticket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h13A1.5 1.5 0 0 1 20 8.5v2a2 2 0 0 0 0 3.9v2a1.5 1.5 0 0 1-1.5 1.6h-13A1.5 1.5 0 0 1 4 16.4v-2a2 2 0 0 0 0-3.9z"/>
+      </symbol>
+      <symbol id="pt-i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M4.6 5.5h14.8L21 13v5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18v-5z"/>
+      </symbol>
+    </defs>
+  </svg>
 
-    <div class="pt-state" data-state="missing" hidden>
-      <p class="label">Not found</p>
-      <h1>This link isn't working.</h1>
-      <p class="pt-missing-body">
+  {/* ── loading ─────────────────────────────────────────────
+      A skeleton of the real Home layout, so there is no blank page
+      and nothing jumps when the data lands. */}
+  <div class="pt-boot" data-state="loading">
+    <div class="pt-skel pt-skel-line" style="width:120px;height:10px"></div>
+    <div class="pt-skel pt-skel-title" style="margin:16px 0 10px"></div>
+    <div class="pt-skel pt-skel-line" style="width:180px"></div>
+    <div class="pt-skel" style="height:7px;width:420px;max-width:100%;margin:28px 0 36px;border-radius:999px"></div>
+    <div class="pt-grid pt-grid-4">
+      <div class="pt-skel pt-skel-card"></div>
+      <div class="pt-skel pt-skel-card"></div>
+      <div class="pt-skel pt-skel-card"></div>
+      <div class="pt-skel pt-skel-card"></div>
+    </div>
+    <div class="pt-grid pt-grid-2" style="margin-top:24px">
+      <div class="pt-skel" style="height:220px;border-radius:14px"></div>
+      <div class="pt-skel" style="height:220px;border-radius:14px"></div>
+    </div>
+    <span class="pt-visually-hidden" role="status">Loading your portal</span>
+  </div>
+
+  {/* ── the one failure path ────────────────────────────────
+      Unknown slug, wrong key, disabled portal, expired session: every
+      one of them lands here, saying nothing about which. */}
+  <div class="pt-centre" data-state="missing" hidden>
+    <div class="pt-missing">
+      <img src="/brand/logo-header-navy.svg" alt="Blueprint Marketing" />
+      <h1>This link isn't working</h1>
+      <p>
         It may have expired, or it may have been copied without the full
-        link. The link we sent you ends in a long code after
-        <code>?key=</code>, and the whole thing has to come across in one
-        piece.
+        address. Portal links are long, and a link that gets cut in half
+        stops working.
       </p>
-      <p class="pt-missing-body">
-        Send us the link you have and we'll sort it out.
+      <p>
+        Send me the link you used and I'll get you a fresh one.
+        <a data-missing-mail href={`mailto:${DIRECT_EMAIL}`}>{DIRECT_EMAIL}</a>
       </p>
-      <a class="button" data-missing-mail>
-        Email us
-        <span class="arrow" aria-hidden="true">→</span>
-      </a>
-    </div>
-
-    <div class="pt-app" data-app hidden>
-      <!-- ── Overview ─────────────────────────────────────────── -->
-      <section class="pt-section pt-overview">
-        <p class="label" data-stage>Active</p>
-        <h1 data-artist></h1>
-        <p class="pt-tier" data-tier></p>
-
-        <div class="pt-term" data-term hidden>
-          <div class="pt-term-head">
-            <span class="pt-term-count" data-term-count></span>
-            <span class="pt-term-dates" data-term-dates></span>
-          </div>
-          <div class="pt-term-bar"><span data-term-fill></span></div>
-        </div>
-
-        <div class="pt-announce" data-announce hidden>
-          <span class="pt-announce-dot" aria-hidden="true"></span>
-          <p data-announce-text></p>
-        </div>
-
-        <div class="pt-todos">
-          <h2>Your to-dos</h2>
-          <ul data-todos></ul>
-          <p class="pt-empty" data-todos-empty hidden>
-            Nothing on you right now. We'll put anything we need from you here.
-          </p>
-        </div>
-      </section>
-
-      <!-- ── Calendar ─────────────────────────────────────────── -->
-      <section class="pt-section">
-        <div class="pt-section-head">
-          <h2>Calendar</h2>
-          <div class="pt-toggle" role="group" aria-label="Calendar view">
-            <button type="button" data-view="list" class="is-on">List</button>
-            <button type="button" data-view="month">Month</button>
-          </div>
-        </div>
-
-        <div data-cal-list></div>
-
-        <div data-cal-month hidden>
-          <div class="pt-month-nav">
-            <button type="button" data-month-prev aria-label="Previous month">‹</button>
-            <span data-month-label></span>
-            <button type="button" data-month-next aria-label="Next month">›</button>
-          </div>
-          <div class="pt-dow" aria-hidden="true">
-            <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
-          </div>
-          <div class="pt-grid" data-month-grid></div>
-          <div class="pt-day-items" data-month-items></div>
-        </div>
-
-        <p class="pt-empty" data-cal-empty hidden>
-          Nothing scheduled yet. Your calendar fills in as we plan releases and shows.
-        </p>
-      </section>
-
-      <!-- ── Reports ──────────────────────────────────────────── -->
-      <section class="pt-section">
-        <div class="pt-section-head">
-          <h2>Reports</h2>
-          <span class="pt-snapshot-meta" data-report-meta></span>
-        </div>
-
-        <div class="pt-score" data-score hidden>
-          <span class="pt-score-num" data-score-num></span>
-          <span class="pt-score-of">/ 40</span>
-          <span class="pt-score-label">Growth score</span>
-        </div>
-
-        <div data-metrics></div>
-
-        <p class="pt-empty" data-report-empty hidden>
-          No numbers yet. Your first snapshot lands after we have a baseline.
-        </p>
-      </section>
-
-      <!-- ── Files ────────────────────────────────────────────── -->
-      <section class="pt-section">
-        <h2>Files</h2>
-        <div class="pt-files" data-files></div>
-        <p class="pt-empty" data-files-empty hidden>
-          Nothing linked yet. Your Drive folder and vault show up here once they're set up.
-        </p>
-      </section>
     </div>
   </div>
+
+  {/* ── the app ─────────────────────────────────────────────*/}
+  <div class="pt-shell" data-app hidden>
+    <header class="pt-topbar">
+      <a class="pt-topbar-logo" href="/" aria-label="Blueprint Marketing home">
+        <img src="/brand/logo-header-navy.svg" alt="Blueprint Marketing" width="150" height="24" />
+      </a>
+      <span class="pt-topbar-spacer"></span>
+      <span class="pt-badge" data-tier hidden></span>
+      <div class="pt-identity">
+        <span class="pt-avatar" data-avatar aria-hidden="true"></span>
+        <span class="pt-identity-text">
+          <span class="pt-identity-name" data-topname></span>
+          <span class="pt-identity-tier" data-topstage></span>
+        </span>
+      </div>
+    </header>
+
+    <div class="pt-body">
+      <nav class="pt-sidebar" aria-label="Portal sections">
+        {NAV.map((n) => (
+          <a class="pt-nav-item" href={`#/${n.id}`} data-nav={n.id}>
+            <svg aria-hidden="true"><use href={`#pt-i-${n.icon}`} /></svg>
+            {n.label}
+          </a>
+        ))}
+        <span class="pt-nav-spacer"></span>
+        <p class="pt-nav-foot">
+          Something look wrong?<br />
+          <a href={`mailto:${DIRECT_EMAIL}`}>{DIRECT_EMAIL}</a>
+        </p>
+      </nav>
+
+      <main class="pt-main">
+        <section class="pt-view" data-view="home" aria-label="Home"></section>
+        <section class="pt-view" data-view="calendar" aria-label="Calendar" hidden></section>
+        <section class="pt-view" data-view="reports" aria-label="Reports" hidden></section>
+        <section class="pt-view" data-view="files" aria-label="Files" hidden></section>
+      </main>
+    </div>
+
+    <nav class="pt-tabbar" aria-label="Portal sections">
+      {NAV.map((n) => (
+        <a class="pt-tab" href={`#/${n.id}`} data-tab={n.id}>
+          <svg aria-hidden="true"><use href={`#pt-i-${n.icon}`} /></svg>
+          {n.label}
+          <span class="pt-tab-dot"></span>
+        </a>
+      ))}
+    </nav>
+  </div>
+
+  {/* ── detail drawer ───────────────────────────────────────*/}
+  <div class="pt-scrim" data-scrim hidden></div>
+  <aside class="pt-drawer" data-drawer role="dialog" aria-modal="true" aria-labelledby="pt-drawer-title" hidden>
+    <div class="pt-drawer-head">
+      <h2 id="pt-drawer-title" data-drawer-title></h2>
+      <button class="pt-announce-close" data-drawer-close aria-label="Close details">
+        <svg aria-hidden="true"><use href="#pt-i-close" /></svg>
+      </button>
+    </div>
+    <div class="pt-drawer-body" data-drawer-body></div>
+    <div class="pt-drawer-foot" data-drawer-foot hidden></div>
+  </aside>
 </PortalLayout>
-
-<style>
-  .pt-wrap { max-width: 860px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
-
-  /* ── states ───────────────────────────────────────────────── */
-  .pt-state { padding: 4rem 0; text-align: center; }
-  .pt-state p { color: var(--muted); }
-  .pt-spinner {
-    display: inline-block;
-    width: 26px; height: 26px;
-    margin-bottom: 1rem;
-    border: 2px solid rgba(98, 166, 219, 0.25);
-    border-top-color: var(--bp-blue);
-    border-radius: 50%;
-    animation: pt-spin 0.7s linear infinite;
-  }
-  @keyframes pt-spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .pt-spinner { animation-duration: 2.4s; } }
-
-  [data-state='missing'] { text-align: left; max-width: 46ch; }
-  [data-state='missing'] h1 {
-    font-family: var(--font-display);
-    font-size: clamp(1.5rem, 6vw, 2.1rem);
-    font-weight: 900;
-    line-height: 1.1;
-    margin: 0.8rem 0 1rem;
-  }
-  .pt-missing-body { color: var(--muted); line-height: 1.7; margin: 0 0 1rem; font-size: 0.95rem; }
-  [data-state='missing'] code {
-    font-size: 0.85em;
-    padding: 0.1em 0.35em;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.07);
-  }
-
-  /* ── sections ─────────────────────────────────────────────── */
-  .pt-section { padding: 2rem 0; border-top: 1px solid var(--line); }
-  .pt-section:first-child { border-top: none; padding-top: 1.5rem; }
-  .pt-section h2 {
-    font-family: var(--font-display);
-    font-size: 1rem;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin: 0 0 1rem;
-  }
-  .pt-section-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
-  }
-  .pt-section-head h2 { margin: 0; }
-  .pt-empty {
-    margin: 0;
-    padding: 1.1rem;
-    border: 1px dashed var(--line);
-    border-radius: 12px;
-    color: var(--dim);
-    font-size: 0.88rem;
-    line-height: 1.6;
-  }
-
-  /* ── overview ─────────────────────────────────────────────── */
-  .pt-overview h1 {
-    font-family: var(--font-display);
-    font-size: clamp(1.75rem, 8vw, 2.6rem);
-    font-weight: 900;
-    line-height: 1.05;
-    letter-spacing: -0.01em;
-    margin: 0.7rem 0 0.4rem;
-  }
-  .pt-tier { margin: 0; color: var(--bp-light); font-size: 0.9rem; font-weight: 600; }
-
-  .pt-term { margin: 1.5rem 0 0; }
-  .pt-term-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
-  }
-  .pt-term-count { font-weight: 700; font-size: 0.92rem; }
-  .pt-term-dates { color: var(--dim); font-size: 0.78rem; }
-  .pt-term-bar {
-    height: 6px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.07);
-    overflow: hidden;
-  }
-  .pt-term-bar span {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-    background: linear-gradient(90deg, var(--bp-deep), var(--bp-blue));
-  }
-
-  .pt-announce {
-    display: flex;
-    gap: 0.7rem;
-    margin: 1.5rem 0 0;
-    padding: 0.9rem 1.1rem;
-    border-left: 2px solid var(--bp-orange);
-    background: rgba(227, 112, 59, 0.07);
-    border-radius: 0 10px 10px 0;
-  }
-  .pt-announce-dot {
-    width: 7px; height: 7px; flex: none;
-    margin-top: 0.5rem;
-    border-radius: 50%;
-    background: var(--bp-orange);
-  }
-  .pt-announce p { margin: 0; color: var(--ink); font-size: 0.9rem; line-height: 1.65; }
-
-  .pt-todos { margin-top: 2rem; }
-  .pt-todos ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
-  .pt-todo {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.8rem;
-    padding: 0.85rem 1rem;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--card);
-  }
-  .pt-todo-mark {
-    width: 16px; height: 16px; flex: none;
-    margin-top: 0.15rem;
-    border: 1.5px solid var(--bp-orange);
-    border-radius: 5px;
-  }
-  .pt-todo-body { min-width: 0; }
-  .pt-todo-title { margin: 0; font-size: 0.92rem; font-weight: 600; line-height: 1.45; }
-  .pt-todo-when { margin: 0.2rem 0 0; font-size: 0.76rem; color: var(--dim); }
-  .pt-todo a { color: var(--bp-blue); }
-
-  /* ── calendar ─────────────────────────────────────────────── */
-  .pt-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
-  .pt-toggle button {
-    appearance: none;
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 0.35rem 0.85rem;
-    border-radius: 999px;
-    cursor: pointer;
-  }
-  .pt-toggle button.is-on { background: rgba(98, 166, 219, 0.18); color: var(--bp-light); }
-
-  .pt-month-group { margin-bottom: 1.75rem; }
-  .pt-month-title {
-    font-family: var(--font-display);
-    font-size: 0.74rem;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--bp-light);
-    margin: 0 0 0.75rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--line);
-  }
-  .pt-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; }
-
-  .pt-item {
-    display: grid;
-    grid-template-columns: 46px minmax(0, 1fr);
-    gap: 0.85rem;
-    padding: 0.8rem 0.9rem;
-    border: 1px solid var(--line);
-    border-left: 2px solid rgba(98, 166, 219, 0.5);
-    border-radius: 10px;
-    background: rgba(255,255,255,0.015);
-  }
-  /* Moments are the things the calendar is built around; steps serve
-     them. The weight difference is the whole point of the view. */
-  .pt-item.is-moment {
-    border-left-color: var(--bp-orange);
-    background: rgba(227, 112, 59, 0.05);
-  }
-  .pt-item.is-past { opacity: 0.45; }
-  .pt-item.is-done .pt-item-title { text-decoration: line-through; }
-
-  .pt-item-date { text-align: center; }
-  .pt-item-dow {
-    display: block;
-    font-size: 0.64rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--dim);
-  }
-  .pt-item-day { display: block; font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; }
-  .pt-item-body { min-width: 0; }
-  .pt-item-title { margin: 0; font-size: 0.92rem; font-weight: 600; line-height: 1.45; }
-  .pt-item-why { margin: 0.3rem 0 0; font-size: 0.8rem; color: var(--muted); line-height: 1.55; }
-  .pt-item-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
-  .pt-tag {
-    font-size: 0.66rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 0.2rem 0.5rem;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.07);
-    color: var(--muted);
-  }
-  .pt-tag.is-moment { background: rgba(227, 112, 59, 0.16); color: #f0a078; }
-  .pt-tag.is-tentative { background: rgba(255,255,255,0.06); color: var(--dim); }
-  .pt-tag.is-done { background: rgba(98, 166, 219, 0.16); color: var(--bp-light); }
-  .pt-tag.is-mine { background: rgba(227, 112, 59, 0.16); color: #f0a078; }
-  .pt-item-link { display: inline-block; margin-top: 0.5rem; font-size: 0.8rem; color: var(--bp-blue); font-weight: 600; }
-
-  /* month grid */
-  .pt-month-nav {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 1rem; margin-bottom: 0.75rem;
-  }
-  .pt-month-nav span { font-family: var(--font-display); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
-  .pt-month-nav button {
-    appearance: none; border: 1px solid var(--line); background: transparent;
-    color: var(--ink); width: 34px; height: 34px; border-radius: 50%;
-    font-size: 1.1rem; line-height: 1; cursor: pointer;
-  }
-  .pt-month-nav button:disabled { opacity: 0.3; cursor: default; }
-  .pt-dow, .pt-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
-  .pt-dow span { text-align: center; font-size: 0.64rem; color: var(--dim); padding-bottom: 0.3rem; }
-  .pt-cell {
-    appearance: none;
-    border: 1px solid transparent;
-    background: rgba(255,255,255,0.02);
-    color: var(--muted);
-    font: inherit;
-    font-size: 0.8rem;
-    aspect-ratio: 1;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    cursor: default;
-    padding: 0;
-  }
-  .pt-cell.is-blank { background: none; }
-  .pt-cell.has-items { color: var(--ink); cursor: pointer; border-color: var(--line); }
-  .pt-cell.is-sel { border-color: var(--bp-blue); background: rgba(98, 166, 219, 0.14); }
-  .pt-dots { display: flex; gap: 2px; height: 4px; }
-  .pt-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--bp-blue); }
-  .pt-dot.is-moment { background: var(--bp-orange); }
-  .pt-day-items { margin-top: 1rem; }
-  .pt-day-items .pt-items { gap: 0.55rem; }
-  .pt-day-hint { margin: 1rem 0 0; font-size: 0.82rem; color: var(--dim); }
-
-  /* ── reports ──────────────────────────────────────────────── */
-  .pt-snapshot-meta { font-size: 0.76rem; color: var(--dim); }
-  .pt-score {
-    display: flex;
-    align-items: baseline;
-    gap: 0.4rem;
-    padding: 1rem 1.2rem;
-    margin-bottom: 1.25rem;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--card);
-  }
-  .pt-score-num { font-family: var(--font-display); font-size: 2rem; font-weight: 900; color: var(--bp-light); line-height: 1; }
-  .pt-score-of { color: var(--dim); font-size: 0.9rem; }
-  .pt-score-label {
-    margin-left: auto;
-    font-size: 0.68rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  .pt-metric {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 0.5rem 1rem;
-    padding: 0.85rem 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .pt-metric:last-child { border-bottom: none; }
-  .pt-metric-name { min-width: 0; }
-  .pt-metric-platform { display: block; font-size: 0.88rem; font-weight: 600; }
-  .pt-metric-label { display: block; font-size: 0.72rem; color: var(--dim); }
-  .pt-metric-right { display: flex; align-items: baseline; gap: 0.6rem; justify-content: flex-end; }
-  .pt-metric-value { font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; }
-  .pt-metric-change { font-size: 0.78rem; font-weight: 700; }
-  .pt-metric-change.is-up { color: #6ddf9f; }
-  .pt-metric-change.is-down { color: #e8705f; }
-  .pt-metric-change.is-flat { color: var(--dim); }
-  .pt-spark { grid-column: 1 / -1; height: 26px; width: 100%; overflow: visible; }
-  .pt-spark path { fill: none; stroke: var(--bp-blue); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-
-  /* ── files ────────────────────────────────────────────────── */
-  .pt-files { display: grid; gap: 0.6rem; }
-  .pt-files .button { justify-content: space-between; width: 100%; }
-
-  @media (min-width: 620px) {
-    .pt-wrap { padding: 2rem 2rem 4rem; }
-    .pt-section { padding: 2.5rem 0; }
-    .pt-files { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-    .pt-files .button { width: auto; }
-  }
-</style>
 
 <script>
   import {
-    HEADLINE_METRICS,
     formatEngagement,
     isEngagementMetric,
     isOpenClientTodo,
@@ -456,13 +190,11 @@ import PortalLayout from '../../layouts/PortalLayout.astro';
   } from '../../data/portal';
   import { DIRECT_EMAIL } from '../../config/cta';
 
-
-
-  /* ── tiny DOM helpers ─────────────────────────────────────────
-     Everything below builds nodes and sets textContent. None of the
-     values here are ours: they come out of a Notion database, and a
-     title pasted in from somewhere else should never be able to run
-     as markup in a client's browser. */
+  /* ── DOM helpers ───────────────────────────────────────────────
+     Everything below builds nodes and sets textContent. None of these
+     values are ours: they come out of a Notion database, and a title
+     pasted in from somewhere else must never be able to run as markup
+     in a client's browser. There is no innerHTML in this file. */
   const el = <K extends keyof HTMLElementTagNameMap>(
     tag: K, cls?: string, text?: string,
   ): HTMLElementTagNameMap[K] => {
@@ -471,26 +203,71 @@ import PortalLayout from '../../layouts/PortalLayout.astro';
     if (text !== undefined) n.textContent = text;
     return n;
   };
-  const q = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel);
+  const q = <T extends HTMLElement>(sel: string, root: ParentNode = document) =>
+    root.querySelector<T>(sel);
+  const qq = <T extends HTMLElement>(sel: string, root: ParentNode = document) =>
+    Array.from(root.querySelectorAll<T>(sel));
   const show = (n: Element | null, on: boolean) => { if (n) (n as HTMLElement).hidden = !on; };
+  const clear = (n: Element | null) => { while (n && n.firstChild) n.removeChild(n.firstChild); };
+
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const svgEl = <K extends keyof SVGElementTagNameMap>(
+    tag: K, attrs: Record<string, string | number> = {},
+  ): SVGElementTagNameMap[K] => {
+    const n = document.createElementNS(SVGNS, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
+    return n;
+  };
+  /** An icon from the sprite, without innerHTML. */
+  const icon = (name: string, cls?: string): SVGSVGElement => {
+    const s = svgEl('svg', { 'aria-hidden': 'true', focusable: 'false' });
+    if (cls) s.setAttribute('class', cls);
+    const u = svgEl('use');
+    u.setAttribute('href', `#pt-i-${name}`);
+    s.appendChild(u);
+    return s;
+  };
 
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
   const fmtDate = (iso: string | null) => {
     const d = parseNotionDate(iso);
-    if (!d) return '';
-    return `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}, ${d.getFullYear()}`;
+    return d ? `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}, ${d.getFullYear()}` : '';
   };
+  const fmtDayLong = (d: Date) =>
+    `${DOW[d.getDay()]}, ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}`;
   const fmtNumber = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const fmtMetric = (name: string, v: number) =>
+    isEngagementMetric(name) ? formatEngagement(v) : fmtNumber(v);
 
-  /** Midnight today, so "past" means a day that has finished rather
-   *  than an event earlier this morning. */
   const todayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  const keyOf = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
-  /* ── the one failure path ─────────────────────────────────────
-     Unknown slug, wrong key, disabled portal, expired session: the
-     server answers all of them identically, and so does this. */
+  /* ── item classification ───────────────────────────────────────
+     One function decides what colour and what words an item gets, so
+     the calendar, the Home rows and the drawer can never disagree. */
+  type Kind = 'show' | 'release' | 'content' | 'moment' | 'todo';
+
+  function kindOf(it: PortalCalendarItem): Kind {
+    if (isOpenClientTodo(it)) return 'todo';
+    const mt = (it.momentType ?? '').toLowerCase();
+    if (mt.includes('show')) return 'show';
+    if (mt.includes('release') || mt.includes('drop') || mt.includes('single')) return 'release';
+    if (it.type === 'Content') return 'content';
+    return 'moment';
+  }
+  const KIND_LABEL: Record<Kind, string> = {
+    show: 'Show', release: 'Release', content: 'Content', moment: 'Moment', todo: 'Your to-do',
+  };
+
+  /* ── state ─────────────────────────────────────────────────── */
+  let DATA: PortalPayload | null = null;
+  let SLUG = '';
+
+  /* ── the one failure path ──────────────────────────────────── */
   function renderMissing() {
     show(q('[data-state="loading"]'), false);
     show(q('[data-app]'), false);
@@ -500,11 +277,12 @@ import PortalLayout from '../../layouts/PortalLayout.astro';
     document.title = 'Not found | Blueprint Marketing';
   }
 
-  /* ── boot ─────────────────────────────────────────────────── */
+  /* ── boot ──────────────────────────────────────────────────── */
   async function boot() {
     const parts = location.pathname.split('/').filter(Boolean);
     const slug = (parts[0] === 'portal' ? parts[1] : '') ?? '';
     if (!slug) return renderMissing();
+    SLUG = slug;
 
     const base = `/portal/${encodeURIComponent(slug)}`;
 
@@ -524,7 +302,7 @@ import PortalLayout from '../../layouts/PortalLayout.astro';
 
       params.delete('key');
       const rest = params.toString();
-      history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : ''));
+      history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
     }
 
     let payload: PortalPayload;
@@ -536,437 +314,1206 @@ import PortalLayout from '../../layouts/PortalLayout.astro';
       return renderMissing();
     }
 
-    render(payload, slug);
+    DATA = payload;
+    mount(payload);
   }
 
-  function render(data: PortalPayload, slug: string) {
-    renderOverview(data, slug);
+  function mount(data: PortalPayload) {
+    const c = data.client;
+
+    const name = c.artist || 'Client';
+    const topName = q('[data-topname]');
+    if (topName) topName.textContent = name;
+    const avatar = q('[data-avatar]');
+    if (avatar) avatar.textContent = name.trim().charAt(0).toUpperCase() || '?';
+    const stage = q('[data-topstage]');
+    if (stage) stage.textContent = c.stage ?? '';
+    const tier = q('[data-tier]');
+    if (tier && c.tier) { tier.textContent = c.tier; show(tier, true); }
+
+    renderHome(data);
     renderCalendar(data.calendar);
     renderReports(data.snapshots);
-    renderFiles(data.client);
+    renderFiles(c);
 
     show(q('[data-state="loading"]'), false);
     show(q('[data-app]'), true);
-    document.title = `${data.client.artist || 'Client'} | Blueprint Marketing`;
+    document.title = `${name} | Blueprint Marketing`;
+
+    window.addEventListener('hashchange', route);
+    route();
   }
 
-  /* ── overview ─────────────────────────────────────────────── */
-  function renderOverview(data: PortalPayload, slug: string) {
+  /* ── router ────────────────────────────────────────────────────
+     Hash routes so each section is its own view in the shell rather
+     than one long scroll, and so a client can bookmark "my calendar". */
+  const VIEWS = ['home', 'calendar', 'reports', 'files'] as const;
+  type View = typeof VIEWS[number];
+
+  function currentRoute(): { view: View; detail: string } {
+    const raw = location.hash.replace(/^#\/?/, '');
+    const [v, ...rest] = raw.split('/');
+    const view = (VIEWS as readonly string[]).includes(v) ? (v as View) : 'home';
+    return { view, detail: decodeURIComponent(rest.join('/') || '') };
+  }
+
+  function route() {
+    const { view, detail } = currentRoute();
+    for (const v of VIEWS) show(q(`[data-view="${v}"]`), v === view);
+    for (const n of qq('[data-nav]')) {
+      const on = n.dataset.nav === view;
+      if (on) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current');
+    }
+    for (const t of qq('[data-tab]')) {
+      const on = t.dataset.tab === view;
+      if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
+    }
+    if (view === 'reports') showPlatform(detail);
+    closeDrawer();
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  /* ── home ──────────────────────────────────────────────────── */
+  function renderHome(data: PortalPayload) {
+    const root = q('[data-view="home"]');
+    if (!root) return;
+    clear(root);
     const c = data.client;
 
-    const stage = q('[data-stage]');
-    if (stage) stage.textContent = c.stage || 'Client portal';
-    const artist = q('[data-artist]');
-    if (artist) artist.textContent = c.artist || 'Your portal';
-    const tier = q('[data-tier]');
-    if (tier) tier.textContent = c.tier || '';
+    /* hero */
+    const hero = el('header', 'pt-hero');
+    if (c.stage) hero.appendChild(el('p', 'pt-hero-eyebrow', c.stage));
+    hero.appendChild(el('h1', undefined, c.artist || 'Your portal'));
+    if (c.tier) hero.appendChild(el('p', 'pt-hero-sub', c.tier));
 
-    const progress = termProgress(c.termStart, c.termEnd);
-    if (progress) {
-      show(q('[data-term]'), true);
-      const count = q('[data-term-count]');
-      if (count) count.textContent = `Month ${progress.month} of ${progress.total}`;
-      const dates = q('[data-term-dates]');
-      if (dates) dates.textContent = `${fmtDate(c.termStart)} – ${fmtDate(c.termEnd)}`;
-      const fill = q('[data-term-fill]');
-      if (fill) fill.style.width = `${Math.round(progress.fraction * 100)}%`;
+    const term = termProgress(c.termStart, c.termEnd);
+    if (term) {
+      const wrap = el('div', 'pt-term');
+      const row = el('div', 'pt-term-row');
+      const label =
+        term.state === 'before'
+          ? `Starts in ${term.daysUntilStart} ${term.daysUntilStart === 1 ? 'day' : 'days'}`
+          : term.state === 'after'
+            ? 'Term complete'
+            : `Month ${term.month} of ${term.total}`;
+      row.appendChild(el('span', 'pt-term-label', label));
+      if (c.termStart && c.termEnd) {
+        row.appendChild(el('span', 'pt-term-range', `${fmtDate(c.termStart)} – ${fmtDate(c.termEnd)}`));
+      }
+      const track = el('div', 'pt-term-track');
+      const fill = el('div', 'pt-term-fill');
+      fill.style.width = '0%';
+      track.appendChild(fill);
+      wrap.append(row, track);
+      hero.appendChild(wrap);
+      // Animate from empty on the first paint rather than snapping.
+      requestAnimationFrame(() => { fill.style.width = `${Math.round(term.fraction * 100)}%`; });
     }
+    root.appendChild(hero);
 
+    /* announcement */
     if (c.announcement) {
-      show(q('[data-announce]'), true);
-      const text = q('[data-announce-text]');
-      if (text) text.textContent = c.announcement;
+      const dismissed = (() => {
+        try { return localStorage.getItem(`pt-ann-${SLUG}`) === hash(c.announcement!); }
+        catch { return false; }
+      })();
+      if (!dismissed) {
+        const band = el('div', 'pt-announce');
+        band.appendChild(el('p', undefined, c.announcement));
+        const x = el('button', 'pt-announce-close');
+        x.setAttribute('aria-label', 'Dismiss announcement');
+        x.appendChild(icon('close'));
+        x.addEventListener('click', () => {
+          band.remove();
+          try { localStorage.setItem(`pt-ann-${SLUG}`, hash(c.announcement!)); } catch { /* private mode */ }
+        });
+        band.appendChild(x);
+        root.appendChild(band);
+      }
     }
 
-    // To-dos: what the client owns and has not closed, soonest first,
-    // plus the access step while it is outstanding.
-    const list = q<HTMLUListElement>('[data-todos]');
-    if (!list) return;
-
-    const todos = data.calendar
-      .filter(item => isOpenClientTodo(item))
-      .sort((a, b) => {
-        if (!a.date) return 1;
-        if (!b.date) return -1;
-        return a.date.localeCompare(b.date);
-      });
-
-    if (!c.accessComplete) {
-      const li = el('li', 'pt-todo');
-      li.append(el('span', 'pt-todo-mark'));
-      const body = el('div', 'pt-todo-body');
-      const title = el('p', 'pt-todo-title');
-      const link = el('a');
-      link.href = `/intake?client=${encodeURIComponent(slug)}`;
-      link.textContent = 'Finish giving us access';
-      title.append(link);
-      body.append(title, el('p', 'pt-todo-when', 'So we can audit your real numbers'));
-      li.append(body);
-      list.append(li);
+    /* KPI strip */
+    const snap = data.snapshots[0];
+    if (snap) {
+      const picks = ['Instagram · Followers', 'TikTok · Followers', 'Spotify · Monthly Listeners', 'Email + SMS List']
+        .filter((m) => typeof snap.metrics[m] === 'number');
+      if (picks.length) {
+        const grid = el('div', 'pt-grid pt-grid-4');
+        for (const m of picks) grid.appendChild(kpiCard(m, data.snapshots));
+        root.appendChild(grid);
+      }
     }
 
-    for (const item of todos) list.append(todoRow(item));
+    /* two columns: to-dos + coming up */
+    const cols = el('div', 'pt-grid pt-grid-2');
+    cols.style.marginTop = 'var(--pt-5)';
 
-    show(q('[data-todos-empty]'), list.children.length === 0);
+    const todos = data.calendar.filter(isOpenClientTodo);
+    cols.appendChild(
+      listCard('Your to-dos', todos.slice(0, 6), {
+        emptyIcon: 'check',
+        emptyTitle: "Nothing on you right now",
+        emptyBody: "When we need something from you, it shows up here and on your calendar.",
+      }),
+    );
+
+    const today = todayStart();
+    const upcoming = data.calendar
+      .filter((i) => { const d = parseNotionDate(i.date); return d && d >= today; })
+      .slice(0, 5);
+    cols.appendChild(
+      listCard('Coming up', upcoming, {
+        emptyIcon: 'cal',
+        emptyTitle: 'Nothing scheduled yet',
+        emptyBody: 'Your calendar fills in as we build out the next run of content and moments.',
+      }),
+    );
+    root.appendChild(cols);
   }
 
-  function todoRow(item: PortalCalendarItem): HTMLLIElement {
-    const li = el('li', 'pt-todo');
-    li.append(el('span', 'pt-todo-mark'));
-    const body = el('div', 'pt-todo-body');
-    body.append(el('p', 'pt-todo-title', item.title));
+  /** A tiny stable hash, only used to key "this announcement was
+   *  dismissed" so a NEW announcement comes back. */
+  function hash(s: string): string {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+    return String(h);
+  }
 
-    const bits: string[] = [];
-    if (item.date) bits.push(fmtDate(item.date));
-    if (item.where) bits.push(item.where);
-    if (bits.length) body.append(el('p', 'pt-todo-when', bits.join(' · ')));
+  function kpiCard(metric: string, snapshots: PortalSnapshot[]): HTMLElement {
+    const latest = snapshots[0];
+    const a = el('a', 'pt-kpi');
+    (a as HTMLAnchorElement).href = `#/reports/${encodeURIComponent(metricPlatform(metric) ?? metric)}`;
 
-    li.append(body);
+    const label = el('span', 'pt-kpi-label');
+    const plat = metricPlatform(metric);
+    label.appendChild(el('span', 'pt-kpi-platform', plat ?? metric));
+    if (plat) label.appendChild(el('span', undefined, metricLabel(metric)));
+    a.appendChild(label);
+
+    a.appendChild(el('div', 'pt-kpi-value pt-num', fmtMetric(metric, latest.metrics[metric])));
+
+    const foot = el('div', 'pt-kpi-foot');
+    const prev = snapshots[1];
+    if (prev && typeof prev.metrics[metric] === 'number') {
+      foot.appendChild(deltaPill(latest.metrics[metric], prev.metrics[metric], metric));
+    } else {
+      foot.appendChild(el('span', 'pt-kpi-note', 'Baseline'));
+    }
+    a.appendChild(foot);
+    return a;
+  }
+
+  function deltaPill(now: number, then: number, metric: string): HTMLElement {
+    const diff = now - then;
+    const pct = then === 0 ? 0 : (diff / Math.abs(then)) * 100;
+    const dir = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+    const pill = el('span', `pt-delta pt-delta-${dir}`);
+    if (dir !== 'flat') pill.appendChild(icon(dir === 'up' ? 'up' : 'down'));
+    const text = isEngagementMetric(metric)
+      ? `${diff > 0 ? '+' : ''}${(diff * 100).toFixed(1)} pts`
+      : `${diff > 0 ? '+' : ''}${Math.abs(pct) >= 10 ? pct.toFixed(0) : pct.toFixed(1)}%`;
+    pill.appendChild(el('span', undefined, dir === 'flat' ? 'No change' : text));
+    return pill;
+  }
+
+  function listCard(
+    title: string,
+    items: PortalCalendarItem[],
+    empty: { emptyIcon: string; emptyTitle: string; emptyBody: string },
+  ): HTMLElement {
+    const card = el('section', 'pt-card');
+    const head = el('div', 'pt-card-head');
+    head.appendChild(el('h2', undefined, title));
+    card.appendChild(head);
+    const body = el('div', 'pt-card-body');
+
+    if (!items.length) {
+      const e = el('div', 'pt-empty');
+      const ic = el('div', 'pt-empty-icon');
+      ic.appendChild(icon(empty.emptyIcon));
+      e.append(ic, el('h3', undefined, empty.emptyTitle), el('p', undefined, empty.emptyBody));
+      body.appendChild(e);
+    } else {
+      const list = el('ul');
+      for (const it of items) list.appendChild(itemRow(it));
+      body.appendChild(list);
+    }
+    card.appendChild(body);
+    return card;
+  }
+
+  function itemRow(it: PortalCalendarItem): HTMLLIElement {
+    const li = el('li');
+    const btn = el('button', 'pt-row');
+    btn.type = 'button';
+    btn.addEventListener('click', () => openDrawer(it));
+
+    btn.appendChild(el('span', `pt-kind pt-kind-${kindOf(it)}`));
+
+    const d = parseNotionDate(it.date);
+    if (d) {
+      const chip = el('span', 'pt-datechip');
+      chip.append(
+        el('span', 'pt-datechip-m', MONTHS[d.getMonth()].slice(0, 3)),
+        el('span', 'pt-datechip-d pt-num', String(d.getDate())),
+      );
+      btn.appendChild(chip);
+    }
+
+    const main = el('span', 'pt-row-main');
+    const title = el('span', 'pt-row-title');
+    title.appendChild(el('span', undefined, it.title));
+    if (it.tentative) title.appendChild(el('span', 'pt-tag pt-tag-tentative', 'Tentative'));
+    if (kindOf(it) === 'todo') title.appendChild(el('span', 'pt-tag pt-tag-todo', 'To-do'));
+    main.appendChild(title);
+
+    const meta = el('span', 'pt-row-meta');
+    const bits = [KIND_LABEL[kindOf(it)], it.where, it.venueCity, it.status].filter(Boolean) as string[];
+    for (const b of bits.slice(0, 3)) meta.appendChild(el('span', undefined, b));
+    main.appendChild(meta);
+    btn.appendChild(main);
+
+    const chev = el('span', 'pt-row-chev');
+    chev.appendChild(icon('chev'));
+    btn.appendChild(chev);
+
+    li.appendChild(btn);
     return li;
   }
 
-  /* ── calendar ─────────────────────────────────────────────── */
-  type MonthGroup = { key: string; label: string; year: number; month: number; items: PortalCalendarItem[] };
+  /* ── calendar ──────────────────────────────────────────────── */
+  type CalView = 'month' | 'week' | 'agenda';
+  type Filter = 'all' | 'moments' | 'content' | 'todos';
 
-  let groups: MonthGroup[] = [];
-  let monthIndex = 0;
-  let selectedDay: string | null = null;
+  const CAL = {
+    view: 'month' as CalView,
+    cursor: todayStart(),
+    filter: 'all' as Filter,
+    selected: null as Date | null,
+    items: [] as PortalCalendarItem[],
+  };
+
+  const isNarrow = () => window.matchMedia('(max-width: 900px)').matches;
+
+  function passesFilter(it: PortalCalendarItem): boolean {
+    const k = kindOf(it);
+    switch (CAL.filter) {
+      case 'moments': return k === 'show' || k === 'release';
+      case 'content': return k === 'content';
+      case 'todos':   return k === 'todo';
+      default:        return true;
+    }
+  }
 
   function renderCalendar(items: PortalCalendarItem[]) {
-    if (!items.length) {
-      show(q('[data-cal-empty]'), true);
-      show(q('[data-cal-list]'), false);
-      q('.pt-toggle')?.setAttribute('hidden', '');
+    CAL.items = items;
+    // On a phone a month grid of chips is unreadable, so Agenda leads.
+    CAL.view = isNarrow() ? 'agenda' : 'month';
+    // Open on the month that actually has something in it.
+    const first = items.find((i) => parseNotionDate(i.date));
+    const now = todayStart();
+    const firstDate = first ? parseNotionDate(first.date)! : now;
+    CAL.cursor = firstDate > now ? firstDate : now;
+    drawCalendar();
+  }
+
+  function drawCalendar() {
+    const root = q('[data-view="calendar"]');
+    if (!root) return;
+    clear(root);
+    root.appendChild(calToolbar());
+
+    const visible = CAL.items.filter(passesFilter);
+    if (!visible.length) {
+      const e = el('div', 'pt-empty');
+      const ic = el('div', 'pt-empty-icon');
+      ic.appendChild(icon('cal'));
+      e.append(
+        ic,
+        el('h3', undefined, CAL.filter === 'all' ? 'Nothing on the calendar yet' : 'Nothing matches that filter'),
+        el('p', undefined, CAL.filter === 'all'
+          ? 'Shows, releases and content steps appear here as we plan them.'
+          : 'Try a different filter to see the rest of your calendar.'),
+      );
+      root.appendChild(e);
       return;
     }
 
-    groups = groupByMonth(items);
+    if (CAL.view === 'agenda') root.appendChild(agendaView(visible));
+    else if (CAL.view === 'week') root.appendChild(weekView(visible));
+    else root.appendChild(monthView(visible));
 
-    const listHost = q('[data-cal-list]');
-    if (listHost) {
-      for (const g of groups) {
-        const wrap = el('div', 'pt-month-group');
-        wrap.append(el('h3', 'pt-month-title', g.label));
-        const ul = el('ul', 'pt-items');
-        for (const item of g.items) ul.append(itemRow(item));
-        wrap.append(ul);
-        listHost.append(wrap);
-      }
+    if (CAL.view !== 'agenda') root.appendChild(legend());
+    if (isNarrow() && CAL.view === 'month' && CAL.selected) {
+      root.appendChild(selectedDayList(visible));
     }
-
-    // Open the month view on the month we are actually in, if it has
-    // anything, rather than on the first month of the engagement.
-    const now = new Date();
-    const nowKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const found = groups.findIndex(g => g.key >= nowKey);
-    monthIndex = found === -1 ? groups.length - 1 : found;
-
-    q('[data-view="list"]')?.addEventListener('click', () => setView('list'));
-    q('[data-view="month"]')?.addEventListener('click', () => setView('month'));
-    q('[data-month-prev]')?.addEventListener('click', () => { monthIndex--; selectedDay = null; drawMonth(); });
-    q('[data-month-next]')?.addEventListener('click', () => { monthIndex++; selectedDay = null; drawMonth(); });
   }
 
-  function groupByMonth(items: PortalCalendarItem[]): MonthGroup[] {
-    const map = new Map<string, MonthGroup>();
-    const undated: PortalCalendarItem[] = [];
+  function calToolbar(): HTMLElement {
+    const bar = el('div', 'pt-toolbar');
 
-    for (const item of items) {
-      const d = parseNotionDate(item.date);
-      if (!d) { undated.push(item); continue; }
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      let g = map.get(key);
-      if (!g) {
-        g = { key, label: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`, year: d.getFullYear(), month: d.getMonth(), items: [] };
-        map.set(key, g);
-      }
-      g.items.push(item);
+    const nav = el('div', 'pt-navgroup');
+    const prev = el('button', 'pt-btn pt-btn-icon');
+    prev.type = 'button';
+    prev.setAttribute('aria-label', CAL.view === 'week' ? 'Previous week' : 'Previous month');
+    prev.appendChild(icon('chev-left'));
+    prev.addEventListener('click', () => stepCursor(-1));
+    const next = el('button', 'pt-btn pt-btn-icon');
+    next.type = 'button';
+    next.setAttribute('aria-label', CAL.view === 'week' ? 'Next week' : 'Next month');
+    next.appendChild(icon('chev'));
+    next.addEventListener('click', () => stepCursor(1));
+    nav.append(prev, next);
+
+    const today = el('button', 'pt-btn', 'Today');
+    today.type = 'button';
+    today.addEventListener('click', () => { CAL.cursor = todayStart(); CAL.selected = null; drawCalendar(); });
+
+    const label = el('span', 'pt-month-label',
+      `${MONTHS[CAL.cursor.getMonth()]} ${CAL.cursor.getFullYear()}`);
+
+    bar.append(nav, today, label, el('span', 'pt-toolbar-spacer'));
+
+    const seg = el('div', 'pt-seg');
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', 'Calendar view');
+    for (const [v, text] of [['month', 'Month'], ['week', 'Week'], ['agenda', 'Agenda']] as const) {
+      const b = el('button', undefined, text);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(CAL.view === v));
+      b.addEventListener('click', () => { CAL.view = v; drawCalendar(); });
+      seg.appendChild(b);
     }
 
-    const out = [...map.values()].sort((a, b) => a.key.localeCompare(b.key));
-    if (undated.length) {
-      out.push({ key: '9999-99', label: 'No date yet', year: 9999, month: 0, items: undated });
+    const filter = el('select', 'pt-select') as HTMLSelectElement;
+    filter.setAttribute('aria-label', 'Filter calendar');
+    for (const [v, text] of [
+      ['all', 'All items'], ['moments', 'Shows & releases'],
+      ['content', 'Content'], ['todos', 'My to-dos'],
+    ] as const) {
+      const o = el('option', undefined, text) as HTMLOptionElement;
+      o.value = v;
+      if (CAL.filter === v) o.selected = true;
+      filter.appendChild(o);
     }
-    return out;
+    filter.addEventListener('change', () => { CAL.filter = filter.value as Filter; drawCalendar(); });
+
+    bar.append(seg, filter);
+    return bar;
   }
 
-  function itemRow(item: PortalCalendarItem): HTMLLIElement {
-    const d = parseNotionDate(item.date);
-    const isMoment = item.kind === 'Moment';
-    const isDone = item.status === 'Done';
-    const isPast = Boolean(d && d < todayStart());
-
-    const li = el('li', 'pt-item');
-    li.classList.toggle('is-moment', isMoment);
-    li.classList.toggle('is-past', isPast && !isDone);
-    li.classList.toggle('is-done', isDone);
-
-    const date = el('div', 'pt-item-date');
-    if (d) {
-      date.append(el('span', 'pt-item-dow', DOW[d.getDay()]));
-      date.append(el('span', 'pt-item-day', String(d.getDate())));
-    } else {
-      date.append(el('span', 'pt-item-dow', 'TBD'));
-    }
-    li.append(date);
-
-    const body = el('div', 'pt-item-body');
-    body.append(el('p', 'pt-item-title', item.title));
-    if (item.whyItMatters) body.append(el('p', 'pt-item-why', item.whyItMatters));
-
-    const meta = el('div', 'pt-item-meta');
-    if (isMoment && item.momentType) meta.append(el('span', 'pt-tag is-moment', item.momentType));
-    if (item.venueCity) meta.append(el('span', 'pt-tag', item.venueCity));
-    else if (item.where) meta.append(el('span', 'pt-tag', item.where));
-    if (item.owner === 'Client' && !isDone) meta.append(el('span', 'pt-tag is-mine', 'Yours'));
-    if (item.tentative) meta.append(el('span', 'pt-tag is-tentative', 'Tentative'));
-    if (isDone) meta.append(el('span', 'pt-tag is-done', 'Done'));
-    if (meta.children.length) body.append(meta);
-
-    if (item.ticketLink) {
-      const a = el('a', 'pt-item-link', 'Tickets and RSVP →');
-      a.href = item.ticketLink;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      body.append(a);
-    }
-
-    li.append(body);
-    return li;
+  function stepCursor(dir: number) {
+    const c = new Date(CAL.cursor);
+    if (CAL.view === 'week') c.setDate(c.getDate() + dir * 7);
+    else c.setMonth(c.getMonth() + dir, 1);
+    CAL.cursor = c;
+    CAL.selected = null;
+    drawCalendar();
   }
 
-  function setView(view: 'list' | 'month') {
-    q('[data-view="list"]')?.classList.toggle('is-on', view === 'list');
-    q('[data-view="month"]')?.classList.toggle('is-on', view === 'month');
-    show(q('[data-cal-list]'), view === 'list');
-    show(q('[data-cal-month]'), view === 'month');
-    if (view === 'month') drawMonth();
-  }
-
-  function drawMonth() {
-    const g = groups[monthIndex];
-    const grid = q('[data-month-grid]');
-    const label = q('[data-month-label]');
-    const host = q('[data-month-items]');
-    if (!g || !grid || !host) return;
-
-    if (label) label.textContent = g.label;
-    const prev = q<HTMLButtonElement>('[data-month-prev]');
-    const next = q<HTMLButtonElement>('[data-month-next]');
-    if (prev) prev.disabled = monthIndex <= 0;
-    if (next) next.disabled = monthIndex >= groups.length - 1;
-
-    grid.textContent = '';
-    host.textContent = '';
-
-    // The undated bucket has no month to draw, so it just lists.
-    if (g.key === '9999-99') {
-      const ul = el('ul', 'pt-items');
-      for (const item of g.items) ul.append(itemRow(item));
-      host.append(ul);
-      return;
-    }
-
-    const byDay = new Map<number, PortalCalendarItem[]>();
-    for (const item of g.items) {
-      const d = parseNotionDate(item.date);
+  function byDay(items: PortalCalendarItem[]): Map<string, PortalCalendarItem[]> {
+    const m = new Map<string, PortalCalendarItem[]>();
+    for (const it of items) {
+      const d = parseNotionDate(it.date);
       if (!d) continue;
-      const day = d.getDate();
-      if (!byDay.has(day)) byDay.set(day, []);
-      byDay.get(day)!.push(item);
+      const k = keyOf(d);
+      const arr = m.get(k);
+      if (arr) arr.push(it); else m.set(k, [it]);
     }
-
-    const first = new Date(g.year, g.month, 1).getDay();
-    const days = new Date(g.year, g.month + 1, 0).getDate();
-
-    for (let i = 0; i < first; i++) grid.append(el('div', 'pt-cell is-blank'));
-
-    for (let day = 1; day <= days; day++) {
-      const dayItems = byDay.get(day) ?? [];
-      const cell = el('button', 'pt-cell');
-      cell.type = 'button';
-      cell.append(el('span', undefined, String(day)));
-
-      const dots = el('span', 'pt-dots');
-      for (const item of dayItems.slice(0, 3)) {
-        dots.append(el('span', item.kind === 'Moment' ? 'pt-dot is-moment' : 'pt-dot'));
-      }
-      cell.append(dots);
-
-      if (dayItems.length) {
-        cell.classList.add('has-items');
-        const dayKey = `${g.key}-${day}`;
-        cell.classList.toggle('is-sel', selectedDay === dayKey);
-        cell.setAttribute('aria-label', `${MONTHS[g.month]} ${day}: ${dayItems.length} item${dayItems.length === 1 ? '' : 's'}`);
-        cell.addEventListener('click', () => {
-          selectedDay = selectedDay === dayKey ? null : dayKey;
-          drawMonth();
-        });
-      } else {
-        cell.disabled = true;
-      }
-
-      grid.append(cell);
-    }
-
-    const sel = selectedDay && selectedDay.startsWith(`${g.key}-`)
-      ? Number(selectedDay.slice(g.key.length + 1))
-      : null;
-
-    const shown = sel ? (byDay.get(sel) ?? []) : g.items;
-    if (!sel) host.append(el('p', 'pt-day-hint', 'Tap a highlighted day to see just that day.'));
-    const ul = el('ul', 'pt-items');
-    for (const item of shown) ul.append(itemRow(item));
-    host.append(ul);
+    return m;
   }
 
-  /* ── reports ──────────────────────────────────────────────── */
-  function renderReports(snapshots: PortalSnapshot[]) {
-    const host = q('[data-metrics]');
-    if (!host) return;
+  function monthView(items: PortalCalendarItem[]): HTMLElement {
+    const wrap = el('div', 'pt-cal');
+    const dow = el('div', 'pt-cal-dow');
+    for (const d of DOW) dow.appendChild(el('div', undefined, d));
+    wrap.appendChild(dow);
 
-    if (!snapshots.length) {
-      show(q('[data-report-empty]'), true);
+    const grid = el('div', 'pt-cal-grid');
+    const map = byDay(items);
+    const today = todayStart();
+
+    const first = new Date(CAL.cursor.getFullYear(), CAL.cursor.getMonth(), 1);
+    const start = new Date(first);
+    start.setDate(1 - first.getDay());
+    const last = new Date(CAL.cursor.getFullYear(), CAL.cursor.getMonth() + 1, 0);
+    const weeks = Math.ceil((first.getDay() + last.getDate()) / 7);
+
+    for (let i = 0; i < weeks * 7; i++) {
+      const day = new Date(start);
+      day.setDate(start.getDate() + i);
+      const inMonth = day.getMonth() === CAL.cursor.getMonth();
+      const cell = el('div', 'pt-cal-cell' + (inMonth ? '' : ' pt-cal-cell-out'));
+      if (sameDay(day, today)) cell.classList.add('pt-cal-cell-today');
+      if (CAL.selected && sameDay(day, CAL.selected)) cell.classList.add('pt-cal-cell-selected');
+
+      const dayItems = map.get(keyOf(day)) ?? [];
+
+      if (isNarrow()) {
+        const btn = el('button', 'pt-cal-date pt-num', String(day.getDate()));
+        btn.type = 'button';
+        btn.setAttribute('aria-label', `${fmtDayLong(day)}, ${dayItems.length} item${dayItems.length === 1 ? '' : 's'}`);
+        btn.addEventListener('click', () => { CAL.selected = day; drawCalendar(); });
+        cell.appendChild(btn);
+        if (dayItems.length) {
+          const dots = el('div', 'pt-dots');
+          for (const it of dayItems.slice(0, 4)) dots.appendChild(el('span', `pt-dot pt-dot-${kindOf(it)}`));
+          cell.appendChild(dots);
+        }
+      } else {
+        cell.appendChild(el('span', 'pt-cal-date pt-num', String(day.getDate())));
+        for (const it of dayItems.slice(0, 3)) cell.appendChild(chip(it));
+        if (dayItems.length > 3) {
+          const more = el('button', 'pt-chip-more', `+${dayItems.length - 3} more`);
+          more.type = 'button';
+          more.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            openPopover(more, day, dayItems);
+          });
+          cell.appendChild(more);
+        }
+      }
+      grid.appendChild(cell);
+    }
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  function chip(it: PortalCalendarItem): HTMLElement {
+    const k = kindOf(it);
+    const b = el('button', `pt-chip pt-chip-${k}` + (it.tentative ? ' pt-chip-tentative' : ''));
+    b.type = 'button';
+    b.textContent = it.title;
+    b.title = `${KIND_LABEL[k]}: ${it.title}`;
+    b.addEventListener('click', (ev) => { ev.stopPropagation(); openDrawer(it); });
+    return b;
+  }
+
+  function weekView(items: PortalCalendarItem[]): HTMLElement {
+    const wrap = el('div', 'pt-cal');
+    const map = byDay(items);
+    const today = todayStart();
+    const start = new Date(CAL.cursor);
+    start.setDate(start.getDate() - start.getDay());
+
+    const dow = el('div', 'pt-cal-dow');
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      dow.appendChild(el('div', undefined, `${DOW[i]} ${d.getDate()}`));
+    }
+    wrap.appendChild(dow);
+
+    const grid = el('div', 'pt-week');
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(start); day.setDate(start.getDate() + i);
+      const cell = el('div', 'pt-cal-cell');
+      if (sameDay(day, today)) cell.classList.add('pt-cal-cell-today');
+      for (const it of map.get(keyOf(day)) ?? []) cell.appendChild(chip(it));
+      grid.appendChild(cell);
+    }
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  function agendaView(items: PortalCalendarItem[]): HTMLElement {
+    const wrap = el('div');
+    const today = todayStart();
+    const dated = items.filter((i) => parseNotionDate(i.date));
+    const map = byDay(dated);
+    const keys = Array.from(map.keys()).sort((a, b) => {
+      const [ay, am, ad] = a.split('-').map(Number);
+      const [by, bm, bd] = b.split('-').map(Number);
+      return new Date(ay, am, ad).getTime() - new Date(by, bm, bd).getTime();
+    });
+
+    for (const k of keys) {
+      const [y, m, d] = k.split('-').map(Number);
+      const day = new Date(y, m, d);
+      const group = el('section', 'pt-agenda-day');
+      const head = el('h3', 'pt-agenda-date' + (sameDay(day, today) ? ' pt-agenda-date-today' : ''));
+      head.appendChild(el('span', undefined, fmtDayLong(day)));
+      if (sameDay(day, today)) head.appendChild(el('span', 'pt-tag', 'Today'));
+      group.appendChild(head);
+      const list = el('ul');
+      for (const it of map.get(k)!) list.appendChild(itemRow(it));
+      group.appendChild(list);
+      wrap.appendChild(group);
+    }
+    return wrap;
+  }
+
+  function selectedDayList(items: PortalCalendarItem[]): HTMLElement {
+    const day = CAL.selected!;
+    const map = byDay(items);
+    const dayItems = map.get(keyOf(day)) ?? [];
+    const card = el('section', 'pt-card');
+    card.style.marginTop = 'var(--pt-4)';
+    const head = el('div', 'pt-card-head');
+    head.appendChild(el('h2', undefined, fmtDayLong(day)));
+    card.appendChild(head);
+    const body = el('div', 'pt-card-body');
+    if (!dayItems.length) {
+      body.appendChild(el('p', 'pt-kpi-note', 'Nothing scheduled on this day.'));
+    } else {
+      const list = el('ul');
+      for (const it of dayItems) list.appendChild(itemRow(it));
+      body.appendChild(list);
+    }
+    card.appendChild(body);
+    return card;
+  }
+
+  function legend(): HTMLElement {
+    const wrap = el('div', 'pt-legend');
+    wrap.setAttribute('aria-label', 'What the colours mean');
+    for (const [k, text] of [
+      ['show', 'Show'], ['release', 'Release'], ['content', 'Content'],
+      ['moment', 'Moment'], ['todo', 'Your to-do'],
+    ] as const) {
+      const item = el('span', 'pt-legend-item');
+      item.append(el('span', `pt-legend-key pt-legend-${k}`), el('span', undefined, text));
+      wrap.appendChild(item);
+    }
+    const t = el('span', 'pt-legend-item');
+    t.append(el('span', 'pt-legend-key pt-chip-tentative', ''), el('span', undefined, 'Tentative (dashed)'));
+    wrap.appendChild(t);
+    return wrap;
+  }
+
+  /* ── "+N more" popover ─────────────────────────────────────── */
+  let POP: HTMLElement | null = null;
+
+  function closePopover() { if (POP) { POP.remove(); POP = null; } }
+
+  function openPopover(anchor: HTMLElement, day: Date, items: PortalCalendarItem[]) {
+    closePopover();
+    const pop = el('div', 'pt-popover');
+    pop.appendChild(el('div', 'pt-popover-title', fmtDayLong(day)));
+    for (const it of items) pop.appendChild(chip(it));
+    document.body.appendChild(pop);
+
+    const r = anchor.getBoundingClientRect();
+    const top = Math.min(r.bottom + window.scrollY + 4, window.scrollY + window.innerHeight - 330);
+    const left = Math.min(r.left + window.scrollX, window.scrollX + window.innerWidth - 268);
+    pop.style.top = `${Math.max(window.scrollY + 8, top)}px`;
+    pop.style.left = `${Math.max(8, left)}px`;
+    POP = pop;
+
+    setTimeout(() => {
+      document.addEventListener('click', onDocClick, { once: true });
+    }, 0);
+  }
+  function onDocClick(ev: MouseEvent) {
+    if (POP && !POP.contains(ev.target as Node)) closePopover();
+    else if (POP) setTimeout(() => document.addEventListener('click', onDocClick, { once: true }), 0);
+  }
+
+  /* ── detail drawer ─────────────────────────────────────────── */
+  let LAST_FOCUS: HTMLElement | null = null;
+
+  function openDrawer(it: PortalCalendarItem) {
+    const drawer = q('[data-drawer]');
+    const scrim = q('[data-scrim]');
+    const title = q('[data-drawer-title]');
+    const body = q('[data-drawer-body]');
+    const foot = q('[data-drawer-foot]');
+    if (!drawer || !scrim || !title || !body || !foot) return;
+
+    LAST_FOCUS = document.activeElement as HTMLElement;
+    title.textContent = it.title;
+    clear(body);
+    clear(foot);
+
+    const k = kindOf(it);
+    const tags = el('div');
+    tags.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px';
+    const kindTag = el('span', `pt-tag`, KIND_LABEL[k]);
+    if (k === 'todo') kindTag.className = 'pt-tag pt-tag-todo';
+    tags.appendChild(kindTag);
+    if (it.tentative) tags.appendChild(el('span', 'pt-tag pt-tag-tentative', 'Tentative'));
+    body.appendChild(tags);
+
+    const dl = el('dl', 'pt-deflist');
+    const add = (label: string, value: string | null) => {
+      if (!value) return;
+      dl.append(el('dt', undefined, label), el('dd', undefined, value));
+    };
+    add('Date', fmtDate(it.date));
+    add('Status', it.status);
+    add('Channel', it.where);
+    add('Venue', it.venueCity);
+    add('Playbook', it.playbook);
+    add('Phase', it.phase);
+    add('Owner', it.owner);
+    body.appendChild(dl);
+
+    if (it.whyItMatters) {
+      const why = el('div', 'pt-why');
+      why.appendChild(el('strong', undefined, 'Why it matters'));
+      why.appendChild(el('span', undefined, it.whyItMatters));
+      body.appendChild(why);
+    }
+
+    if (it.ticketLink) {
+      const a = el('a', 'pt-btn pt-btn-primary');
+      (a as HTMLAnchorElement).href = it.ticketLink;
+      (a as HTMLAnchorElement).target = '_blank';
+      (a as HTMLAnchorElement).rel = 'noopener noreferrer';
+      a.appendChild(icon('ticket'));
+      a.appendChild(el('span', undefined, 'Tickets & RSVP'));
+      a.style.width = '100%';
+      foot.appendChild(a);
+      show(foot, true);
+    } else {
+      show(foot, false);
+    }
+
+    show(scrim, true);
+    show(drawer, true);
+    requestAnimationFrame(() => {
+      scrim.dataset.open = 'true';
+      drawer.dataset.open = 'true';
+    });
+    q<HTMLButtonElement>('[data-drawer-close]')?.focus();
+    document.addEventListener('keydown', onDrawerKey);
+  }
+
+  function closeDrawer() {
+    const drawer = q('[data-drawer]');
+    const scrim = q('[data-scrim]');
+    if (!drawer || !scrim || drawer.hidden) return;
+    drawer.dataset.open = 'false';
+    scrim.dataset.open = 'false';
+    document.removeEventListener('keydown', onDrawerKey);
+    setTimeout(() => { show(drawer, false); show(scrim, false); }, 200);
+    LAST_FOCUS?.focus();
+    LAST_FOCUS = null;
+  }
+
+  function onDrawerKey(ev: KeyboardEvent) {
+    if (ev.key === 'Escape') { ev.preventDefault(); closeDrawer(); return; }
+    if (ev.key !== 'Tab') return;
+    // Keep focus inside the dialog while it is open.
+    const drawer = q('[data-drawer]');
+    if (!drawer) return;
+    const f = qq<HTMLElement>('a[href], button:not(:disabled), [tabindex]:not([tabindex="-1"])', drawer);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+  }
+
+  /* ── reports ───────────────────────────────────────────────── */
+  const PLATFORM_ORDER = ['Instagram', 'TikTok', 'YouTube', 'Spotify', 'Apple Music', 'SoundCloud', 'Facebook', 'X', 'Threads'];
+  const REP = { snapIndex: 0, cmpIndex: -1, metricTab: '' };
+
+  let SNAPS: PortalSnapshot[] = [];
+
+  function renderReports(snapshots: PortalSnapshot[]) {
+    // Newest first, so index 0 is always "now".
+    SNAPS = [...snapshots].sort((a, b) => {
+      const da = parseNotionDate(a.date)?.getTime() ?? 0;
+      const db = parseNotionDate(b.date)?.getTime() ?? 0;
+      return db - da;
+    });
+    REP.snapIndex = 0;
+    REP.cmpIndex = SNAPS.length > 1 ? SNAPS.length - 1 : -1;
+    showPlatform('');
+  }
+
+  function snapLabel(s: PortalSnapshot): string {
+    return [s.type, fmtDate(s.date)].filter(Boolean).join(' · ');
+  }
+
+  /** Platforms present in a snapshot, in a deliberate order, plus the
+   *  metrics that do not belong to one (Email + SMS List, Shows). */
+  function groupMetrics(s: PortalSnapshot): Array<{ platform: string; metrics: string[] }> {
+    const groups = new Map<string, string[]>();
+    for (const name of Object.keys(s.metrics)) {
+      const p = metricPlatform(name) ?? 'Other';
+      const arr = groups.get(p);
+      if (arr) arr.push(name); else groups.set(p, [name]);
+    }
+    const ordered: Array<{ platform: string; metrics: string[] }> = [];
+    for (const p of PLATFORM_ORDER) {
+      const m = groups.get(p);
+      if (m && m.length) { ordered.push({ platform: p, metrics: sortMetrics(m) }); groups.delete(p); }
+    }
+    for (const [p, m] of groups) if (p !== 'Other' && m.length) ordered.push({ platform: p, metrics: sortMetrics(m) });
+    const other = groups.get('Other');
+    if (other && other.length) ordered.push({ platform: 'Other', metrics: other.sort() });
+    return ordered;
+  }
+
+  /** Followers first, then reach, then output. */
+  function sortMetrics(names: string[]): string[] {
+    const rank = (n: string) => {
+      const l = metricLabel(n).toLowerCase();
+      if (l.includes('follower') || l.includes('subscriber') || l.includes('listener')) return 0;
+      if (l.includes('view') || l.includes('play') || l.includes('stream') || l.includes('shazam')) return 1;
+      if (l.includes('engagement')) return 2;
+      return 3;
+    };
+    return [...names].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  }
+
+  function showPlatform(platform: string) {
+    const root = q('[data-view="reports"]');
+    if (!root) return;
+    clear(root);
+
+    if (!SNAPS.length) {
+      const e = el('div', 'pt-empty');
+      const ic = el('div', 'pt-empty-icon');
+      ic.appendChild(icon('chart'));
+      e.append(ic, el('h3', undefined, 'No reports yet'),
+        el('p', undefined, 'Your first snapshot lands after we have access to your accounts.'));
+      root.appendChild(e);
       return;
     }
-
-    // Snapshots arrive sorted by date. The baseline is the one marked
-    // Baseline; failing that, the earliest, so a client who never had a
-    // formal baseline still gets a comparison.
-    const latest = snapshots[snapshots.length - 1];
-    const baseline = snapshots.find(s => s.type === 'Baseline') ?? snapshots[0];
-    const sameRow = latest === baseline;
-
-    const meta = q('[data-report-meta]');
-    if (meta) {
-      const label = (s: PortalSnapshot) => [s.type, fmtDate(s.date)].filter(Boolean).join(' · ');
-      meta.textContent = sameRow ? label(latest) : `${label(baseline)} → ${label(latest)}`;
-    }
-
-    if (typeof latest.growthScore === 'number') {
-      show(q('[data-score]'), true);
-      const num = q('[data-score-num]');
-      if (num) num.textContent = String(latest.growthScore);
-    }
-
-    // Headline order first, then any other metric that has a value, so
-    // a new platform column still appears without a deploy.
-    const extras = Object.keys(latest.metrics)
-      .filter(name => !(HEADLINE_METRICS as readonly string[]).includes(name))
-      .sort();
-    const order = [...HEADLINE_METRICS, ...extras];
-
-    let shown = 0;
-    for (const name of order) {
-      const now = latest.metrics[name];
-      const then = baseline.metrics[name];
-      // Hide anything with no data on either end: an empty row is worse
-      // than a missing one.
-      if (typeof now !== 'number' && typeof then !== 'number') continue;
-      host.append(metricRow(name, now, then, sameRow, snapshots));
-      shown++;
-    }
-
-    if (!shown) show(q('[data-report-empty]'), true);
+    if (platform) root.appendChild(platformDetail(platform));
+    else root.appendChild(reportsOverview());
   }
 
-  function metricRow(
-    name: string,
-    now: number | undefined,
-    then: number | undefined,
-    sameRow: boolean,
-    snapshots: PortalSnapshot[],
-  ): HTMLDivElement {
-    const row = el('div', 'pt-metric');
-    const isPct = isEngagementMetric(name);
-    const fmt = (v: number) => (isPct ? formatEngagement(v) : fmtNumber(v));
+  function reportsOverview(): HTMLElement {
+    const wrap = el('div');
+    const snap = SNAPS[REP.snapIndex];
+    const cmp = REP.cmpIndex >= 0 && REP.cmpIndex !== REP.snapIndex ? SNAPS[REP.cmpIndex] : null;
 
-    const nameCell = el('div', 'pt-metric-name');
-    nameCell.append(el('span', 'pt-metric-platform', metricPlatform(name) ?? name));
-    nameCell.append(el('span', 'pt-metric-label', metricPlatform(name) ? metricLabel(name) : ''));
-    row.append(nameCell);
-
-    const right = el('div', 'pt-metric-right');
-    right.append(el('span', 'pt-metric-value', typeof now === 'number' ? fmt(now) : '—'));
-
-    if (!sameRow && typeof now === 'number' && typeof then === 'number') {
-      const delta = now - then;
-      const dir = delta > 0 ? 'is-up' : delta < 0 ? 'is-down' : 'is-flat';
-      const sign = delta > 0 ? '+' : '';
-      // Percent-point change for a rate; a "+50%" on an engagement rate
-      // would read as the rate itself and mislead.
-      const text = isPct
-        ? `${sign}${(delta * 100).toFixed(1)} pts`
-        : then === 0
-          ? `${sign}${fmtNumber(delta)}`
-          : `${sign}${fmtNumber(delta)} (${sign}${((delta / then) * 100).toFixed(1)}%)`;
-      right.append(el('span', `pt-metric-change ${dir}`, text));
+    /* header controls */
+    const head = el('div', 'pt-rep-head');
+    head.appendChild(selectField('Snapshot', SNAPS.map((s, i) => [String(i), snapLabel(s)]), String(REP.snapIndex), (v) => {
+      REP.snapIndex = Number(v); showPlatform('');
+    }));
+    const cmpOpts: Array<[string, string]> = [['-1', 'No comparison']];
+    SNAPS.forEach((s, i) => { if (i !== REP.snapIndex) cmpOpts.push([String(i), snapLabel(s)]); });
+    const cmpField = selectField('Compare to', cmpOpts, String(REP.cmpIndex), (v) => {
+      REP.cmpIndex = Number(v); showPlatform('');
+    });
+    if (SNAPS.length < 2) {
+      const sel = q<HTMLSelectElement>('select', cmpField);
+      if (sel) sel.disabled = true;
     }
-    row.append(right);
+    head.appendChild(cmpField);
+    wrap.appendChild(head);
 
-    const spark = sparkline(name, snapshots);
-    if (spark) row.append(spark);
+    /* growth score */
+    if (typeof snap.growthScore === 'number') {
+      const card = el('section', 'pt-card');
+      const body = el('div', 'pt-card-body');
+      const score = el('div', 'pt-score');
+      score.appendChild(gauge(snap.growthScore, 40));
+      const text = el('div', 'pt-score-text');
+      const val = el('div', 'pt-score-value pt-num', String(snap.growthScore));
+      val.appendChild(el('span', undefined, ' / 40'));
+      text.appendChild(val);
+      text.appendChild(el('div', 'pt-section-title', 'Growth score'));
+      if (snap.dataSource.length) {
+        text.appendChild(el('p', 'pt-score-note', `Measured from ${snap.dataSource.join(' and ').toLowerCase()}.`));
+      }
+      score.appendChild(text);
+      body.appendChild(score);
+      card.appendChild(body);
+      wrap.appendChild(card);
+    }
 
-    return row;
+    /* the single-snapshot state, designed rather than left broken */
+    if (SNAPS.length < 2) {
+      const note = el('div', 'pt-note');
+      note.style.marginTop = 'var(--pt-5)';
+      note.appendChild(icon('info'));
+      const p = el('p');
+      p.appendChild(el('strong', undefined, 'This is your baseline. '));
+      p.appendChild(el('span', undefined,
+        `Every number below is the starting point we measure against. Your trend starts with your first monthly report on ${firstReportDate(snap)}.`));
+      note.appendChild(p);
+      wrap.appendChild(note);
+    }
+
+    /* platform groups */
+    for (const g of groupMetrics(snap)) {
+      const h = el('div', 'pt-platform-head');
+      h.appendChild(el('h3', undefined, g.platform === 'Other' ? 'Audience you own' : g.platform));
+      h.appendChild(el('span', 'pt-platform-rule'));
+      if (g.platform !== 'Other') {
+        const link = el('a', 'pt-back');
+        (link as HTMLAnchorElement).href = `#/reports/${encodeURIComponent(g.platform)}`;
+        link.style.margin = '0';
+        link.appendChild(el('span', undefined, 'Detail'));
+        link.appendChild(icon('chev'));
+        h.appendChild(link);
+      }
+      wrap.appendChild(h);
+
+      const grid = el('div', 'pt-grid pt-grid-4');
+      for (const m of g.metrics) grid.appendChild(metricCard(m, snap, cmp, g.platform !== 'Other'));
+      wrap.appendChild(grid);
+    }
+    return wrap;
   }
 
-  /** A trend line, once there are at least two readings to join. */
-  function sparkline(name: string, snapshots: PortalSnapshot[]): SVGSVGElement | null {
-    const points = snapshots
-      .map(s => s.metrics[name])
-      .filter((v): v is number => typeof v === 'number');
-    if (points.length < 2) return null;
+  /** The 1st of the month after the next full one: a baseline taken on
+   *  Oct 26 is reported on from Nov, delivered Dec 1. */
+  function firstReportDate(s: PortalSnapshot): string {
+    const d = parseNotionDate(s.date) ?? new Date();
+    const next = new Date(d.getFullYear(), d.getMonth() + (d.getDate() > 15 ? 2 : 1), 1);
+    return `${MONTHS[next.getMonth()]} ${next.getDate()}`;
+  }
 
-    const W = 100, H = 26, PAD = 2;
-    const min = Math.min(...points);
-    const max = Math.max(...points);
-    const span = max - min || 1;
+  function selectField(label: string, opts: Array<[string, string]>, value: string, onChange: (v: string) => void): HTMLElement {
+    const f = el('div', 'pt-field');
+    const id = `pt-sel-${label.replace(/\W+/g, '-').toLowerCase()}`;
+    const l = el('label', undefined, label);
+    (l as HTMLLabelElement).htmlFor = id;
+    const s = el('select', 'pt-select') as HTMLSelectElement;
+    s.id = id;
+    for (const [v, text] of opts) {
+      const o = el('option', undefined, text) as HTMLOptionElement;
+      o.value = v;
+      if (v === value) o.selected = true;
+      s.appendChild(o);
+    }
+    s.addEventListener('change', () => onChange(s.value));
+    f.append(l, s);
+    return f;
+  }
 
-    const d = points
-      .map((v, i) => {
-        const x = (i / (points.length - 1)) * W;
-        const y = H - PAD - ((v - min) / span) * (H - PAD * 2);
-        return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
-      })
-      .join(' ');
+  function metricCard(
+    name: string, snap: PortalSnapshot, cmp: PortalSnapshot | null, linkable: boolean,
+  ): HTMLElement {
+    const plat = metricPlatform(name);
+    const node = linkable && plat ? el('a', 'pt-kpi') : el('div', 'pt-kpi');
+    if (linkable && plat) (node as HTMLAnchorElement).href = `#/reports/${encodeURIComponent(plat)}`;
 
-    const ns = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('class', 'pt-spark');
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.setAttribute('preserveAspectRatio', 'none');
-    svg.setAttribute('aria-hidden', 'true');
-    const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', d);
-    svg.append(path);
+    const label = el('span', 'pt-kpi-label');
+    label.appendChild(el('span', 'pt-kpi-platform', metricLabel(name)));
+    node.appendChild(label);
+    node.appendChild(el('div', 'pt-kpi-value pt-num', fmtMetric(name, snap.metrics[name])));
+
+    const foot = el('div', 'pt-kpi-foot');
+    const before = cmp?.metrics[name];
+    if (typeof before === 'number') foot.appendChild(deltaPill(snap.metrics[name], before, name));
+    else foot.appendChild(el('span', 'pt-kpi-note', 'Baseline'));
+    node.appendChild(foot);
+
+    const series = SNAPS.filter((s) => typeof s.metrics[name] === 'number');
+    if (series.length > 1) node.appendChild(sparkline(name, series));
+    return node;
+  }
+
+  function platformDetail(platform: string): HTMLElement {
+    const wrap = el('div');
+    const snap = SNAPS[REP.snapIndex];
+
+    const back = el('a', 'pt-back');
+    (back as HTMLAnchorElement).href = '#/reports';
+    back.appendChild(icon('chev-left'));
+    back.appendChild(el('span', undefined, 'All reports'));
+    wrap.appendChild(back);
+
+    const metrics = sortMetrics(Object.keys(snap.metrics).filter((m) => metricPlatform(m) === platform));
+    if (!metrics.length) {
+      const e = el('div', 'pt-empty');
+      const ic = el('div', 'pt-empty-icon');
+      ic.appendChild(icon('chart'));
+      e.append(ic, el('h3', undefined, `No ${platform} data yet`),
+        el('p', undefined, 'This platform appears here once it has numbers in a snapshot.'));
+      wrap.appendChild(e);
+      return wrap;
+    }
+
+    const h = el('div', 'pt-platform-head');
+    h.style.marginTop = '0';
+    h.appendChild(el('h3', undefined, platform));
+    h.appendChild(el('span', 'pt-platform-rule'));
+    wrap.appendChild(h);
+
+    if (!REP.metricTab || !metrics.includes(REP.metricTab)) REP.metricTab = metrics[0];
+
+    /* chart card */
+    const card = el('section', 'pt-card');
+    const body = el('div', 'pt-card-body');
+
+    const tabs = el('div', 'pt-tabs');
+    tabs.setAttribute('role', 'tablist');
+    for (const m of metrics) {
+      const b = el('button', 'pt-tab-btn', metricLabel(m));
+      b.type = 'button';
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(m === REP.metricTab));
+      b.addEventListener('click', () => { REP.metricTab = m; showPlatform(platform); });
+      tabs.appendChild(b);
+    }
+    body.appendChild(tabs);
+
+    const series = SNAPS
+      .filter((s) => typeof s.metrics[REP.metricTab] === 'number')
+      .slice()
+      .reverse(); // oldest first, so time runs left to right
+
+    if (series.length > 1) {
+      body.appendChild(lineChart(REP.metricTab, series));
+    } else {
+      const note = el('div', 'pt-note');
+      note.appendChild(icon('info'));
+      const p = el('p');
+      p.appendChild(el('strong', undefined, `${fmtMetric(REP.metricTab, snap.metrics[REP.metricTab])} today. `));
+      p.appendChild(el('span', undefined,
+        `One snapshot cannot make a trend line. Your chart starts with your first monthly report on ${firstReportDate(snap)}.`));
+      note.appendChild(p);
+      body.appendChild(note);
+    }
+    card.appendChild(body);
+    wrap.appendChild(card);
+
+    /* table of every metric for this platform */
+    const tcard = el('section', 'pt-card');
+    tcard.style.marginTop = 'var(--pt-5)';
+    const thead = el('div', 'pt-card-head');
+    thead.appendChild(el('h2', undefined, 'Every metric'));
+    tcard.appendChild(thead);
+    const tbody = el('div', 'pt-card-body');
+    const table = el('table', 'pt-table');
+    const hr = el('tr');
+    for (const [text, cls] of [['Metric', ''], ['Value', 'pt-td-num'], ['Change', 'pt-td-num']] as const) {
+      const th = el('th', undefined, text);
+      if (cls) th.style.textAlign = 'right';
+      hr.appendChild(th);
+    }
+    const thead2 = el('thead'); thead2.appendChild(hr); table.appendChild(thead2);
+    const tb = el('tbody');
+    const cmp = REP.cmpIndex >= 0 && REP.cmpIndex !== REP.snapIndex ? SNAPS[REP.cmpIndex] : null;
+    for (const m of metrics) {
+      const tr = el('tr');
+      tr.appendChild(el('td', undefined, metricLabel(m)));
+      tr.appendChild(el('td', 'pt-td-num', fmtMetric(m, snap.metrics[m])));
+      const td = el('td', 'pt-td-num');
+      const before = cmp?.metrics[m];
+      if (typeof before === 'number') td.appendChild(deltaPill(snap.metrics[m], before, m));
+      else td.appendChild(el('span', 'pt-kpi-note', '—'));
+      tr.appendChild(td);
+      tb.appendChild(tr);
+    }
+    table.appendChild(tb);
+    tbody.appendChild(table);
+    const foot = el('p', 'pt-score-note',
+      `${snapLabel(snap)}${snap.dataSource.length ? ` · ${snap.dataSource.join(', ')}` : ''}`);
+    foot.style.marginTop = 'var(--pt-4)';
+    tbody.appendChild(foot);
+    tcard.appendChild(tbody);
+    wrap.appendChild(tcard);
+    return wrap;
+  }
+
+  /* ── charts ────────────────────────────────────────────────────
+     Hand-built SVG rather than a charting library: these are three
+     simple forms, and a dependency would cost more bytes than the
+     code. One series each, so no legend is needed; the card title
+     names the thing. Navy carries the line because it is the only
+     blue here that clears 3:1 on white. */
+
+  function gauge(value: number, max: number): SVGSVGElement {
+    const size = 104, r = 44, cx = size / 2, cy = size / 2;
+    const circ = 2 * Math.PI * r;
+    const frac = Math.max(0, Math.min(1, value / max));
+    const svg = svgEl('svg', { class: 'pt-score-gauge', width: size, height: size, viewBox: `0 0 ${size} ${size}`, role: 'img' });
+    svg.appendChild(svgEl('title')).textContent = `Growth score ${value} out of ${max}`;
+    svg.appendChild(svgEl('circle', {
+      cx, cy, r, fill: 'none', stroke: 'var(--pt-tint)', 'stroke-width': 10,
+    }));
+    const arc = svgEl('circle', {
+      cx, cy, r, fill: 'none', stroke: 'var(--pt-navy)', 'stroke-width': 10,
+      'stroke-linecap': 'round', 'stroke-dasharray': circ,
+      'stroke-dashoffset': circ, transform: `rotate(-90 ${cx} ${cy})`,
+    });
+    arc.style.transition = 'stroke-dashoffset 800ms cubic-bezier(.4,0,.2,1)';
+    svg.appendChild(arc);
+    requestAnimationFrame(() => arc.setAttribute('stroke-dashoffset', String(circ * (1 - frac))));
     return svg;
   }
 
-  /* ── files ────────────────────────────────────────────────── */
-  function renderFiles(c: PortalPayload['client']) {
-    const host = q('[data-files]');
-    if (!host) return;
+  function sparkline(name: string, series: PortalSnapshot[]): SVGSVGElement {
+    const pts = series.slice().reverse().map((s) => s.metrics[name]);
+    const w = 160, h = 30, pad = 3;
+    const min = Math.min(...pts), max = Math.max(...pts);
+    const span = max - min || 1;
+    const x = (i: number) => pad + (i / Math.max(1, pts.length - 1)) * (w - pad * 2);
+    const y = (v: number) => h - pad - ((v - min) / span) * (h - pad * 2);
+    const svg = svgEl('svg', {
+      class: 'pt-spark', viewBox: `0 0 ${w} ${h}`, preserveAspectRatio: 'none',
+      'aria-hidden': 'true', focusable: 'false',
+    });
+    svg.setAttribute('style', 'width:100%;height:30px');
+    const d = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+    svg.appendChild(svgEl('path', {
+      d: `${d} L${x(pts.length - 1).toFixed(1)} ${h} L${x(0).toFixed(1)} ${h} Z`,
+      fill: 'var(--pt-tint)', stroke: 'none',
+    }));
+    svg.appendChild(svgEl('path', { d, fill: 'none', stroke: 'var(--pt-navy)', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    return svg;
+  }
 
-    const links: Array<[string, string | null]> = [
-      ['Drive folder', c.driveFolder],
-      ['Content Vault', c.contentVault],
-      ['Your roadmap', c.roadmapLink],
-    ];
+  function lineChart(name: string, series: PortalSnapshot[]): HTMLElement {
+    const wrap = el('div', 'pt-chart-wrap');
+    const W = 680, H = 240, L = 54, R = 16, T = 18, B = 34;
+    const vals = series.map((s) => s.metrics[name]);
+    const rawMin = Math.min(...vals), rawMax = Math.max(...vals);
+    const pad = (rawMax - rawMin) * 0.15 || Math.abs(rawMax) * 0.1 || 1;
+    const min = Math.max(0, rawMin - pad), max = rawMax + pad;
+    const span = max - min || 1;
+    const x = (i: number) => L + (i / Math.max(1, series.length - 1)) * (W - L - R);
+    const y = (v: number) => T + (1 - (v - min) / span) * (H - T - B);
 
-    let shown = 0;
-    for (const [label, href] of links) {
-      if (!href) continue;
-      const a = el('a', 'button ghost');
-      a.href = href;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.append(document.createTextNode(label), el('span', 'arrow', '→'));
-      host.append(a);
-      shown++;
+    const svg = svgEl('svg', { class: 'pt-chart', viewBox: `0 0 ${W} ${H}`, role: 'img' });
+    svg.setAttribute('style', 'width:100%;height:auto');
+    svg.appendChild(svgEl('title')).textContent =
+      `${metricLabel(name)} across ${series.length} snapshots`;
+
+    /* recessive grid + axis labels */
+    for (let i = 0; i <= 3; i++) {
+      const v = min + (span * i) / 3;
+      const yy = y(v);
+      svg.appendChild(svgEl('line', {
+        x1: L, x2: W - R, y1: yy, y2: yy,
+        stroke: 'var(--pt-line-soft)', 'stroke-width': 1,
+      }));
+      const t = svgEl('text', {
+        x: L - 10, y: yy + 4, 'text-anchor': 'end',
+        fill: 'var(--pt-muted)', 'font-size': 11, 'font-family': 'var(--pt-sans)',
+      });
+      t.textContent = isEngagementMetric(name) ? formatEngagement(v) : compact(v);
+      svg.appendChild(t);
     }
 
-    show(q('[data-files-empty]'), shown === 0);
+    const line = vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+    svg.appendChild(svgEl('path', {
+      d: `${line} L${x(vals.length - 1)} ${H - B} L${x(0)} ${H - B} Z`,
+      fill: 'var(--pt-tint)', stroke: 'none', opacity: 0.85,
+    }));
+    svg.appendChild(svgEl('path', {
+      d: line, fill: 'none', stroke: 'var(--pt-navy)',
+      'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+    }));
+
+    /* x labels + markers (>=8px, with a surface ring) */
+    series.forEach((s, i) => {
+      const t = svgEl('text', {
+        x: x(i), y: H - 12, 'text-anchor': 'middle',
+        fill: 'var(--pt-muted)', 'font-size': 11, 'font-family': 'var(--pt-sans)',
+      });
+      t.textContent = shortDate(s.date);
+      svg.appendChild(t);
+      svg.appendChild(svgEl('circle', {
+        cx: x(i), cy: y(vals[i]), r: 5,
+        fill: 'var(--pt-navy)', stroke: 'var(--pt-surface)', 'stroke-width': 2,
+      }));
+    });
+
+    const cross = svgEl('line', {
+      y1: T, y2: H - B, stroke: 'var(--pt-navy)', 'stroke-width': 1,
+      'stroke-dasharray': '3 3', opacity: 0,
+    });
+    svg.appendChild(cross);
+
+    const hit = svgEl('rect', { x: 0, y: 0, width: W, height: H, fill: 'transparent' });
+    svg.appendChild(hit);
+    wrap.appendChild(svg);
+
+    const tip = el('div', 'pt-chart-tip');
+    wrap.appendChild(tip);
+
+    const move = (ev: PointerEvent) => {
+      const box = svg.getBoundingClientRect();
+      const px = ((ev.clientX - box.left) / box.width) * W;
+      let best = 0, bestD = Infinity;
+      series.forEach((_, i) => { const d = Math.abs(x(i) - px); if (d < bestD) { bestD = d; best = i; } });
+      cross.setAttribute('x1', String(x(best)));
+      cross.setAttribute('x2', String(x(best)));
+      cross.setAttribute('opacity', '0.45');
+      clear(tip);
+      tip.appendChild(el('span', undefined, snapLabel(series[best])));
+      tip.appendChild(document.createTextNode(fmtMetric(name, vals[best])));
+      tip.dataset.open = 'true';
+      const left = (x(best) / W) * box.width;
+      tip.style.left = `${Math.max(4, Math.min(box.width - 4, left))}px`;
+      tip.style.top = `${(y(vals[best]) / H) * box.height - 46}px`;
+      tip.style.transform = 'translateX(-50%)';
+    };
+    const leave = () => { cross.setAttribute('opacity', '0'); tip.dataset.open = 'false'; };
+    svg.addEventListener('pointermove', move);
+    svg.addEventListener('pointerleave', leave);
+
+    return wrap;
   }
+
+  const compact = (v: number) =>
+    v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M`
+    : v >= 1000 ? `${(v / 1000).toFixed(v >= 10_000 ? 0 : 1)}k`
+    : String(Math.round(v));
+
+  const shortDate = (iso: string | null) => {
+    const d = parseNotionDate(iso);
+    return d ? `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}` : '';
+  };
+
+  /* ── files ─────────────────────────────────────────────────── */
+  function renderFiles(c: PortalPayload['client']) {
+    const root = q('[data-view="files"]');
+    if (!root) return;
+    clear(root);
+
+    const defs: Array<[string | null, string, string, string]> = [
+      [c.driveFolder, 'Drive folder', 'Everything we shoot and cut for you: raw files, finished edits, stills.', 'folder'],
+      [c.contentVault, 'Content Vault', 'Your captions, hooks and posting plan, in the sheet we both work from.', 'inbox'],
+      [c.roadmapLink, 'Roadmap', 'The plan for your term: what we are building, in what order, and why.', 'chart'],
+    ];
+    const live = defs.filter(([url]) => !!url);
+
+    if (!live.length) {
+      const e = el('div', 'pt-empty');
+      const ic = el('div', 'pt-empty-icon');
+      ic.appendChild(icon('folder'));
+      e.append(ic, el('h3', undefined, 'Nothing shared yet'),
+        el('p', undefined, 'Your Drive folder, Content Vault and roadmap land here as we set them up.'));
+      root.appendChild(e);
+      return;
+    }
+
+    const grid = el('div', 'pt-grid pt-grid-2');
+    for (const [url, title, desc, ic] of live) {
+      const a = el('a', 'pt-file');
+      (a as HTMLAnchorElement).href = url!;
+      (a as HTMLAnchorElement).target = '_blank';
+      (a as HTMLAnchorElement).rel = 'noopener noreferrer';
+      const box = el('div', 'pt-file-icon');
+      box.appendChild(icon(ic));
+      a.append(box, el('h3', undefined, title), el('p', undefined, desc));
+      const open = el('span', 'pt-file-open');
+      open.append(el('span', undefined, 'Open'), icon('ext'));
+      a.appendChild(open);
+      grid.appendChild(a);
+    }
+    root.appendChild(grid);
+  }
+
+  /* ── wiring ────────────────────────────────────────────────── */
+  q('[data-drawer-close]')?.addEventListener('click', closeDrawer);
+  q('[data-scrim]')?.addEventListener('click', closeDrawer);
+  // Month grid and agenda are different components, not one that
+  // rescales, so crossing the breakpoint has to re-pick the view
+  // rather than redraw the desktop one at phone width.
+  let wasNarrow = isNarrow();
+  window.addEventListener('resize', () => {
+    closePopover();
+    if (!DATA) return;
+    const now = isNarrow();
+    if (now !== wasNarrow) {
+      wasNarrow = now;
+      CAL.view = now ? 'agenda' : 'month';
+      CAL.selected = null;
+    }
+    drawCalendar();
+  });
 
   boot();
 </script>

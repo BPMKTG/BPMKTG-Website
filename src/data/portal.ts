@@ -192,6 +192,10 @@ export interface TermProgress {
   total: number;
   /** 0 to 1, for the bar. */
   fraction: number;
+  /** Which side of the term today falls on. */
+  state: 'before' | 'during' | 'after';
+  /** Whole days until Term Start. 0 unless state is 'before'. */
+  daysUntilStart: number;
 }
 
 /** Parses "YYYY-MM-DD" (or an ISO datetime) as a LOCAL date.
@@ -209,9 +213,16 @@ export function parseNotionDate(value: string | null | undefined): Date | null {
 }
 
 /**
- * "Month 2 of 6". Counts whole months in the term and which one today
- * falls in, clamped so a term that has ended reads as complete rather
- * than as month 9 of 6.
+ * "Month 2 of 6", plus which side of the term today is on.
+ *
+ * The term is INCLUSIVE of both end months: Nov 1 -> Apr 30 is six
+ * months, not five. Counting the difference in month index alone gives
+ * five, which is the off-by-one this used to ship.
+ *
+ * Before the term starts there is no "month 1" to be in yet, so the
+ * caller gets state 'before' and a day count instead; after it ends,
+ * 'after'. Clamping both into "month N of T" is what made a portal
+ * opened a week early read as though work was already underway.
  */
 export function termProgress(
   start: string | null,
@@ -222,17 +233,36 @@ export function termProgress(
   const e = parseNotionDate(end);
   if (!s || !e || e <= s) return null;
 
-  const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
-  const total = Math.max(1, months);
+  // Inclusive: the start month and the end month both count.
+  const spanMonths = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+  const total = Math.max(1, spanMonths + 1);
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const today = midnight(now);
+
+  if (today < midnight(s)) {
+    return {
+      month: 0,
+      total,
+      fraction: 0,
+      state: 'before',
+      daysUntilStart: Math.max(1, Math.round((midnight(s) - today) / DAY)),
+    };
+  }
+
+  if (today > midnight(e)) {
+    return { month: total, total, fraction: 1, state: 'after', daysUntilStart: 0 };
+  }
 
   const elapsed = (now.getFullYear() - s.getFullYear()) * 12 + (now.getMonth() - s.getMonth());
   const month = Math.min(total, Math.max(1, elapsed + 1));
 
-  const span = e.getTime() - s.getTime();
-  const done = now.getTime() - s.getTime();
-  const fraction = Math.min(1, Math.max(0, done / span));
+  // The bar runs to the END of the last day, so the final day is full.
+  const span = midnight(e) + DAY - midnight(s);
+  const fraction = Math.min(1, Math.max(0, (today - midnight(s)) / span));
 
-  return { month, total, fraction };
+  return { month, total, fraction, state: 'during', daysUntilStart: 0 };
 }
 
 /* ── To-dos ───────────────────────────────────────────────────── */
