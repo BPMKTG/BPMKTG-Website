@@ -1125,3 +1125,32 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
   background: var(--pt-tint); color: var(--pt-navy);
   font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
 }
+
+/* ── narrow-screen fixes for the new report pieces ─────────────
+   NOTE: these sit at the end of the file on purpose. A media query
+   adds no specificity, so an override has to come after the rule it
+   overrides. */
+@media (max-width: 620px) {
+  /* The headline note is a sentence, not a chip. Beside a delta pill
+     in a half-width card it wraps to five lines, so it gets its own. */
+  .pt-headline .pt-kpi-foot { flex-direction: column; align-items: flex-start; gap: 4px; }
+  /* The info icon belongs beside the first line of the label, not
+     stranded under a label that wrapped to two lines. */
+  .pt-kpi-label { position: relative; padding-right: 20px; }
+  .pt-info { position: absolute; top: 0; right: 0; }
+}
+
+/* Ten metrics wrapped to seven lines of pills ate a phone screen
+   before the chart they select. One scrolling row instead. */
+@media (max-width: 620px) {
+  .pt-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-left: calc(var(--pt-5) * -1);
+    margin-right: calc(var(--pt-5) * -1);
+    padding: 0 var(--pt-5);
+  }
+  .pt-tabs::-webkit-scrollbar { display: none; }
+  .pt-tab-btn { flex: none; white-space: nowrap; }
+}
