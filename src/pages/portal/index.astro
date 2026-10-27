@@ -591,8 +591,12 @@ const NAV = [
         const g = goalProgress(span.first, span.last, c.goalInstagramFollowers);
         block.appendChild(bar(g.fraction));
         const foot = el('div', 'pt-goal-foot');
-        foot.appendChild(el('span', undefined,
-          `${g.gained >= 0 ? '+' : ''}${fmtNumber(g.gained)} since you started at ${fmtNumber(g.baseline)}`));
+        // On the baseline snapshot there is nothing to compare to yet,
+        // and "+0 since you started" reads like a failure rather than
+        // a starting line.
+        foot.appendChild(el('span', undefined, g.gained === 0 && span.first === span.last
+          ? `Starting at ${fmtNumber(g.baseline)}. This moves with your first monthly report.`
+          : `${g.gained >= 0 ? '+' : ''}${fmtNumber(g.gained)} since you started at ${fmtNumber(g.baseline)}`));
         block.appendChild(foot);
       } else {
         block.appendChild(el('div', 'pt-goal-foot',
