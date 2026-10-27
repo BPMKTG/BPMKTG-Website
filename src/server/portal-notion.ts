@@ -15,6 +15,7 @@
 import {
   CLIENT_FIELDS,
   CALENDAR_FIELDS,
+  type PortalMoment,
   SNAPSHOT_FIELDS,
   isMetricProp,
   isVisibleToClient,
@@ -86,6 +87,14 @@ function readDate(p: Prop): string | null {
   return p?.type === 'date' ? (p.date?.start ?? null) : null;
 }
 
+/** Related page ids, nothing else. A relation never carries the
+ *  related page's own properties into the payload. */
+function readRelation(p: Prop): string[] {
+  const r = p as any;
+  if (r?.type !== 'relation' || !Array.isArray(r.relation)) return [];
+  return r.relation.map((x: any) => String(x?.id ?? '')).filter(Boolean);
+}
+
 function readNumber(p: Prop): number | null {
   if (p?.type !== 'number') return null;
   return typeof p.number === 'number' && Number.isFinite(p.number) ? p.number : null;
@@ -101,6 +110,27 @@ function readFormulaDate(p: Prop): string | null {
     return /^\d{4}-\d{2}-\d{2}/.test(f.string.trim()) ? f.string.trim() : null;
   }
   return null;
+}
+
+/** How many moments outside the visible set we will go and fetch.
+ *  Bounded so a calendar full of cross-links cannot turn one portal
+ *  load into a hundred Notion calls. */
+const MAX_MOMENT_FETCH = 25;
+
+/** One page by id, or null. Never throws: a moment we cannot read is a
+ *  step without a campaign label, not a dead portal. */
+async function fetchPage(token: string, id: string): Promise<any | null> {
+  try {
+    const res = await fetch(`https://api.notion.com/v1/pages/${id}`, { headers: notionHeaders(token) });
+    if (!res.ok) {
+      console.error('portal: moment fetch failed', id, res.status);
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error('portal: moment fetch threw', id, err);
+    return null;
+  }
 }
 
 /* ── paged query ───────────────────────────────────────────────── */
@@ -184,6 +214,11 @@ export async function findClientBySlug(token: string, slug: string): Promise<Cli
       contentVault: readUrl(p[CLIENT_FIELDS[7]]),
       roadmapLink: readUrl(p[CLIENT_FIELDS[8]]),
       accessComplete: readCheckbox(p[CLIENT_FIELDS[9]]),
+      goals: readText(p[CLIENT_FIELDS[10]]),
+      goalDeadline: readDate(p[CLIENT_FIELDS[11]]),
+      goalInstagramFollowers: readNumber(p[CLIENT_FIELDS[12]]),
+      goalSongsAt10k: readNumber(p[CLIENT_FIELDS[13]]),
+      goalShowsPerMonth: readNumber(p[CLIENT_FIELDS[14]]),
     },
   };
 }
@@ -215,11 +250,17 @@ export async function fetchCalendar(
     },
   });
 
-  const items: PortalCalendarItem[] = [];
+  /* Pass one: shape every visible row, remembering which moment each
+     step points at. The moment itself is resolved afterwards, because
+     a step can reference a moment that is not in this result set. */
+  type Raw = { item: PortalCalendarItem; momentId: string | null };
+  const raws: Raw[] = [];
+  const byId = new Map<string, any>();
 
   for (const page of results) {
-    const p = page.properties ?? {};
+    byId.set(String(page.id), page);
 
+    const p = page.properties ?? {};
     const row = {
       isPlaybook: readCheckbox(p['Is Playbook']),
       hideFromClient: readCheckbox(p['Hide from Client']),
@@ -231,26 +272,78 @@ export async function fetchCalendar(
 
     const { title, tentative } = cleanItemTitle(readText(p[CALENDAR_FIELDS[0]]) ?? '', artist);
 
-    items.push({
-      title,
-      tentative,
-      kind: row.kind,
-      momentType: readSelect(p[CALENDAR_FIELDS[2]]),
-      // Date first, then the Auto Date formula. A step with no explicit
-      // date is positioned by its offset from the moment it belongs to,
-      // and the formula is where that lands.
-      date: readDate(p[CALENDAR_FIELDS[3]]) ?? readFormulaDate(p['Auto Date']),
-      status: readSelect(p[CALENDAR_FIELDS[4]]),
-      type: row.type,
-      owner: row.owner,
-      playbook: readSelect(p[CALENDAR_FIELDS[7]]),
-      phase: readSelect(p[CALENDAR_FIELDS[8]]),
-      where: readText(p[CALENDAR_FIELDS[9]]),
-      whyItMatters: readText(p[CALENDAR_FIELDS[10]]),
-      venueCity: readText(p[CALENDAR_FIELDS[11]]),
-      ticketLink: readUrl(p[CALENDAR_FIELDS[12]]),
+    raws.push({
+      momentId: readRelation(p[CALENDAR_FIELDS[13]])[0] ?? null,
+      item: {
+        id: String(page.id),
+        title,
+        tentative,
+        kind: row.kind,
+        momentType: readSelect(p[CALENDAR_FIELDS[2]]),
+        // Date first, then the Auto Date formula. A step with no explicit
+        // date is positioned by its offset from the moment it belongs to,
+        // and the formula is where that lands.
+        date: readDate(p[CALENDAR_FIELDS[3]]) ?? readFormulaDate(p['Auto Date']),
+        status: readSelect(p[CALENDAR_FIELDS[4]]),
+        type: row.type,
+        owner: row.owner,
+        playbook: readSelect(p[CALENDAR_FIELDS[7]]),
+        phase: readSelect(p[CALENDAR_FIELDS[8]]),
+        where: readText(p[CALENDAR_FIELDS[9]]),
+        whyItMatters: readText(p[CALENDAR_FIELDS[10]]),
+        venueCity: readText(p[CALENDAR_FIELDS[11]]),
+        ticketLink: readUrl(p[CALENDAR_FIELDS[12]]),
+        moment: null,
+        streamsToDate: readNumber(p[CALENDAR_FIELDS[14]]),
+        ticketsSold: readNumber(p[CALENDAR_FIELDS[15]]),
+      },
     });
   }
+
+  /* Pass two: resolve the moments. Most are already here, because a
+     moment a client can see came back with the same query. The rest
+     are fetched by id, capped, and each one is checked to belong to
+     THIS client before anything from it is used. A relation is only
+     ever as trustworthy as the row it points at. */
+  const wanted = new Set(raws.map((r) => r.momentId).filter((id): id is string => !!id));
+  const missing = [...wanted].filter((id) => !byId.has(id)).slice(0, MAX_MOMENT_FETCH);
+
+  if (missing.length) {
+    const fetched = await Promise.all(missing.map((id) => fetchPage(token, id)));
+    for (const page of fetched) {
+      if (!page) continue;
+      const rel = readRelation((page.properties ?? {})['Client']);
+      if (!rel.includes(clientPageId)) {
+        console.error('portal: moment relation points outside this client', String(page.id));
+        continue;
+      }
+      byId.set(String(page.id), page);
+    }
+  }
+
+  const moments = new Map<string, PortalMoment>();
+  for (const id of wanted) {
+    const page = byId.get(id);
+    if (!page) continue;
+    const p = page.properties ?? {};
+    const { title } = cleanItemTitle(readText(p[CALENDAR_FIELDS[0]]) ?? '', artist);
+    // Four fields, built one at a time. Nothing else on the moment page
+    // is read, so nothing else can ship.
+    moments.set(id, {
+      id,
+      title,
+      momentType: readSelect(p[CALENDAR_FIELDS[2]]),
+      date: readDate(p[CALENDAR_FIELDS[3]]) ?? readFormulaDate(p['Auto Date']),
+    });
+  }
+
+  const items: PortalCalendarItem[] = raws.map(({ item, momentId }) => {
+    // A moment does not belong to itself.
+    if (momentId && item.kind !== 'Moment') {
+      item.moment = moments.get(momentId) ?? null;
+    }
+    return item;
+  });
 
   // Undated rows sort last; the UI groups by month and needs a date.
   items.sort((a, b) => {

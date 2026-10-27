@@ -31,6 +31,11 @@ export const CLIENT_FIELDS = [
   'Content Vault',
   'Roadmap Link',
   'Access Complete',
+  '90-Day Goals',
+  'Goal Deadline',
+  'Goal · Instagram Followers',
+  'Goal · Songs at 10K Streams',
+  'Goal · Shows per Month',
 ] as const;
 
 /** Named purely so a test can assert they never appear in output.
@@ -73,6 +78,9 @@ export const CALENDAR_FIELDS = [
   'Why It Matters',
   'Venue / City',
   'Ticket or RSVP Link',
+  'Moment',
+  'Streams to Date',
+  'Tickets Sold',
 ] as const;
 
 export const CALENDAR_NEVER_SEND = ['Notes', 'Offset (days)', 'Is Playbook', 'Hide from Client'] as const;
@@ -288,6 +296,24 @@ export interface PortalClient {
   contentVault: string | null;
   roadmapLink: string | null;
   accessComplete: boolean;
+  /** The client's own words, shown as a quote on Home. */
+  goals: string | null;
+  goalDeadline: string | null;
+  goalInstagramFollowers: number | null;
+  goalSongsAt10k: number | null;
+  goalShowsPerMonth: number | null;
+}
+
+/** The moment a step belongs to, flattened to four fields.
+ *
+ *  A relation could carry the whole related page. It carries these
+ *  four and nothing else, so a moment's Notes or Offset cannot ride
+ *  into the browser on the back of a step. */
+export interface PortalMoment {
+  id: string;
+  title: string;
+  momentType: string | null;
+  date: string | null;
 }
 
 export interface PortalCalendarItem {
@@ -305,6 +331,14 @@ export interface PortalCalendarItem {
   whyItMatters: string | null;
   venueCity: string | null;
   ticketLink: string | null;
+  /** The Notion page id, so steps can be grouped by their moment. */
+  id: string;
+  /** For a step: the moment it promotes. Null for a moment itself. */
+  moment: PortalMoment | null;
+  /** Release moments only. */
+  streamsToDate: number | null;
+  /** Show moments only. */
+  ticketsSold: number | null;
 }
 
 export interface PortalSnapshot {
@@ -337,3 +371,96 @@ export const HEADLINE_METRICS = [
   'X · Followers',
   'Email + SMS List',
 ] as const;
+
+/* ── 90-day goals ─────────────────────────────────────────────── */
+
+/** A song "counts" at this many streams. The goal is named for it. */
+export const SONG_STREAM_TARGET = 10_000;
+
+export interface GoalProgress {
+  baseline: number;
+  current: number;
+  target: number;
+  /** Movement since the baseline, which is what the client did. */
+  gained: number;
+  /** 0 to 1 of the way from baseline to target. */
+  fraction: number;
+}
+
+/**
+ * Progress from where they started to where they said they would be.
+ *
+ * Measured from the BASELINE, not from zero: a client who starts at
+ * 3,117 of 5,000 has not already done 62% of the work, they have done
+ * none of it yet. Starting the bar at the baseline is the only version
+ * that moves when they move.
+ */
+export function goalProgress(baseline: number, current: number, target: number): GoalProgress {
+  const span = target - baseline;
+  const gained = current - baseline;
+  const fraction = span <= 0
+    ? (current >= target ? 1 : 0)
+    : Math.min(1, Math.max(0, gained / span));
+  return { baseline, current, target, gained, fraction };
+}
+
+/** Release moments that have cleared the stream target. */
+export function songsAtTarget(
+  items: Array<{ momentType: string | null; streamsToDate: number | null }>,
+  target: number = SONG_STREAM_TARGET,
+): number {
+  return items.filter(
+    (i) => (i.momentType ?? '').toLowerCase().includes('release')
+      && typeof i.streamsToDate === 'number'
+      && i.streamsToDate >= target,
+  ).length;
+}
+
+/** Show moments whose date falls in the same calendar month as `when`. */
+export function showsInMonth(
+  items: Array<{ kind: string | null; momentType: string | null; date: string | null }>,
+  when: Date = new Date(),
+): number {
+  return items.filter((i) => {
+    if (!(i.momentType ?? '').toLowerCase().includes('show')) return false;
+    const d = parseNotionDate(i.date);
+    return !!d && d.getFullYear() === when.getFullYear() && d.getMonth() === when.getMonth();
+  }).length;
+}
+
+/**
+ * Shows per month since the term started.
+ *
+ * Counts part months as whole ones, because a client three weeks into
+ * month one has not played "shows per 0.7 months". The floor of 1 is
+ * what stops the average reading as infinity on day two.
+ */
+export function showsPerMonthAverage(
+  items: Array<{ kind: string | null; momentType: string | null; date: string | null }>,
+  termStart: string | null,
+  now: Date = new Date(),
+): number | null {
+  const start = parseNotionDate(termStart);
+  if (!start || now < start) return null;
+
+  const shows = items.filter((i) => {
+    if (!(i.momentType ?? '').toLowerCase().includes('show')) return false;
+    const d = parseNotionDate(i.date);
+    return !!d && d >= start && d <= now;
+  }).length;
+
+  const months = Math.max(
+    1,
+    (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()) + 1,
+  );
+  return shows / months;
+}
+
+/** Whole days from today to a date. Negative once it has passed. */
+export function daysUntil(date: string | null, now: Date = new Date()): number | null {
+  const d = parseNotionDate(date);
+  if (!d) return null;
+  const DAY = 24 * 60 * 60 * 1000;
+  const midnight = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  return Math.round((midnight(d) - midnight(now)) / DAY);
+}

@@ -5,5 +5,6 @@
 // they actually decide with lives in these three files, so the tests
 // point at those and this re-exports them as one module.
 export * from '../src/data/portal';
+export * from '../src/data/portal-labels';
 export * from '../src/server/portal-auth';
 export * from '../src/server/portal-notion';

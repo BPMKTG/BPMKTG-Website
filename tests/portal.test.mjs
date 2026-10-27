@@ -8,6 +8,19 @@ import {
   isOpenClientTodo,
   termProgress,
   parseNotionDate,
+  goalProgress,
+  songsAtTarget,
+  showsInMonth,
+  showsPerMonthAverage,
+  daysUntil,
+  displayMetricLabel,
+  isPercentMetric,
+  formatMetricValue,
+  compactNumber,
+  metricSection,
+  metricDefinition,
+  sumMetrics,
+  VIEW_ROLLUP,
   CLIENT_NEVER_SEND,
   CALENDAR_NEVER_SEND,
   SNAPSHOT_NEVER_SEND,
@@ -247,6 +260,11 @@ const clientPage = {
     'Content Vault': { type: 'url', url: 'https://docs.google.com/vault' },
     'Roadmap Link': { type: 'url', url: 'https://notion.so/roadmap' },
     'Access Complete': { type: 'checkbox', checkbox: false },
+    '90-Day Goals': { type: 'rich_text', rich_text: [{ plain_text: 'Sell out a hometown show.' }] },
+    'Goal Deadline': { type: 'date', date: { start: '2026-12-01' } },
+    'Goal · Instagram Followers': { type: 'number', number: 15000 },
+    'Goal · Songs at 10K Streams': { type: 'number', number: 3 },
+    'Goal · Shows per Month': { type: 'number', number: 2 },
     // Everything below must never reach the browser.
     'Portal Key': { type: 'rich_text', rich_text: [{ plain_text: 'SUPERSECRETPORTALKEY' }] },
     'Portal Enabled': { type: 'checkbox', checkbox: true },
@@ -325,7 +343,61 @@ const calendarPages = [
       'Ticket or RSVP Link': { type: 'url', url: 'javascript:alert(1)' },
     },
   },
+  {
+    // A moment, with internal fields that must not ride along into the
+    // `moment` object a step carries.
+    id: 'cal-moment',
+    properties: {
+      'Item': { type: 'title', title: [{ plain_text: 'Sean Comma · Rooftop Revival' }] },
+      'Kind': { type: 'select', select: { name: 'Moment' } },
+      'Moment Type': { type: 'select', select: { name: 'Show' } },
+      'Date': { type: 'date', date: { start: '2026-10-18' } },
+      'Tickets Sold': { type: 'number', number: 120 },
+      'Is Playbook': { type: 'checkbox', checkbox: false },
+      'Hide from Client': { type: 'checkbox', checkbox: false },
+      'Notes': { type: 'rich_text', rich_text: [{ plain_text: 'INTERNAL-MOMENT-NOTE' }] },
+      'Offset (days)': { type: 'number', number: -7 },
+    },
+  },
+  {
+    id: 'cal-step-of-moment',
+    properties: {
+      'Item': { type: 'title', title: [{ plain_text: 'Sean Comma · Announce the show' }] },
+      'Kind': { type: 'select', select: { name: 'Step' } },
+      'Type': { type: 'select', select: { name: 'Content' } },
+      'Date': { type: 'date', date: { start: '2026-10-11' } },
+      'Moment': { type: 'relation', relation: [{ id: 'cal-moment' }] },
+      'Is Playbook': { type: 'checkbox', checkbox: false },
+      'Hide from Client': { type: 'checkbox', checkbox: false },
+    },
+  },
+  {
+    // Points at a moment that is NOT in the result set and belongs to
+    // somebody else. It must come back with no moment attached.
+    id: 'cal-step-foreign',
+    properties: {
+      'Item': { type: 'title', title: [{ plain_text: 'Sean Comma · Orphan step' }] },
+      'Kind': { type: 'select', select: { name: 'Step' } },
+      'Type': { type: 'select', select: { name: 'Content' } },
+      'Date': { type: 'date', date: { start: '2026-10-12' } },
+      'Moment': { type: 'relation', relation: [{ id: 'cal-foreign' }] },
+      'Is Playbook': { type: 'checkbox', checkbox: false },
+      'Hide from Client': { type: 'checkbox', checkbox: false },
+    },
+  },
 ];
+
+// A moment page owned by a DIFFERENT client, served only by id.
+const foreignMoment = {
+  id: 'cal-foreign',
+  properties: {
+    'Item': { type: 'title', title: [{ plain_text: 'OTHER-CLIENT-MOMENT' }] },
+    'Kind': { type: 'select', select: { name: 'Moment' } },
+    'Moment Type': { type: 'select', select: { name: 'Release' } },
+    'Date': { type: 'date', date: { start: '2026-10-20' } },
+    'Client': { type: 'relation', relation: [{ id: 'someone-else-page-id' }] },
+  },
+};
 
 const snapshotPages = [
   {
@@ -364,6 +436,10 @@ const snapshotPages = [
 // Stub Notion. Each database answers with its own fixture.
 globalThis.fetch = async (url) => {
   const u = String(url);
+  if (u.includes('/v1/pages/')) {
+    const body = u.endsWith('cal-foreign') ? foreignMoment : {};
+    return new Response(JSON.stringify(body), { status: 200 });
+  }
   const results =
     u.includes(CLIENTS_DB) ? [clientPage] :
     u.includes(CALENDAR_DB) ? calendarPages :
@@ -405,16 +481,45 @@ is('client: portal enabled read for the gate', record.portalEnabled, true);
 
 /* ══ 8. Calendar extraction end to end ═══════════════════════════ */
 
-is('calendar: hidden and admin rows are dropped', calendar.length, 2);
-is('calendar: sorted by date', calendar.map(i => i.date), ['2026-10-31', '2026-11-14']);
-is('calendar: artist prefix gone and TENTATIVE is a flag',
-   calendar.map(i => [i.title, i.tentative]),
-   [['Teaser 1', false], ['Red Rocks', true]]);
-is('calendar: Auto Date fills in for a step with no Date', calendar[0].date, '2026-10-31');
-is('calendar: a javascript: link is not passed through', calendar[0].ticketLink, null);
-is('calendar: a real ticket link survives', calendar[1].ticketLink, 'https://tickets.example.com/abc');
-is('calendar: venue kept', calendar[1].venueCity, 'Red Rocks, Morrison CO');
-is('calendar: why it matters kept', calendar[1].whyItMatters, 'Biggest room this year.');
+// Looked up by title, not by index: the fixture grows, and a test that
+// breaks because row 2 became row 4 says nothing useful.
+const byTitle = (t) => calendar.find(i => i.title === t);
+const teaser = byTitle('Teaser 1');
+const redRocks = byTitle('Red Rocks');
+
+is('calendar: hidden and admin rows are dropped',
+   calendar.map(i => i.title).sort(),
+   ['Announce the show', 'Orphan step', 'Red Rocks', 'Rooftop Revival', 'Teaser 1']);
+is('calendar: sorted by date',
+   calendar.map(i => i.date),
+   [...calendar.map(i => i.date)].sort());
+is('calendar: artist prefix gone', teaser.title, 'Teaser 1');
+is('calendar: TENTATIVE becomes a flag', [redRocks.title, redRocks.tentative], ['Red Rocks', true]);
+is('calendar: Auto Date fills in for a step with no Date', teaser.date, '2026-10-31');
+is('calendar: a javascript: link is not passed through', teaser.ticketLink, null);
+is('calendar: a real ticket link survives', redRocks.ticketLink, 'https://tickets.example.com/abc');
+is('calendar: venue kept', redRocks.venueCity, 'Red Rocks, Morrison CO');
+is('calendar: why it matters kept', redRocks.whyItMatters, 'Biggest room this year.');
+
+/* ── moments ── */
+const step = byTitle('Announce the show');
+const momentRow = byTitle('Rooftop Revival');
+const orphan = byTitle('Orphan step');
+
+is('moment: a step carries the moment it promotes', step.moment.title, 'Rooftop Revival');
+is('moment: with its type and date', [step.moment.momentType, step.moment.date], ['Show', '2026-10-18']);
+is('moment: the artist prefix is stripped there too', step.moment.title.startsWith('Sean'), false);
+is('moment: exactly four fields and no more',
+   Object.keys(step.moment).sort(), ['date', 'id', 'momentType', 'title']);
+is('moment: a moment does not belong to itself', momentRow.moment, null);
+is('moment: Tickets Sold is carried on the moment row', momentRow.ticketsSold, 120);
+// The relation points at a page owned by another client. Fetching it is
+// allowed; trusting it is not.
+is('moment: a relation pointing outside this client is dropped', orphan.moment, null);
+is('moment: and that moment\'s title never appears',
+   JSON.stringify(calendar).includes('OTHER-CLIENT-MOMENT'), false);
+is('moment: internal moment fields do not ride along on the step',
+   JSON.stringify(calendar).includes('INTERNAL-MOMENT-NOTE'), false);
 
 /* ══ 9. Snapshot extraction ══════════════════════════════════════ */
 
@@ -433,6 +538,110 @@ is('snapshots: data source carried', snapshots[1].dataSource, ['Platform analyti
 // And the display path on top of the stored decimal.
 is('snapshots: engagement renders as a percent',
    formatEngagement(snapshots[1].metrics['Instagram · Engagement']), '4.2%');
+
+/* ══ 12. Goal tracker maths ══════════════════════════════════════ */
+
+// Progress runs from the BASELINE, not from zero. A client sitting at
+// 3,117 of 5,000 has done none of the work yet, not 62% of it.
+const ig = goalProgress(3117, 3117, 5000);
+is('goal: no movement yet is 0%', ig.fraction, 0);
+is('goal: and reports nothing gained', ig.gained, 0);
+
+const half = goalProgress(3000, 4000, 5000);
+is('goal: halfway from baseline to target', half.fraction, 0.5);
+is('goal: gained is movement since baseline', half.gained, 1000);
+
+is('goal: past the target clamps to 1', goalProgress(3000, 6000, 5000).fraction, 1);
+is('goal: going backwards clamps to 0', goalProgress(3000, 2500, 5000).fraction, 0);
+// A target at or below the baseline cannot be divided by; it is either
+// already met or it is not.
+is('goal: a target already at the baseline reads as met',
+   goalProgress(5000, 5000, 5000).fraction, 1);
+is('goal: a target below the baseline that is still met reads as met',
+   goalProgress(5000, 5200, 4000).fraction, 1);
+
+const releases = [
+  { momentType: 'Release', streamsToDate: 12400 },
+  { momentType: 'Release', streamsToDate: 10000 },
+  { momentType: 'Release', streamsToDate: 9999 },
+  { momentType: 'Release', streamsToDate: null },
+  { momentType: 'Show', streamsToDate: 50000 },
+];
+is('songs: counted only at or above the target', songsAtTarget(releases), 2);
+is('songs: a show with streams is not a song', songsAtTarget([{ momentType: 'Show', streamsToDate: 99999 }]), 0);
+is('songs: an unreleased track counts for nothing', songsAtTarget([{ momentType: 'Release', streamsToDate: null }]), 0);
+
+const shows = [
+  { kind: 'Moment', momentType: 'Show', date: '2026-11-03' },
+  { kind: 'Moment', momentType: 'Show', date: '2026-11-21' },
+  { kind: 'Moment', momentType: 'Show', date: '2026-12-02' },
+  { kind: 'Moment', momentType: 'Release', date: '2026-11-10' },
+  { kind: 'Step', momentType: null, date: '2026-11-11' },
+];
+is('shows: counted by calendar month', showsInMonth(shows, new Date(2026, 10, 15)), 2);
+is('shows: a different month counts separately', showsInMonth(shows, new Date(2026, 11, 15)), 1);
+is('shows: a release is not a show', showsInMonth(shows, new Date(2026, 10, 1)), 2);
+is('shows: an empty month is zero', showsInMonth(shows, new Date(2027, 0, 1)), 0);
+
+// Nov 1 to Dec 15 is two calendar months, and three shows fall in them.
+is('shows: average per month since term start',
+   showsPerMonthAverage(shows, '2026-11-01', new Date(2026, 11, 15)), 1.5);
+// Part months count as whole ones, so day two is not "shows per 0.03 months".
+is('shows: a part month counts as one',
+   showsPerMonthAverage(shows, '2026-11-01', new Date(2026, 10, 2)), 0);
+is('shows: before the term starts there is no average',
+   showsPerMonthAverage(shows, '2026-11-01', new Date(2026, 9, 1)), null);
+
+is('deadline: days remaining', daysUntil('2026-12-01', new Date(2026, 10, 24)), 7);
+is('deadline: the day itself is zero', daysUntil('2026-12-01', new Date(2026, 11, 1)), 0);
+is('deadline: a passed deadline goes negative', daysUntil('2026-12-01', new Date(2026, 11, 5)), -4);
+
+/* ══ 13. Metric labels and formatting ════════════════════════════ */
+
+is('label: bare Posts is spelled out', displayMetricLabel('Instagram · Posts'), 'Posts (last 28 days)');
+is('label: (28d) is spelled out', displayMetricLabel('TikTok · Views (28d)'), 'Views (last 28 days)');
+is('label: a plain metric is left alone', displayMetricLabel('Instagram · Followers'), 'Followers');
+
+// The one that matters: "Share" is a percentage, "Shares" is a count.
+is('percent: Search Share is a percentage', isPercentMetric('TikTok · Search Share'), true);
+is('percent: Shares is NOT a percentage', isPercentMetric('TikTok · Shares (28d)'), false);
+is('percent: Open Rate is a percentage', isPercentMetric('Email · Open Rate'), true);
+is('percent: Engagement is a percentage', isPercentMetric('Instagram · Engagement'), true);
+is('percent: Followers is not', isPercentMetric('Instagram · Followers'), false);
+
+is('format: a decimal becomes a percentage', formatMetricValue('Email · Open Rate', 0.199), '19.9%');
+is('format: shares stay a count', formatMetricValue('TikTok · Shares (28d)', 133), '133');
+is('compact: a round thousand loses its .0', compactNumber(10000), '10K');
+is('compact: an uneven one keeps its decimal', compactNumber(24180), '24.2K');
+is('format: seconds', formatMetricValue('Instagram · Avg Watch Time (sec)', 6.2), '6s');
+is('label: (sec) drops out, because the value carries the unit',
+   displayMetricLabel('Instagram · Avg Watch Time (sec)'), 'Avg Watch Time');
+is('format: hours keep one decimal', formatMetricValue('YouTube · Watch Hours (28d)', 0.52), '0.5 hrs');
+is('format: thousands separated', formatMetricValue('Instagram · Followers', 72900), '72,900');
+is('format: compact only when asked', formatMetricValue('Instagram · Followers', 72900, { compact: true }), '72.9K');
+is('format: compact leaves small numbers alone', compactNumber(850), '850');
+
+is('section: followers are audience', metricSection('Instagram · Followers'), 'audience');
+is('section: net follows are audience', metricSection('TikTok · Net Follows (28d)'), 'audience');
+is('section: views are reach', metricSection('Instagram · Views (28d)'), 'reach');
+is('section: shares are engagement', metricSection('TikTok · Shares (28d)'), 'engagement');
+is('section: watch time is engagement', metricSection('Instagram · Avg Watch Time (sec)'), 'engagement');
+is('section: posts are output', metricSection('Instagram · Posts'), 'output');
+is('section: Spotify is music', metricSection('Spotify · Streams (28d)'), 'music');
+is('section: email is owned', metricSection('Email · Open Rate'), 'owned');
+is('section: the list itself is owned', metricSection('Email + SMS List'), 'owned');
+
+is('definition: one entry covers every platform',
+   metricDefinition('TikTok · Net Follows (28d)') === metricDefinition('Instagram · Net Follows (28d)'), true);
+is('definition: a metric with nothing to add returns null', metricDefinition('Made Up · Thing'), null);
+
+is('rollup: views add across platforms',
+   sumMetrics({ 'Instagram · Views (28d)': 10, 'TikTok · Views (28d)': 5 }, VIEW_ROLLUP), 15);
+is('rollup: missing platforms are skipped, not zeroed',
+   sumMetrics({ 'TikTok · Views (28d)': 5 }, VIEW_ROLLUP), 5);
+is('rollup: no data at all is null rather than 0',
+   sumMetrics({ 'Instagram · Followers': 10 }, VIEW_ROLLUP), null);
+
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

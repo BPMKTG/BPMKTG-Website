@@ -177,17 +177,36 @@ const NAV = [
 
 <script>
   import {
-    formatEngagement,
-    isEngagementMetric,
+    daysUntil,
+    goalProgress,
     isOpenClientTodo,
     metricLabel,
     metricPlatform,
     parseNotionDate,
+    showsInMonth,
+    showsPerMonthAverage,
+    songsAtTarget,
     termProgress,
+    SONG_STREAM_TARGET,
     type PortalCalendarItem,
+    type PortalMoment,
     type PortalPayload,
     type PortalSnapshot,
   } from '../../data/portal';
+  import {
+    compactNumber,
+    displayMetricLabel,
+    formatMetricValue,
+    isPercentMetric,
+    metricDefinition,
+    metricSection,
+    sumMetrics,
+    NET_FOLLOW_ROLLUP,
+    SECTION_BLURB,
+    SECTION_ORDER,
+    SECTION_TITLE,
+    VIEW_ROLLUP,
+  } from '../../data/portal-labels';
   import { DIRECT_EMAIL } from '../../config/cta';
 
   /* ── DOM helpers ───────────────────────────────────────────────
@@ -238,8 +257,10 @@ const NAV = [
   const fmtDayLong = (d: Date) =>
     `${DOW[d.getDay()]}, ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}`;
   const fmtNumber = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 0 });
-  const fmtMetric = (name: string, v: number) =>
-    isEngagementMetric(name) ? formatEngagement(v) : fmtNumber(v);
+  /* Cards compact at 10,000 so a six-figure view count cannot push the
+     value out of its card; tables always show the full number. */
+  const fmtMetric = (name: string, v: number) => formatMetricValue(name, v, { compact: true });
+  const fmtMetricFull = (name: string, v: number) => formatMetricValue(name, v);
 
   const todayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
   const sameDay = (a: Date, b: Date) =>
@@ -262,6 +283,15 @@ const NAV = [
   const KIND_LABEL: Record<Kind, string> = {
     show: 'Show', release: 'Release', content: 'Content', moment: 'Moment', todo: 'Your to-do',
   };
+
+  /** The same colour rule as kindOf, applied to a moment on its own.
+   *  A step's left edge wears this, so the two can never disagree. */
+  function momentKind(m: PortalMoment): 'show' | 'release' | 'moment' {
+    const mt = (m.momentType ?? '').toLowerCase();
+    if (mt.includes('show')) return 'show';
+    if (mt.includes('release') || mt.includes('drop') || mt.includes('single')) return 'release';
+    return 'moment';
+  }
 
   /* ── state ─────────────────────────────────────────────────── */
   let DATA: PortalPayload | null = null;
@@ -358,6 +388,7 @@ const NAV = [
   }
 
   function route() {
+    closeTip();
     const { view, detail } = currentRoute();
     for (const v of VIEWS) show(q(`[data-view="${v}"]`), v === view);
     for (const n of qq('[data-nav]')) {
@@ -432,6 +463,9 @@ const NAV = [
       }
     }
 
+    const goals = goalCard(data);
+    if (goals) root.appendChild(goals);
+
     /* KPI strip */
     const snap = data.snapshots[0];
     if (snap) {
@@ -471,6 +505,198 @@ const NAV = [
     root.appendChild(cols);
   }
 
+  /* ── 90-day goals ──────────────────────────────────────────────
+     What the client said they wanted, measured against what has
+     actually happened. The numbers come from their own snapshots and
+     their own calendar, so every bar here is something they did.
+
+     Progress is measured from the BASELINE, never from zero: a client
+     who signed at 3,117 followers has not already done 62% of a 5,000
+     goal, they have done none of it yet. */
+
+  /** Oldest and newest readings of one metric, oldest first. */
+  function metricSpan(snapshots: PortalSnapshot[], name: string): { first: number; last: number } | null {
+    const vals = snapshots.filter((s) => typeof s.metrics[name] === 'number');
+    if (!vals.length) return null;
+    // Snapshots arrive newest first.
+    return { first: vals[vals.length - 1].metrics[name], last: vals[0].metrics[name] };
+  }
+
+  function bar(fraction: number, small = false): HTMLElement {
+    const track = el('div', `pt-bar${small ? ' pt-bar-sm' : ''}`);
+    const fill = el('div', 'pt-bar-fill');
+    fill.style.width = '0%';
+    track.appendChild(fill);
+    requestAnimationFrame(() => { fill.style.width = `${Math.round(fraction * 100)}%`; });
+    return track;
+  }
+
+  function goalCard(data: PortalPayload): HTMLElement | null {
+    const c = data.client;
+    const hasAny = c.goals
+      || typeof c.goalInstagramFollowers === 'number'
+      || typeof c.goalSongsAt10k === 'number'
+      || typeof c.goalShowsPerMonth === 'number';
+    if (!hasAny) return null;
+
+    const card = el('section', 'pt-card pt-goals');
+    const head = el('div', 'pt-card-head');
+    head.appendChild(el('h2', undefined, '90-day goals'));
+    card.appendChild(head);
+
+    const body = el('div', 'pt-card-body');
+    const top = el('div', 'pt-goals-head');
+
+    if (c.goals) {
+      const quote = el('blockquote', 'pt-goals-quote', c.goals);
+      top.appendChild(quote);
+    }
+
+    const left = daysUntil(c.goalDeadline);
+    const term = termProgress(c.termStart, c.termEnd);
+    const count = el('div', 'pt-goals-count');
+    if (term.state === 'before') {
+      count.appendChild(el('div', 'pt-goals-days pt-num',
+        String(term.daysUntilStart)));
+      count.appendChild(el('div', 'pt-goals-days-label',
+        term.daysUntilStart === 1 ? 'day until you start' : 'days until you start'));
+    } else if (left !== null && left >= 0) {
+      count.appendChild(el('div', 'pt-goals-days pt-num', String(left)));
+      count.appendChild(el('div', 'pt-goals-days-label', left === 1 ? 'day left' : 'days left'));
+    } else if (left !== null) {
+      // Past the deadline, the countdown would read as a negative number.
+      // The result is the thing worth showing instead.
+      count.appendChild(el('span', 'pt-goals-final', 'Final numbers'));
+      count.appendChild(el('div', 'pt-goals-days-label', `Deadline was ${fmtDate(c.goalDeadline)}`));
+    }
+    if (count.firstChild) top.appendChild(count);
+    if (top.firstChild) body.appendChild(top);
+
+    const grid = el('div', 'pt-goals-grid');
+
+    /* Instagram followers */
+    if (typeof c.goalInstagramFollowers === 'number') {
+      const span = metricSpan(data.snapshots, 'Instagram · Followers');
+      const block = el('div');
+      const t = el('div', 'pt-goal-title');
+      t.appendChild(el('span', 'pt-goal-name', 'Instagram followers'));
+      if (span) {
+        const num = el('span', 'pt-goal-num');
+        num.appendChild(el('b', undefined, fmtNumber(span.last)));
+        num.appendChild(document.createTextNode(` of ${fmtNumber(c.goalInstagramFollowers)}`));
+        t.appendChild(num);
+      }
+      block.appendChild(t);
+      if (span) {
+        const g = goalProgress(span.first, span.last, c.goalInstagramFollowers);
+        block.appendChild(bar(g.fraction));
+        const foot = el('div', 'pt-goal-foot');
+        foot.appendChild(el('span', undefined,
+          `${g.gained >= 0 ? '+' : ''}${fmtNumber(g.gained)} since you started at ${fmtNumber(g.baseline)}`));
+        block.appendChild(foot);
+      } else {
+        block.appendChild(el('div', 'pt-goal-foot',
+          `Target ${fmtNumber(c.goalInstagramFollowers)}. Your first snapshot sets the starting line.`));
+      }
+      grid.appendChild(block);
+    }
+
+    /* songs at 10K streams */
+    if (typeof c.goalSongsAt10k === 'number') {
+      // Songs with streams first, biggest first: those are the ones that
+      // count toward the goal. Unreleased songs follow in date order,
+      // because what matters about them is when they land.
+      const releases = data.calendar
+        .filter((i) => (i.momentType ?? '').toLowerCase().includes('release'))
+        .sort((a, b) => {
+          const av = typeof a.streamsToDate === 'number', bv = typeof b.streamsToDate === 'number';
+          if (av !== bv) return av ? -1 : 1;
+          if (av && bv) return b.streamsToDate! - a.streamsToDate!;
+          return (parseNotionDate(a.date)?.getTime() ?? 0) - (parseNotionDate(b.date)?.getTime() ?? 0);
+        });
+      const done = songsAtTarget(data.calendar);
+      const block = el('div');
+      const t = el('div', 'pt-goal-title');
+      t.appendChild(el('span', 'pt-goal-name', `Songs past ${compactNumber(SONG_STREAM_TARGET)} streams`));
+      const num = el('span', 'pt-goal-num');
+      num.appendChild(el('b', undefined, String(done)));
+      num.appendChild(document.createTextNode(` of ${c.goalSongsAt10k}`));
+      t.appendChild(num);
+      block.appendChild(t);
+      block.appendChild(bar(c.goalSongsAt10k > 0 ? Math.min(1, done / c.goalSongsAt10k) : 0));
+
+      if (releases.length) {
+        const list = el('div');
+        list.style.marginTop = 'var(--pt-3)';
+        for (const r of releases.slice(0, 5)) {
+          const row = el('div', 'pt-song');
+          const rh = el('div', 'pt-song-head');
+          rh.appendChild(el('span', 'pt-song-name', r.title));
+          if (typeof r.streamsToDate === 'number') {
+            rh.appendChild(el('span', 'pt-song-num',
+              `${fmtNumber(r.streamsToDate)} / ${compactNumber(SONG_STREAM_TARGET)}`));
+            row.appendChild(rh);
+            row.appendChild(bar(Math.min(1, r.streamsToDate / SONG_STREAM_TARGET), true));
+          } else {
+            // No streams yet because it is not out yet. Say so, rather
+            // than drawing an empty bar that reads as a failure.
+            rh.appendChild(el('span', 'pt-song-upcoming',
+              r.date ? `Out ${fmtDate(r.date)}` : 'Not out yet'));
+            row.appendChild(rh);
+          }
+          list.appendChild(row);
+        }
+        block.appendChild(list);
+      }
+      grid.appendChild(block);
+    }
+
+    /* shows per month */
+    if (typeof c.goalShowsPerMonth === 'number') {
+      const thisMonth = showsInMonth(data.calendar);
+      const avg = showsPerMonthAverage(data.calendar, c.termStart);
+      const block = el('div');
+      const t = el('div', 'pt-goal-title');
+      t.appendChild(el('span', 'pt-goal-name', 'Shows this month'));
+      const num = el('span', 'pt-goal-num');
+      num.appendChild(el('b', undefined, String(thisMonth)));
+      num.appendChild(document.createTextNode(` of ${c.goalShowsPerMonth}`));
+      t.appendChild(num);
+      block.appendChild(t);
+      block.appendChild(bar(c.goalShowsPerMonth > 0 ? Math.min(1, thisMonth / c.goalShowsPerMonth) : 0));
+      const foot = el('div', 'pt-goal-foot');
+      foot.appendChild(el('span', undefined, avg === null
+        ? `${MONTHS[new Date().getMonth()]} so far`
+        : `${avg.toFixed(1)} a month since your term started`));
+      block.appendChild(foot);
+      grid.appendChild(block);
+    }
+
+    /* shares: the one engagement number worth putting on Home */
+    const shares = metricSpan(data.snapshots, 'TikTok · Shares (28d)');
+    if (shares) {
+      const block = el('div');
+      const t = el('div', 'pt-goal-title');
+      t.appendChild(el('span', 'pt-goal-name', 'Content that gets shared'));
+      const num = el('span', 'pt-goal-num');
+      num.appendChild(el('b', undefined, fmtNumber(shares.last)));
+      t.appendChild(num);
+      block.appendChild(t);
+      const foot = el('div', 'pt-goal-foot');
+      if (shares.first !== shares.last) {
+        foot.appendChild(deltaPill(shares.last, shares.first, 'TikTok · Shares (28d)'));
+      }
+      foot.appendChild(el('span', undefined,
+        'Times people sent one of your TikToks to someone else in the last 28 days.'));
+      block.appendChild(foot);
+      grid.appendChild(block);
+    }
+
+    if (grid.firstChild) body.appendChild(grid);
+    card.appendChild(body);
+    return card;
+  }
+
   /** A tiny stable hash, only used to key "this announcement was
    *  dismissed" so a NEW announcement comes back. */
   function hash(s: string): string {
@@ -487,7 +713,7 @@ const NAV = [
     const label = el('span', 'pt-kpi-label');
     const plat = metricPlatform(metric);
     label.appendChild(el('span', 'pt-kpi-platform', plat ?? metric));
-    if (plat) label.appendChild(el('span', undefined, metricLabel(metric)));
+    if (plat) label.appendChild(el('span', undefined, displayMetricLabel(metric)));
     a.appendChild(label);
 
     a.appendChild(el('div', 'pt-kpi-value pt-num', fmtMetric(metric, latest.metrics[metric])));
@@ -509,7 +735,7 @@ const NAV = [
     const dir = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
     const pill = el('span', `pt-delta pt-delta-${dir}`);
     if (dir !== 'flat') pill.appendChild(icon(dir === 'up' ? 'up' : 'down'));
-    const text = isEngagementMetric(metric)
+    const text = isPercentMetric(metric)
       ? `${diff > 0 ? '+' : ''}${(diff * 100).toFixed(1)} pts`
       : `${diff > 0 ? '+' : ''}${Math.abs(pct) >= 10 ? pct.toFixed(0) : pct.toFixed(1)}%`;
     pill.appendChild(el('span', undefined, dir === 'flat' ? 'No change' : text));
@@ -568,8 +794,11 @@ const NAV = [
     main.appendChild(title);
 
     const meta = el('span', 'pt-row-meta');
+    if (it.moment) {
+      meta.appendChild(el('span', `pt-row-moment pt-mk-${momentKind(it.moment)}`, it.moment.title));
+    }
     const bits = [KIND_LABEL[kindOf(it)], it.where, it.venueCity, it.status].filter(Boolean) as string[];
-    for (const b of bits.slice(0, 3)) meta.appendChild(el('span', undefined, b));
+    for (const b of bits.slice(0, it.moment ? 2 : 3)) meta.appendChild(el('span', undefined, b));
     main.appendChild(meta);
     btn.appendChild(main);
 
@@ -589,13 +818,55 @@ const NAV = [
     view: 'month' as CalView,
     cursor: todayStart(),
     filter: 'all' as Filter,
+    /** A moment id, or '' for every campaign. */
+    campaign: '',
     selected: null as Date | null,
     items: [] as PortalCalendarItem[],
   };
 
   const isNarrow = () => window.matchMedia('(max-width: 900px)').matches;
 
+  /** Every campaign a client could filter by: the moments on their own
+   *  calendar, plus any moment a step points at that is not itself
+   *  visible, so a filter never offers a name with nothing behind it. */
+  function campaigns(): PortalMoment[] {
+    const byId = new Map<string, PortalMoment>();
+    for (const it of CAL.items) {
+      if (it.moment) byId.set(it.moment.id, it.moment);
+      if (it.id && kindOf(it) !== 'content' && kindOf(it) !== 'todo' && it.momentType) {
+        byId.set(it.id, { id: it.id, title: it.title, momentType: it.momentType, date: it.date });
+      }
+    }
+    const now = todayStart();
+    const t = (m: PortalMoment) => parseNotionDate(m.date)?.getTime() ?? Infinity;
+    // Upcoming first, soonest at the top; past campaigns fall below.
+    return Array.from(byId.values()).sort((a, b) => {
+      const ua = t(a) >= now.getTime(), ub = t(b) >= now.getTime();
+      if (ua !== ub) return ua ? -1 : 1;
+      return ua ? t(a) - t(b) : t(b) - t(a);
+    });
+  }
+
+  function campaignName(id: string): string {
+    return campaigns().find((m) => m.id === id)?.title ?? 'This campaign';
+  }
+
+  function filterToCampaign(id: string) {
+    CAL.campaign = id;
+    CAL.selected = null;
+    // Land on the month the campaign lives in, not whatever was on screen.
+    const d = parseNotionDate(campaigns().find((m) => m.id === id)?.date ?? null);
+    if (d) CAL.cursor = d;
+    drawCalendar();
+    // The hash change redraws the shell; if we are already on the
+    // calendar it does nothing, which is why the draw comes first.
+    if (currentRoute().view !== 'calendar') location.hash = '#/calendar';
+  }
+
   function passesFilter(it: PortalCalendarItem): boolean {
+    // A campaign filter keeps the moment itself as well as its steps:
+    // the release date is the point the steps are counting down to.
+    if (CAL.campaign && it.id !== CAL.campaign && it.moment?.id !== CAL.campaign) return false;
     const k = kindOf(it);
     switch (CAL.filter) {
       case 'moments': return k === 'show' || k === 'release';
@@ -630,8 +901,10 @@ const NAV = [
       ic.appendChild(icon('cal'));
       e.append(
         ic,
-        el('h3', undefined, CAL.filter === 'all' ? 'Nothing on the calendar yet' : 'Nothing matches that filter'),
-        el('p', undefined, CAL.filter === 'all'
+        el('h3', undefined, CAL.filter === 'all' && !CAL.campaign
+          ? 'Nothing on the calendar yet'
+          : 'Nothing matches that filter'),
+        el('p', undefined, CAL.filter === 'all' && !CAL.campaign
           ? 'Shows, releases and content steps appear here as we plan them.'
           : 'Try a different filter to see the rest of your calendar.'),
       );
@@ -699,6 +972,42 @@ const NAV = [
     filter.addEventListener('change', () => { CAL.filter = filter.value as Filter; drawCalendar(); });
 
     bar.append(seg, filter);
+
+    const list = campaigns();
+    if (list.length) {
+      const camp = el('select', 'pt-select') as HTMLSelectElement;
+      camp.setAttribute('aria-label', 'Filter by campaign');
+      const any = el('option', undefined, 'Every campaign') as HTMLOptionElement;
+      any.value = '';
+      camp.appendChild(any);
+      for (const m of list) {
+        const d = parseNotionDate(m.date);
+        const o = el('option', undefined,
+          d ? `${m.title} · ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}` : m.title) as HTMLOptionElement;
+        o.value = m.id;
+        if (CAL.campaign === m.id) o.selected = true;
+        camp.appendChild(o);
+      }
+      camp.addEventListener('change', () => {
+        if (camp.value) { filterToCampaign(camp.value); return; }
+        CAL.campaign = '';
+        CAL.selected = null;
+        drawCalendar();
+      });
+      bar.appendChild(camp);
+    }
+
+    if (CAL.campaign) {
+      const chipEl = el('span', 'pt-filter-chip');
+      chipEl.appendChild(el('span', undefined, campaignName(CAL.campaign)));
+      const x = el('button');
+      x.type = 'button';
+      x.setAttribute('aria-label', 'Clear campaign filter');
+      x.appendChild(icon('close'));
+      x.addEventListener('click', () => { CAL.campaign = ''; drawCalendar(); });
+      chipEl.appendChild(x);
+      bar.appendChild(chipEl);
+    }
     return bar;
   }
 
@@ -781,10 +1090,20 @@ const NAV = [
 
   function chip(it: PortalCalendarItem): HTMLElement {
     const k = kindOf(it);
-    const b = el('button', `pt-chip pt-chip-${k}` + (it.tentative ? ' pt-chip-tentative' : ''));
+    const m = it.moment;
+    // The fill says what KIND of work this is; the left edge says which
+    // campaign it belongs to. Two campaigns in one week are otherwise a
+    // wall of identical blue.
+    const cls = `pt-chip pt-chip-${k}`
+      + (it.tentative ? ' pt-chip-tentative' : '')
+      + (m ? ` pt-edge-${momentKind(m)}` : '');
+    const b = el('button', cls);
     b.type = 'button';
-    b.textContent = it.title;
-    b.title = `${KIND_LABEL[k]}: ${it.title}`;
+    b.appendChild(el('span', 'pt-chip-title', it.title));
+    if (m) b.appendChild(el('span', 'pt-chip-moment', m.title));
+    b.title = m
+      ? `${KIND_LABEL[k]}: ${it.title} — part of ${m.title}`
+      : `${KIND_LABEL[k]}: ${it.title}`;
     b.addEventListener('click', (ev) => { ev.stopPropagation(); openDrawer(it); });
     return b;
   }
@@ -933,6 +1252,30 @@ const NAV = [
     if (it.tentative) tags.appendChild(el('span', 'pt-tag pt-tag-tentative', 'Tentative'));
     body.appendChild(tags);
 
+    if (it.moment) {
+      const m = it.moment;
+      const box = el('div', `pt-partof pt-edge-${momentKind(m)}`);
+      box.appendChild(el('div', 'pt-partof-label', 'Part of'));
+      box.appendChild(el('div', 'pt-partof-name', m.title));
+      // The phase usually already starts with the playbook name
+      // ("Pre-Show · Announce"), so naming both reads as a stutter.
+      const phaseCoversPlaybook = !!it.playbook && !!it.phase && it.phase.startsWith(it.playbook);
+      const meta = [m.momentType, fmtDate(m.date), phaseCoversPlaybook ? null : it.playbook, it.phase]
+        .filter(Boolean).join(' · ');
+      if (meta) box.appendChild(el('div', 'pt-partof-meta', meta));
+      body.appendChild(box);
+
+      const all = el('button', 'pt-btn');
+      all.type = 'button';
+      all.style.marginBottom = 'var(--pt-5)';
+      all.textContent = 'See all steps for this moment';
+      all.addEventListener('click', () => {
+        closeDrawer();
+        filterToCampaign(m.id);
+      });
+      body.appendChild(all);
+    }
+
     const dl = el('dl', 'pt-deflist');
     const add = (label: string, value: string | null) => {
       if (!value) return;
@@ -945,6 +1288,8 @@ const NAV = [
     add('Playbook', it.playbook);
     add('Phase', it.phase);
     add('Owner', it.owner);
+    if (typeof it.streamsToDate === 'number') add('Streams to date', fmtNumber(it.streamsToDate));
+    if (typeof it.ticketsSold === 'number') add('Tickets sold', fmtNumber(it.ticketsSold));
     body.appendChild(dl);
 
     if (it.whyItMatters) {
@@ -1057,9 +1402,54 @@ const NAV = [
     return [...names].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
   }
 
+  /* ── explainers ────────────────────────────────────────────────
+     Every section says in one line what it is for, and every metric
+     that needs defining carries an info button. The words live in
+     portal-labels.ts; this only puts them on screen. */
+  let TIP: HTMLElement | null = null;
+
+  function closeTip() { if (TIP) { TIP.remove(); TIP = null; } }
+
+  function infoButton(text: string, label: string): HTMLElement {
+    const b = el('button', 'pt-info');
+    b.type = 'button';
+    b.setAttribute('aria-label', `What ${label} means`);
+    b.appendChild(icon('info'));
+    const open = () => {
+      closeTip();
+      const tip = el('div', 'pt-tip', text);
+      tip.setAttribute('role', 'tooltip');
+      document.body.appendChild(tip);
+      const r = b.getBoundingClientRect();
+      const w = tip.getBoundingClientRect().width;
+      tip.style.top = `${r.bottom + window.scrollY + 6}px`;
+      tip.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + window.innerWidth - w - 12))}px`;
+      TIP = tip;
+    };
+    b.addEventListener('mouseenter', open);
+    b.addEventListener('focus', open);
+    b.addEventListener('mouseleave', closeTip);
+    b.addEventListener('blur', closeTip);
+    b.addEventListener('click', (ev) => { ev.preventDefault(); if (TIP) closeTip(); else open(); });
+    return b;
+  }
+
+  function sectionHead(title: string, blurb: string): HTMLElement {
+    const wrap = el('div', 'pt-sect');
+    const h = el('div', 'pt-sect-head');
+    h.appendChild(el('h4', undefined, title));
+    h.appendChild(el('span', 'pt-platform-rule'));
+    wrap.appendChild(h);
+    wrap.appendChild(el('p', 'pt-sect-blurb', blurb));
+    return wrap;
+  }
+
   function showPlatform(platform: string) {
     const root = q('[data-view="reports"]');
     if (!root) return;
+    // The tip lives on <body>, so clearing the view would otherwise
+    // leave it floating over whatever replaces it.
+    closeTip();
     clear(root);
 
     if (!SNAPS.length) {
@@ -1096,6 +1486,8 @@ const NAV = [
     }
     head.appendChild(cmpField);
     wrap.appendChild(head);
+
+    wrap.appendChild(headlineRow(snap, cmp));
 
     /* growth score */
     if (typeof snap.growthScore === 'number') {
@@ -1152,6 +1544,59 @@ const NAV = [
     return wrap;
   }
 
+  /**
+   * The four numbers a client asks about before any other.
+   *
+   * Three are roll-ups across platforms, which no single Notion column
+   * holds, so they are summed here. A roll-up with no data at all is
+   * dropped rather than shown as zero: a missing number and a real zero
+   * mean very different things to someone reading their own report.
+   */
+  function headlineRow(snap: PortalSnapshot, cmp: PortalSnapshot | null): HTMLElement {
+    const sum = (names: readonly string[]) => sumMetrics(snap.metrics, names);
+    const cards: Array<{ label: string; value: string; note: string; delta?: HTMLElement }> = [];
+
+    const push = (label: string, now: number | null, then: number | null, fmt: (v: number) => string, note: string) => {
+      if (now === null) return;
+      const c: typeof cards[number] = { label, value: fmt(now), note };
+      if (then !== null && then !== now) {
+        c.delta = deltaPill(now, then, label);
+      }
+      cards.push(c);
+    };
+
+    const cmpSum = (names: readonly string[]) => (cmp ? sumMetrics(cmp.metrics, names) : null);
+    push('Total views', sum(VIEW_ROLLUP), cmpSum(VIEW_ROLLUP), compactNumber, 'Instagram, TikTok, Facebook and YouTube');
+    push('Net new followers', sum(NET_FOLLOW_ROLLUP), cmpSum(NET_FOLLOW_ROLLUP), compactNumber, 'Gained minus lost, across platforms');
+    push('Spotify streams', sum(['Spotify · Streams (28d)']), cmpSum(['Spotify · Streams (28d)']), compactNumber, 'Last 28 days');
+    push('Email + SMS list', sum(['Email + SMS List']), cmpSum(['Email + SMS List']), compactNumber, 'The audience nobody can take from you');
+
+    const wrap = el('div');
+    if (!cards.length) return wrap;
+
+    const h = el('div', 'pt-platform-head');
+    h.style.marginTop = '0';
+    h.appendChild(el('h3', undefined, 'This month'));
+    h.appendChild(el('span', 'pt-platform-rule'));
+    wrap.appendChild(h);
+
+    const grid = el('div', 'pt-grid pt-grid-4');
+    for (const c of cards) {
+      const card = el('div', 'pt-kpi pt-headline');
+      const label = el('span', 'pt-kpi-label');
+      label.appendChild(el('span', 'pt-kpi-platform', c.label));
+      card.appendChild(label);
+      card.appendChild(el('div', 'pt-kpi-value pt-num', c.value));
+      const foot = el('div', 'pt-kpi-foot');
+      if (c.delta) foot.appendChild(c.delta);
+      foot.appendChild(el('span', 'pt-kpi-note', c.note));
+      card.appendChild(foot);
+      grid.appendChild(card);
+    }
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
   /** The 1st of the month after the next full one: a baseline taken on
    *  Oct 26 is reported on from Nov, delivered Dec 1. */
   function firstReportDate(s: PortalSnapshot): string {
@@ -1186,7 +1631,12 @@ const NAV = [
     if (linkable && plat) (node as HTMLAnchorElement).href = `#/reports/${encodeURIComponent(plat)}`;
 
     const label = el('span', 'pt-kpi-label');
-    label.appendChild(el('span', 'pt-kpi-platform', metricLabel(name)));
+    label.appendChild(el('span', 'pt-kpi-platform', displayMetricLabel(name)));
+    // A button inside an anchor is invalid markup and would swallow the
+    // link, so the definition only appears on cards that are not links.
+    // The platform detail, where the definitions matter, uses those.
+    const def = linkable && plat ? null : metricDefinition(name);
+    if (def) label.appendChild(infoButton(def, displayMetricLabel(name)));
     node.appendChild(label);
     node.appendChild(el('div', 'pt-kpi-value pt-num', fmtMetric(name, snap.metrics[name])));
 
@@ -1237,7 +1687,7 @@ const NAV = [
     const tabs = el('div', 'pt-tabs');
     tabs.setAttribute('role', 'tablist');
     for (const m of metrics) {
-      const b = el('button', 'pt-tab-btn', metricLabel(m));
+      const b = el('button', 'pt-tab-btn', displayMetricLabel(m));
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.setAttribute('aria-selected', String(m === REP.metricTab));
@@ -1266,6 +1716,17 @@ const NAV = [
     card.appendChild(body);
     wrap.appendChild(card);
 
+    /* grouped cards: six sections, each one explained, empty ones gone */
+    const cmpSnap = REP.cmpIndex >= 0 && REP.cmpIndex !== REP.snapIndex ? SNAPS[REP.cmpIndex] : null;
+    for (const id of SECTION_ORDER) {
+      const inSection = metrics.filter((m) => metricSection(m) === id);
+      if (!inSection.length) continue;
+      wrap.appendChild(sectionHead(SECTION_TITLE[id], SECTION_BLURB[id]));
+      const grid = el('div', 'pt-grid pt-grid-4');
+      for (const m of inSection) grid.appendChild(metricCard(m, snap, cmpSnap, false));
+      wrap.appendChild(grid);
+    }
+
     /* table of every metric for this platform */
     const tcard = el('section', 'pt-card');
     tcard.style.marginTop = 'var(--pt-5)';
@@ -1285,8 +1746,8 @@ const NAV = [
     const cmp = REP.cmpIndex >= 0 && REP.cmpIndex !== REP.snapIndex ? SNAPS[REP.cmpIndex] : null;
     for (const m of metrics) {
       const tr = el('tr');
-      tr.appendChild(el('td', undefined, metricLabel(m)));
-      tr.appendChild(el('td', 'pt-td-num', fmtMetric(m, snap.metrics[m])));
+      tr.appendChild(el('td', undefined, displayMetricLabel(m)));
+      tr.appendChild(el('td', 'pt-td-num', fmtMetricFull(m, snap.metrics[m])));
       const td = el('td', 'pt-td-num');
       const before = cmp?.metrics[m];
       if (typeof before === 'number') td.appendChild(deltaPill(snap.metrics[m], before, m));
@@ -1367,7 +1828,7 @@ const NAV = [
     const svg = svgEl('svg', { class: 'pt-chart', viewBox: `0 0 ${W} ${H}`, role: 'img' });
     svg.setAttribute('style', 'width:100%;height:auto');
     svg.appendChild(svgEl('title')).textContent =
-      `${metricLabel(name)} across ${series.length} snapshots`;
+      `${displayMetricLabel(name)} across ${series.length} snapshots`;
 
     /* recessive grid + axis labels */
     for (let i = 0; i <= 3; i++) {
@@ -1381,7 +1842,7 @@ const NAV = [
         x: L - 10, y: yy + 4, 'text-anchor': 'end',
         fill: 'var(--pt-muted)', 'font-size': 11, 'font-family': 'var(--pt-sans)',
       });
-      t.textContent = isEngagementMetric(name) ? formatEngagement(v) : compact(v);
+      t.textContent = isPercentMetric(name) ? formatMetricValue(name, v) : compact(v);
       svg.appendChild(t);
     }
 
