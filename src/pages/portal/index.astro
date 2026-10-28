@@ -546,7 +546,12 @@ const NAV = [
     // Campaign-calendar rows the client owns, plus the content they
     // are filming or posting in the next week. One list, because from
     // where they sit it is all the same question: what is on me?
-    const todos = [...data.calendar.filter(isOpenClientTodo), ...contentTodos()];
+    // Sorted by date, not by where the row came from. Concatenating
+    // put every calendar to-do first, so with six of those on the
+    // board a shoot tomorrow never made the cut.
+    const todos = [...data.calendar.filter(isOpenClientTodo), ...contentTodos()]
+      .sort((a, b) => (parseNotionDate(a.date)?.getTime() ?? Infinity)
+                    - (parseNotionDate(b.date)?.getTime() ?? Infinity));
     cols.appendChild(
       listCard('Your to-dos', todos.slice(0, 6), {
         emptyIcon: 'check',
