@@ -1169,21 +1169,34 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
 }
 
 /* ── round 4: goals card layout ────────────────────────────────
-   Two CSS columns rather than a grid. A grid row is as tall as its
-   tallest cell, so the songs list (five rows) left the block beside
-   it floating in the middle of a hole. Columns top-align by nature. */
+   Two columns that read DOWN, not across: a plain grid row is as tall
+   as its tallest cell, so the songs list left the block beside it
+   floating in the middle of a hole.
+
+   This was a CSS multicol, which reads down correctly but fragments.
+   WebKit carries the margin of a block that broke onto the top of the
+   next column, so Safari started the right-hand column one --pt-5
+   lower than the left and "Shows this month" sat below "Instagram
+   followers". A grid filled column-first reads the same way and
+   cannot drift, because a row is a row in every engine. The row count
+   comes from the number of blocks, set as --pt-goal-rows when the
+   card is built: with it, column one takes the first half and column
+   two the rest. */
 .pt-goals-grid {
-  display: block;
-  columns: 2;
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(var(--pt-goal-rows, 2), auto);
+  align-items: start;
   column-gap: var(--pt-6);
+  row-gap: var(--pt-5);
 }
-.pt-goals-grid > * {
-  break-inside: avoid;
-  margin-bottom: var(--pt-5);
-}
-.pt-goals-grid > :last-child { margin-bottom: 0; }
 @media (max-width: 860px) {
-  .pt-goals-grid { columns: 1; }
+  .pt-goals-grid {
+    grid-auto-flow: row;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
 }
 
 /* The pace line is a second sentence, not a second column. */
@@ -1710,4 +1723,231 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
      six shows into a phone and making every label unreadable. */
   .pt-bar-col { flex: 0 0 76px; }
   .pt-bar-track { height: 104px; }
+}
+
+/* ── round 5: calendar layers, quick views and the tray ────────
+   NOTE: appended, so every media query here sits after the rule it
+   overrides, as the rest of this file does. */
+
+/* The second toolbar row: a quick view on the left, the filters that
+   narrow it on the right. */
+.pt-calrow {
+  display: flex; align-items: center; gap: var(--pt-3);
+  flex-wrap: wrap; margin-bottom: var(--pt-3);
+}
+
+.pt-quick {
+  display: inline-flex; gap: 2px; padding: 3px;
+  background: var(--pt-tint-soft);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-pill);
+}
+.pt-quick-tab {
+  padding: 6px var(--pt-4);
+  border-radius: var(--pt-r-pill);
+  font-size: .8rem; font-weight: 600; color: var(--pt-ink-2);
+  white-space: nowrap;
+  transition: background var(--pt-t), color var(--pt-t), box-shadow var(--pt-t);
+}
+.pt-quick-tab:hover { color: var(--pt-ink); }
+.pt-quick-on {
+  background: var(--pt-surface); color: var(--pt-navy);
+  box-shadow: var(--pt-shadow);
+}
+
+/* A checkbox list behind a <summary>, so open and close and the
+   keyboard all work without a line of script. */
+.pt-multi { position: relative; }
+.pt-multi-sum {
+  display: inline-flex; align-items: center; gap: var(--pt-2);
+  padding: 8px var(--pt-3);
+  background-image: none;      /* the chevron is a real element here */
+  cursor: pointer; list-style: none;
+  font-size: .85rem; font-weight: 600; color: var(--pt-ink-2);
+}
+.pt-multi-sum::-webkit-details-marker { display: none; }
+.pt-multi-sum svg {
+  width: 13px; height: 13px; transform: rotate(90deg);
+  transition: transform var(--pt-t);
+}
+.pt-multi[open] .pt-multi-sum svg { transform: rotate(-90deg); }
+.pt-multi-panel {
+  position: absolute; z-index: 40; top: calc(100% + 4px); left: 0;
+  min-width: 210px; max-height: 320px; overflow: auto;
+  padding: var(--pt-2);
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-sm);
+  box-shadow: var(--pt-shadow-md);
+}
+.pt-multi-opt {
+  display: flex; align-items: center; gap: var(--pt-2);
+  padding: 6px var(--pt-2); border-radius: 6px;
+  font-size: .82rem; font-weight: 600; color: var(--pt-ink);
+  cursor: pointer;
+}
+.pt-multi-opt:hover { background: var(--pt-tint-soft); }
+.pt-multi-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--n-mark, var(--pt-slate)); flex: none;
+}
+.pt-multi-clear {
+  display: block; width: 100%; margin-top: var(--pt-1);
+  padding: 6px var(--pt-2); text-align: left;
+  font-size: .78rem; font-weight: 700; color: var(--pt-navy);
+  border-top: 1px solid var(--pt-line-soft); border-radius: 0;
+}
+
+/* a pressed-in toggle, for the tray button */
+.pt-btn-on {
+  background: var(--pt-tint); border-color: var(--pt-navy); color: var(--pt-navy);
+}
+.pt-btn-on:hover { background: var(--pt-tint); border-color: var(--pt-navy); color: var(--pt-navy); }
+
+/* The layers. Each chip wears the mark of what it turns on, so the
+   row doubles as the legend for the grid under it. */
+.pt-layers {
+  display: flex; gap: var(--pt-2); flex-wrap: wrap;
+  margin-bottom: var(--pt-4);
+}
+.pt-layer {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px var(--pt-3) 6px 10px;
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-pill);
+  background: var(--pt-surface);
+  font-size: .78rem; font-weight: 600; color: var(--pt-muted);
+  white-space: nowrap;
+  transition: background var(--pt-t), border-color var(--pt-t), color var(--pt-t), opacity var(--pt-t);
+}
+.pt-layer:hover { border-color: var(--pt-line-strong); color: var(--pt-ink-2); }
+.pt-layer-key {
+  width: 10px; height: 10px; border-radius: 3px; flex: none;
+  background: var(--pt-dim);
+}
+.pt-layer-on { background: var(--pt-surface); color: var(--pt-ink); border-color: var(--pt-line-strong); }
+.pt-layer-on.pt-layer-moments   .pt-layer-key {
+  background: linear-gradient(90deg, var(--pt-orange) 50%, var(--pt-navy) 50%);
+}
+.pt-layer-on.pt-layer-posts     .pt-layer-key { background: var(--pt-blue); }
+.pt-layer-on.pt-layer-films     .pt-layer-key {
+  background: transparent; box-shadow: inset 0 0 0 2px var(--pt-navy);
+}
+.pt-layer-on.pt-layer-todos     .pt-layer-key { background: var(--pt-orange); border-radius: 50%; }
+.pt-layer-on.pt-layer-blueprint .pt-layer-key { background: var(--pt-slate); }
+
+/* ── the month, with the tray beside it ───────────────────────── */
+.pt-calwrap {
+  display: grid; gap: var(--pt-4);
+  grid-template-columns: minmax(0, 1fr) 266px;
+  align-items: start;
+}
+
+.pt-tray {
+  position: sticky; top: var(--pt-4);
+  display: flex; flex-direction: column; gap: var(--pt-2);
+  max-height: calc(100vh - var(--pt-7));
+  padding: var(--pt-3);
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-lg);
+  box-shadow: var(--pt-shadow);
+}
+.pt-tray-head { display: flex; align-items: center; gap: var(--pt-2); }
+.pt-tray-head h3 {
+  margin: 0; font-family: var(--pt-display);
+  font-size: .78rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--pt-ink);
+}
+.pt-tray-n {
+  padding: 1px 7px; border-radius: var(--pt-r-pill);
+  background: var(--pt-tint); color: var(--pt-navy);
+  font-size: .7rem; font-weight: 700;
+}
+.pt-tray-close { margin-left: auto; color: var(--pt-muted); padding: 2px; border-radius: 5px; }
+.pt-tray-close:hover { background: var(--pt-tint-soft); color: var(--pt-ink); }
+.pt-tray-close svg { width: 13px; height: 13px; }
+.pt-tray-search { padding: 7px var(--pt-3); font-size: .8rem; }
+.pt-tray-hint { margin: 0; font-size: .72rem; color: var(--pt-muted); }
+.pt-tray-none { margin: var(--pt-2) 0; font-size: .8rem; color: var(--pt-muted); }
+.pt-tray-body { overflow: auto; margin: 0 calc(var(--pt-2) * -1); padding: 0 var(--pt-2); }
+.pt-tray-group + .pt-tray-group { margin-top: var(--pt-3); }
+.pt-tray-group-head {
+  display: flex; align-items: center; gap: 6px;
+  position: sticky; top: 0; z-index: 1;
+  padding: 5px 0;
+  background: var(--pt-surface);
+  font-size: .7rem; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--pt-ink-2);
+}
+.pt-tray-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: var(--n-mark, var(--pt-slate));
+}
+.pt-tray-gn { margin-left: auto; color: var(--pt-muted); }
+
+.pt-traycard {
+  display: flex; align-items: stretch; gap: 2px;
+  margin-bottom: 5px;
+  border: 1px solid var(--pt-line);
+  border-left: 3px solid var(--n-mark, var(--pt-slate));
+  border-radius: 7px;
+  background: var(--pt-surface);
+  transition: box-shadow var(--pt-t), border-color var(--pt-t), opacity var(--pt-t);
+}
+.pt-traycard:hover { box-shadow: var(--pt-shadow); border-color: var(--pt-line-strong); }
+.pt-traycard[draggable='true'] { cursor: grab; }
+.pt-traycard-open {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 7px var(--pt-2); text-align: left;
+}
+.pt-traycard-title {
+  font-size: .76rem; font-weight: 600; color: var(--pt-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pt-traycard-meta { font-size: .68rem; color: var(--pt-muted); }
+.pt-traycard-grip {
+  display: flex; align-items: center; padding-right: 5px; color: var(--pt-dim);
+}
+.pt-traycard-grip svg { width: 12px; height: 12px; }
+.pt-traycard-dragging { opacity: .4; }
+.pt-traycard-locked { opacity: .6; }
+
+/* the day under a dragged card */
+.pt-cal-cell-drop {
+  background: var(--pt-tint);
+  box-shadow: inset 0 0 0 2px var(--pt-navy);
+}
+.pt-chip-dragging { opacity: .4; }
+
+/* A post that already went out is a record, not a plan. */
+.pt-chip-done { opacity: .72; font-weight: 500; }
+.pt-chip-tick {
+  width: 10px; height: 10px; margin-right: 4px;
+  vertical-align: -1px; flex: none;
+}
+
+.pt-popover-group {
+  margin: var(--pt-2) 0 3px;
+  font-size: .64rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--pt-muted);
+}
+.pt-popover-group:first-of-type { margin-top: 4px; }
+
+/* NOTE: after the rules above, as every media query in this file is.
+   A phone has no tray and no dragging, and the layer row becomes one
+   line you swipe rather than four that push the month off screen. */
+@media (max-width: 900px) {
+  .pt-calwrap { grid-template-columns: minmax(0, 1fr); }
+  .pt-layers {
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    margin: 0 calc(var(--pt-4) * -1) var(--pt-3);
+    padding: 2px var(--pt-4);
+  }
+  .pt-layers::-webkit-scrollbar { display: none; }
+  .pt-quick { width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .pt-quick::-webkit-scrollbar { display: none; }
+  .pt-calrow > .pt-select, .pt-calrow > .pt-multi { flex: 1 1 140px; }
+  .pt-multi-sum { width: 100%; justify-content: space-between; }
 }

@@ -233,6 +233,7 @@ const NAV = [
   } from '../../data/portal';
   import {
     canClientMove,
+    contentPhase,
     isIdea,
     normaliseId,
     stageOf,
@@ -240,6 +241,7 @@ const NAV = [
     MAX_TITLE,
     STAGE_ORDER,
     STAGE_TITLE,
+    type ContentPhase,
     type PortalContentItem,
     type PortalContentSchema,
     type Stage,
@@ -749,9 +751,10 @@ const NAV = [
           more.appendChild(icon('chev'));
           more.addEventListener('click', () => {
             CAL.campaign = '';
-            CAL.filter = 'releases';
+            CAL.layers = new Set<Layer>(['moments']);
             CAL.view = isNarrow() ? 'agenda' : 'month';
             CAL.selected = null;
+            saveCalPrefs();
             drawCalendar();
             if (currentRoute().view !== 'calendar') location.hash = '#/calendar';
           });
@@ -802,7 +805,14 @@ const NAV = [
       grid.appendChild(block);
     }
 
-    if (grid.firstChild) body.appendChild(grid);
+    if (grid.firstChild) {
+      // Two columns that read DOWN. The row count has to be known for
+      // a grid to fill column-first, and only this function knows how
+      // many blocks there turned out to be.
+      const blocks = grid.children.length;
+      grid.style.setProperty('--pt-goal-rows', String(Math.ceil(blocks / 2)));
+      body.appendChild(grid);
+    }
     card.appendChild(body);
     return card;
   }
@@ -962,16 +972,44 @@ const NAV = [
 
   /* ── calendar ──────────────────────────────────────────────── */
   type CalView = 'month' | 'week' | 'agenda';
-  type Filter = 'all' | 'moments' | 'releases' | 'content' | 'posts' | 'films' | 'todos';
+
+  /**
+   * One calendar holds everything, and the layers decide what you are
+   * looking at. This replaced a single-choice dropdown: a client who
+   * wanted their shoots AND their own to-dos, but not our task list,
+   * could not say so with one <select>.
+   */
+  type Layer = 'moments' | 'posts' | 'films' | 'todos' | 'blueprint';
+
+  const LAYERS: Array<[Layer, string]> = [
+    ['moments',   'Shows & releases'],
+    ['posts',     'Posts'],
+    ['films',     'Film days'],
+    ['todos',     'Your to-dos'],
+    ['blueprint', 'Blueprint tasks'],
+  ];
+  const ALL_LAYERS: Layer[] = LAYERS.map(([k]) => k);
+  const LAYER_LABEL = new Map<Layer, string>(LAYERS);
+
+  const PHASES: Array<[ContentPhase, string]> = [
+    ['planned', 'Planned'], ['progress', 'In progress'], ['posted', 'Posted'],
+  ];
 
   const CAL = {
     view: 'month' as CalView,
     cursor: todayStart(),
-    filter: 'all' as Filter,
+    /** Every layer on is the default: the calendar is the whole plan. */
+    layers: new Set<Layer>(ALL_LAYERS),
+    /** Empty means every bucket, not none. */
+    buckets: new Set<string>(),
+    phase: '' as '' | ContentPhase,
     /** A moment id, or '' for every campaign. */
     campaign: '',
     selected: null as Date | null,
     items: [] as PortalCalendarItem[],
+    /** The unscheduled tray, desktop only. */
+    tray: true,
+    traySearch: '',
   };
 
   const isNarrow = () => window.matchMedia('(max-width: 900px)').matches;
@@ -1013,21 +1051,126 @@ const NAV = [
     if (currentRoute().view !== 'calendar') location.hash = '#/calendar';
   }
 
+  /** A post the client puts up themselves, still to go out. It is two
+   *  things at once: a post on the calendar, and a job on their list,
+   *  so it answers to either layer. */
+  function isClientPostTodo(c: PortalContentItem): boolean {
+    return c.postedBy === 'Client' && c.status !== 'Posted' && c.status !== 'Skipped';
+  }
+
+  /** Which layers an item belongs to. Most belong to exactly one. */
+  function layersOf(it: PortalCalendarItem): Layer[] {
+    const row = it as CalRow;
+    if (row.content && row.contentRole) {
+      if (row.contentRole === 'film') return ['films'];
+      return isClientPostTodo(row.content) ? ['posts', 'todos'] : ['posts'];
+    }
+    // A moment is a moment whoever owns it: it is the thing the steps
+    // are counting down to, not a task.
+    if (it.momentType) return ['moments'];
+    return it.owner === 'Client' ? ['todos'] : ['blueprint'];
+  }
+
   function passesFilter(it: PortalCalendarItem): boolean {
     // A campaign filter keeps the moment itself as well as its steps:
     // the release date is the point the steps are counting down to.
     if (CAL.campaign && it.id !== CAL.campaign && it.moment?.id !== CAL.campaign) return false;
-    const role = (it as CalRow).contentRole;
-    const k = kindOf(it);
-    switch (CAL.filter) {
-      case 'moments':  return k === 'show' || k === 'release';
-      case 'releases': return k === 'release';
-      // "Content steps" is the plan we built; a post date is a card.
-      case 'content':  return !role && k === 'content';
-      case 'posts':    return role === 'post';
-      case 'films':    return role === 'film';
-      case 'todos':    return k === 'todo';
-      default:         return true;
+    if (!layersOf(it).some((l) => CAL.layers.has(l))) return false;
+
+    // Bucket and status describe content and nothing else. They narrow
+    // the content on the calendar and leave the campaign around it
+    // standing: picking "Skit" should not hide the show you are making
+    // skits for.
+    const c = (it as CalRow).content;
+    if (!c) return true;
+    if (CAL.buckets.size && !(c.bucket && CAL.buckets.has(c.bucket))) return false;
+    if (CAL.phase && contentPhase(c.status) !== CAL.phase) return false;
+    return true;
+  }
+
+  /** Whether the calendar is showing a slice rather than all of it. */
+  function calFiltering(): boolean {
+    return CAL.layers.size !== ALL_LAYERS.length
+      || CAL.buckets.size > 0 || !!CAL.phase || !!CAL.campaign;
+  }
+
+  /* ── quick views ──────────────────────────────────────────────
+     A named set of layers, because "show me my week" is one thought
+     and four chip taps. */
+  type Quick = 'everything' | 'content' | 'week' | 'campaigns';
+
+  const QUICK: Array<[Quick, string, Layer[]]> = [
+    ['everything', 'Everything',   ALL_LAYERS],
+    ['content',    'Content only', ['posts', 'films']],
+    ['week',       'My week',      ['todos', 'films']],
+    ['campaigns',  'Campaigns',    ['moments', 'blueprint']],
+  ];
+
+  /** "My week" means the week grid, except at phone width where a
+   *  seven-column grid is unreadable and Agenda says the same thing. */
+  function quickWants(q: Quick): CalView | null {
+    return q === 'week' ? (isNarrow() ? 'agenda' : 'week') : null;
+  }
+
+  /** The tab to light up, worked out from the state rather than stored
+   *  beside it, so toggling a chip by hand cannot leave a tab lying. */
+  function activeQuick(): Quick | '' {
+    for (const [k, , layers] of QUICK) {
+      const want = quickWants(k);
+      if (want && CAL.view !== want) continue;
+      if (layers.length !== CAL.layers.size) continue;
+      if (layers.every((l) => CAL.layers.has(l))) return k;
+    }
+    return '';
+  }
+
+  function applyQuick(k: Quick) {
+    const entry = QUICK.find(([q]) => q === k)!;
+    CAL.layers = new Set(entry[2]);
+    const want = quickWants(k);
+    if (want) CAL.view = want;
+    // The week grid belongs to My week. Left behind, "Campaigns" would
+    // show one week of a campaign that runs for months. Agenda is a
+    // deliberate choice and is left alone.
+    else if (CAL.view === 'week') CAL.view = isNarrow() ? 'agenda' : 'month';
+    CAL.selected = null;
+    saveCalPrefs();
+    drawCalendar();
+  }
+
+  /* ── remembering the choice ───────────────────────────────────
+     Per device, because which layers matter depends on whether you
+     are at a desk or holding a phone on the way to a shoot. */
+  const CAL_STORE = 'bp.portal.cal.v1';
+
+  function saveCalPrefs() {
+    try {
+      localStorage.setItem(CAL_STORE, JSON.stringify({
+        layers: Array.from(CAL.layers), view: CAL.view, tray: CAL.tray,
+      }));
+    } catch { /* a browser that will not remember is not an error */ }
+  }
+
+  /** Whether a view was restored, so the caller knows not to pick one. */
+  function loadCalPrefs(): boolean {
+    try {
+      const raw = localStorage.getItem(CAL_STORE);
+      if (!raw) return false;
+      const v = JSON.parse(raw) as { layers?: unknown; view?: unknown; tray?: unknown };
+      if (Array.isArray(v.layers)) {
+        const keep = v.layers.filter((l): l is Layer => ALL_LAYERS.includes(l as Layer));
+        // Every layer off is a blank calendar, which nobody meant to
+        // leave behind. An empty set falls back to all of it.
+        if (keep.length) CAL.layers = new Set(keep);
+      }
+      if (typeof v.tray === 'boolean') CAL.tray = v.tray;
+      if (v.view === 'month' || v.view === 'week' || v.view === 'agenda') {
+        CAL.view = v.view;
+        return true;
+      }
+      return false;
+    } catch {
+      return false;   // unreadable storage is the same as none
     }
   }
 
@@ -1038,8 +1181,12 @@ const NAV = [
   function renderCalendar(items: PortalCalendarItem[]) {
     CAL_BASE = items;
     syncCalendarContent();
-    // On a phone a month grid of chips is unreadable, so Agenda leads.
-    CAL.view = isNarrow() ? 'agenda' : 'month';
+    const restored = loadCalPrefs();
+    // On a phone a month grid of chips is unreadable, so Agenda leads
+    // unless this device said otherwise last time. A week grid is the
+    // one view that cannot survive the trip to phone width.
+    if (!restored) CAL.view = isNarrow() ? 'agenda' : 'month';
+    else if (isNarrow() && CAL.view === 'week') CAL.view = 'agenda';
     // Open on the month that actually has something in it.
     const first = CAL.items.find((i) => parseNotionDate(i.date));
     const now = todayStart();
@@ -1053,6 +1200,8 @@ const NAV = [
     if (!root) return;
     clear(root);
     root.appendChild(calToolbar());
+    root.appendChild(quickTabs());
+    root.appendChild(layerChips());
 
     const visible = CAL.items.filter(passesFilter);
     if (!visible.length) {
@@ -1061,12 +1210,12 @@ const NAV = [
       ic.appendChild(icon('cal'));
       e.append(
         ic,
-        el('h3', undefined, CAL.filter === 'all' && !CAL.campaign
-          ? 'Nothing on the calendar yet'
-          : 'Nothing matches that filter'),
-        el('p', undefined, CAL.filter === 'all' && !CAL.campaign
-          ? 'Shows, releases and content steps appear here as we plan them.'
-          : 'Try a different filter to see the rest of your calendar.'),
+        el('h3', undefined, calFiltering()
+          ? 'Nothing matches that'
+          : 'Nothing on the calendar yet'),
+        el('p', undefined, calFiltering()
+          ? 'Turn a layer back on, or clear a filter, to see the rest of your calendar.'
+          : 'Shows, releases and content steps appear here as we plan them.'),
       );
       root.appendChild(e);
       return;
@@ -1092,13 +1241,25 @@ const NAV = [
         ?? (thisMonth(now) ? now : null);
     }
 
-    if (CAL.view === 'agenda') root.appendChild(agendaView(visible));
-    else if (CAL.view === 'week') root.appendChild(weekView(visible));
-    else root.appendChild(monthView(visible));
+    const grid = el('div');
+    if (CAL.view === 'agenda') grid.appendChild(agendaView(visible));
+    else if (CAL.view === 'week') grid.appendChild(weekView(visible));
+    else grid.appendChild(monthView(visible));
 
-    if (CAL.view !== 'agenda') root.appendChild(legend());
+    if (CAL.view !== 'agenda') grid.appendChild(legend());
     if (isNarrow() && CAL.view === 'month' && CAL.selected) {
-      root.appendChild(selectedDayList(visible));
+      grid.appendChild(selectedDayList(visible));
+    }
+
+    // The tray is a desktop idea: it exists so a card can be dragged
+    // out of it onto a day, and there is no dragging on a phone.
+    const tray = isNarrow() || CAL.view === 'agenda' ? null : unscheduledTray();
+    if (tray) {
+      const split = el('div', 'pt-calwrap');
+      split.append(grid, tray);
+      root.appendChild(split);
+    } else {
+      root.appendChild(grid);
     }
   }
 
@@ -1134,25 +1295,70 @@ const NAV = [
       const b = el('button', undefined, text);
       b.type = 'button';
       b.setAttribute('aria-pressed', String(CAL.view === v));
-      b.addEventListener('click', () => { CAL.view = v; drawCalendar(); });
+      b.addEventListener('click', () => {
+        CAL.view = v;
+        CAL.selected = null;
+        saveCalPrefs();
+        drawCalendar();
+      });
       seg.appendChild(b);
     }
 
-    const filter = el('select', 'pt-select') as HTMLSelectElement;
-    filter.setAttribute('aria-label', 'Filter calendar');
-    for (const [v, text] of [
-      ['all', 'All items'], ['moments', 'Shows & releases'], ['releases', 'Releases'],
-      ['content', 'Content steps'], ['posts', 'Post dates'], ['films', 'Film dates'],
-      ['todos', 'My to-dos'],
-    ] as const) {
-      const o = el('option', undefined, text) as HTMLOptionElement;
-      o.value = v;
-      if (CAL.filter === v) o.selected = true;
-      filter.appendChild(o);
-    }
-    filter.addEventListener('change', () => { CAL.filter = filter.value as Filter; drawCalendar(); });
+    bar.appendChild(seg);
+    return bar;
+  }
 
-    bar.append(seg, filter);
+  /** Four named slices of the same calendar. */
+  function quickTabs(): HTMLElement {
+    const row = el('div', 'pt-calrow');
+
+    const tabs = el('div', 'pt-quick');
+    tabs.setAttribute('role', 'group');
+    tabs.setAttribute('aria-label', 'Quick views');
+    const on = activeQuick();
+    for (const [k, text] of QUICK) {
+      const b = el('button', 'pt-quick-tab' + (k === on ? ' pt-quick-on' : ''), text);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(k === on));
+      b.addEventListener('click', () => applyQuick(k));
+      tabs.appendChild(b);
+    }
+    row.append(tabs, el('span', 'pt-toolbar-spacer'));
+
+    /* bucket, multi-select, in the Notion colours */
+    if (CON.schema.bucket.length) {
+      const d = el('details', 'pt-multi') as HTMLDetailsElement;
+      const s = el('summary', 'pt-select pt-multi-sum');
+      s.appendChild(el('span', undefined,
+        CAL.buckets.size ? `Bucket · ${CAL.buckets.size}` : 'Every bucket'));
+      s.appendChild(icon('chev'));
+      d.appendChild(s);
+      const panel = el('div', 'pt-multi-panel');
+      for (const o of CON.schema.bucket) {
+        const lab = el('label', `pt-multi-opt pt-nc-${o.color}`);
+        const box = el('input') as HTMLInputElement;
+        box.type = 'checkbox';
+        box.checked = CAL.buckets.has(o.name);
+        box.addEventListener('change', () => {
+          if (box.checked) CAL.buckets.add(o.name); else CAL.buckets.delete(o.name);
+          CAL.selected = null;
+          drawCalendar();
+          // The panel is rebuilt by the redraw, so it is reopened here
+          // rather than left shut under the pointer mid-selection.
+          q<HTMLDetailsElement>('.pt-multi')?.setAttribute('open', '');
+        });
+        lab.append(box, el('span', 'pt-multi-dot'), el('span', undefined, o.name));
+        panel.appendChild(lab);
+      }
+      if (CAL.buckets.size) {
+        const clear = el('button', 'pt-multi-clear', 'Clear');
+        clear.type = 'button';
+        clear.addEventListener('click', () => { CAL.buckets.clear(); drawCalendar(); });
+        panel.appendChild(clear);
+      }
+      d.appendChild(panel);
+      row.appendChild(d);
+    }
 
     const list = campaigns();
     if (list.length) {
@@ -1175,7 +1381,37 @@ const NAV = [
         CAL.selected = null;
         drawCalendar();
       });
-      bar.appendChild(camp);
+      row.appendChild(camp);
+    }
+
+    const phase = el('select', 'pt-select') as HTMLSelectElement;
+    phase.setAttribute('aria-label', 'Filter by status');
+    for (const [v, text] of [['', 'Any status'], ...PHASES] as Array<[string, string]>) {
+      const o = el('option', undefined, text) as HTMLOptionElement;
+      o.value = v;
+      if (CAL.phase === v) o.selected = true;
+      phase.appendChild(o);
+    }
+    phase.addEventListener('change', () => {
+      CAL.phase = phase.value as '' | ContentPhase;
+      CAL.selected = null;
+      drawCalendar();
+    });
+    row.appendChild(phase);
+
+    if (!isNarrow() && CAL.view !== 'agenda') {
+      const n = unscheduled().length;
+      const t = el('button', 'pt-btn' + (CAL.tray ? ' pt-btn-on' : ''));
+      t.type = 'button';
+      t.setAttribute('aria-pressed', String(CAL.tray));
+      t.appendChild(icon('folder'));
+      t.appendChild(el('span', undefined, `Unscheduled · ${n}`));
+      t.addEventListener('click', () => {
+        CAL.tray = !CAL.tray;
+        saveCalPrefs();
+        drawCalendar();
+      });
+      row.appendChild(t);
     }
 
     if (CAL.campaign) {
@@ -1187,9 +1423,31 @@ const NAV = [
       x.appendChild(icon('close'));
       x.addEventListener('click', () => { CAL.campaign = ''; drawCalendar(); });
       chipEl.appendChild(x);
-      bar.appendChild(chipEl);
+      row.appendChild(chipEl);
     }
-    return bar;
+    return row;
+  }
+
+  /** The five layers, all on by default. */
+  function layerChips(): HTMLElement {
+    const row = el('div', 'pt-layers');
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', 'Calendar layers');
+    for (const [k, text] of LAYERS) {
+      const on = CAL.layers.has(k);
+      const b = el('button', `pt-layer pt-layer-${k}` + (on ? ' pt-layer-on' : ''));
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(on));
+      b.append(el('span', 'pt-layer-key'), el('span', undefined, text));
+      b.addEventListener('click', () => {
+        if (on) CAL.layers.delete(k); else CAL.layers.add(k);
+        CAL.selected = null;
+        saveCalPrefs();
+        drawCalendar();
+      });
+      row.appendChild(b);
+    }
+    return row;
   }
 
   function stepCursor(dir: number) {
@@ -1199,6 +1457,85 @@ const NAV = [
     CAL.cursor = c;
     CAL.selected = null;
     drawCalendar();
+  }
+
+  /**
+   * What a day reads, top to bottom. The moment is the headline, then
+   * what is on the client, then the content, then our own tasks. With
+   * only three chips to spend before the day collapses into "+N more",
+   * the cut has to fall on our side of the list, not theirs.
+   */
+  const DAY_ORDER: Layer[] = ['moments', 'todos', 'posts', 'films', 'blueprint'];
+
+  /**
+   * Which of its layers an item is read as, when it belongs to more
+   * than one. Only layers that are switched on count: under "Content
+   * only" a post the client still has to put up is a post, because
+   * the to-do layer it also belongs to is not on screen to explain
+   * itself. The fallback keeps the function total.
+   */
+  function dayRank(it: PortalCalendarItem): number {
+    const ls = layersOf(it);
+    let best = DAY_ORDER.length;
+    for (const l of ls) {
+      if (CAL.layers.has(l)) best = Math.min(best, DAY_ORDER.indexOf(l));
+    }
+    if (best < DAY_ORDER.length) return best;
+    for (const l of ls) best = Math.min(best, DAY_ORDER.indexOf(l));
+    return best;
+  }
+
+  function sortDay(items: PortalCalendarItem[]): PortalCalendarItem[] {
+    return items.slice().sort((a, b) => dayRank(a) - dayRank(b));
+  }
+
+  /* ── dragging a card onto a day ───────────────────────────────
+     Desktop only. A phone gets the Schedule button in the drawer. */
+  let CALDRAG: PortalContentItem | null = null;
+
+  /** Whether the client may give this card a date at all. One we post,
+   *  and one already posted, are theirs to read and not to move. */
+  function canSchedule(c: PortalContentItem): boolean {
+    return c.status !== 'Posted' && c.postedBy !== 'Blueprint';
+  }
+
+  const isoOf = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  function dayDropTarget(cell: HTMLElement, day: Date) {
+    cell.addEventListener('dragover', (ev) => {
+      if (!CALDRAG) return;
+      ev.preventDefault();
+      if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move';
+      cell.classList.add('pt-cal-cell-drop');
+    });
+    cell.addEventListener('dragleave', (ev) => {
+      // Crossing onto a chip inside the cell fires dragleave on the
+      // cell. Without this the highlight strobes under the pointer.
+      if (cell.contains(ev.relatedTarget as Node)) return;
+      cell.classList.remove('pt-cal-cell-drop');
+    });
+    cell.addEventListener('drop', (ev) => {
+      ev.preventDefault();
+      cell.classList.remove('pt-cal-cell-drop');
+      const c = CALDRAG;
+      CALDRAG = null;
+      if (c) void scheduleCard(c, isoOf(day));
+    });
+  }
+
+  async function scheduleCard(c: PortalContentItem, iso: string) {
+    if (c.postDate === iso) return;
+    if (!canSchedule(c)) { toast('That one is ours to schedule.', true); return; }
+    const had = c.postDate;
+    const patch: Record<string, unknown> = { postDate: iso };
+    const local: Partial<PortalContentItem> = { postDate: iso };
+    // A dated idea is not an idea any more, and the board would put it
+    // nowhere. The create endpoint defaults the same way.
+    if (c.status === 'Idea') { patch.status = 'Planned'; local.status = 'Planned'; }
+    if (await saveCard(c.id, patch, local)) {
+      toast(had ? `Moved to ${fmtDate(iso)}` : `Scheduled for ${fmtDate(iso)}`);
+    }
   }
 
   function byDay(items: PortalCalendarItem[]): Map<string, PortalCalendarItem[]> {
@@ -1237,7 +1574,7 @@ const NAV = [
       if (sameDay(day, today)) cell.classList.add('pt-cal-cell-today');
       if (CAL.selected && sameDay(day, CAL.selected)) cell.classList.add('pt-cal-cell-selected');
 
-      const dayItems = map.get(keyOf(day)) ?? [];
+      const dayItems = sortDay(map.get(keyOf(day)) ?? []);
 
       if (isNarrow()) {
         const btn = el('button', 'pt-cal-date pt-num', String(day.getDate()));
@@ -1262,6 +1599,7 @@ const NAV = [
           });
           cell.appendChild(more);
         }
+        dayDropTarget(cell, day);
       }
       grid.appendChild(cell);
     }
@@ -1276,14 +1614,35 @@ const NAV = [
     // piece of content, one step earlier.
     if (row.content && row.contentRole) {
       const c = row.content;
-      const b = el('button', `pt-chip pt-chip-${row.contentRole} pt-nc-${bucketColor(c.bucket)}`);
+      const done = c.status === 'Posted';
+      const b = el('button', `pt-chip pt-chip-${row.contentRole} pt-nc-${bucketColor(c.bucket)}`
+        + (done ? ' pt-chip-done' : ''));
       b.type = 'button';
+      // A post that already went out is a record, not a plan, so it
+      // steps back and wears a tick rather than shouting at the month.
+      if (done) b.appendChild(icon('check', 'pt-chip-tick'));
       b.appendChild(el('span', 'pt-chip-title', it.title));
       if (row.moment) b.appendChild(el('span', 'pt-chip-moment', row.moment.title));
       b.title = row.contentRole === 'film'
         ? `Film by: ${c.title}`
         : `Posts: ${c.title}${c.bucket ? ` · ${c.bucket}` : ''}`;
       b.addEventListener('click', (ev) => { ev.stopPropagation(); openDrawer(it); });
+
+      // A post date the client owns can be dragged to another day. A
+      // film date cannot: the shoot is planned around other things.
+      if (row.contentRole === 'post' && canSchedule(c) && !isNarrow()) {
+        b.draggable = true;
+        b.addEventListener('dragstart', (ev) => {
+          CALDRAG = c;
+          b.classList.add('pt-chip-dragging');
+          ev.dataTransfer?.setData('text/plain', c.title);
+          if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
+        });
+        b.addEventListener('dragend', () => {
+          CALDRAG = null;
+          b.classList.remove('pt-chip-dragging');
+        });
+      }
       return b;
     }
     const k = kindOf(it);
@@ -1324,7 +1683,8 @@ const NAV = [
       const day = new Date(start); day.setDate(start.getDate() + i);
       const cell = el('div', 'pt-cal-cell');
       if (sameDay(day, today)) cell.classList.add('pt-cal-cell-today');
-      for (const it of map.get(keyOf(day)) ?? []) cell.appendChild(chip(it));
+      for (const it of sortDay(map.get(keyOf(day)) ?? [])) cell.appendChild(chip(it));
+      if (!isNarrow()) dayDropTarget(cell, day);
       grid.appendChild(cell);
     }
     wrap.appendChild(grid);
@@ -1334,7 +1694,28 @@ const NAV = [
   function agendaView(items: PortalCalendarItem[]): HTMLElement {
     const wrap = el('div');
     const today = todayStart();
-    const dated = items.filter((i) => parseNotionDate(i.date));
+    // The agenda follows the cursor, like the other two views. It used
+    // to list every dated row there was, which was fine with a handful
+    // of campaign steps and useless against a year of posted history:
+    // the month buttons appeared to do nothing and February was four
+    // thousand pixels up.
+    const dated = items.filter((i) => {
+      const d = parseNotionDate(i.date);
+      return !!d && d.getFullYear() === CAL.cursor.getFullYear()
+                 && d.getMonth() === CAL.cursor.getMonth();
+    });
+    if (!dated.length) {
+      const e = el('div', 'pt-empty');
+      const ic = el('div', 'pt-empty-icon');
+      ic.appendChild(icon('cal'));
+      e.append(ic,
+        el('h3', undefined, `Nothing in ${MONTHS[CAL.cursor.getMonth()]}`),
+        el('p', undefined, calFiltering()
+          ? 'Turn a layer back on, or step to another month.'
+          : 'Step to another month to see what is planned.'));
+      wrap.appendChild(e);
+      return wrap;
+    }
     const map = byDay(dated);
     const keys = Array.from(map.keys()).sort((a, b) => {
       const [ay, am, ad] = a.split('-').map(Number);
@@ -1351,7 +1732,7 @@ const NAV = [
       if (sameDay(day, today)) head.appendChild(el('span', 'pt-tag', 'Today'));
       group.appendChild(head);
       const list = el('ul');
-      for (const it of map.get(k)!) list.appendChild(itemRow(it));
+      for (const it of sortDay(map.get(k)!)) list.appendChild(itemRow(it));
       group.appendChild(list);
       wrap.appendChild(group);
     }
@@ -1403,6 +1784,125 @@ const NAV = [
     return wrap;
   }
 
+  /* ── the unscheduled tray ─────────────────────────────────────
+     A well of cards with no post date, beside the month. It is a
+     staging area rather than a view of the calendar, so the layer
+     chips and the filters above do not touch it: it has its own
+     search, and grouping by bucket does the rest. */
+
+  function unscheduled(): PortalContentItem[] {
+    return CON.items.filter(
+      (c) => (c.status === 'Idea' || c.status === 'Planned') && !c.postDate);
+  }
+
+  function unscheduledTray(): HTMLElement | null {
+    if (!CAL.tray) return null;
+    const all = unscheduled();
+    const aside = el('aside', 'pt-tray');
+
+    const head = el('div', 'pt-tray-head');
+    head.appendChild(el('h3', undefined, 'Unscheduled'));
+    head.appendChild(el('span', 'pt-tray-n pt-num', String(all.length)));
+    const x = el('button', 'pt-tray-close');
+    x.type = 'button';
+    x.setAttribute('aria-label', 'Hide unscheduled');
+    x.appendChild(icon('close'));
+    x.addEventListener('click', () => { CAL.tray = false; saveCalPrefs(); drawCalendar(); });
+    head.appendChild(x);
+    aside.appendChild(head);
+
+    const search = el('input', 'pt-input pt-tray-search') as HTMLInputElement;
+    search.type = 'search';
+    search.placeholder = 'Title or shoot code';
+    search.setAttribute('aria-label', 'Search unscheduled');
+    search.value = CAL.traySearch;
+    search.addEventListener('input', () => {
+      CAL.traySearch = search.value;
+      drawCalendar();
+      const again = q<HTMLInputElement>('.pt-tray-search');
+      if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+    });
+    aside.appendChild(search);
+
+    const needle = CAL.traySearch.trim().toLowerCase();
+    const items = needle
+      ? all.filter((c) => c.title.toLowerCase().includes(needle)
+          || (c.shootCode ?? '').toLowerCase().includes(needle))
+      : all;
+
+    if (!items.length) {
+      aside.appendChild(el('p', 'pt-tray-none',
+        all.length ? 'Nothing matches that.' : 'Everything you have has a date on it.'));
+      return aside;
+    }
+
+    aside.appendChild(el('p', 'pt-tray-hint', 'Drag one onto a day to give it a post date.'));
+
+    const groups = new Map<string, PortalContentItem[]>();
+    for (const c of items) {
+      const k = c.bucket ?? '';
+      const arr = groups.get(k);
+      if (arr) arr.push(c); else groups.set(k, [c]);
+    }
+    // Bucket order follows Notion, so the tray and the Ideas board
+    // read in the same order. No bucket at all sorts last.
+    const order = CON.schema.bucket.map((o) => o.name);
+    const keys = Array.from(groups.keys()).sort((a, b) =>
+      (a ? order.indexOf(a) : order.length) - (b ? order.indexOf(b) : order.length));
+
+    const body = el('div', 'pt-tray-body');
+    for (const k of keys) {
+      const list = groups.get(k)!;
+      const g = el('div', 'pt-tray-group' + (k ? ` pt-nc-${bucketColor(k)}` : ''));
+      const gh = el('div', 'pt-tray-group-head');
+      gh.append(
+        el('span', 'pt-tray-dot'),
+        el('span', undefined, k || 'No bucket yet'),
+        el('span', 'pt-tray-gn pt-num', String(list.length)),
+      );
+      g.appendChild(gh);
+      for (const c of list) g.appendChild(trayCard(c));
+      body.appendChild(g);
+    }
+    aside.appendChild(body);
+    return aside;
+  }
+
+  function trayCard(c: PortalContentItem): HTMLElement {
+    const card = el('article', 'pt-traycard');
+    const open = el('button', 'pt-traycard-open');
+    open.type = 'button';
+    open.setAttribute('aria-label', `Open ${c.title}`);
+    open.appendChild(el('span', 'pt-traycard-title', c.title));
+    if (c.filmBy) {
+      open.appendChild(el('span', 'pt-traycard-meta', `Film by ${fmtDateShort(c.filmBy)}`));
+    }
+    open.addEventListener('click', () => openContentDrawer(c));
+    card.appendChild(open);
+
+    if (canSchedule(c)) {
+      card.draggable = true;
+      const grip = el('span', 'pt-traycard-grip');
+      grip.setAttribute('aria-hidden', 'true');
+      grip.appendChild(icon('grip'));
+      card.appendChild(grip);
+      card.addEventListener('dragstart', (ev) => {
+        CALDRAG = c;
+        card.classList.add('pt-traycard-dragging');
+        ev.dataTransfer?.setData('text/plain', c.title);
+        if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => {
+        CALDRAG = null;
+        card.classList.remove('pt-traycard-dragging');
+      });
+    } else {
+      card.classList.add('pt-traycard-locked');
+      card.title = 'We put this one out, so we schedule it.';
+    }
+    return card;
+  }
+
   /* ── "+N more" popover ─────────────────────────────────────── */
   let POP: HTMLElement | null = null;
 
@@ -1412,7 +1912,15 @@ const NAV = [
     closePopover();
     const pop = el('div', 'pt-popover');
     pop.appendChild(el('div', 'pt-popover-title', fmtDayLong(day)));
-    for (const it of items) pop.appendChild(chip(it));
+    // A day that overflowed is a day with several kinds of thing on
+    // it, so the popover says which is which rather than handing over
+    // one more undifferentiated list.
+    for (let i = 0; i < DAY_ORDER.length; i++) {
+      const inLayer = items.filter((it) => dayRank(it) === i);
+      if (!inLayer.length) continue;
+      pop.appendChild(el('div', 'pt-popover-group', LAYER_LABEL.get(DAY_ORDER[i])!));
+      for (const it of inLayer) pop.appendChild(chip(it));
+    }
     document.body.appendChild(pop);
 
     const r = anchor.getBoundingClientRect();
@@ -1755,6 +2263,8 @@ const NAV = [
     /** Whether this card may be dropped here at all. */
     accepts?: (c: PortalContentItem) => boolean;
     add?: () => void;
+    /** The column heading already names the bucket. */
+    hideBucket?: boolean;
   }
 
   function ideasBoard(items: PortalContentItem[]): HTMLElement {
@@ -1767,6 +2277,7 @@ const NAV = [
       accepts: () => true,
       onDrop: (c) => { void setBucket(c, o.name); },
       add: () => openQuickAdd(o.name),
+      hideBucket: true,
     }));
     // A card with no bucket yet would otherwise be invisible, which is
     // the one thing an idea well must never do.
@@ -1873,7 +2384,7 @@ const NAV = [
 
     const list = el('div', 'pt-board-list');
     if (!c.items.length) list.appendChild(el('p', 'pt-board-none', 'Nothing here'));
-    for (const item of c.items) list.appendChild(contentCard(item));
+    for (const item of c.items) list.appendChild(contentCard(item, { hideBucket: c.hideBucket }));
 
     if (c.onDrop && !isNarrow()) {
       list.addEventListener('dragover', (ev) => {
@@ -1898,7 +2409,7 @@ const NAV = [
     return col;
   }
 
-  function contentCard(c: PortalContentItem): HTMLElement {
+  function contentCard(c: PortalContentItem, opts: { hideBucket?: boolean } = {}): HTMLElement {
     const card = el('article', 'pt-ccard');
     const open = el('button', 'pt-ccard-open');
     open.type = 'button';
@@ -1911,7 +2422,11 @@ const NAV = [
     open.appendChild(title);
 
     const tags = el('span', 'pt-ccard-tags');
-    if (c.bucket) tags.appendChild(el('span', `pt-bchip pt-nc-${bucketColor(c.bucket)}`, c.bucket));
+    // On the Ideas board the column already says the bucket, and a
+    // chip repeating it on every card is noise in a tight space.
+    if (c.bucket && !opts.hideBucket) {
+      tags.appendChild(el('span', `pt-bchip pt-nc-${bucketColor(c.bucket)}`, c.bucket));
+    }
     for (const f of c.format) tags.appendChild(el('span', 'pt-tag', f));
     if (c.shootCode && c.shootCode !== c.title) {
       tags.appendChild(el('span', 'pt-ccard-code pt-num', c.shootCode));
@@ -2248,6 +2763,17 @@ const NAV = [
 
   function contentActions(c: PortalContentItem): HTMLElement | null {
     const row = el('div', 'pt-drawer-actions');
+
+    // On a desktop a card gets its date by being dragged onto a day.
+    // There is no dragging on a phone, so the same job is a button.
+    if (isNarrow() && !c.postDate && canSchedule(c)) {
+      const b = el('button', 'pt-btn');
+      b.type = 'button';
+      b.appendChild(icon('cal'));
+      b.appendChild(el('span', undefined, 'Schedule'));
+      b.addEventListener('click', () => openScheduleSheet(c));
+      row.appendChild(b);
+    }
 
     const needsFootage = c.status === 'Filmed' || (c.status === 'Planned' && !!c.filmBy);
     if (needsFootage && !c.footageLink) {
@@ -2600,6 +3126,31 @@ const NAV = [
 
   /** Mark as posted: the link is optional, the date is today unless
    *  one was already planned. */
+  /** The phone's version of dragging a card onto a day. */
+  function openScheduleSheet(c: PortalContentItem) {
+    openSheet('Schedule this post', (form, close) => {
+      const when = el('input', 'pt-input') as HTMLInputElement;
+      when.type = 'date';
+      when.required = true;
+      when.value = c.postDate ?? dateKeyToday();
+      form.appendChild(sheetField('Post date', when));
+      form.appendChild(el('p', 'pt-sheet-note', c.status === 'Idea'
+        ? 'Giving it a date moves it out of your ideas and onto the pipeline.'
+        : 'It appears on your calendar on that day.'));
+
+      const go = sheetSubmit(form, 'Put it on the calendar');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const iso = when.value;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) { when.focus(); return; }
+        go.disabled = true;
+        await scheduleCard(c, iso);
+        go.disabled = false;
+        close();
+      });
+    });
+  }
+
   function openPostedSheet(c: PortalContentItem) {
     openSheet('Mark as posted', (form, close) => {
       const link = el('input', 'pt-input') as HTMLInputElement;
@@ -3743,6 +4294,9 @@ const NAV = [
       CAL.view = now ? 'agenda' : 'month';
       CAL.selected = null;
       CON.col = '';
+      // A drag cannot survive the components under it being replaced.
+      CALDRAG = null;
+      saveCalPrefs();
     }
     drawCalendar();
     drawContent();

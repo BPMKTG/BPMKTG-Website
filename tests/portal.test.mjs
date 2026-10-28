@@ -30,6 +30,7 @@ import {
   CONTENT_FIELDS,
   CONTENT_NEVER_SEND,
   CONTENT_STATUSES,
+  contentPhase,
   CLIENT_STATUS_MOVES,
   CLIENT_EDITABLE,
   CLIENT_READ_ONLY,
@@ -936,6 +937,24 @@ is('quick-add: a post date makes it planned',
    defaultStatus({ 'Post Date': { date: { start: '2026-11-09' } }, 'Film By': { date: null } }), 'Planned');
 is('quick-add: a shoot date alone makes it planned',
    defaultStatus({ 'Post Date': { date: null }, 'Film By': { date: { start: '2026-11-05' } } }), 'Planned');
+
+/* ── the three words a client uses for where something is ───── */
+section('Content: status to phase');
+
+is('phase: an idea is planned', contentPhase('Idea'), 'planned');
+is('phase: planned is planned', contentPhase('Planned'), 'planned');
+is('phase: filmed is in progress', contentPhase('Filmed'), 'progress');
+is('phase: our edit is in progress', contentPhase('Editing'), 'progress');
+is('phase: waiting on the client is in progress', contentPhase('Ready for Review'), 'progress');
+is('phase: approved is in progress until it goes out', contentPhase('Approved'), 'progress');
+is('phase: posted is posted', contentPhase('Posted'), 'posted');
+is('phase: skipped is in no phase', contentPhase('Skipped'), null);
+is('phase: an unknown status is in no phase', contentPhase('Marinating'), null);
+is('phase: no status at all is in no phase', contentPhase(null), null);
+// The filter offers exactly three choices, so every status a card can
+// hold has to land in one of them or be deliberately out.
+is('phase: every status is placed or deliberately skipped',
+   CONTENT_STATUSES.every((s) => s === 'Skipped' || contentPhase(s) !== null), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

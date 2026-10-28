@@ -78,6 +78,28 @@ export const CLIENT_STATUS_MOVES: Record<ContentStatus, ContentStatus[]> = {
   'Skipped':          ['Idea'],
 };
 
+/**
+ * The three words a client uses for where something is, as opposed to
+ * the ten Notion statuses behind them. The calendar filters on this,
+ * and it lives here so it cannot drift from CONTENT_STATUSES above.
+ */
+export type ContentPhase = 'planned' | 'progress' | 'posted';
+
+export function contentPhase(status: string | null): ContentPhase | null {
+  switch (status) {
+    case 'Idea':
+    case 'Planned':          return 'planned';
+    case 'Filmed':
+    case 'Footage In':
+    case 'Editing':
+    case 'Ready for Review':
+    case 'Approved':
+    case 'Scheduled':        return 'progress';
+    case 'Posted':           return 'posted';
+    default:                 return null;   // Skipped, anything unknown
+  }
+}
+
 export function isContentStatus(v: unknown): v is ContentStatus {
   return typeof v === 'string' && (CONTENT_STATUSES as readonly string[]).includes(v);
 }
