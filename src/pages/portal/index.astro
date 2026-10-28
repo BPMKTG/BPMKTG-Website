@@ -543,13 +543,22 @@ const NAV = [
     const cols = el('div', 'pt-grid pt-grid-2');
     cols.style.marginTop = 'var(--pt-5)';
 
+    // Everything beyond here is "the next fortnight". A whole term of
+    // to-dos is a true list and a useless one.
+    const today = todayStart();
+    const horizon = new Date(today);
+    horizon.setDate(horizon.getDate() + 14);
+
     // Campaign-calendar rows the client owns, plus the content they
     // are filming or posting in the next week. One list, because from
     // where they sit it is all the same question: what is on me?
+    //
     // Sorted by date, not by where the row came from. Concatenating
     // put every calendar to-do first, so with six of those on the
-    // board a shoot tomorrow never made the cut.
+    // board a shoot tomorrow never made the cut. Nothing is dropped
+    // from the past end: a to-do that slipped is still on him.
     const todos = [...data.calendar.filter(isOpenClientTodo), ...contentTodos()]
+      .filter((i) => { const d = parseNotionDate(i.date); return !d || d <= horizon; })
       .sort((a, b) => (parseNotionDate(a.date)?.getTime() ?? Infinity)
                     - (parseNotionDate(b.date)?.getTime() ?? Infinity));
     cols.appendChild(
@@ -557,15 +566,12 @@ const NAV = [
         emptyIcon: 'check',
         emptyTitle: "Nothing on you right now",
         emptyBody: "When we need something from you, it shows up here and on your calendar.",
-      }, { count: Math.max(0, todos.length - 6), href: '#/calendar', label: 'on your calendar' }),
+      }, { count: Math.max(0, todos.length - 6), href: '#/calendar', label: 'in the next two weeks' }),
     );
 
     // "Coming up" is what WE are doing next. Client-owned rows belong in
     // the to-do card beside it, and listing them twice made the page look
     // like twice the work.
-    const today = todayStart();
-    const horizon = new Date(today);
-    horizon.setDate(horizon.getDate() + 14);
     const upcoming = data.calendar
       .filter((i) => i.owner !== 'Client')
       .filter((i) => { const d = parseNotionDate(i.date); return !!d && d >= today && d <= horizon; })
