@@ -887,6 +887,18 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
 .pt-back:hover { background: var(--pt-tint-soft); color: var(--pt-navy); text-decoration: none; }
 .pt-back svg { width: 15px; height: 15px; }
 
+/* The "and N more" line under a card that had to cut its list. Reads
+   as a quiet footer, not as another row you might have missed. */
+.pt-card-more {
+  display: inline-flex; align-items: center; gap: var(--pt-2);
+  margin-top: var(--pt-3);
+  font-size: .82rem; font-weight: 600; color: var(--pt-ink-2);
+  padding: 6px 10px; border-radius: var(--pt-r-sm);
+  transition: background var(--pt-t), color var(--pt-t);
+}
+.pt-card-more:hover { background: var(--pt-tint-soft); color: var(--pt-navy); text-decoration: none; }
+.pt-card-more svg { width: 14px; height: 14px; }
+
 /* ── files ─────────────────────────────────────────────────── */
 
 .pt-file {

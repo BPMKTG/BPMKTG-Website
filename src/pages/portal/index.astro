@@ -557,7 +557,7 @@ const NAV = [
         emptyIcon: 'check',
         emptyTitle: "Nothing on you right now",
         emptyBody: "When we need something from you, it shows up here and on your calendar.",
-      }),
+      }, { count: Math.max(0, todos.length - 6), href: '#/calendar', label: 'on your calendar' }),
     );
 
     // "Coming up" is what WE are doing next. Client-owned rows belong in
@@ -850,6 +850,8 @@ const NAV = [
     title: string,
     items: PortalCalendarItem[],
     empty: { emptyIcon: string; emptyTitle: string; emptyBody: string },
+    /** How many were cut, and where the rest of them live. */
+    more?: { count: number; href: string; label: string },
   ): HTMLElement {
     const card = el('section', 'pt-card');
     const head = el('div', 'pt-card-head');
@@ -867,6 +869,15 @@ const NAV = [
       const list = el('ul');
       for (const it of items) list.appendChild(itemRow(it));
       body.appendChild(list);
+      // A card that quietly drops the seventh item is a card that can
+      // hide a shoot. Say how many, and where they are.
+      if (more && more.count > 0) {
+        const a = el('a', 'pt-card-more') as HTMLAnchorElement;
+        a.href = more.href;
+        a.appendChild(el('span', undefined, `${more.count} more ${more.label}`));
+        a.appendChild(icon('chev'));
+        body.appendChild(a);
+      }
     }
     card.appendChild(body);
     return card;
