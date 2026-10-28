@@ -2465,14 +2465,23 @@ const NAV = [
     if (!sheet || !scrim || !head || !body) return;
     SHEET_FOCUS = document.activeElement as HTMLElement;
     head.textContent = title;
-    clear(body);
-    build(body, closeSheet);
+
+    // A fresh form, not a cleared one. Clearing the children leaves
+    // the previous sheet's submit listener on the element, so the next
+    // sheet you submitted would run that one too, against the inputs
+    // it had captured: adding a second idea quietly added the first
+    // one again. cloneNode(false) keeps the attributes and takes none
+    // of the listeners.
+    const form = body.cloneNode(false) as HTMLFormElement;
+    body.replaceWith(form);
+
+    build(form, closeSheet);
     show(scrim, true);
     show(sheet, true);
     requestAnimationFrame(() => {
       scrim.dataset.open = 'true';
       sheet.dataset.open = 'true';
-      q<HTMLElement>('input, select, textarea, button', body)?.focus();
+      q<HTMLElement>('input, select, textarea, button', form)?.focus();
     });
     document.addEventListener('keydown', onSheetKey);
   }
