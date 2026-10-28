@@ -919,5 +919,23 @@ is('pipeline: a post older than 30 days drops off',
 is('pipeline: the 30th day still counts',
    stageOf(card({ status: 'Posted', postDate: '2026-09-28' }), nowC), 'posted');
 
+section('Content: the quick-add status default');
+
+// The quick-add form sends both date keys every time, empty or not, so
+// "has a Post Date property" and "has a post date" are not the same
+// question. Mirrors the branch in functions/portal/[slug]/content.
+const hasDate = (prop) => !!(prop && prop.date && prop.date.start);
+const defaultStatus = (props) =>
+  hasDate(props['Post Date']) || hasDate(props['Film By']) ? 'Planned' : 'Idea';
+
+is('quick-add: no dates at all is an idea',
+   defaultStatus({}), 'Idea');
+is('quick-add: cleared date properties are still an idea',
+   defaultStatus({ 'Post Date': { date: null }, 'Film By': { date: null } }), 'Idea');
+is('quick-add: a post date makes it planned',
+   defaultStatus({ 'Post Date': { date: { start: '2026-11-09' } }, 'Film By': { date: null } }), 'Planned');
+is('quick-add: a shoot date alone makes it planned',
+   defaultStatus({ 'Post Date': { date: null }, 'Film By': { date: { start: '2026-11-05' } } }), 'Planned');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

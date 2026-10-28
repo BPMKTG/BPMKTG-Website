@@ -415,7 +415,11 @@ function shapeContent(page: any): PortalContentItem {
   const p = page.properties ?? {};
   return {
     id: String(page.id),
-    title: cleanItemTitle(readText(p[CONTENT_FIELDS[0]]) ?? ''),
+    // Deliberately not cleanItemTitle: that one strips an artist
+    // prefix and a "(tentative)" marker, which are campaign-calendar
+    // conventions. A shoot code is whatever he typed, so it ships as
+    // typed, trimmed and no more.
+    title: (readText(p[CONTENT_FIELDS[0]]) ?? '').trim(),
     status: readSelect(p[CONTENT_FIELDS[1]]),
     bucket: readSelect(p[CONTENT_FIELDS[2]]),
     format: readMultiSelect(p[CONTENT_FIELDS[3]]),

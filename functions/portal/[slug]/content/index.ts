@@ -38,7 +38,11 @@ export const onRequestPost: PagesFunction<WriteEnv> = async ({ request, env, par
   // Dated means planned, undated means idea. The client does not have
   // to think about status at all to add something to the well.
   if (!properties['Status']) {
-    const dated = Boolean(properties['Post Date'] || properties['Film By']);
+    // The quick-add form always sends both date keys, empty or not, so
+    // the property is present either way. It is the start date inside
+    // it that says whether this is planned or still just an idea.
+    const hasDate = (prop: any) => !!prop?.date?.start;
+    const dated = hasDate(properties['Post Date']) || hasDate(properties['Film By']);
     properties['Status'] = { select: { name: dated ? 'Planned' : 'Idea' } };
   }
 
