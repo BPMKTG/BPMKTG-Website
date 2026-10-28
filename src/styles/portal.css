@@ -115,7 +115,8 @@ body.pt {
 /* Every component below sets `display`, and a display declaration beats
    the UA's `[hidden] { display: none }`. Without this the "not found"
    card renders on top of a perfectly good app. */
-.pt [hidden], .pt-centre[hidden], .pt-shell[hidden], .pt-drawer[hidden], .pt-scrim[hidden] {
+.pt [hidden], .pt-centre[hidden], .pt-shell[hidden], .pt-drawer[hidden], .pt-scrim[hidden],
+.pt-sheet[hidden], .pt-toast[hidden] {
   display: none !important;
 }
 
@@ -1200,4 +1201,501 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
   .pt-goals-quote { min-width: 0; }
   .pt-goals-count { text-align: left; align-self: flex-start; }
   .pt-goals-days, .pt-goals-days-label { text-align: left; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CONTENT PIPELINE
+   ══════════════════════════════════════════════════════════════
+
+   Bucket colours come from Notion, so the portal cannot know them at
+   build time. Each Notion colour name gets one triple here and the
+   script only ever adds a class: --n-tint for fills, --n-ink for type
+   and borders (every one of these is at least 4.5:1 on its own tint),
+   --n-mark for a thin accent that sits beside a text label and so
+   carries no meaning on its own.
+   ────────────────────────────────────────────────────────────── */
+
+.pt-nc-default { --n-tint: #eceff4; --n-mark: #5b6b8a; --n-ink: #3f4859; }
+.pt-nc-gray    { --n-tint: #eef0f3; --n-mark: #6c727f; --n-ink: #474d5a; }
+.pt-nc-brown   { --n-tint: #f3ece5; --n-mark: #8a6a4b; --n-ink: #6a4f34; }
+.pt-nc-orange  { --n-tint: #fdebe2; --n-mark: #e3703b; --n-ink: #aa542c; }
+.pt-nc-yellow  { --n-tint: #fbf2db; --n-mark: #c99a1f; --n-ink: #7d6212; }
+.pt-nc-green   { --n-tint: #e3f2e7; --n-mark: #4f9a68; --n-ink: #2c6540; }
+.pt-nc-blue    { --n-tint: #eaf4fb; --n-mark: #62a6db; --n-ink: #2b6796; }
+.pt-nc-purple  { --n-tint: #efeafa; --n-mark: #8a7bc8; --n-ink: #574a92; }
+.pt-nc-pink    { --n-tint: #fbe9f1; --n-mark: #cf7aa4; --n-ink: #953f68; }
+.pt-nc-red     { --n-tint: #fdeaea; --n-mark: #d96a6a; --n-ink: #9e3535; }
+
+/* a bucket, wherever it appears */
+.pt-bchip {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: var(--pt-r-pill);
+  font-size: .68rem; font-weight: 700; letter-spacing: .04em;
+  background: var(--n-tint, var(--pt-tint-slate));
+  color: var(--n-ink, var(--pt-ink-2));
+  white-space: nowrap;
+}
+.pt-tag-review { background: var(--pt-tint-orange); color: var(--pt-orange-ink); }
+
+/* ── the board ─────────────────────────────────────────────────── */
+
+.pt-boardwrap { margin-top: var(--pt-4); }
+
+/* Columns scroll sideways rather than squeeze: a card that narrows
+   past its title stops being a card. */
+.pt-board {
+  display: flex; gap: var(--pt-3);
+  overflow-x: auto;
+  padding-bottom: var(--pt-3);
+  scroll-snap-type: x proximity;
+}
+.pt-board-col {
+  position: relative;
+  flex: 0 0 258px;
+  display: flex; flex-direction: column;
+  background: var(--pt-surface-2);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r);
+  overflow: hidden;
+  scroll-snap-align: start;
+}
+.pt-board-accent {
+  display: block; height: 3px;
+  background: var(--n-mark, var(--pt-line-strong));
+}
+.pt-board-col-head {
+  display: flex; align-items: center; gap: var(--pt-2);
+  padding: var(--pt-3) var(--pt-3) var(--pt-2);
+}
+.pt-board-col-head h3 {
+  flex: 1; min-width: 0;
+  font-size: .78rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--pt-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pt-board-count {
+  flex: none; padding: 1px 7px; border-radius: var(--pt-r-pill);
+  background: var(--pt-tint-slate); color: var(--pt-ink-2);
+  font-size: .7rem; font-weight: 700;
+}
+.pt-board-add {
+  flex: none; width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--pt-r-sm); color: var(--pt-muted);
+  transition: background var(--pt-t), color var(--pt-t);
+}
+.pt-board-add:hover { background: var(--pt-tint); color: var(--pt-navy); }
+.pt-board-add svg { width: 14px; height: 14px; }
+
+.pt-board-list {
+  flex: 1; min-height: 72px;
+  padding: 0 var(--pt-2) var(--pt-2);
+  display: flex; flex-direction: column; gap: 6px;
+  transition: background var(--pt-t), box-shadow var(--pt-t);
+}
+.pt-board-drop {
+  background: var(--pt-tint);
+  box-shadow: inset 0 0 0 2px var(--pt-blue);
+  border-radius: var(--pt-r-sm);
+}
+.pt-board-none {
+  margin: 0; padding: var(--pt-3) var(--pt-2);
+  font-size: .78rem; color: var(--pt-dim);
+}
+
+/* On a phone the columns become a pill row: one column, full width. */
+.pt-pillrow {
+  display: flex; gap: 6px;
+  overflow-x: auto;
+  padding-bottom: var(--pt-3);
+  margin-bottom: var(--pt-1);
+}
+.pt-pill {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px var(--pt-3);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-pill);
+  background: var(--pt-surface);
+  color: var(--pt-ink-2);
+  font-size: .78rem; font-weight: 600; white-space: nowrap;
+}
+.pt-pill-n { color: var(--pt-muted); font-weight: 700; }
+.pt-pill-on {
+  background: var(--n-tint, var(--pt-tint));
+  border-color: var(--n-ink, var(--pt-navy));
+  color: var(--n-ink, var(--pt-navy));
+}
+.pt-pill-on .pt-pill-n { color: inherit; }
+
+/* ── a card ────────────────────────────────────────────────────── */
+
+.pt-ccard {
+  position: relative;
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-sm);
+  box-shadow: var(--pt-shadow);
+  transition: box-shadow var(--pt-t), border-color var(--pt-t), opacity var(--pt-t);
+}
+.pt-ccard:hover { border-color: var(--pt-line-strong); box-shadow: var(--pt-shadow-lg); }
+.pt-ccard-dragging { opacity: .4; }
+.pt-ccard-open {
+  display: flex; flex-direction: column; gap: 6px;
+  width: 100%; padding: var(--pt-3) 26px var(--pt-3) var(--pt-3);
+  text-align: left;
+}
+/* His titles ARE shoot codes. One line, as typed, never wrapped into
+   something that looks like a mistake. */
+.pt-ccard-title {
+  font-size: .86rem; font-weight: 650; line-height: 1.35; color: var(--pt-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pt-ccard-tags, .pt-ccard-badges {
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+}
+.pt-ccard-code {
+  padding: 1px 6px; border-radius: 5px;
+  background: var(--pt-tint-soft); color: var(--pt-muted);
+  font-size: .66rem; font-weight: 700; letter-spacing: .02em;
+}
+.pt-ccard-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  font-size: .74rem; color: var(--pt-muted);
+}
+.pt-ccard-src { display: inline-flex; align-items: center; gap: 4px; }
+.pt-ccard-src svg { width: 12px; height: 12px; }
+.pt-ccard-grip {
+  position: absolute; top: 8px; right: 6px;
+  color: var(--pt-dim); cursor: grab;
+}
+.pt-ccard-grip svg { width: 14px; height: 14px; }
+
+/* ── Posted ────────────────────────────────────────────────────── */
+
+.pt-posted {
+  margin-top: var(--pt-4);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--pt-3);
+}
+.pt-posted-card {
+  display: flex; align-items: center; gap: var(--pt-2);
+  padding: var(--pt-3);
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r);
+}
+.pt-posted-open {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 6px; text-align: left;
+}
+.pt-posted-link {
+  flex: none; width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--pt-r-sm); color: var(--pt-navy);
+  background: var(--pt-tint-soft);
+}
+.pt-posted-link:hover { background: var(--pt-tint); }
+.pt-posted-link svg { width: 15px; height: 15px; }
+
+/* ── the sticky add button ─────────────────────────────────────── */
+
+.pt-fab {
+  position: fixed; z-index: 50;
+  right: var(--pt-5); bottom: var(--pt-5);
+  display: none;
+  align-items: center; gap: var(--pt-2);
+  padding: 12px var(--pt-5);
+  border-radius: var(--pt-r-pill);
+  background: var(--pt-navy); color: #fff;
+  font-size: .85rem; font-weight: 700;
+  box-shadow: var(--pt-shadow-lg);
+}
+.pt-fab svg { width: 16px; height: 16px; }
+
+/* ── content on the calendar ───────────────────────────────────── */
+
+.pt-chip-post {
+  background: var(--n-tint); border-left-color: var(--n-ink); color: var(--n-ink);
+}
+.pt-chip-film {
+  background: transparent; border: 1px dashed var(--n-ink);
+  border-left: 3px dashed var(--n-ink);
+  color: var(--n-ink);
+}
+.pt-kind-post { background: var(--n-ink, var(--pt-blue)); }
+.pt-kind-film {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--n-ink, var(--pt-blue));
+}
+.pt-legend-post { background: var(--pt-tint-blue); box-shadow: inset 3px 0 0 var(--pt-navy); }
+.pt-legend-film { background: transparent; border: 1px dashed var(--pt-navy); }
+
+/* A row with one action beside it. The action cannot live inside the
+   row, because a button inside a button is not a button. */
+.pt-row-wrap { display: flex; align-items: stretch; gap: var(--pt-2); }
+.pt-row-wrap .pt-row { flex: 1; min-width: 0; }
+.pt-row-act {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 var(--pt-3);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-sm);
+  background: var(--pt-surface);
+  color: var(--pt-navy);
+  font-size: .75rem; font-weight: 700; white-space: nowrap;
+}
+.pt-row-act:hover { background: var(--pt-tint); border-color: var(--pt-blue); }
+.pt-row-act svg { width: 14px; height: 14px; }
+
+/* ── editable fields in the drawer ─────────────────────────────── */
+
+.pt-drawer-tags {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: var(--pt-5);
+}
+.pt-field + .pt-field { margin-top: var(--pt-4); }
+.pt-field-head { display: flex; align-items: center; gap: var(--pt-2); margin-bottom: 6px; }
+.pt-field-label {
+  flex: 1;
+  font-size: .72rem; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--pt-muted);
+}
+/* Quiet on purpose. A save that shouts is a save you stop trusting. */
+.pt-field-tick {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: .68rem; font-weight: 700; color: var(--pt-good);
+  opacity: 0; transition: opacity var(--pt-t);
+}
+.pt-field-tick[data-on='true'] { opacity: 1; }
+.pt-field-tick svg { width: 12px; height: 12px; }
+.pt-field-row { display: flex; align-items: center; gap: 6px; }
+.pt-field-row .pt-input { flex: 1; min-width: 0; }
+.pt-field-open {
+  flex: none; width: 34px; height: 34px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r-sm);
+  color: var(--pt-navy); background: var(--pt-surface);
+}
+.pt-field-open:hover { background: var(--pt-tint); }
+.pt-field-open svg { width: 14px; height: 14px; }
+
+.pt-input {
+  width: 100%;
+  padding: 8px var(--pt-3);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-sm);
+  background: var(--pt-surface);
+  color: var(--pt-ink);
+  font: inherit; font-size: .88rem;
+  transition: border-color var(--pt-t), box-shadow var(--pt-t);
+}
+.pt-input::placeholder { color: var(--pt-dim); }
+.pt-input:hover { border-color: var(--pt-line-strong); }
+.pt-input:focus { border-color: var(--pt-blue); }
+.pt-textarea { resize: vertical; line-height: 1.5; }
+.pt-input-search { width: 170px; }
+.pt-select-wide { width: 100%; }
+
+.pt-chipset { display: flex; flex-wrap: wrap; gap: 6px; }
+.pt-setchip {
+  padding: 5px var(--pt-3);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-pill);
+  background: var(--pt-surface); color: var(--pt-ink-2);
+  font-size: .76rem; font-weight: 600;
+  transition: background var(--pt-t), border-color var(--pt-t), color var(--pt-t);
+}
+.pt-setchip:hover { border-color: var(--pt-line-strong); }
+.pt-setchip-on {
+  background: var(--n-tint, var(--pt-tint));
+  border-color: var(--n-ink, var(--pt-navy));
+  color: var(--n-ink, var(--pt-navy));
+}
+
+.pt-drawer-actions { display: flex; gap: var(--pt-2); }
+.pt-drawer-actions > * { flex: 1; }
+
+/* ── review ───────────────────────────────────────────────────── */
+
+.pt-review {
+  padding: var(--pt-4);
+  margin-bottom: var(--pt-5);
+  background: var(--pt-tint-orange);
+  border-radius: var(--pt-r);
+}
+.pt-review-label {
+  font-size: .72rem; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--pt-orange-ink);
+  margin-bottom: 6px;
+}
+.pt-review p { margin: 0 0 var(--pt-3); font-size: .85rem; color: var(--pt-ink-2); }
+.pt-review-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ── the sheet ─────────────────────────────────────────────────── */
+
+.pt-sheet {
+  position: fixed; z-index: 61;
+  left: 50%; top: 50%; transform: translate(-50%, -48%);
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(86vh, 680px);
+  display: flex; flex-direction: column;
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-lg);
+  box-shadow: var(--pt-shadow-lg);
+  opacity: 0;
+  transition: opacity var(--pt-t), transform 200ms cubic-bezier(.4, 0, .2, 1);
+}
+.pt-sheet[data-open='true'] { opacity: 1; transform: translate(-50%, -50%); }
+.pt-sheet-head {
+  display: flex; align-items: flex-start; gap: var(--pt-3);
+  padding: var(--pt-4) var(--pt-5) var(--pt-3);
+  border-bottom: 1px solid var(--pt-line-soft);
+}
+.pt-sheet-head h2 { flex: 1; font-size: 1rem; font-weight: 700; color: var(--pt-ink); }
+.pt-sheet-body { padding: var(--pt-5); overflow-y: auto; }
+.pt-sheet-body > .pt-btn { width: 100%; }
+.pt-sheet-note { margin: var(--pt-3) 0 0; font-size: .78rem; color: var(--pt-muted); }
+.pt-sheet-foot { margin-top: var(--pt-5); }
+.pt-sheet-foot .pt-btn { width: 100%; padding: 11px var(--pt-4); }
+.pt-more { margin-top: var(--pt-4); }
+.pt-more summary {
+  font-size: .78rem; font-weight: 700; color: var(--pt-navy); cursor: pointer;
+}
+.pt-more .pt-field:first-of-type { margin-top: var(--pt-3); }
+
+/* ── the toast ─────────────────────────────────────────────────── */
+
+.pt-toast {
+  position: fixed; z-index: 70;
+  left: 50%; bottom: var(--pt-5);
+  transform: translate(-50%, 12px);
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 11px var(--pt-4);
+  border-radius: var(--pt-r-pill);
+  background: var(--pt-ink); color: #fff;
+  font-size: .82rem; font-weight: 600; text-align: center;
+  box-shadow: var(--pt-shadow-lg);
+  opacity: 0;
+  transition: opacity var(--pt-t), transform var(--pt-t);
+}
+.pt-toast[data-open='true'] { opacity: 1; transform: translate(-50%, 0); }
+.pt-toast-bad { background: var(--pt-bad); }
+
+/* NOTE: below the base rules it overrides, as every media query here
+   must be. */
+@media (max-width: 900px) {
+  /* The toolbar button is off screen on a phone, so the thumb-reach
+     button takes over. */
+  .pt-btn-add { display: none; }
+  .pt-fab { display: inline-flex; bottom: 84px; right: var(--pt-4); }
+  .pt-board-col { flex: 1 1 auto; }
+  .pt-input-search { width: 100%; order: 10; }
+  .pt-sheet {
+    left: 0; right: 0; bottom: 0; top: auto;
+    width: 100%; max-width: none;
+    transform: translateY(100%);
+    border-radius: var(--pt-r-lg) var(--pt-r-lg) 0 0;
+    border-bottom: 0;
+    max-height: 88vh;
+    opacity: 1;
+  }
+  .pt-sheet[data-open='true'] { transform: none; }
+  .pt-toast { bottom: 84px; }
+  /* A tap target, not a hover target. */
+  .pt-row-wrap { flex-direction: column; align-items: stretch; }
+  .pt-row-act { padding: 9px var(--pt-3); justify-content: center; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHOWS AND TICKET SALES
+   ══════════════════════════════════════════════════════════════ */
+
+.pt-headline-card { display: flex; flex-direction: column; gap: 4px; }
+.pt-headline-label {
+  font-size: .72rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: rgba(255,255,255,.72);
+}
+.pt-headline-value {
+  font-size: 2rem; font-weight: 700; line-height: 1.05; color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.pt-headline-foot {
+  display: flex; align-items: center; gap: var(--pt-2);
+  font-size: .8rem; color: rgba(255,255,255,.78);
+}
+
+/* One series, so no legend: each bar carries its own number, its own
+   sell-through and its own name. Fills are anchored to the baseline
+   and rounded only at the top, which is the data end. */
+.pt-bars {
+  display: flex; align-items: flex-end; gap: 2px;
+  margin-top: var(--pt-5);
+  overflow-x: auto;
+  padding-bottom: var(--pt-1);
+}
+.pt-bar-col {
+  flex: 1 1 0; min-width: 62px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 0 2px;
+}
+.pt-bar-num {
+  font-size: .82rem; font-weight: 700; color: var(--pt-ink);
+  font-variant-numeric: tabular-nums;
+}
+.pt-bar-track {
+  width: 100%; height: 132px;
+  display: flex; align-items: flex-end;
+  background: var(--pt-tint-soft);
+  border-radius: 4px 4px 0 0;
+}
+.pt-bar-col-fill {
+  width: 100%;
+  background: var(--pt-orange);
+  border-radius: 4px 4px 0 0;
+  transition: height 520ms cubic-bezier(.3, 0, .2, 1);
+}
+/* The starting line is not a show we played, so it does not wear the
+   show colour. */
+.pt-bar-col-base { background: var(--pt-slate); }
+.pt-bar-sell {
+  min-height: 1em;
+  font-size: .68rem; font-weight: 700; color: var(--pt-muted);
+}
+.pt-bar-name {
+  font-size: .74rem; font-weight: 600; color: var(--pt-ink-2);
+  text-align: center; line-height: 1.25;
+}
+.pt-bar-date { font-size: .68rem; color: var(--pt-dim); }
+
+.pt-ministats {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--pt-3);
+  margin-top: var(--pt-5);
+  padding-top: var(--pt-4);
+  border-top: 1px solid var(--pt-line-soft);
+}
+.pt-ministat { display: flex; flex-direction: column; gap: 2px; }
+.pt-ministat-value {
+  font-size: 1.15rem; font-weight: 700; color: var(--pt-ink);
+  font-variant-numeric: tabular-nums;
+}
+.pt-ministat-label {
+  font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--pt-muted);
+}
+.pt-ministat-note {
+  grid-column: 1 / -1;
+  margin: var(--pt-1) 0 0; font-size: .8rem; color: var(--pt-muted);
+}
+
+/* NOTE: below the base rules it overrides, as every media query here
+   must be. */
+@media (max-width: 620px) {
+  .pt-ministats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pt-4) var(--pt-3); }
+  .pt-headline-value { font-size: 1.7rem; }
+  /* Bars keep their width and the row scrolls, rather than squeezing
+     six shows into a phone and making every label unreadable. */
+  .pt-bar-col { flex: 0 0 76px; }
+  .pt-bar-track { height: 104px; }
 }

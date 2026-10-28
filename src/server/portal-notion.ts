@@ -25,6 +25,12 @@ import {
   type PortalCalendarItem,
   type PortalSnapshot,
 } from '../data/portal';
+import {
+  CONTENT_FIELDS,
+  type PortalContentItem,
+  type PortalContentSchema,
+  type PortalOption,
+} from '../data/portal-content';
 
 const NOTION_VERSION = '2022-06-28';
 
@@ -299,6 +305,7 @@ export async function fetchCalendar(
         moment: null,
         streamsToDate: readNumber(p[CALENDAR_FIELDS[14]]),
         ticketsSold: readNumber(p[CALENDAR_FIELDS[15]]),
+        capacity: readNumber(p[CALENDAR_FIELDS[16]]),
       },
     });
   }
@@ -391,4 +398,183 @@ export async function fetchSnapshots(token: string, clientPageId: string): Promi
       metrics,
     };
   });
+}
+
+/* ── Content Pipeline ──────────────────────────────────────────
+   The first database a client can write to, so everything here is
+   written twice over: the read filters on Hide from Client, and every
+   write re-fetches the page and checks ownership again before it
+   touches anything. A request is never trusted about which row it is
+   allowed to change.
+   ────────────────────────────────────────────────────────────── */
+
+export const CONTENT_DB = '4d967fc7-6948-445b-afe7-8d34bd31e228';
+
+/** One Notion page, shaped field by field into the client's view. */
+function shapeContent(page: any): PortalContentItem {
+  const p = page.properties ?? {};
+  return {
+    id: String(page.id),
+    title: cleanItemTitle(readText(p[CONTENT_FIELDS[0]]) ?? ''),
+    status: readSelect(p[CONTENT_FIELDS[1]]),
+    bucket: readSelect(p[CONTENT_FIELDS[2]]),
+    format: readMultiSelect(p[CONTENT_FIELDS[3]]),
+    source: readSelect(p[CONTENT_FIELDS[4]]),
+    filmBy: readDate(p[CONTENT_FIELDS[5]]),
+    postDate: readDate(p[CONTENT_FIELDS[6]]),
+    postedBy: readSelect(p[CONTENT_FIELDS[7]]),
+    platforms: readMultiSelect(p[CONTENT_FIELDS[8]]),
+    campaign: readRelation(p[CONTENT_FIELDS[9]]),
+    shootCode: readText(p[CONTENT_FIELDS[10]]),
+    onScreenText: readText(p[CONTENT_FIELDS[11]]),
+    caption: readText(p[CONTENT_FIELDS[12]]),
+    notes: readText(p[CONTENT_FIELDS[13]]),
+    feedback: readText(p[CONTENT_FIELDS[14]]),
+    footageLink: readUrl(p[CONTENT_FIELDS[15]]),
+    editLink: readUrl(p[CONTENT_FIELDS[16]]),
+    postLink: readUrl(p[CONTENT_FIELDS[17]]),
+  };
+}
+
+export async function fetchContent(
+  token: string,
+  clientPageId: string,
+): Promise<PortalContentItem[]> {
+  // Failing soft, and only here. The Content Pipeline is one database
+  // among four, and a client whose portal went dark because that one
+  // is not shared with the integration yet would lose their calendar
+  // and their reports too. A read that fails shows nothing; it is the
+  // ownership checks on the WRITE side that must never degrade.
+  let results: any[];
+  try {
+    results = await queryAll(token, CONTENT_DB, {
+      filter: {
+        and: [
+          { property: 'Client', relation: { contains: clientPageId } },
+          { property: 'Hide from Client', checkbox: { equals: false } },
+        ],
+      },
+    });
+  } catch (err) {
+    console.error('portal: content fetch failed', err);
+    return [];
+  }
+
+  // The filter is belt; this is braces. If the filter ever stops
+  // matching the way we think it does, a hidden row still cannot ship.
+  return results
+    .filter((page: any) => !readCheckbox((page.properties ?? {})['Hide from Client']))
+    .map(shapeContent);
+}
+
+/**
+ * The select and multi-select options, read from the live schema.
+ *
+ * Buckets are Sean's own vocabulary and he will add more. Reading them
+ * at runtime means a new bucket shows up in his portal the moment he
+ * adds it in Notion, with its colour, and no deploy.
+ */
+export async function fetchContentSchema(token: string): Promise<PortalContentSchema> {
+  const empty: PortalContentSchema = { bucket: [], format: [], platforms: [], status: [] };
+  try {
+    const res = await fetch(`https://api.notion.com/v1/databases/${CONTENT_DB}`, {
+      headers: notionHeaders(token),
+    });
+    if (!res.ok) {
+      console.error('portal: content schema fetch failed', res.status);
+      return empty;
+    }
+    const db = (await res.json()) as any;
+    const props = db.properties ?? {};
+    const opts = (name: string): PortalOption[] => {
+      const p = props[name];
+      const list = p?.type === 'select' ? p.select?.options
+        : p?.type === 'multi_select' ? p.multi_select?.options
+        : null;
+      if (!Array.isArray(list)) return [];
+      return list.map((o: any) => ({ name: String(o?.name ?? ''), color: String(o?.color ?? 'default') }))
+        .filter((o: PortalOption) => o.name);
+    };
+    return {
+      bucket: opts('Bucket'),
+      format: opts('Format'),
+      platforms: opts('Platforms'),
+      status: opts('Status'),
+    };
+  } catch (err) {
+    console.error('portal: content schema fetch threw', err);
+    return empty;
+  }
+}
+
+/**
+ * The one content row with this id that belongs to this client.
+ *
+ * Returns null for a row that does not exist, belongs to someone else,
+ * or is hidden. The caller turns every one of those into the same 404,
+ * so a forged id cannot be used to probe which rows exist.
+ */
+export async function fetchOwnedContent(
+  token: string,
+  clientPageId: string,
+  pageId: string,
+): Promise<{ page: any; item: PortalContentItem } | null> {
+  const page = await fetchPage(token, pageId);
+  if (!page || page.object !== 'page' || page.archived) return null;
+
+  const p = page.properties ?? {};
+  const owners = readRelation(p['Client']).map((id) => id.replace(/-/g, ''));
+  if (!owners.includes(clientPageId.replace(/-/g, ''))) {
+    console.error('portal: content write aimed at another client', pageId);
+    return null;
+  }
+  if (readCheckbox(p['Hide from Client'])) return null;
+
+  return { page, item: shapeContent(page) };
+}
+
+/** PATCH one page's properties. Properties are built by the caller
+ *  from CLIENT_EDITABLE; nothing from the request reaches Notion
+ *  except as a value inside one of those. */
+export async function updateContentPage(
+  token: string,
+  pageId: string,
+  properties: Record<string, unknown>,
+): Promise<PortalContentItem | null> {
+  try {
+    const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+      method: 'PATCH',
+      headers: notionHeaders(token),
+      body: JSON.stringify({ properties }),
+    });
+    if (!res.ok) {
+      console.error('portal: content update failed', pageId, res.status, await res.text());
+      return null;
+    }
+    return shapeContent(await res.json());
+  } catch (err) {
+    console.error('portal: content update threw', pageId, err);
+    return null;
+  }
+}
+
+export async function createContentPage(
+  token: string,
+  properties: Record<string, unknown>,
+): Promise<PortalContentItem | null> {
+  try {
+    const res = await fetch('https://api.notion.com/v1/pages', {
+      method: 'POST',
+      headers: notionHeaders(token),
+      body: JSON.stringify({ parent: { database_id: CONTENT_DB }, properties }),
+    });
+    if (!res.ok) {
+      console.error('portal: content create failed', res.status, await res.text());
+      return null;
+    }
+    return shapeContent(await res.json());
+  } catch (err) {
+    console.error('portal: content create threw', err);
+    return null;
+  }
 }

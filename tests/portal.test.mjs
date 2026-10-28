@@ -26,6 +26,30 @@ import {
   CLIENT_NEVER_SEND,
   CALENDAR_NEVER_SEND,
   SNAPSHOT_NEVER_SEND,
+  // content
+  CONTENT_FIELDS,
+  CONTENT_NEVER_SEND,
+  CONTENT_STATUSES,
+  CLIENT_STATUS_MOVES,
+  CLIENT_EDITABLE,
+  CLIENT_READ_ONLY,
+  canClientMove,
+  cleanPatchText,
+  cleanPatchUrl,
+  cleanPatchDate,
+  cleanPatchSelect,
+  cleanPatchMulti,
+  cleanPatchRelation,
+  normaliseId,
+  stageOf,
+  isIdea,
+  MAX_TITLE,
+  MAX_TEXT,
+  // writes
+  buildContentProperties,
+  stampClientEdit,
+  isSameOrigin,
+  isJsonRequest,
   // auth
   checkPortalKey,
   timingSafeEqual,
@@ -51,6 +75,7 @@ const is = (name, got, want) => {
   else { fail++; console.log('  FAIL', name, '\n       got ', g, '\n       want', w); }
 };
 const ok = (name, cond) => is(name, Boolean(cond), true);
+const section = (title) => console.log(`\n${title}`);
 
 /* ══ 1. Calendar visibility ══════════════════════════════════════
    The rule the whole portal hangs on. A row the client should not see
@@ -684,6 +709,207 @@ is('pace: a goal already met needs no pace',
 is('pace: a deadline that has passed needs no pace',
    weeklyPaceNeeded(3117, 5000, '2026-10-01', paceNow), null);
 is('pace: no deadline, no pace', weeklyPaceNeeded(3117, 5000, null, paceNow), null);
+
+/* ══════════════════════════════════════════════════════════════
+   CONTENT PIPELINE — the first writable surface
+   ══════════════════════════════════════════════════════════════ */
+
+section('Content: the two whitelists');
+
+// The read list and the write list are separate on purpose. Anything
+// that appears in both is a field a client may change; anything that
+// appears in neither they cannot see at all.
+const editableProps = Object.values(CLIENT_EDITABLE);
+
+is('content: nothing never-send is readable',
+   CONTENT_NEVER_SEND.some(f => CONTENT_FIELDS.includes(f)), false);
+is('content: nothing never-send is writable',
+   CONTENT_NEVER_SEND.some(f => editableProps.includes(f)), false);
+is('content: the read-only list and the editable list are disjoint',
+   CLIENT_READ_ONLY.some(f => editableProps.includes(f)), false);
+is('content: every editable property is one we also read',
+   editableProps.every(f => CONTENT_FIELDS.includes(f)), true);
+is('content: Edit Link is readable but not writable',
+   CONTENT_FIELDS.includes('Edit Link') && !editableProps.includes('Edit Link'), true);
+
+section('Content: status moves a client may make');
+
+is('status: Idea to Planned', canClientMove('Idea', 'Planned'), true);
+is('status: Planned back to Idea', canClientMove('Planned', 'Idea'), true);
+is('status: Planned to Filmed', canClientMove('Planned', 'Filmed'), true);
+is('status: Filmed to Footage In', canClientMove('Filmed', 'Footage In'), true);
+is('status: Ready for Review to Approved', canClientMove('Ready for Review', 'Approved'), true);
+is('status: Approved to Posted', canClientMove('Approved', 'Posted'), true);
+is('status: Scheduled to Posted', canClientMove('Scheduled', 'Posted'), true);
+is('status: Skipped back to Idea', canClientMove('Skipped', 'Idea'), true);
+is('status: anything to Skipped',
+   CONTENT_STATUSES.every(s => s === 'Skipped' || canClientMove(s, 'Skipped')), true);
+
+// Editing, Ready for Review and Scheduled are ours to set in Notion.
+is('status: a client cannot start an edit', canClientMove('Footage In', 'Editing'), false);
+is('status: a client cannot put their own card up for review',
+   canClientMove('Filmed', 'Ready for Review'), false);
+is('status: a client cannot schedule', canClientMove('Approved', 'Scheduled'), false);
+is('status: no jumping the queue', canClientMove('Idea', 'Posted'), false);
+is('status: no approving your own unseen edit', canClientMove('Editing', 'Approved'), false);
+is('status: no un-posting', canClientMove('Posted', 'Approved'), false);
+is('status: an invented status is not a status', canClientMove('Idea', 'Published'), false);
+is('status: a status that is already set is a no-op, not a refusal',
+   canClientMove('Editing', 'Editing'), true);
+is('status: a blank row can only start at the beginning',
+   [canClientMove(null, 'Idea'), canClientMove(null, 'Planned'), canClientMove(null, 'Approved')],
+   [true, true, false]);
+
+section('Content: field validation');
+
+is('text: trimmed', cleanPatchText('  SM L1D1  ', MAX_TITLE), 'SM L1D1');
+is('text: emptied means cleared', cleanPatchText('   ', MAX_TITLE), null);
+is('text: null means cleared', cleanPatchText(null, MAX_TITLE), null);
+is('text: a number is not text', cleanPatchText(42, MAX_TITLE), undefined);
+is('text: an object is not text', cleanPatchText({ content: 'hi' }, MAX_TITLE), undefined);
+is('text: a title is capped at 200',
+   cleanPatchText('x'.repeat(500), MAX_TITLE).length, 200);
+is('text: a caption is capped at 2,000',
+   cleanPatchText('x'.repeat(5000), MAX_TEXT).length, 2000);
+
+is('url: https passes', cleanPatchUrl('https://instagram.com/p/abc'),
+   'https://instagram.com/p/abc');
+is('url: http passes', cleanPatchUrl('http://example.com/'), 'http://example.com/');
+is('url: javascript is refused', cleanPatchUrl('javascript:alert(1)'), undefined);
+is('url: data is refused', cleanPatchUrl('data:text/html,<script>'), undefined);
+is('url: a bare word is not a link', cleanPatchUrl('instagram'), undefined);
+is('url: blank clears the field', cleanPatchUrl(''), null);
+
+is('date: a plain day passes', cleanPatchDate('2026-11-15'), '2026-11-15');
+is('date: a timestamp is refused', cleanPatchDate('2026-11-15T10:00:00Z'), undefined);
+is('date: an impossible day is refused', cleanPatchDate('2026-13-45'), undefined);
+is('date: blank clears the field', cleanPatchDate(''), null);
+
+const buckets = ['Talking Head', 'Release Promo', 'Skit'];
+is('select: a real option passes', cleanPatchSelect('Skit', buckets), 'Skit');
+is('select: an invented option is refused', cleanPatchSelect('Vlog', buckets), undefined);
+is('select: case matters, because Notion would create a new option',
+   cleanPatchSelect('skit', buckets), undefined);
+
+const platforms = ['Instagram', 'TikTok', 'YouTube'];
+is('multi: known values survive',
+   cleanPatchMulti(['Instagram', 'TikTok'], platforms), ['Instagram', 'TikTok']);
+is('multi: unknown values are dropped, the rest stays',
+   cleanPatchMulti(['Instagram', 'Myspace'], platforms), ['Instagram']);
+is('multi: duplicates collapse',
+   cleanPatchMulti(['TikTok', 'TikTok'], platforms), ['TikTok']);
+is('multi: an empty array clears the field', cleanPatchMulti([], platforms), []);
+is('multi: a string is not a list', cleanPatchMulti('Instagram', platforms), undefined);
+
+const mine = ['aaaaaaaa-1111-2222-3333-444444444444'];
+is('relation: my own moment passes',
+   cleanPatchRelation(['aaaaaaaa-1111-2222-3333-444444444444'], mine),
+   [normaliseId(mine[0])]);
+is('relation: dashes do not decide identity',
+   cleanPatchRelation(['AAAAAAAA111122223333444444444444'], mine), [normaliseId(mine[0])]);
+is('relation: another client’s moment is dropped',
+   cleanPatchRelation(['bbbbbbbb-1111-2222-3333-444444444444'], mine), []);
+
+section('Content: building Notion properties');
+
+const schema = {
+  bucket: buckets.map(name => ({ name, color: 'gray' })),
+  format: [{ name: 'Text on Screen', color: 'gray' }],
+  platforms: platforms.map(name => ({ name, color: 'gray' })),
+  status: CONTENT_STATUSES.map(name => ({ name, color: 'gray' })),
+};
+const ctx = (currentStatus = 'Planned') => ({ schema, allowedCampaigns: mine, currentStatus });
+
+// A key the client did not send must not appear in the properties at
+// all: an autosave sends one field, and the others must be left alone.
+const one = buildContentProperties({ caption: 'new caption' }, ctx());
+is('build: only what was sent is written',
+   Object.keys(one.properties), ['Caption']);
+is('build: rich text is wrapped the way Notion wants it',
+   one.properties.Caption.rich_text[0].text.content, 'new caption');
+
+const unknown = buildContentProperties({ title: 'Hi', Client: ['x'], 'Hide from Client': false }, ctx());
+is('build: an unrecognised key cannot survive',
+   Object.keys(unknown.properties), ['Content']);
+
+const bad = buildContentProperties(
+  { caption: 'keep me', postLink: 'javascript:alert(1)' }, ctx());
+is('build: a bad link does not cost you the caption you typed with it',
+   Object.keys(bad.properties), ['Caption']);
+is('build: and the refusal is named', bad.rejected, ['postLink']);
+
+const jump = buildContentProperties({ status: 'Editing' }, ctx('Planned'));
+is('build: a disallowed status move writes nothing',
+   Object.keys(jump.properties).length, 0);
+is('build: and is reported as rejected', jump.rejected, ['status']);
+
+const move = buildContentProperties({ status: 'Filmed' }, ctx('Planned'));
+is('build: an allowed status move writes the select',
+   move.properties.Status.select.name, 'Filmed');
+
+const foreign = buildContentProperties(
+  { campaign: ['bbbbbbbb-1111-2222-3333-444444444444'] }, ctx());
+is('build: a campaign this client cannot see is written as empty',
+   foreign.properties.Campaign.relation, []);
+
+is('build: clearing a date sends null, which is how Notion clears it',
+   buildContentProperties({ postDate: null }, ctx()).properties['Post Date'].date, null);
+
+const stamped = stampClientEdit(buildContentProperties({ caption: 'x' }, ctx()).properties);
+is('build: every client write is stamped Client',
+   stamped['Last Edited By'].select.name, 'Client');
+is('build: the stamp is not something the request can set',
+   stampClientEdit(
+     buildContentProperties({ 'Last Edited By': { select: { name: 'Blueprint' } } }, ctx()).properties,
+   )['Last Edited By'].select.name, 'Client');
+
+section('Content: request gates');
+
+const req = (headers, method = 'PATCH') =>
+  new Request('https://blueprint-marketing.com/portal/sean-comma/content/x',
+              { method, headers });
+
+is('origin: our own origin passes',
+   isSameOrigin(req({ Origin: 'https://blueprint-marketing.com' })), true);
+is('origin: somebody else’s does not',
+   isSameOrigin(req({ Origin: 'https://evil.example' })), false);
+is('origin: a referer stands in when there is no origin',
+   isSameOrigin(req({ Referer: 'https://blueprint-marketing.com/portal/sean-comma' })), true);
+is('origin: neither header is a no, not a maybe', isSameOrigin(req({})), false);
+is('content-type: JSON passes',
+   isJsonRequest(req({ 'Content-Type': 'application/json' })), true);
+is('content-type: a form post is not a portal write',
+   isJsonRequest(req({ 'Content-Type': 'application/x-www-form-urlencoded' })), false);
+
+section('Content: boards and columns');
+
+const nowC = new Date(2026, 9, 28);   // 28 Oct 2026
+const card = (o) => ({ status: null, filmBy: null, postDate: null, ...o });
+
+is('ideas: an undated idea is in the well', isIdea(card({ status: 'Idea' })), true);
+is('ideas: a planned card with no date is still an idea',
+   isIdea(card({ status: 'Planned' })), true);
+is('ideas: a date takes it out of the well',
+   isIdea(card({ status: 'Planned', postDate: '2026-11-02' })), false);
+is('ideas: filmed is not an idea', isIdea(card({ status: 'Filmed' })), false);
+
+is('pipeline: planned with no film date', stageOf(card({ status: 'Planned' }), nowC), 'planned');
+is('pipeline: planned with a film date is To Film',
+   stageOf(card({ status: 'Planned', filmBy: '2026-11-01' }), nowC), 'toFilm');
+is('pipeline: filmed and footage in share a column',
+   [stageOf(card({ status: 'Filmed' }), nowC), stageOf(card({ status: 'Footage In' }), nowC)],
+   ['filmed', 'filmed']);
+is('pipeline: approved and scheduled share Ready to Post',
+   [stageOf(card({ status: 'Approved' }), nowC), stageOf(card({ status: 'Scheduled' }), nowC)],
+   ['ready', 'ready']);
+is('pipeline: skipped is hidden', stageOf(card({ status: 'Skipped' }), nowC), null);
+is('pipeline: an idea is not on the pipeline', stageOf(card({ status: 'Idea' }), nowC), null);
+is('pipeline: a recent post still shows',
+   stageOf(card({ status: 'Posted', postDate: '2026-10-20' }), nowC), 'posted');
+is('pipeline: a post older than 30 days drops off',
+   stageOf(card({ status: 'Posted', postDate: '2026-09-01' }), nowC), null);
+is('pipeline: the 30th day still counts',
+   stageOf(card({ status: 'Posted', postDate: '2026-09-28' }), nowC), 'posted');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -14,6 +14,7 @@ import { DIRECT_EMAIL } from '../../config/cta';
 const NAV = [
   { id: 'home',     label: 'Home',     icon: 'home' },
   { id: 'calendar', label: 'Calendar', icon: 'cal' },
+  { id: 'content',  label: 'Content',  icon: 'film' },
   { id: 'reports',  label: 'Reports',  icon: 'chart' },
   { id: 'files',    label: 'Files',    icon: 'folder' },
 ];
@@ -36,6 +37,22 @@ const NAV = [
       </symbol>
       <symbol id="pt-i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.3a1.5 1.5 0 0 1 1.1.5l1.3 1.5h7.3A1.5 1.5 0 0 1 20 9.5v8A1.5 1.5 0 0 1 18.5 19h-14A1.5 1.5 0 0 1 3 17.5z"/>
+      </symbol>
+      <symbol id="pt-i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M8 5v14M16 5v14M3 12h18"/>
+      </symbol>
+      <symbol id="pt-i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <path d="M12 5v14M5 12h14"/>
+      </symbol>
+      <symbol id="pt-i-grip" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/>
+      </symbol>
+      <symbol id="pt-i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13.5a4 4 0 0 0 5.7 0l2.8-2.8a4 4 0 0 0-5.7-5.7l-1.4 1.4"/>
+        <path d="M14 10.5a4 4 0 0 0-5.7 0l-2.8 2.8a4 4 0 0 0 5.7 5.7l1.4-1.4"/>
+      </symbol>
+      <symbol id="pt-i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="m10 8.5 6 3.5-6 3.5z"/>
       </symbol>
       <symbol id="pt-i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m9 5 7 7-7 7"/>
@@ -145,6 +162,7 @@ const NAV = [
       <main class="pt-main">
         <section class="pt-view" data-view="home" aria-label="Home"></section>
         <section class="pt-view" data-view="calendar" aria-label="Calendar" hidden></section>
+        <section class="pt-view" data-view="content" aria-label="Content" hidden></section>
         <section class="pt-view" data-view="reports" aria-label="Reports" hidden></section>
         <section class="pt-view" data-view="files" aria-label="Files" hidden></section>
       </main>
@@ -173,6 +191,25 @@ const NAV = [
     <div class="pt-drawer-body" data-drawer-body></div>
     <div class="pt-drawer-foot" data-drawer-foot hidden></div>
   </aside>
+
+  {/* ── sheet: quick add, mark as posted, paste a link ───────────
+      A second, smaller dialog. The drawer is for reading a card; the
+      sheet is for one short answer, and on a phone it comes up from
+      the bottom where a thumb already is. */}
+  <div class="pt-scrim" data-sheet-scrim hidden></div>
+  <div class="pt-sheet" data-sheet role="dialog" aria-modal="true" aria-labelledby="pt-sheet-title" hidden>
+    <div class="pt-sheet-head">
+      <h2 id="pt-sheet-title" data-sheet-title></h2>
+      <button class="pt-announce-close" data-sheet-close aria-label="Close">
+        <svg aria-hidden="true"><use href="#pt-i-close" /></svg>
+      </button>
+    </div>
+    <form class="pt-sheet-body" data-sheet-body></form>
+  </div>
+
+  {/* A save either worked or it did not, and the client needs to know
+      which without a dialog in their way. */}
+  <div class="pt-toast" data-toast role="status" aria-live="polite" hidden></div>
 </PortalLayout>
 
 <script>
@@ -194,6 +231,19 @@ const NAV = [
     type PortalPayload,
     type PortalSnapshot,
   } from '../../data/portal';
+  import {
+    canClientMove,
+    isIdea,
+    normaliseId,
+    stageOf,
+    MAX_TEXT,
+    MAX_TITLE,
+    STAGE_ORDER,
+    STAGE_TITLE,
+    type PortalContentItem,
+    type PortalContentSchema,
+    type Stage,
+  } from '../../data/portal-content';
   import {
     compactNumber,
     displayMetricLabel,
@@ -367,8 +417,11 @@ const NAV = [
     const tier = q('[data-tier]');
     if (tier && c.tier) { tier.textContent = c.tier; show(tier, true); }
 
-    renderHome(data);
+    // Content first: the calendar and Home both draw content rows, so
+    // the content state has to exist before either of them runs.
+    renderContent(data);
     renderCalendar(data.calendar);
+    renderHome(data);
     renderReports(data.snapshots);
     renderFiles(c);
 
@@ -383,7 +436,7 @@ const NAV = [
   /* ── router ────────────────────────────────────────────────────
      Hash routes so each section is its own view in the shell rather
      than one long scroll, and so a client can bookmark "my calendar". */
-  const VIEWS = ['home', 'calendar', 'reports', 'files'] as const;
+  const VIEWS = ['home', 'calendar', 'content', 'reports', 'files'] as const;
   type View = typeof VIEWS[number];
 
   function currentRoute(): { view: View; detail: string } {
@@ -406,7 +459,9 @@ const NAV = [
       if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
     }
     if (view === 'reports') showPlatform(detail);
+    if (view === 'content') drawContent();
     closeDrawer();
+    closeSheet();
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
@@ -488,7 +543,10 @@ const NAV = [
     const cols = el('div', 'pt-grid pt-grid-2');
     cols.style.marginTop = 'var(--pt-5)';
 
-    const todos = data.calendar.filter(isOpenClientTodo);
+    // Campaign-calendar rows the client owns, plus the content they
+    // are filming or posting in the next week. One list, because from
+    // where they sit it is all the same question: what is on me?
+    const todos = [...data.calendar.filter(isOpenClientTodo), ...contentTodos()];
     cols.appendChild(
       listCard('Your to-dos', todos.slice(0, 6), {
         emptyIcon: 'check',
@@ -810,12 +868,16 @@ const NAV = [
   }
 
   function itemRow(it: PortalCalendarItem): HTMLLIElement {
+    const row = it as CalRow;
     const li = el('li');
     const btn = el('button', 'pt-row');
     btn.type = 'button';
     btn.addEventListener('click', () => openDrawer(it));
 
-    btn.appendChild(el('span', `pt-kind pt-kind-${kindOf(it)}`));
+    const keyCls = row.content
+      ? `pt-kind pt-kind-${row.contentRole} pt-nc-${bucketColor(row.content.bucket)}`
+      : `pt-kind pt-kind-${kindOf(it)}`;
+    btn.appendChild(el('span', keyCls));
 
     const d = parseNotionDate(it.date);
     if (d) {
@@ -842,8 +904,10 @@ const NAV = [
     // to-do" in the meta line costs a wrapped line on a phone and
     // says nothing new.
     const k = kindOf(it);
-    const bits = [k === 'todo' ? null : KIND_LABEL[k], it.where, it.venueCity, it.status]
-      .filter(Boolean) as string[];
+    const bits = row.content
+      ? [row.content.bucket, it.where, row.content.status].filter(Boolean) as string[]
+      : [k === 'todo' ? null : KIND_LABEL[k], it.where, it.venueCity, it.status]
+          .filter(Boolean) as string[];
     for (const b of bits.slice(0, it.moment ? 2 : 3)) meta.appendChild(el('span', undefined, b));
     main.appendChild(meta);
     btn.appendChild(main);
@@ -852,13 +916,31 @@ const NAV = [
     chev.appendChild(icon('chev'));
     btn.appendChild(chev);
 
+    // A post the client puts up themselves is one tap from done, and a
+    // nested button inside the row would not be a button at all, so the
+    // action sits beside it.
+    const c = row.content;
+    const canPost = !!c && row.contentRole === 'post' && c.postedBy === 'Client'
+      && (c.status === 'Approved' || c.status === 'Scheduled');
+    if (canPost) {
+      const wrap = el('div', 'pt-row-wrap');
+      const act = el('button', 'pt-row-act');
+      act.type = 'button';
+      act.appendChild(icon('check'));
+      act.appendChild(el('span', undefined, 'Mark as posted'));
+      act.addEventListener('click', () => openPostedSheet(c!));
+      wrap.append(btn, act);
+      li.appendChild(wrap);
+      return li;
+    }
+
     li.appendChild(btn);
     return li;
   }
 
   /* ── calendar ──────────────────────────────────────────────── */
   type CalView = 'month' | 'week' | 'agenda';
-  type Filter = 'all' | 'moments' | 'releases' | 'content' | 'todos';
+  type Filter = 'all' | 'moments' | 'releases' | 'content' | 'posts' | 'films' | 'todos';
 
   const CAL = {
     view: 'month' as CalView,
@@ -913,22 +995,31 @@ const NAV = [
     // A campaign filter keeps the moment itself as well as its steps:
     // the release date is the point the steps are counting down to.
     if (CAL.campaign && it.id !== CAL.campaign && it.moment?.id !== CAL.campaign) return false;
+    const role = (it as CalRow).contentRole;
     const k = kindOf(it);
     switch (CAL.filter) {
       case 'moments':  return k === 'show' || k === 'release';
       case 'releases': return k === 'release';
-      case 'content': return k === 'content';
-      case 'todos':   return k === 'todo';
-      default:        return true;
+      // "Content steps" is the plan we built; a post date is a card.
+      case 'content':  return !role && k === 'content';
+      case 'posts':    return role === 'post';
+      case 'films':    return role === 'film';
+      case 'todos':    return k === 'todo';
+      default:         return true;
     }
   }
 
+  /** The calendar rows as they came from the server. CAL.items is this
+   *  plus the content rows, rebuilt after every content save. */
+  let CAL_BASE: PortalCalendarItem[] = [];
+
   function renderCalendar(items: PortalCalendarItem[]) {
-    CAL.items = items;
+    CAL_BASE = items;
+    syncCalendarContent();
     // On a phone a month grid of chips is unreadable, so Agenda leads.
     CAL.view = isNarrow() ? 'agenda' : 'month';
     // Open on the month that actually has something in it.
-    const first = items.find((i) => parseNotionDate(i.date));
+    const first = CAL.items.find((i) => parseNotionDate(i.date));
     const now = todayStart();
     const firstDate = first ? parseNotionDate(first.date)! : now;
     CAL.cursor = firstDate > now ? firstDate : now;
@@ -1029,7 +1120,8 @@ const NAV = [
     filter.setAttribute('aria-label', 'Filter calendar');
     for (const [v, text] of [
       ['all', 'All items'], ['moments', 'Shows & releases'], ['releases', 'Releases'],
-      ['content', 'Content'], ['todos', 'My to-dos'],
+      ['content', 'Content steps'], ['posts', 'Post dates'], ['films', 'Film dates'],
+      ['todos', 'My to-dos'],
     ] as const) {
       const o = el('option', undefined, text) as HTMLOptionElement;
       o.value = v;
@@ -1156,6 +1248,22 @@ const NAV = [
   }
 
   function chip(it: PortalCalendarItem): HTMLElement {
+    const row = it as CalRow;
+    // A content card wears its bucket's colour, because on the board it
+    // already does. Film dates are the same colour, dashed: the same
+    // piece of content, one step earlier.
+    if (row.content && row.contentRole) {
+      const c = row.content;
+      const b = el('button', `pt-chip pt-chip-${row.contentRole} pt-nc-${bucketColor(c.bucket)}`);
+      b.type = 'button';
+      b.appendChild(el('span', 'pt-chip-title', it.title));
+      if (row.moment) b.appendChild(el('span', 'pt-chip-moment', row.moment.title));
+      b.title = row.contentRole === 'film'
+        ? `Film by: ${c.title}`
+        : `Posts: ${c.title}${c.bucket ? ` — ${c.bucket}` : ''}`;
+      b.addEventListener('click', (ev) => { ev.stopPropagation(); openDrawer(it); });
+      return b;
+    }
     const k = kindOf(it);
     const m = it.moment;
     // The fill says what KIND of work this is; the left edge says which
@@ -1253,13 +1361,20 @@ const NAV = [
     const wrap = el('div', 'pt-legend');
     wrap.setAttribute('aria-label', 'What the colours mean');
     for (const [k, text] of [
-      ['show', 'Show'], ['release', 'Release'], ['content', 'Content'],
+      ['show', 'Show'], ['release', 'Release'], ['content', 'Content step'],
       ['moment', 'Moment'], ['todo', 'Your to-do'],
     ] as const) {
       const item = el('span', 'pt-legend-item');
       item.append(el('span', `pt-legend-key pt-legend-${k}`), el('span', undefined, text));
       wrap.appendChild(item);
     }
+    const post = el('span', 'pt-legend-item');
+    post.append(el('span', 'pt-legend-key pt-legend-post'),
+                el('span', undefined, 'A post (bucket colour)'));
+    wrap.appendChild(post);
+    const film = el('span', 'pt-legend-item');
+    film.append(el('span', 'pt-legend-key pt-legend-film'), el('span', undefined, 'A shoot'));
+    wrap.appendChild(film);
     const t = el('span', 'pt-legend-item');
     t.append(el('span', 'pt-legend-key pt-chip-tentative', ''), el('span', undefined, 'Tentative (dashed)'));
     wrap.appendChild(t);
@@ -1298,6 +1413,11 @@ const NAV = [
   let LAST_FOCUS: HTMLElement | null = null;
 
   function openDrawer(it: PortalCalendarItem) {
+    // A content row on the calendar is the same card as on the board,
+    // so it opens the editable drawer, not the read-only one.
+    const row = it as CalRow;
+    if (row.content) { openContentDrawer(row.content); return; }
+    DRAWER_ID = '';
     const drawer = q('[data-drawer]');
     const scrim = q('[data-scrim]');
     const title = q('[data-drawer-title]');
@@ -1356,7 +1476,11 @@ const NAV = [
     add('Phase', it.phase);
     add('Owner', it.owner);
     if (typeof it.streamsToDate === 'number') add('Streams to date', fmtNumber(it.streamsToDate));
-    if (typeof it.ticketsSold === 'number') add('Tickets sold', fmtNumber(it.ticketsSold));
+    if (typeof it.ticketsSold === 'number') {
+      add('Tickets sold', sellLabel(it.ticketsSold, it.capacity));
+    } else if (typeof it.capacity === 'number') {
+      add('Capacity', `${fmtNumber(it.capacity)} tickets`);
+    }
     body.appendChild(dl);
 
     if (it.whyItMatters) {
@@ -1413,6 +1537,1226 @@ const NAV = [
     const first = f[0], last = f[f.length - 1];
     if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
     else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+  }
+
+  /* ── content pipeline ─────────────────────────────────────────
+     This tab replaces the board a client was keeping somewhere else,
+     so it has to feel like a board: columns, cards, drag, one tap to
+     add. Everything here is the SAME rows Blueprint works from, which
+     is the whole point of moving it.
+
+     It is also the only writable surface in the portal. Every save
+     goes through the endpoints under functions/portal/[slug]/content/,
+     which re-check ownership and the status rules server-side. Nothing
+     below is trusted to enforce anything; it only tries not to offer
+     what the server would refuse. */
+
+  type ContentView = 'ideas' | 'pipeline' | 'posted';
+
+  const CON = {
+    view: 'ideas' as ContentView,
+    bucket: '',
+    source: '',
+    campaign: '',
+    search: '',
+    /** On a phone one column shows at a time; this is which. */
+    col: '',
+    items: [] as PortalContentItem[],
+    schema: { bucket: [], format: [], platforms: [], status: [] } as PortalContentSchema,
+  };
+
+  /** The Notion colour of a bucket, so a card in the portal and the
+   *  same row in Notion read as the same thing. */
+  function bucketColor(name: string | null): string {
+    if (!name) return 'default';
+    return CON.schema.bucket.find((o) => o.name === name)?.color ?? 'default';
+  }
+
+  const SOURCE_ICON: Record<string, string> = {
+    'Client Films': 'film',
+    'Show Media': 'ticket',
+    'Flyer / Graphic': 'folder',
+  };
+
+  function renderContent(data: PortalPayload) {
+    CON.items = (data.content ?? []).slice();
+    if (data.contentSchema) CON.schema = data.contentSchema;
+    CON.col = '';
+    drawContent();
+  }
+
+  /** The content a card's own title and shoot code answer to. */
+  function conMatchesSearch(c: PortalContentItem): boolean {
+    if (!CON.search) return true;
+    const needle = CON.search.toLowerCase();
+    return c.title.toLowerCase().includes(needle)
+      || (c.shootCode ?? '').toLowerCase().includes(needle);
+  }
+
+  function conFiltered(): PortalContentItem[] {
+    return CON.items.filter((c) => {
+      if (CON.bucket && c.bucket !== CON.bucket) return false;
+      if (CON.source && c.source !== CON.source) return false;
+      if (CON.campaign && !c.campaign.some((id) => normaliseId(id) === normaliseId(CON.campaign))) return false;
+      return conMatchesSearch(c);
+    });
+  }
+
+  function drawContent() {
+    const root = q('[data-view="content"]');
+    if (!root) return;
+    const scroll = qq('[data-board-scroll]', root)[0]?.scrollLeft ?? 0;
+    clear(root);
+    root.appendChild(contentToolbar());
+
+    const items = conFiltered();
+    if (!CON.items.length) {
+      root.appendChild(contentEmpty(
+        'Your content board starts here',
+        'Ideas you jot down, shoots we plan and posts that go out all live on this one board.',
+      ));
+      root.appendChild(newIdeaFab());
+      return;
+    }
+
+    if (CON.view === 'ideas') root.appendChild(ideasBoard(items));
+    else if (CON.view === 'pipeline') root.appendChild(pipelineBoard(items));
+    else root.appendChild(postedList(items));
+
+    const sc = qq('[data-board-scroll]', root)[0];
+    if (sc) sc.scrollLeft = scroll;
+    root.appendChild(newIdeaFab());
+  }
+
+  function contentEmpty(title: string, body: string): HTMLElement {
+    const e = el('div', 'pt-empty');
+    const ic = el('div', 'pt-empty-icon');
+    ic.appendChild(icon('film'));
+    e.append(ic, el('h3', undefined, title), el('p', undefined, body));
+    return e;
+  }
+
+  function contentToolbar(): HTMLElement {
+    const bar = el('div', 'pt-toolbar');
+
+    const seg = el('div', 'pt-seg');
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', 'Content view');
+    for (const [v, text] of [['ideas', 'Ideas'], ['pipeline', 'Pipeline'], ['posted', 'Posted']] as const) {
+      const b = el('button', undefined, text);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(CON.view === v));
+      b.addEventListener('click', () => { CON.view = v; CON.col = ''; drawContent(); });
+      seg.appendChild(b);
+    }
+    bar.append(seg, el('span', 'pt-toolbar-spacer'));
+
+    const search = el('input', 'pt-input pt-input-search') as HTMLInputElement;
+    search.type = 'search';
+    search.placeholder = 'Title or shoot code';
+    search.setAttribute('aria-label', 'Search content');
+    search.value = CON.search;
+    search.addEventListener('input', () => {
+      CON.search = search.value.trim();
+      drawContent();
+      q<HTMLInputElement>('.pt-input-search')?.focus();
+    });
+    bar.appendChild(search);
+
+    const pick = (label: string, value: string, opts: Array<[string, string]>, set: (v: string) => void) => {
+      const sel = el('select', 'pt-select') as HTMLSelectElement;
+      sel.setAttribute('aria-label', label);
+      for (const [v, text] of opts) {
+        const o = el('option', undefined, text) as HTMLOptionElement;
+        o.value = v;
+        if (value === v) o.selected = true;
+        sel.appendChild(o);
+      }
+      sel.addEventListener('change', () => { set(sel.value); CON.col = ''; drawContent(); });
+      return sel;
+    };
+
+    bar.appendChild(pick('Filter by bucket', CON.bucket,
+      [['', 'Every bucket'], ...CON.schema.bucket.map((o) => [o.name, o.name] as [string, string])],
+      (v) => { CON.bucket = v; }));
+
+    const sources = Array.from(new Set(CON.items.map((c) => c.source).filter(Boolean) as string[]));
+    if (sources.length > 1) {
+      bar.appendChild(pick('Filter by source', CON.source,
+        [['', 'Any source'], ...sources.map((s) => [s, s] as [string, string])],
+        (v) => { CON.source = v; }));
+    }
+
+    const camps = campaigns();
+    if (camps.length) {
+      bar.appendChild(pick('Filter by campaign', CON.campaign,
+        [['', 'Every campaign'], ...camps.map((m) => [m.id, m.title] as [string, string])],
+        (v) => { CON.campaign = v; }));
+    }
+
+    const add = el('button', 'pt-btn pt-btn-primary pt-btn-add');
+    add.type = 'button';
+    add.appendChild(icon('plus'));
+    add.appendChild(el('span', undefined, 'New idea'));
+    add.addEventListener('click', () => openQuickAdd(CON.bucket || null));
+    bar.appendChild(add);
+
+    return bar;
+  }
+
+  /** The sticky button a thumb can always reach. */
+  function newIdeaFab(): HTMLElement {
+    const b = el('button', 'pt-fab');
+    b.type = 'button';
+    b.setAttribute('aria-label', 'New idea');
+    b.appendChild(icon('plus'));
+    b.appendChild(el('span', undefined, 'New idea'));
+    b.addEventListener('click', () => openQuickAdd(CON.bucket || null));
+    return b;
+  }
+
+  /* ── the boards ───────────────────────────────────────────────── */
+
+  interface Column {
+    key: string;
+    title: string;
+    color?: string;
+    items: PortalContentItem[];
+    /** What a card dropped here becomes. Absent means no drop target. */
+    onDrop?: (c: PortalContentItem) => void;
+    /** Whether this card may be dropped here at all. */
+    accepts?: (c: PortalContentItem) => boolean;
+    add?: () => void;
+  }
+
+  function ideasBoard(items: PortalContentItem[]): HTMLElement {
+    const well = items.filter(isIdea);
+    const cols: Column[] = CON.schema.bucket.map((o) => ({
+      key: o.name,
+      title: o.name,
+      color: o.color,
+      items: well.filter((c) => c.bucket === o.name),
+      accepts: () => true,
+      onDrop: (c) => { void setBucket(c, o.name); },
+      add: () => openQuickAdd(o.name),
+    }));
+    // A card with no bucket yet would otherwise be invisible, which is
+    // the one thing an idea well must never do.
+    const loose = well.filter((c) => !c.bucket);
+    if (loose.length) {
+      cols.unshift({
+        key: '', title: 'No bucket yet', items: loose,
+        accepts: () => true, onDrop: (c) => { void setBucket(c, null); },
+        add: () => openQuickAdd(null),
+      });
+    }
+    return board(cols, 'Nothing in your idea well yet. Add one and it lands here.');
+  }
+
+  function pipelineBoard(items: PortalContentItem[]): HTMLElement {
+    const now = todayStart();
+    const cols: Column[] = STAGE_ORDER.map((stage) => ({
+      key: stage,
+      title: STAGE_TITLE[stage],
+      items: items.filter((c) => stageOf(c, now) === stage),
+      accepts: (c) => !!stageTarget(stage) && canClientMove(c.status, stageTarget(stage)!),
+      onDrop: (c) => {
+        const to = stageTarget(stage);
+        if (to) void setStatus(c, to);
+      },
+    }));
+    return board(cols, 'Nothing is moving through the pipeline right now.');
+  }
+
+  /** The status a drop into this column means. Columns a client cannot
+   *  put a card into on their own have none. */
+  function stageTarget(stage: Stage): string | null {
+    switch (stage) {
+      case 'planned': return 'Planned';
+      case 'toFilm':  return 'Planned';
+      case 'filmed':  return 'Filmed';
+      case 'ready':   return 'Approved';
+      case 'posted':  return 'Posted';
+      default:        return null;   // In edit and Your review are ours
+    }
+  }
+
+  function board(cols: Column[], emptyBody: string): HTMLElement {
+    const total = cols.reduce((n, c) => n + c.items.length, 0);
+    if (!total) return contentEmpty('Nothing matches that', emptyBody);
+
+    const wrap = el('div', 'pt-boardwrap');
+
+    // On a phone, a pill row picks the one column worth the width.
+    if (isNarrow()) {
+      if (!CON.col || !cols.some((c) => c.key === CON.col)) {
+        CON.col = (cols.find((c) => c.items.length) ?? cols[0]).key;
+      }
+      const pills = el('div', 'pt-pillrow');
+      pills.setAttribute('role', 'tablist');
+      for (const c of cols) {
+        const b = el('button', 'pt-pill' + (c.key === CON.col ? ' pt-pill-on' : ''));
+        b.type = 'button';
+        b.setAttribute('aria-pressed', String(c.key === CON.col));
+        if (c.color) b.classList.add(`pt-nc-${c.color}`);
+        b.append(el('span', undefined, c.title), el('span', 'pt-pill-n pt-num', String(c.items.length)));
+        b.addEventListener('click', () => { CON.col = c.key; drawContent(); });
+        pills.appendChild(b);
+      }
+      wrap.appendChild(pills);
+      const only = cols.find((c) => c.key === CON.col)!;
+      wrap.appendChild(boardColumn(only));
+      return wrap;
+    }
+
+    const scroller = el('div', 'pt-board');
+    scroller.dataset.boardScroll = 'true';
+    for (const c of cols) scroller.appendChild(boardColumn(c));
+    wrap.appendChild(scroller);
+    return wrap;
+  }
+
+  let DRAG: PortalContentItem | null = null;
+
+  function boardColumn(c: Column): HTMLElement {
+    const col = el('section', 'pt-board-col');
+    if (c.color) col.classList.add(`pt-nc-${c.color}`);
+    col.appendChild(el('span', 'pt-board-accent'));
+
+    const head = el('div', 'pt-board-col-head');
+    head.appendChild(el('h3', undefined, c.title));
+    head.appendChild(el('span', 'pt-board-count pt-num', String(c.items.length)));
+    if (c.add && !isNarrow()) {
+      const plus = el('button', 'pt-board-add');
+      plus.type = 'button';
+      plus.setAttribute('aria-label', `New idea in ${c.title}`);
+      plus.appendChild(icon('plus'));
+      plus.addEventListener('click', c.add);
+      head.appendChild(plus);
+    }
+    col.appendChild(head);
+
+    const list = el('div', 'pt-board-list');
+    if (!c.items.length) list.appendChild(el('p', 'pt-board-none', 'Nothing here'));
+    for (const item of c.items) list.appendChild(contentCard(item));
+
+    if (c.onDrop && !isNarrow()) {
+      list.addEventListener('dragover', (ev) => {
+        if (!DRAG) return;
+        if (c.accepts && !c.accepts(DRAG)) return;
+        if (c.items.some((i) => i.id === DRAG!.id)) return;
+        ev.preventDefault();
+        list.classList.add('pt-board-drop');
+      });
+      list.addEventListener('dragleave', () => list.classList.remove('pt-board-drop'));
+      list.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        list.classList.remove('pt-board-drop');
+        const card = DRAG;
+        DRAG = null;
+        if (!card) return;
+        if (c.accepts && !c.accepts(card)) return;
+        c.onDrop!(card);
+      });
+    }
+    col.appendChild(list);
+    return col;
+  }
+
+  function contentCard(c: PortalContentItem): HTMLElement {
+    const card = el('article', 'pt-ccard');
+    const open = el('button', 'pt-ccard-open');
+    open.type = 'button';
+    open.setAttribute('aria-label', `Open ${c.title}`);
+    open.addEventListener('click', () => openContentDrawer(c));
+
+    // A shoot-code title ("SM L1D1") is how he names things, so it is
+    // shown exactly as typed, on one line, and never prettied up.
+    const title = el('span', 'pt-ccard-title', c.title);
+    open.appendChild(title);
+
+    const tags = el('span', 'pt-ccard-tags');
+    if (c.bucket) tags.appendChild(el('span', `pt-bchip pt-nc-${bucketColor(c.bucket)}`, c.bucket));
+    for (const f of c.format) tags.appendChild(el('span', 'pt-tag', f));
+    if (c.shootCode && c.shootCode !== c.title) {
+      tags.appendChild(el('span', 'pt-ccard-code pt-num', c.shootCode));
+    }
+    if (tags.firstChild) open.appendChild(tags);
+
+    const meta = el('span', 'pt-ccard-meta');
+    const next = nextDateLine(c);
+    if (next) meta.appendChild(el('span', undefined, next));
+    if (c.source && SOURCE_ICON[c.source]) {
+      const s = el('span', 'pt-ccard-src');
+      s.appendChild(icon(SOURCE_ICON[c.source]));
+      s.appendChild(el('span', undefined, c.source));
+      meta.appendChild(s);
+    }
+    if (meta.firstChild) open.appendChild(meta);
+
+    const badges = el('span', 'pt-ccard-badges');
+    if (c.postedBy === 'Client') badges.appendChild(el('span', 'pt-tag pt-tag-todo', 'You post'));
+    if (c.status === 'Ready for Review') {
+      badges.appendChild(el('span', 'pt-tag pt-tag-review',
+        c.feedback ? 'Changes requested' : 'Needs your review'));
+    }
+    if (badges.firstChild) open.appendChild(badges);
+
+    card.appendChild(open);
+
+    if (!isNarrow()) {
+      card.draggable = true;
+      const grip = el('span', 'pt-ccard-grip');
+      grip.setAttribute('aria-hidden', 'true');
+      grip.appendChild(icon('grip'));
+      card.appendChild(grip);
+      card.addEventListener('dragstart', (ev) => {
+        DRAG = c;
+        card.classList.add('pt-ccard-dragging');
+        ev.dataTransfer?.setData('text/plain', c.title);
+        if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => {
+        DRAG = null;
+        card.classList.remove('pt-ccard-dragging');
+      });
+    }
+    return card;
+  }
+
+  /** The one date that matters next for this card. */
+  function nextDateLine(c: PortalContentItem): string | null {
+    if (c.status === 'Posted') return c.postDate ? `Posted ${fmtDateShort(c.postDate)}` : null;
+    if (c.filmBy && c.status !== 'Filmed' && c.status !== 'Footage In') {
+      return `Film by ${fmtDateShort(c.filmBy)}`;
+    }
+    if (c.postDate) return `Posts ${fmtDateShort(c.postDate)}`;
+    if (c.filmBy) return `Filmed ${fmtDateShort(c.filmBy)}`;
+    return null;
+  }
+
+  function postedList(items: PortalContentItem[]): HTMLElement {
+    const posted = items
+      .filter((c) => c.status === 'Posted')
+      .sort((a, b) => (parseNotionDate(b.postDate)?.getTime() ?? 0) - (parseNotionDate(a.postDate)?.getTime() ?? 0));
+    if (!posted.length) {
+      return contentEmpty('Nothing posted yet',
+        'Once a piece goes out it moves here, newest first, with the link to the post.');
+    }
+    const grid = el('div', 'pt-posted');
+    for (const c of posted) {
+      const row = el('article', 'pt-posted-card');
+      const open = el('button', 'pt-posted-open');
+      open.type = 'button';
+      open.addEventListener('click', () => openContentDrawer(c));
+      open.appendChild(el('span', 'pt-ccard-title', c.title));
+      const meta = el('span', 'pt-ccard-meta');
+      if (c.bucket) meta.appendChild(el('span', `pt-bchip pt-nc-${bucketColor(c.bucket)}`, c.bucket));
+      if (c.postDate) meta.appendChild(el('span', undefined, fmtDateShort(c.postDate)));
+      if (c.platforms.length) meta.appendChild(el('span', undefined, c.platforms.join(' · ')));
+      open.appendChild(meta);
+      row.appendChild(open);
+      if (c.postLink) {
+        const a = el('a', 'pt-posted-link') as HTMLAnchorElement;
+        a.href = c.postLink;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.setAttribute('aria-label', `See ${c.title} on ${c.platforms[0] ?? 'the platform'}`);
+        a.appendChild(icon('ext'));
+        row.appendChild(a);
+      }
+      grid.appendChild(row);
+    }
+    return grid;
+  }
+
+  /* ── saving ───────────────────────────────────────────────────── */
+
+  let TOAST_T = 0;
+
+  function toast(text: string, bad = false) {
+    const t = q('[data-toast]');
+    if (!t) return;
+    t.textContent = text;
+    t.classList.toggle('pt-toast-bad', bad);
+    show(t, true);
+    requestAnimationFrame(() => { t.dataset.open = 'true'; });
+    window.clearTimeout(TOAST_T);
+    TOAST_T = window.setTimeout(() => {
+      t.dataset.open = 'false';
+      window.setTimeout(() => show(t, false), 200);
+    }, bad ? 5000 : 2200);
+  }
+
+  const conIndex = (id: string) => CON.items.findIndex((i) => i.id === id);
+
+  /** Everything that shows content, redrawn from one place so a save
+   *  can never leave the calendar saying one thing and the board
+   *  another. */
+  function refreshContent() {
+    syncCalendarContent();
+    drawContent();
+    if (currentRoute().view === 'calendar') drawCalendar();
+    if (DATA) { DATA.content = CON.items; renderHome(DATA); }
+  }
+
+  /**
+   * One save.
+   *
+   * The card changes on screen first and goes back if the server says
+   * no, because a board that waits for a round trip before it moves
+   * feels broken. `local` is what we expect; the response is the truth
+   * and replaces it either way.
+   */
+  async function saveCard(
+    id: string,
+    patch: Record<string, unknown>,
+    local: Partial<PortalContentItem>,
+  ): Promise<boolean> {
+    const i = conIndex(id);
+    if (i === -1) return false;
+    const before = CON.items[i];
+    CON.items[i] = { ...before, ...local };
+    refreshContent();
+    if (DRAWER_ID === id) fillContentDrawer(CON.items[i]);
+
+    try {
+      const res = await fetch(
+        `/portal/${encodeURIComponent(SLUG)}/content/${encodeURIComponent(id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(patch),
+        },
+      );
+      if (!res.ok) throw new Error(String(res.status));
+      const out = await res.json() as { ok?: boolean; item?: PortalContentItem; changed?: boolean };
+      if (!out.ok || !out.item) throw new Error('refused');
+      // The server replies with the row as it now stands, so whatever
+      // it refused simply comes back as it was. `changed: false` means
+      // nothing we sent survived validation, and showing a tick for
+      // that would be a lie.
+      const j = conIndex(id);
+      if (j !== -1) CON.items[j] = out.item;
+      refreshContent();
+      if (DRAWER_ID === id) fillContentDrawer(out.item);
+      if (out.changed === false) {
+        toast('We could not save that one. Have another look at it.', true);
+        return false;
+      }
+      return true;
+    } catch {
+      const j = conIndex(id);
+      if (j !== -1) CON.items[j] = before;
+      refreshContent();
+      if (DRAWER_ID === id) fillContentDrawer(before);
+      toast('That did not save. Check your connection and try again.', true);
+      return false;
+    }
+  }
+
+  async function setBucket(c: PortalContentItem, bucket: string | null) {
+    if (c.bucket === bucket) return;
+    if (await saveCard(c.id, { bucket }, { bucket })) {
+      toast(bucket ? `Moved to ${bucket}` : 'Bucket cleared');
+    }
+  }
+
+  async function setStatus(c: PortalContentItem, status: string, note?: string) {
+    if (!canClientMove(c.status, status)) {
+      toast('That move is ours to make. We will take it from here.', true);
+      return;
+    }
+    if (await saveCard(c.id, { status }, { status })) toast(`Moved to ${status}`);
+    if (note) toast(note);
+  }
+
+  async function createIdea(patch: Record<string, unknown>): Promise<boolean> {
+    try {
+      const res = await fetch(`/portal/${encodeURIComponent(SLUG)}/content`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const out = await res.json() as { ok?: boolean; item?: PortalContentItem };
+      if (!out.ok || !out.item) throw new Error('refused');
+      CON.items = [out.item, ...CON.items];
+      refreshContent();
+      toast('Added to your board');
+      return true;
+    } catch {
+      toast('That did not save. Check your connection and try again.', true);
+      return false;
+    }
+  }
+
+  /* ── the content drawer ───────────────────────────────────────── */
+
+  let DRAWER_ID = '';
+
+  function openContentDrawer(c: PortalContentItem) {
+    const drawer = q('[data-drawer]');
+    const scrim = q('[data-scrim]');
+    if (!drawer || !scrim) return;
+    LAST_FOCUS = document.activeElement as HTMLElement;
+    DRAWER_ID = c.id;
+    fillContentDrawer(c);
+    show(scrim, true);
+    show(drawer, true);
+    requestAnimationFrame(() => {
+      scrim.dataset.open = 'true';
+      drawer.dataset.open = 'true';
+    });
+    q<HTMLButtonElement>('[data-drawer-close]')?.focus();
+    document.addEventListener('keydown', onDrawerKey);
+  }
+
+  function fillContentDrawer(c: PortalContentItem) {
+    const title = q('[data-drawer-title]');
+    const body = q('[data-drawer-body]');
+    const foot = q('[data-drawer-foot]');
+    if (!title || !body || !foot) return;
+    title.textContent = c.title;
+    clear(body);
+    clear(foot);
+
+    const tags = el('div', 'pt-drawer-tags');
+    if (c.status) tags.appendChild(el('span', 'pt-tag', c.status));
+    if (c.bucket) tags.appendChild(el('span', `pt-bchip pt-nc-${bucketColor(c.bucket)}`, c.bucket));
+    if (c.postedBy === 'Client') tags.appendChild(el('span', 'pt-tag pt-tag-todo', 'You post'));
+    if (c.source) tags.appendChild(el('span', 'pt-tag', c.source));
+    body.appendChild(tags);
+
+    /* review, when it is the client's turn */
+    if (c.status === 'Ready for Review') body.appendChild(reviewBox(c));
+
+    /* the fields */
+    const save = (patch: Record<string, unknown>, local: Partial<PortalContentItem>, tick: HTMLElement) =>
+      saveCard(c.id, patch, local).then((ok) => { if (ok) flashTick(tick); });
+
+    body.appendChild(textField('Title', c.title, 'A short name, the way you say it', MAX_TITLE,
+      (v, tick) => save({ title: v }, { title: v ?? c.title }, tick)));
+
+    body.appendChild(selectEditor('Bucket', c.bucket, CON.schema.bucket, 'No bucket',
+      (v, tick) => save({ bucket: v }, { bucket: v }, tick)));
+
+    // Only the moves this client is allowed to make are offered. The
+    // server checks again; this is so the list never lies.
+    const moves = CON.schema.status.filter((o) => canClientMove(c.status, o.name));
+    if (moves.length) {
+      body.appendChild(selectEditor('Status', c.status, moves, null,
+        (v, tick) => { if (v) save({ status: v }, { status: v }, tick); }));
+    }
+
+    body.appendChild(multiEditor('Format', c.format, CON.schema.format,
+      (v, tick) => save({ format: v }, { format: v }, tick)));
+    body.appendChild(multiEditor('Platforms', c.platforms, CON.schema.platforms,
+      (v, tick) => save({ platforms: v }, { platforms: v }, tick)));
+
+    body.appendChild(dateField('Film by', c.filmBy,
+      (v, tick) => save({ filmBy: v }, { filmBy: v }, tick)));
+    body.appendChild(dateField('Post date', c.postDate,
+      (v, tick) => save({ postDate: v }, { postDate: v }, tick)));
+
+    const camps = campaigns();
+    if (camps.length) {
+      const current = c.campaign.map(normaliseId);
+      const picked = camps.find((m) => current.includes(normaliseId(m.id)));
+      body.appendChild(selectEditor('Campaign', picked?.id ?? null,
+        camps.map((m) => ({ name: m.id, color: 'default', label: m.title })), 'No campaign',
+        (v, tick) => save({ campaign: v ? [v] : [] }, { campaign: v ? [v] : [] }, tick)));
+    }
+
+    body.appendChild(textField('Shoot code', c.shootCode, 'SM L1D1', MAX_TEXT,
+      (v, tick) => save({ shootCode: v }, { shootCode: v }, tick), { mono: true }));
+    body.appendChild(textField('On-screen text', c.onScreenText, 'What the viewer reads', MAX_TEXT,
+      (v, tick) => save({ onScreenText: v }, { onScreenText: v }, tick), { lines: 3 }));
+    body.appendChild(textField('Caption', c.caption, 'The caption that goes with it', MAX_TEXT,
+      (v, tick) => save({ caption: v }, { caption: v }, tick), { lines: 4 }));
+    body.appendChild(textField('Notes', c.notes, 'Anything we should know', MAX_TEXT,
+      (v, tick) => save({ notes: v }, { notes: v }, tick), { lines: 3 }));
+
+    body.appendChild(urlField('Footage link', c.footageLink, 'Paste the Drive or iCloud link',
+      (v, tick) => save({ footageLink: v }, { footageLink: v }, tick)));
+    body.appendChild(urlField('Post link', c.postLink, 'Paste the link to the live post',
+      (v, tick) => save({ postLink: v }, { postLink: v }, tick)));
+
+    if (c.feedback) {
+      const why = el('div', 'pt-why');
+      why.appendChild(el('strong', undefined, 'Changes you asked for'));
+      why.appendChild(el('span', undefined, c.feedback));
+      body.appendChild(why);
+    }
+
+    /* read-only, and said so */
+    if (c.editLink) {
+      const a = el('a', 'pt-btn') as HTMLAnchorElement;
+      a.href = c.editLink;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.style.width = '100%';
+      a.appendChild(icon('play'));
+      a.appendChild(el('span', undefined, 'Watch the edit'));
+      body.appendChild(a);
+    }
+
+    /* the one action this card is waiting on */
+    const actions = contentActions(c);
+    if (actions) { foot.appendChild(actions); show(foot, true); } else show(foot, false);
+  }
+
+  function contentActions(c: PortalContentItem): HTMLElement | null {
+    const row = el('div', 'pt-drawer-actions');
+
+    const needsFootage = c.status === 'Filmed' || (c.status === 'Planned' && !!c.filmBy);
+    if (needsFootage && !c.footageLink) {
+      const b = el('button', 'pt-btn');
+      b.type = 'button';
+      b.appendChild(icon('link'));
+      b.appendChild(el('span', undefined, 'Add footage'));
+      b.addEventListener('click', () => openFootageSheet(c));
+      row.appendChild(b);
+    }
+
+    if ((c.status === 'Approved' || c.status === 'Scheduled') && c.postedBy === 'Client') {
+      const b = el('button', 'pt-btn pt-btn-primary');
+      b.type = 'button';
+      b.appendChild(icon('check'));
+      b.appendChild(el('span', undefined, 'Mark as posted'));
+      b.addEventListener('click', () => openPostedSheet(c));
+      row.appendChild(b);
+    }
+
+    return row.firstChild ? row : null;
+  }
+
+  /** Blueprint has put an edit up and it is the client's turn. */
+  function reviewBox(c: PortalContentItem): HTMLElement {
+    const box = el('div', 'pt-review');
+    box.appendChild(el('div', 'pt-review-label', c.feedback ? 'Changes requested' : 'Ready for your review'));
+    box.appendChild(el('p', undefined, c.feedback
+      ? 'We have your notes. The next cut comes back here.'
+      : 'Have a look at the edit, then approve it or tell us what to change.'));
+
+    const row = el('div', 'pt-review-actions');
+    if (c.editLink) {
+      const watch = el('a', 'pt-btn') as HTMLAnchorElement;
+      watch.href = c.editLink;
+      watch.target = '_blank';
+      watch.rel = 'noopener noreferrer';
+      watch.appendChild(icon('play'));
+      watch.appendChild(el('span', undefined, 'Watch the edit'));
+      row.appendChild(watch);
+    }
+    const yes = el('button', 'pt-btn pt-btn-primary');
+    yes.type = 'button';
+    yes.appendChild(icon('check'));
+    yes.appendChild(el('span', undefined, 'Approve'));
+    yes.addEventListener('click', () => { void setStatus(c, 'Approved'); });
+    row.appendChild(yes);
+
+    const no = el('button', 'pt-btn');
+    no.type = 'button';
+    no.textContent = 'Request changes';
+    no.addEventListener('click', () => openFeedbackSheet(c));
+    row.appendChild(no);
+
+    box.appendChild(row);
+    return box;
+  }
+
+  /* ── editable fields ──────────────────────────────────────────── */
+
+  type Tick = HTMLElement;
+
+  /** Label, a quiet tick that appears after a save, and the control. */
+  function fieldShell(label: string): { wrap: HTMLElement; tick: Tick; slot: HTMLElement } {
+    const wrap = el('div', 'pt-field');
+    const head = el('div', 'pt-field-head');
+    const id = `pt-f-${label.toLowerCase().replace(/[^a-z]+/g, '-')}`;
+    const lab = el('label', 'pt-field-label', label);
+    (lab as HTMLLabelElement).htmlFor = id;
+    head.appendChild(lab);
+    const tick = el('span', 'pt-field-tick');
+    tick.appendChild(icon('check'));
+    tick.appendChild(el('span', undefined, 'Saved'));
+    head.appendChild(tick);
+    wrap.appendChild(head);
+    const slot = el('div', 'pt-field-slot');
+    slot.dataset.fieldId = id;
+    wrap.appendChild(slot);
+    return { wrap, tick, slot };
+  }
+
+  function flashTick(tick: Tick) {
+    tick.dataset.on = 'true';
+    window.setTimeout(() => { tick.dataset.on = 'false'; }, 1600);
+  }
+
+  function textField(
+    label: string,
+    value: string | null,
+    placeholder: string,
+    max: number,
+    onSave: (v: string | null, tick: Tick) => void,
+    opts: { lines?: number; mono?: boolean } = {},
+  ): HTMLElement {
+    const { wrap, tick, slot } = fieldShell(label);
+    const input = opts.lines
+      ? el('textarea', 'pt-input pt-textarea') as HTMLTextAreaElement
+      : el('input', 'pt-input') as HTMLInputElement;
+    if (opts.lines) (input as HTMLTextAreaElement).rows = opts.lines;
+    if (opts.mono) input.classList.add('pt-num');
+    input.id = slot.dataset.fieldId!;
+    input.placeholder = placeholder;
+    input.maxLength = max;
+    input.value = value ?? '';
+    // Blur, not keystroke: one save per edit, and no save while the
+    // client is still mid-sentence.
+    input.addEventListener('blur', () => {
+      const next = input.value.trim();
+      if (next === (value ?? '')) return;
+      onSave(next || null, tick);
+    });
+    slot.appendChild(input);
+    return wrap;
+  }
+
+  function urlField(
+    label: string,
+    value: string | null,
+    placeholder: string,
+    onSave: (v: string | null, tick: Tick) => void,
+  ): HTMLElement {
+    const { wrap, tick, slot } = fieldShell(label);
+    const row = el('div', 'pt-field-row');
+    const input = el('input', 'pt-input') as HTMLInputElement;
+    input.id = slot.dataset.fieldId!;
+    input.type = 'url';
+    input.placeholder = placeholder;
+    input.value = value ?? '';
+    input.addEventListener('blur', () => {
+      const next = input.value.trim();
+      if (next === (value ?? '')) return;
+      onSave(next || null, tick);
+    });
+    row.appendChild(input);
+    if (value) {
+      const a = el('a', 'pt-field-open') as HTMLAnchorElement;
+      a.href = value;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.setAttribute('aria-label', `Open ${label}`);
+      a.appendChild(icon('ext'));
+      row.appendChild(a);
+    }
+    slot.appendChild(row);
+    return wrap;
+  }
+
+  function dateField(
+    label: string,
+    value: string | null,
+    onSave: (v: string | null, tick: Tick) => void,
+  ): HTMLElement {
+    const { wrap, tick, slot } = fieldShell(label);
+    const input = el('input', 'pt-input') as HTMLInputElement;
+    input.id = slot.dataset.fieldId!;
+    input.type = 'date';
+    input.value = (value ?? '').slice(0, 10);
+    input.addEventListener('change', () => {
+      const next = input.value;
+      if (next === (value ?? '').slice(0, 10)) return;
+      onSave(next || null, tick);
+    });
+    slot.appendChild(input);
+    return wrap;
+  }
+
+  function selectEditor(
+    label: string,
+    value: string | null,
+    options: Array<{ name: string; color: string; label?: string }>,
+    blank: string | null,
+    onSave: (v: string | null, tick: Tick) => void,
+  ): HTMLElement {
+    const { wrap, tick, slot } = fieldShell(label);
+    const sel = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
+    sel.id = slot.dataset.fieldId!;
+    if (blank !== null) {
+      const o = el('option', undefined, blank) as HTMLOptionElement;
+      o.value = '';
+      if (!value) o.selected = true;
+      sel.appendChild(o);
+    }
+    for (const opt of options) {
+      const o = el('option', undefined, opt.label ?? opt.name) as HTMLOptionElement;
+      o.value = opt.name;
+      if (value === opt.name) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.addEventListener('change', () => onSave(sel.value || null, tick));
+    slot.appendChild(sel);
+    return wrap;
+  }
+
+  function multiEditor(
+    label: string,
+    values: string[],
+    options: Array<{ name: string; color: string }>,
+    onSave: (v: string[], tick: Tick) => void,
+  ): HTMLElement {
+    const { wrap, tick, slot } = fieldShell(label);
+    if (!options.length) { wrap.remove(); return el('span'); }
+    const set = el('div', 'pt-chipset');
+    set.setAttribute('role', 'group');
+    set.setAttribute('aria-label', label);
+    let picked = values.slice();
+    for (const opt of options) {
+      const b = el('button', `pt-setchip pt-nc-${opt.color}`, opt.name);
+      b.type = 'button';
+      const sync = () => {
+        const on = picked.includes(opt.name);
+        b.setAttribute('aria-pressed', String(on));
+        b.classList.toggle('pt-setchip-on', on);
+      };
+      sync();
+      b.addEventListener('click', () => {
+        picked = picked.includes(opt.name)
+          ? picked.filter((v) => v !== opt.name)
+          : [...picked, opt.name];
+        sync();
+        onSave(picked.slice(), tick);
+      });
+      set.appendChild(b);
+    }
+    slot.appendChild(set);
+    return wrap;
+  }
+
+  /* ── the sheet: one short answer ──────────────────────────────── */
+
+  let SHEET_FOCUS: HTMLElement | null = null;
+
+  function openSheet(title: string, build: (form: HTMLFormElement, close: () => void) => void) {
+    const sheet = q('[data-sheet]');
+    const scrim = q('[data-sheet-scrim]');
+    const head = q('[data-sheet-title]');
+    const body = q<HTMLFormElement>('[data-sheet-body]');
+    if (!sheet || !scrim || !head || !body) return;
+    SHEET_FOCUS = document.activeElement as HTMLElement;
+    head.textContent = title;
+    clear(body);
+    build(body, closeSheet);
+    show(scrim, true);
+    show(sheet, true);
+    requestAnimationFrame(() => {
+      scrim.dataset.open = 'true';
+      sheet.dataset.open = 'true';
+      q<HTMLElement>('input, select, textarea, button', body)?.focus();
+    });
+    document.addEventListener('keydown', onSheetKey);
+  }
+
+  function closeSheet() {
+    const sheet = q('[data-sheet]');
+    const scrim = q('[data-sheet-scrim]');
+    if (!sheet || !scrim || sheet.hidden) return;
+    sheet.dataset.open = 'false';
+    scrim.dataset.open = 'false';
+    document.removeEventListener('keydown', onSheetKey);
+    window.setTimeout(() => { show(sheet, false); show(scrim, false); }, 200);
+    SHEET_FOCUS?.focus();
+    SHEET_FOCUS = null;
+  }
+
+  function onSheetKey(ev: KeyboardEvent) {
+    if (ev.key === 'Escape') { ev.preventDefault(); closeSheet(); }
+  }
+
+  /** A labelled control for the sheet. Plainer than the drawer's
+   *  fields: the sheet saves on submit, not on blur. */
+  function sheetField(label: string, node: HTMLElement): HTMLElement {
+    const wrap = el('div', 'pt-field');
+    const id = `pt-s-${label.toLowerCase().replace(/[^a-z]+/g, '-')}`;
+    const lab = el('label', 'pt-field-label', label);
+    (lab as HTMLLabelElement).htmlFor = id;
+    node.id = id;
+    wrap.append(lab, node);
+    return wrap;
+  }
+
+  function sheetSubmit(form: HTMLFormElement, text: string): HTMLButtonElement {
+    const b = el('button', 'pt-btn pt-btn-primary') as HTMLButtonElement;
+    b.type = 'submit';
+    b.textContent = text;
+    const row = el('div', 'pt-sheet-foot');
+    row.appendChild(b);
+    form.appendChild(row);
+    return b;
+  }
+
+  /**
+   * Quick add. One field matters, the rest are optional, and on a
+   * phone it is a title and a tap.
+   */
+  function openQuickAdd(bucket: string | null) {
+    openSheet('New idea', (form, close) => {
+      const title = el('input', 'pt-input') as HTMLInputElement;
+      title.required = true;
+      title.maxLength = MAX_TITLE;
+      title.placeholder = 'SM L1D1, or whatever you call it';
+      form.appendChild(sheetField('Idea', title));
+
+      const bucketSel = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
+      const none = el('option', undefined, 'No bucket') as HTMLOptionElement;
+      none.value = '';
+      bucketSel.appendChild(none);
+      for (const o of CON.schema.bucket) {
+        const opt = el('option', undefined, o.name) as HTMLOptionElement;
+        opt.value = o.name;
+        if (bucket === o.name) opt.selected = true;
+        bucketSel.appendChild(opt);
+      }
+      form.appendChild(sheetField('Bucket', bucketSel));
+
+      const more = el('details', 'pt-more');
+      more.appendChild(el('summary', undefined, 'Add dates'));
+      const film = el('input', 'pt-input') as HTMLInputElement;
+      film.type = 'date';
+      more.appendChild(sheetField('Film by', film));
+      const post = el('input', 'pt-input') as HTMLInputElement;
+      post.type = 'date';
+      more.appendChild(sheetField('Post date', post));
+      form.appendChild(more);
+
+      const go = sheetSubmit(form, 'Add it');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const name = title.value.trim();
+        if (!name) { title.focus(); return; }
+        go.disabled = true;
+        const ok = await createIdea({
+          title: name,
+          bucket: bucketSel.value || null,
+          filmBy: film.value || null,
+          postDate: post.value || null,
+        });
+        go.disabled = false;
+        if (ok) close();
+      });
+    });
+  }
+
+  /** Mark as posted: the link is optional, the date is today unless
+   *  one was already planned. */
+  function openPostedSheet(c: PortalContentItem) {
+    openSheet('Mark as posted', (form, close) => {
+      const link = el('input', 'pt-input') as HTMLInputElement;
+      link.type = 'url';
+      link.placeholder = 'https://...';
+      link.value = c.postLink ?? '';
+      form.appendChild(sheetField('Link to the post (optional)', link));
+      form.appendChild(el('p', 'pt-sheet-note', c.postDate
+        ? `Post date stays ${fmtDate(c.postDate)}.`
+        : 'We will set the post date to today.'));
+
+      const go = sheetSubmit(form, 'It is posted');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        go.disabled = true;
+        const today = new Date();
+        const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const patch: Record<string, unknown> = { status: 'Posted' };
+        const local: Partial<PortalContentItem> = { status: 'Posted' };
+        if (!c.postDate) { patch.postDate = iso; local.postDate = iso; }
+        const typed = link.value.trim();
+        if (typed && typed !== (c.postLink ?? '')) { patch.postLink = typed; local.postLink = typed; }
+        const ok = await saveCard(c.id, patch, local);
+        go.disabled = false;
+        if (ok) { toast('Nice. That is posted.'); close(); }
+      });
+    });
+  }
+
+  /** Add footage: the Drive folder opens in its own tab, and the link
+   *  comes back here. Saving one moves the card to Footage In. */
+  function openFootageSheet(c: PortalContentItem) {
+    openSheet('Add footage', (form, close) => {
+      const drive = DATA?.client.driveFolder ?? null;
+      if (drive) {
+        const a = el('a', 'pt-btn') as HTMLAnchorElement;
+        a.href = drive;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.appendChild(icon('ext'));
+        a.appendChild(el('span', undefined, 'Open your Drive folder'));
+        form.appendChild(a);
+        form.appendChild(el('p', 'pt-sheet-note',
+          'Drop the files in there, then paste the link to them below.'));
+      }
+      const link = el('input', 'pt-input') as HTMLInputElement;
+      link.type = 'url';
+      link.required = true;
+      link.placeholder = 'https://...';
+      link.value = c.footageLink ?? '';
+      form.appendChild(sheetField('Link to the footage', link));
+
+      const go = sheetSubmit(form, 'Send it over');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const url = link.value.trim();
+        if (!url) { link.focus(); return; }
+        go.disabled = true;
+        const patch: Record<string, unknown> = { footageLink: url };
+        const local: Partial<PortalContentItem> = { footageLink: url };
+        // Footage arriving is what Footage In means, so the status
+        // follows the link rather than needing a second step.
+        if (canClientMove(c.status, 'Footage In')) {
+          patch.status = 'Footage In';
+          local.status = 'Footage In';
+        }
+        const ok = await saveCard(c.id, patch, local);
+        go.disabled = false;
+        if (ok) { toast('Got it. We will take it from here.'); close(); }
+      });
+    });
+  }
+
+  /** Request changes. The note is the point, so it is required and the
+   *  status does not move: the edit is still ours. */
+  function openFeedbackSheet(c: PortalContentItem) {
+    openSheet('Request changes', (form, close) => {
+      const note = el('textarea', 'pt-input pt-textarea') as HTMLTextAreaElement;
+      note.rows = 4;
+      note.required = true;
+      note.maxLength = MAX_TEXT;
+      note.placeholder = 'Cut the intro, the text is late, use the second take...';
+      note.value = c.feedback ?? '';
+      form.appendChild(sheetField('What should change', note));
+
+      const go = sheetSubmit(form, 'Send the notes');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const text = note.value.trim();
+        if (!text) { note.focus(); return; }
+        go.disabled = true;
+        const ok = await saveCard(c.id, { feedback: text }, { feedback: text });
+        go.disabled = false;
+        if (ok) { toast('Sent. We will recut it.'); close(); }
+      });
+    });
+  }
+
+  /* ── content on the calendar ──────────────────────────────────── */
+
+  /** A content row shaped like a calendar row, so one calendar can
+   *  draw both without knowing the difference. */
+  type CalRow = PortalCalendarItem & {
+    content?: PortalContentItem;
+    contentRole?: 'post' | 'film';
+  };
+
+  function momentLookup(): Map<string, PortalMoment> {
+    const m = new Map<string, PortalMoment>();
+    for (const it of CAL_BASE) {
+      if (it.moment) m.set(normaliseId(it.moment.id), it.moment);
+      if (it.id && it.momentType) {
+        m.set(normaliseId(it.id), { id: it.id, title: it.title, momentType: it.momentType, date: it.date });
+      }
+    }
+    return m;
+  }
+
+  function contentRows(items: PortalContentItem[]): CalRow[] {
+    const look = momentLookup();
+    const out: CalRow[] = [];
+    for (const c of items) {
+      if (c.status === 'Skipped') continue;
+      const moment = c.campaign
+        .map((id) => look.get(normaliseId(id)))
+        .find((m): m is PortalMoment => !!m) ?? null;
+      if (c.postDate) out.push(contentRow(c, 'post', c.postDate, moment));
+      if (c.filmBy && c.status !== 'Posted') out.push(contentRow(c, 'film', c.filmBy, moment));
+    }
+    return out;
+  }
+
+  function contentRow(
+    c: PortalContentItem,
+    role: 'post' | 'film',
+    date: string,
+    moment: PortalMoment | null,
+  ): CalRow {
+    return {
+      title: role === 'film' ? `Film · ${c.title}` : c.title,
+      tentative: false,
+      kind: 'Content',
+      momentType: null,
+      date,
+      status: c.status,
+      type: 'Content',
+      owner: c.postedBy === 'Client' ? 'Client' : 'Blueprint',
+      playbook: null,
+      phase: null,
+      where: c.platforms.length ? c.platforms.join(' · ') : null,
+      whyItMatters: null,
+      venueCity: null,
+      ticketLink: null,
+      id: `${c.id}:${role}`,
+      moment,
+      streamsToDate: null,
+      ticketsSold: null,
+      capacity: null,
+      content: c,
+      contentRole: role,
+    };
+  }
+
+  function syncCalendarContent() {
+    CAL.items = (CAL_BASE as CalRow[]).concat(contentRows(CON.items));
+  }
+
+  /* ── content on Home ──────────────────────────────────────────── */
+
+  /** What is on the client in the next week: a shoot to film, or a
+   *  post they said they would put up themselves. */
+  function contentTodos(): CalRow[] {
+    const today = todayStart();
+    const soon = new Date(today);
+    soon.setDate(soon.getDate() + 7);
+    const within = (iso: string | null) => {
+      const d = parseNotionDate(iso);
+      return !!d && d <= soon;
+    };
+    const out: CalRow[] = [];
+    const look = momentLookup();
+    const momentOf = (c: PortalContentItem) => c.campaign
+      .map((id) => look.get(normaliseId(id)))
+      .find((m): m is PortalMoment => !!m) ?? null;
+
+    for (const c of CON.items) {
+      if (c.status === 'Skipped' || c.status === 'Posted') continue;
+      if (c.filmBy && within(c.filmBy) && c.status !== 'Filmed' && c.status !== 'Footage In') {
+        out.push(contentRow(c, 'film', c.filmBy, momentOf(c)));
+      } else if (
+        c.postedBy === 'Client'
+        && (c.status === 'Approved' || c.status === 'Scheduled')
+        && (!c.postDate || within(c.postDate))
+      ) {
+        out.push(contentRow(c, 'post', c.postDate ?? dateKeyToday(), momentOf(c)));
+      }
+    }
+    return out.sort((a, b) =>
+      (parseNotionDate(a.date)?.getTime() ?? 0) - (parseNotionDate(b.date)?.getTime() ?? 0));
+  }
+
+  function dateKeyToday(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   /* ── reports ───────────────────────────────────────────────── */
@@ -1528,8 +2872,280 @@ const NAV = [
       root.appendChild(e);
       return;
     }
-    if (platform) root.appendChild(platformDetail(platform));
+    if (platform === 'Shows') root.appendChild(showsDetail());
+    else if (platform) root.appendChild(platformDetail(platform));
     else root.appendChild(reportsOverview());
+  }
+
+  /* ── shows and ticket sales ───────────────────────────────────
+     A show either sold more tickets than the last one or it did not,
+     and that is the whole chart. One series, labelled directly, no
+     legend to read: the bars are the shows.
+
+     The first bar is the baseline reading, because growth from a
+     standing start is the only honest way to show the second show. */
+
+  interface ShowPoint {
+    label: string;
+    date: string | null;
+    tickets: number;
+    capacity: number | null;
+    /** The starting line, not a show we ran. */
+    baseline: boolean;
+  }
+
+  function showPoints(): ShowPoint[] {
+    const out: ShowPoint[] = [];
+    // The oldest snapshot that counted tickets is where the line starts.
+    const base = [...SNAPS].reverse().find((s) => typeof s.metrics['Tickets Sold'] === 'number');
+    if (base) {
+      out.push({
+        label: 'Baseline',
+        date: base.date,
+        tickets: base.metrics['Tickets Sold'],
+        capacity: null,
+        baseline: true,
+      });
+    }
+    const shows = CAL_BASE
+      .filter((i) => kindOf(i) === 'show' && typeof i.ticketsSold === 'number')
+      .sort((a, b) => (parseNotionDate(a.date)?.getTime() ?? 0) - (parseNotionDate(b.date)?.getTime() ?? 0));
+    for (const s of shows) {
+      out.push({
+        label: s.title,
+        date: s.date,
+        tickets: s.ticketsSold!,
+        capacity: s.capacity,
+        baseline: false,
+      });
+    }
+    return out;
+  }
+
+  /** How full the room was, when we know how big the room is. */
+  function sellThrough(p: { tickets: number; capacity: number | null }): number | null {
+    if (!p.capacity || p.capacity <= 0) return null;
+    return Math.min(1, p.tickets / p.capacity);
+  }
+
+  function sellLabel(tickets: number, capacity: number | null): string {
+    const f = sellThrough({ tickets, capacity });
+    if (f === null) return `${fmtNumber(tickets)} tickets`;
+    return `${fmtNumber(tickets)} tickets · ${f >= 0.99 ? 'Sold out' : `${Math.round(f * 100)}% sold`}`;
+  }
+
+  /** The next show we have not sold yet, for the empty state. */
+  function nextShow(): PortalCalendarItem | null {
+    const today = todayStart();
+    return CAL_BASE
+      .filter((i) => kindOf(i) === 'show')
+      .filter((i) => { const d = parseNotionDate(i.date); return !!d && d >= today; })
+      .sort((a, b) => (parseNotionDate(a.date)!.getTime()) - (parseNotionDate(b.date)!.getTime()))[0] ?? null;
+  }
+
+  /** The Shows block on the overview. Null when there is nothing at
+   *  all to say, which is not the same as nothing to show yet. */
+  function showsSection(): HTMLElement | null {
+    const pts = showPoints();
+    if (!pts.length) return null;
+
+    const wrap = el('div');
+    const h = el('div', 'pt-platform-head');
+    h.appendChild(el('h3', undefined, 'Shows'));
+    h.appendChild(el('span', 'pt-platform-rule'));
+    const link = el('a', 'pt-back');
+    (link as HTMLAnchorElement).href = '#/reports/Shows';
+    link.style.margin = '0';
+    link.appendChild(el('span', undefined, 'Detail'));
+    link.appendChild(icon('chev'));
+    h.appendChild(link);
+    wrap.appendChild(h);
+
+    const card = el('section', 'pt-card');
+    const body = el('div', 'pt-card-body');
+
+    const real = pts.filter((p) => !p.baseline);
+    if (!real.length) {
+      const base = pts[0];
+      const next = nextShow();
+      const e = el('div', 'pt-empty');
+      const ic = el('div', 'pt-empty-icon');
+      ic.appendChild(icon('ticket'));
+      e.append(
+        ic,
+        el('h3', undefined, next
+          ? `Your ticket trend starts after ${next.title}`
+          : 'Your ticket trend starts at your first show'),
+        el('p', undefined, [
+          next ? `${next.title} is on ${fmtDateShort(next.date)}.` : null,
+          `Baseline: ${sellLabel(base.tickets, base.capacity)}.`,
+        ].filter(Boolean).join(' ')),
+      );
+      body.appendChild(e);
+      card.appendChild(body);
+      wrap.appendChild(card);
+      return wrap;
+    }
+
+    body.appendChild(ticketHeadline(pts));
+    body.appendChild(ticketBars(pts));
+    body.appendChild(showStats(pts));
+    card.appendChild(body);
+    wrap.appendChild(card);
+    return wrap;
+  }
+
+  /** Tickets at the last show, against whatever came before it. */
+  function ticketHeadline(pts: ShowPoint[]): HTMLElement {
+    const last = pts[pts.length - 1];
+    const prev = pts[pts.length - 2] ?? null;
+    const row = el('div', 'pt-headline');
+    const cardEl = el('div', 'pt-headline-card');
+    cardEl.appendChild(el('span', 'pt-headline-label', 'Tickets (last show)'));
+    cardEl.appendChild(el('span', 'pt-headline-value pt-num', fmtNumber(last.tickets)));
+    const foot = el('span', 'pt-headline-foot');
+    if (prev) {
+      const diff = last.tickets - prev.tickets;
+      const dir = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+      const pill = el('span', `pt-delta pt-delta-${dir}`);
+      if (dir !== 'flat') pill.appendChild(icon(dir === 'up' ? 'up' : 'down'));
+      pill.appendChild(el('span', undefined,
+        dir === 'flat' ? 'No change' : `${diff > 0 ? '+' : '−'}${fmtNumber(Math.abs(diff))}`));
+      foot.appendChild(pill);
+      foot.appendChild(el('span', undefined, `vs. ${prev.label}`));
+    } else {
+      foot.appendChild(el('span', undefined, last.label));
+    }
+    cardEl.appendChild(foot);
+    row.appendChild(cardEl);
+    return row;
+  }
+
+  /** One bar per show, in time order, each labelled with its own
+   *  number so there is no axis to read across. */
+  function ticketBars(pts: ShowPoint[]): HTMLElement {
+    const wrap = el('div', 'pt-bars');
+    wrap.setAttribute('role', 'img');
+    wrap.setAttribute('aria-label',
+      `Tickets per show: ${pts.map((p) => `${p.label}, ${p.tickets}`).join('; ')}`);
+    const top = Math.max(...pts.map((p) => p.capacity ?? p.tickets), 1);
+    for (const p of pts) {
+      const col = el('div', 'pt-bar-col');
+      col.title = `${p.label}: ${sellLabel(p.tickets, p.capacity)}`;
+      col.appendChild(el('span', 'pt-bar-num pt-num', fmtNumber(p.tickets)));
+      const track = el('span', 'pt-bar-track');
+      const fill = el('span', 'pt-bar-col-fill' + (p.baseline ? ' pt-bar-col-base' : ''));
+      fill.style.height = '0%';
+      track.appendChild(fill);
+      col.appendChild(track);
+      const f = sellThrough(p);
+      col.appendChild(el('span', 'pt-bar-sell',
+        f === null ? '' : f >= 0.99 ? 'Sold out' : `${Math.round(f * 100)}% sold`));
+      col.appendChild(el('span', 'pt-bar-name', p.label));
+      col.appendChild(el('span', 'pt-bar-date', p.baseline ? 'Starting line' : fmtDateShort(p.date)));
+      wrap.appendChild(col);
+      // Grow from the baseline on the first paint, like the term bar.
+      requestAnimationFrame(() => {
+        fill.style.height = `${Math.max(3, Math.round((p.tickets / top) * 100))}%`;
+      });
+    }
+    return wrap;
+  }
+
+  function showStats(pts: ShowPoint[]): HTMLElement {
+    const real = pts.filter((p) => !p.baseline);
+    const avg = real.length ? real.reduce((n, p) => n + p.tickets, 0) / real.length : 0;
+    const best = real.reduce((b, p) => (p.tickets > (b?.tickets ?? -1) ? p : b), null as ShowPoint | null);
+    const soldOut = real.filter((p) => (sellThrough(p) ?? 0) >= 0.99).length;
+    const inTerm = DATA ? showsSinceTerm() : real.length;
+
+    const grid = el('div', 'pt-ministats');
+    const add = (label: string, value: string) => {
+      const s = el('div', 'pt-ministat');
+      s.appendChild(el('span', 'pt-ministat-value pt-num', value));
+      s.appendChild(el('span', 'pt-ministat-label', label));
+      grid.appendChild(s);
+    };
+    add('Average per show', fmtNumber(Math.round(avg)));
+    if (best) add('Best show', `${fmtNumber(best.tickets)}`);
+    add('Shows this term', String(inTerm));
+    add('Sold out', String(soldOut));
+    if (best) {
+      grid.appendChild(el('p', 'pt-ministat-note', `Your best night so far was ${best.label}.`));
+    }
+    return grid;
+  }
+
+  /** Shows on the calendar since the term started, counted whether or
+   *  not anyone wrote down how many tickets went. */
+  function showsSinceTerm(): number {
+    const start = parseNotionDate(DATA?.client.termStart ?? null);
+    const today = todayStart();
+    return CAL_BASE.filter((i) => {
+      if (kindOf(i) !== 'show') return false;
+      const d = parseNotionDate(i.date);
+      if (!d || d > today) return false;
+      return !start || d >= start;
+    }).length;
+  }
+
+  /** The Shows detail page: the same chart with room to breathe, then
+   *  every show as a row. */
+  function showsDetail(): HTMLElement {
+    const wrap = el('div');
+    const back = el('a', 'pt-back');
+    (back as HTMLAnchorElement).href = '#/reports';
+    back.appendChild(icon('chev-left'));
+    back.appendChild(el('span', undefined, 'All reports'));
+    wrap.appendChild(back);
+
+    const head = el('div', 'pt-platform-head');
+    head.appendChild(el('h3', undefined, 'Shows'));
+    head.appendChild(el('span', 'pt-platform-rule'));
+    wrap.appendChild(head);
+    wrap.appendChild(el('p', 'pt-sect-blurb',
+      'Tickets sold at each show, in the order they happened. The first bar is where you started.'));
+
+    const pts = showPoints();
+    const real = pts.filter((p) => !p.baseline);
+
+    const card = el('section', 'pt-card');
+    const body = el('div', 'pt-card-body');
+    if (!real.length) {
+      const next = nextShow();
+      body.appendChild(el('p', 'pt-kpi-note', next
+        ? `Nothing to chart yet. ${next.title} is on ${fmtDateShort(next.date)}.`
+        : 'Nothing to chart yet.'));
+      if (pts.length) {
+        body.appendChild(el('p', 'pt-kpi-note', `Baseline: ${sellLabel(pts[0].tickets, pts[0].capacity)}.`));
+      }
+    } else {
+      body.appendChild(ticketHeadline(pts));
+      body.appendChild(ticketBars(pts));
+      body.appendChild(showStats(pts));
+    }
+    card.appendChild(body);
+    wrap.appendChild(card);
+
+    if (pts.length) {
+      const table = el('section', 'pt-card');
+      table.style.marginTop = 'var(--pt-5)';
+      const th = el('div', 'pt-card-head');
+      th.appendChild(el('h2', undefined, 'Every show'));
+      table.appendChild(th);
+      const tb = el('div', 'pt-card-body');
+      const dl = el('dl', 'pt-deflist');
+      for (const p of [...pts].reverse()) {
+        dl.append(
+          el('dt', undefined, p.baseline ? 'Baseline' : fmtDateShort(p.date)),
+          el('dd', undefined, `${p.label} — ${sellLabel(p.tickets, p.capacity)}`),
+        );
+      }
+      tb.appendChild(dl);
+      table.appendChild(tb);
+      wrap.appendChild(table);
+    }
+    return wrap;
   }
 
   function reportsOverview(): HTMLElement {
@@ -1588,6 +3204,10 @@ const NAV = [
       note.appendChild(p);
       wrap.appendChild(note);
     }
+
+    /* shows: the one number that is not a platform's */
+    const shows = showsSection();
+    if (shows) wrap.appendChild(shows);
 
     /* platform groups */
     for (const g of groupMetrics(snap)) {
@@ -2046,6 +3666,8 @@ const NAV = [
   /* ── wiring ────────────────────────────────────────────────── */
   q('[data-drawer-close]')?.addEventListener('click', closeDrawer);
   q('[data-scrim]')?.addEventListener('click', closeDrawer);
+  q('[data-sheet-close]')?.addEventListener('click', closeSheet);
+  q('[data-sheet-scrim]')?.addEventListener('click', closeSheet);
   // Month grid and agenda are different components, not one that
   // rescales, so crossing the breakpoint has to re-pick the view
   // rather than redraw the desktop one at phone width.
@@ -2058,8 +3680,10 @@ const NAV = [
       wasNarrow = now;
       CAL.view = now ? 'agenda' : 'month';
       CAL.selected = null;
+      CON.col = '';
     }
     drawCalendar();
+    drawContent();
   });
 
   boot();

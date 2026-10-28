@@ -10,7 +10,13 @@
    file intact.
    ────────────────────────────────────────────────────────────── */
 
-import { fetchCalendar, fetchSnapshots, findClientBySlug } from '../../../src/server/portal-notion';
+import {
+  fetchCalendar,
+  fetchContent,
+  fetchContentSchema,
+  fetchSnapshots,
+  findClientBySlug,
+} from '../../../src/server/portal-notion';
 import {
   COOKIE_NAME,
   DATA_CACHE_SECONDS,
@@ -59,12 +65,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     // their portal switched off gets the same 404 as everyone else.
     if (!record || !record.portalEnabled) return portalNotFound();
 
-    const [calendar, snapshots] = await Promise.all([
+    const [calendar, snapshots, content, contentSchema] = await Promise.all([
       fetchCalendar(env.NOTION_TOKEN, record.pageId, record.client.artist),
       fetchSnapshots(env.NOTION_TOKEN, record.pageId),
+      fetchContent(env.NOTION_TOKEN, record.pageId),
+      fetchContentSchema(env.NOTION_TOKEN),
     ]);
 
-    payload = { client: record.client, calendar, snapshots };
+    payload = { client: record.client, calendar, snapshots, content, contentSchema };
   } catch (err) {
     console.error('portal: data build threw', err);
     return portalNotFound();

@@ -81,6 +81,7 @@ export const CALENDAR_FIELDS = [
   'Moment',
   'Streams to Date',
   'Tickets Sold',
+  'Capacity',
 ] as const;
 
 export const CALENDAR_NEVER_SEND = ['Notes', 'Offset (days)', 'Is Playbook', 'Hide from Client'] as const;
@@ -339,6 +340,8 @@ export interface PortalCalendarItem {
   streamsToDate: number | null;
   /** Show moments only. */
   ticketsSold: number | null;
+  /** Show moments only: how many tickets there were to sell. */
+  capacity: number | null;
 }
 
 export interface PortalSnapshot {
@@ -354,6 +357,11 @@ export interface PortalPayload {
   client: PortalClient;
   calendar: PortalCalendarItem[];
   snapshots: PortalSnapshot[];
+  /** The client's own content board. Absent on an older payload. */
+  content?: import('./portal-content').PortalContentItem[];
+  /** Bucket, format and platform options, read from Notion's schema
+   *  so a bucket added there appears here without a deploy. */
+  contentSchema?: import('./portal-content').PortalContentSchema;
 }
 
 /** Headline metrics, in the order the Reports section shows them.
