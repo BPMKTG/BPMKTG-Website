@@ -20,6 +20,7 @@ import {
   isMetricProp,
   isVisibleToClient,
   cleanItemTitle,
+  cleanText,
   type PortalClient,
   type PortalCalendarItem,
   type PortalSnapshot,
@@ -56,12 +57,14 @@ function readText(p: Prop): string | null {
   if (!p) return null;
   const parts = p.type === 'title' ? p.title : p.type === 'rich_text' ? p.rich_text : null;
   if (!Array.isArray(parts)) return null;
-  const s = parts.map((t: any) => t?.plain_text ?? '').join('').trim();
-  return s || null;
+  // cleanText here rather than in the browser: a column filled with an
+  // em dash means "nothing yet", and the whole payload is better off
+  // never carrying the placeholder in the first place.
+  return cleanText(parts.map((t: any) => t?.plain_text ?? '').join(''));
 }
 
 function readSelect(p: Prop): string | null {
-  return p?.type === 'select' ? (p.select?.name ?? null) : null;
+  return p?.type === 'select' ? cleanText(p.select?.name ?? null) : null;
 }
 
 function readMultiSelect(p: Prop): string[] {

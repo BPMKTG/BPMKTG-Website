@@ -11,6 +11,8 @@ import {
   goalProgress,
   songsAtTarget,
   showsInMonth,
+  weeklyPaceNeeded,
+  cleanText,
   showsPerMonthAverage,
   daysUntil,
   displayMetricLabel,
@@ -642,6 +644,46 @@ is('rollup: missing platforms are skipped, not zeroed',
 is('rollup: no data at all is null rather than 0',
    sumMetrics({ 'Instagram · Followers': 10 }, VIEW_ROLLUP), null);
 
+
+/* ── round 4: placeholders, term-bounded shows, weekly pace ───── */
+
+is('clean: an em dash is nothing', cleanText('—'), null);
+is('clean: so is a plain hyphen', cleanText('-'), null);
+is('clean: and TBD', cleanText(' TBD '), null);
+is('clean: and N/A', cleanText('n/a'), null);
+is('clean: real text survives', cleanText(' IG Story '), 'IG Story');
+// The one that would bite: a title is not a placeholder because it
+// happens to contain a dash.
+is('clean: a dash inside real text is kept', cleanText('Out now — go stream it'), 'Out now — go stream it');
+is('clean: null stays null', cleanText(null), null);
+
+const showRows = [
+  { kind: 'Moment', momentType: 'Show', date: '2026-10-03' },   // before the term
+  { kind: 'Moment', momentType: 'Show', date: '2026-11-08' },
+  { kind: 'Moment', momentType: 'Show', date: '2026-11-22' },
+  { kind: 'Moment', momentType: 'Show', date: '2026-12-02' },   // next month
+  { kind: 'Moment', momentType: 'Release', date: '2026-11-13' },// not a show
+];
+const inNov = new Date(2026, 10, 15);
+is('shows: this month, no term bound', showsInMonth(showRows, inNov), 2);
+is('shows: a show before the term start does not count',
+   showsInMonth([{ kind: 'Moment', momentType: 'Show', date: '2026-11-02' }, ...showRows],
+                inNov, '2026-11-05'), 2);
+is('shows: the term start day itself counts',
+   showsInMonth([{ kind: 'Moment', momentType: 'Show', date: '2026-11-05' }], inNov, '2026-11-05'), 1);
+
+const paceNow = new Date(2026, 10, 1);
+// 1,883 to go over 90 days (12.86 weeks) is 146.5 a week. The card
+// rounds that UP, because a pace you round down does not get there.
+is('pace: followers per week to the deadline',
+   Math.round(weeklyPaceNeeded(3117, 5000, '2027-01-30', paceNow)), 146);
+is('pace: the card rounds up, never down',
+   Math.ceil(weeklyPaceNeeded(3117, 5000, '2027-01-30', paceNow)), 147);
+is('pace: a goal already met needs no pace',
+   weeklyPaceNeeded(5200, 5000, '2027-01-30', paceNow), null);
+is('pace: a deadline that has passed needs no pace',
+   weeklyPaceNeeded(3117, 5000, '2026-10-01', paceNow), null);
+is('pace: no deadline, no pace', weeklyPaceNeeded(3117, 5000, null, paceNow), null);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

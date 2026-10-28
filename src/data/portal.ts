@@ -404,6 +404,22 @@ export function goalProgress(baseline: number, current: number, target: number):
   return { baseline, current, target, gained, fraction };
 }
 
+/**
+ * Is this text a placeholder rather than a value?
+ *
+ * A Notion text column gets filled with an em dash or "TBD" when there
+ * is nothing to say yet. That is a person writing "blank", and it
+ * reaches a client as "Your to-do · —" or a drawer row reading
+ * "Channel —". Treated as empty, those rows simply do not appear.
+ */
+const PLACEHOLDER = /^(?:[-–—]+|n\/?a|tbd|tba|none|null)$/i;
+
+export function cleanText(value: string | null): string | null {
+  if (value === null) return null;
+  const s = value.trim();
+  return !s || PLACEHOLDER.test(s) ? null : s;
+}
+
 /** Release moments that have cleared the stream target. */
 export function songsAtTarget(
   items: Array<{ momentType: string | null; streamsToDate: number | null }>,
@@ -416,16 +432,42 @@ export function songsAtTarget(
   ).length;
 }
 
-/** Show moments whose date falls in the same calendar month as `when`. */
+/**
+ * Show moments in the same calendar month as `when`.
+ *
+ * Shows played before the term started are not ours to count. Without
+ * `termStart` the month on its own decides, which is what the calendar
+ * page wants; the goal card always passes it.
+ */
 export function showsInMonth(
   items: Array<{ kind: string | null; momentType: string | null; date: string | null }>,
   when: Date = new Date(),
+  termStart: string | null = null,
 ): number {
+  const start = parseNotionDate(termStart);
   return items.filter((i) => {
     if (!(i.momentType ?? '').toLowerCase().includes('show')) return false;
     const d = parseNotionDate(i.date);
-    return !!d && d.getFullYear() === when.getFullYear() && d.getMonth() === when.getMonth();
+    if (!d) return false;
+    if (start && d < start) return false;
+    return d.getFullYear() === when.getFullYear() && d.getMonth() === when.getMonth();
   }).length;
+}
+
+/**
+ * The weekly pace that still reaches `target` by `deadline`.
+ *
+ * Null when there is no deadline, when it has passed, or when the goal
+ * is already met: a number of followers per week is only useful advice
+ * while there is still time to act on it.
+ */
+export function weeklyPaceNeeded(
+  current: number, target: number, deadline: string | null, now: Date = new Date(),
+): number | null {
+  if (current >= target) return null;
+  const days = daysUntil(deadline, now);
+  if (days === null || days <= 0) return null;
+  return (target - current) / (days / 7);
 }
 
 /**

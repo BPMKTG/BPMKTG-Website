@@ -186,6 +186,7 @@ const NAV = [
     showsInMonth,
     showsPerMonthAverage,
     songsAtTarget,
+    weeklyPaceNeeded,
     termProgress,
     SONG_STREAM_TARGET,
     type PortalCalendarItem,
@@ -253,6 +254,11 @@ const NAV = [
   const fmtDate = (iso: string | null) => {
     const d = parseNotionDate(iso);
     return d ? `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}, ${d.getFullYear()}` : '';
+  };
+  /** "Jan 30", for a sentence that already says which year it means. */
+  const fmtDateShort = (iso: string | null) => {
+    const d = parseNotionDate(iso);
+    return d ? `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}` : '';
   };
   const fmtDayLong = (d: Date) =>
     `${DOW[d.getDay()]}, ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}`;
@@ -491,14 +497,20 @@ const NAV = [
       }),
     );
 
+    // "Coming up" is what WE are doing next. Client-owned rows belong in
+    // the to-do card beside it, and listing them twice made the page look
+    // like twice the work.
     const today = todayStart();
+    const horizon = new Date(today);
+    horizon.setDate(horizon.getDate() + 14);
     const upcoming = data.calendar
-      .filter((i) => { const d = parseNotionDate(i.date); return d && d >= today; })
+      .filter((i) => i.owner !== 'Client')
+      .filter((i) => { const d = parseNotionDate(i.date); return !!d && d >= today && d <= horizon; })
       .slice(0, 5);
     cols.appendChild(
       listCard('Coming up', upcoming, {
         emptyIcon: 'cal',
-        emptyTitle: 'Nothing scheduled yet',
+        emptyTitle: 'Nothing in the next two weeks',
         emptyBody: 'Your calendar fills in as we build out the next run of content and moments.',
       }),
     );
@@ -595,8 +607,14 @@ const NAV = [
         // and "+0 since you started" reads like a failure rather than
         // a starting line.
         foot.appendChild(el('span', undefined, g.gained === 0 && span.first === span.last
-          ? `Starting at ${fmtNumber(g.baseline)}. This moves with your first monthly report.`
-          : `${g.gained >= 0 ? '+' : ''}${fmtNumber(g.gained)} since you started at ${fmtNumber(g.baseline)}`));
+          ? `Started at ${fmtNumber(g.baseline)}`
+          : `${g.gained >= 0 ? '+' : ''}${fmtNumber(g.gained)} since ${fmtNumber(g.baseline)}`));
+        // The pace is the only number on this card anyone can act on.
+        const pace = weeklyPaceNeeded(span.last, c.goalInstagramFollowers, c.goalDeadline);
+        if (pace !== null) {
+          foot.appendChild(el('span', undefined,
+            `need ~${fmtNumber(Math.ceil(pace))}/week to hit ${fmtNumber(c.goalInstagramFollowers)} by ${fmtDateShort(c.goalDeadline)}`));
+        }
         block.appendChild(foot);
       } else {
         block.appendChild(el('div', 'pt-goal-foot',
@@ -632,7 +650,10 @@ const NAV = [
       if (releases.length) {
         const list = el('div');
         list.style.marginTop = 'var(--pt-3)';
-        for (const r of releases.slice(0, 5)) {
+        // A short list fits; a long one gets three and a link, never a
+        // silent cut that hides releases a client is waiting on.
+        const shown = releases.length <= 6 ? releases : releases.slice(0, 3);
+        for (const r of shown) {
           const row = el('div', 'pt-song');
           const rh = el('div', 'pt-song-head');
           rh.appendChild(el('span', 'pt-song-name', r.title));
@@ -651,13 +672,29 @@ const NAV = [
           list.appendChild(row);
         }
         block.appendChild(list);
+        const hidden = releases.length - shown.length;
+        if (hidden > 0) {
+          const more = el('button', 'pt-goal-more');
+          more.type = 'button';
+          more.textContent = `+${hidden} more ${hidden === 1 ? 'release' : 'releases'}`;
+          more.appendChild(icon('chev'));
+          more.addEventListener('click', () => {
+            CAL.campaign = '';
+            CAL.filter = 'releases';
+            CAL.view = isNarrow() ? 'agenda' : 'month';
+            CAL.selected = null;
+            drawCalendar();
+            if (currentRoute().view !== 'calendar') location.hash = '#/calendar';
+          });
+          block.appendChild(more);
+        }
       }
       grid.appendChild(block);
     }
 
     /* shows per month */
     if (typeof c.goalShowsPerMonth === 'number') {
-      const thisMonth = showsInMonth(data.calendar);
+      const thisMonth = showsInMonth(data.calendar, new Date(), c.termStart);
       const avg = showsPerMonthAverage(data.calendar, c.termStart);
       const block = el('div');
       const t = el('div', 'pt-goal-title');
@@ -801,7 +838,12 @@ const NAV = [
     if (it.moment) {
       meta.appendChild(el('span', `pt-row-moment pt-mk-${momentKind(it.moment)}`, it.moment.title));
     }
-    const bits = [KIND_LABEL[kindOf(it)], it.where, it.venueCity, it.status].filter(Boolean) as string[];
+    // The title already carries a "To-do" tag, so repeating "Your
+    // to-do" in the meta line costs a wrapped line on a phone and
+    // says nothing new.
+    const k = kindOf(it);
+    const bits = [k === 'todo' ? null : KIND_LABEL[k], it.where, it.venueCity, it.status]
+      .filter(Boolean) as string[];
     for (const b of bits.slice(0, it.moment ? 2 : 3)) meta.appendChild(el('span', undefined, b));
     main.appendChild(meta);
     btn.appendChild(main);
@@ -816,7 +858,7 @@ const NAV = [
 
   /* ── calendar ──────────────────────────────────────────────── */
   type CalView = 'month' | 'week' | 'agenda';
-  type Filter = 'all' | 'moments' | 'content' | 'todos';
+  type Filter = 'all' | 'moments' | 'releases' | 'content' | 'todos';
 
   const CAL = {
     view: 'month' as CalView,
@@ -873,7 +915,8 @@ const NAV = [
     if (CAL.campaign && it.id !== CAL.campaign && it.moment?.id !== CAL.campaign) return false;
     const k = kindOf(it);
     switch (CAL.filter) {
-      case 'moments': return k === 'show' || k === 'release';
+      case 'moments':  return k === 'show' || k === 'release';
+      case 'releases': return k === 'release';
       case 'content': return k === 'content';
       case 'todos':   return k === 'todo';
       default:        return true;
@@ -914,6 +957,26 @@ const NAV = [
       );
       root.appendChild(e);
       return;
+    }
+
+    // On a phone the month grid is dots, so a day has to be open for
+    // the view to say anything at all. Today when today is on screen,
+    // otherwise the first day of the month that has something in it.
+    if (isNarrow() && CAL.view === 'month' && !CAL.selected) {
+      const now = todayStart();
+      const thisMonth = (d: Date) =>
+        d.getFullYear() === CAL.cursor.getFullYear() && d.getMonth() === CAL.cursor.getMonth();
+      const dates = visible
+        .map((i) => parseNotionDate(i.date))
+        .filter((d): d is Date => !!d && thisMonth(d))
+        .sort((a, b) => a.getTime() - b.getTime());
+      // Today, unless today is empty: opening on "Nothing scheduled on
+      // this day" teaches a client the view is broken. Then the next
+      // day with something on it, then today anyway.
+      CAL.selected = dates.find((d) => sameDay(d, now))
+        ?? dates.find((d) => d >= now)
+        ?? dates[dates.length - 1]
+        ?? (thisMonth(now) ? now : null);
     }
 
     if (CAL.view === 'agenda') root.appendChild(agendaView(visible));
@@ -965,7 +1028,7 @@ const NAV = [
     const filter = el('select', 'pt-select') as HTMLSelectElement;
     filter.setAttribute('aria-label', 'Filter calendar');
     for (const [v, text] of [
-      ['all', 'All items'], ['moments', 'Shows & releases'],
+      ['all', 'All items'], ['moments', 'Shows & releases'], ['releases', 'Releases'],
       ['content', 'Content'], ['todos', 'My to-dos'],
     ] as const) {
       const o = el('option', undefined, text) as HTMLOptionElement;
@@ -1495,7 +1558,7 @@ const NAV = [
 
     /* growth score */
     if (typeof snap.growthScore === 'number') {
-      const card = el('section', 'pt-card');
+      const card = el('section', 'pt-card pt-score-card');
       const body = el('div', 'pt-card-body');
       const score = el('div', 'pt-score');
       score.appendChild(gauge(snap.growthScore, 40));
@@ -1580,7 +1643,12 @@ const NAV = [
 
     const h = el('div', 'pt-platform-head');
     h.style.marginTop = '0';
-    h.appendChild(el('h3', undefined, 'This month'));
+    // "This month" was a guess. A baseline is a single reading on one
+    // day, and every rolling metric under it covers 28 days, so the
+    // heading says which.
+    h.appendChild(el('h3', undefined, /baseline/i.test(snap.type ?? '')
+      ? `Baseline · ${fmtDateShort(snap.date)}`
+      : 'Last 28 days'));
     h.appendChild(el('span', 'pt-platform-rule'));
     wrap.appendChild(h);
 
@@ -1627,6 +1695,20 @@ const NAV = [
     return f;
   }
 
+  /**
+   * The value to show for a metric.
+   *
+   * "Shows This Month" exists as a Notion column AND as something the
+   * calendar can count. Two sources means two answers, and the client
+   * can see the calendar, so the calendar wins.
+   */
+  function metricValue(name: string, snap: PortalSnapshot): number {
+    if (name === 'Shows This Month' && DATA) {
+      return showsInMonth(DATA.calendar, new Date(), DATA.client.termStart);
+    }
+    return snap.metrics[name];
+  }
+
   function metricCard(
     name: string, snap: PortalSnapshot, cmp: PortalSnapshot | null, linkable: boolean,
   ): HTMLElement {
@@ -1642,11 +1724,11 @@ const NAV = [
     const def = linkable && plat ? null : metricDefinition(name);
     if (def) label.appendChild(infoButton(def, displayMetricLabel(name)));
     node.appendChild(label);
-    node.appendChild(el('div', 'pt-kpi-value pt-num', fmtMetric(name, snap.metrics[name])));
+    node.appendChild(el('div', 'pt-kpi-value pt-num', fmtMetric(name, metricValue(name, snap))));
 
     const foot = el('div', 'pt-kpi-foot');
     const before = cmp?.metrics[name];
-    if (typeof before === 'number') foot.appendChild(deltaPill(snap.metrics[name], before, name));
+    if (typeof before === 'number') foot.appendChild(deltaPill(metricValue(name, snap), before, name));
     else foot.appendChild(el('span', 'pt-kpi-note', 'Baseline'));
     node.appendChild(foot);
 
@@ -1751,10 +1833,10 @@ const NAV = [
     for (const m of metrics) {
       const tr = el('tr');
       tr.appendChild(el('td', undefined, displayMetricLabel(m)));
-      tr.appendChild(el('td', 'pt-td-num', fmtMetricFull(m, snap.metrics[m])));
+      tr.appendChild(el('td', 'pt-td-num', fmtMetricFull(m, metricValue(m, snap))));
       const td = el('td', 'pt-td-num');
       const before = cmp?.metrics[m];
-      if (typeof before === 'number') td.appendChild(deltaPill(snap.metrics[m], before, m));
+      if (typeof before === 'number') td.appendChild(deltaPill(metricValue(m, snap), before, m));
       else td.appendChild(el('span', 'pt-kpi-note', '—'));
       tr.appendChild(td);
       tb.appendChild(tr);

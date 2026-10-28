@@ -1154,3 +1154,50 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
   .pt-tabs::-webkit-scrollbar { display: none; }
   .pt-tab-btn { flex: none; white-space: nowrap; }
 }
+
+/* ── round 4: goals card layout ────────────────────────────────
+   Two CSS columns rather than a grid. A grid row is as tall as its
+   tallest cell, so the songs list (five rows) left the block beside
+   it floating in the middle of a hole. Columns top-align by nature. */
+.pt-goals-grid {
+  display: block;
+  columns: 2;
+  column-gap: var(--pt-6);
+}
+.pt-goals-grid > * {
+  break-inside: avoid;
+  margin-bottom: var(--pt-5);
+}
+.pt-goals-grid > :last-child { margin-bottom: 0; }
+@media (max-width: 860px) {
+  .pt-goals-grid { columns: 1; }
+}
+
+/* The pace line is a second sentence, not a second column. */
+.pt-goal-foot { display: block; }
+.pt-goal-foot > span + span::before {
+  content: '·'; margin: 0 6px; color: var(--pt-dim);
+}
+.pt-goal-foot .pt-delta { margin-right: var(--pt-2); }
+.pt-goal-foot .pt-delta + span::before { content: none; margin: 0; }
+
+.pt-goal-more {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: var(--pt-3);
+  font-size: .78rem; font-weight: 600; color: var(--pt-navy);
+}
+.pt-goal-more:hover { text-decoration: underline; }
+.pt-goal-more svg { width: 12px; height: 12px; }
+
+/* The score is its own idea, not a fifth tile. */
+.pt-score-card { margin-top: var(--pt-5); }
+
+/* NOTE: below the base rules it overrides, as every media query here
+   must be. On a phone the countdown sits under the quote, so its
+   right alignment would strand the number in the middle of nowhere. */
+@media (max-width: 700px) {
+  .pt-goals-head { flex-direction: column; align-items: flex-start; gap: var(--pt-4); }
+  .pt-goals-quote { min-width: 0; }
+  .pt-goals-count { text-align: left; align-self: flex-start; }
+  .pt-goals-days, .pt-goals-days-label { text-align: left; }
+}
