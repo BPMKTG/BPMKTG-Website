@@ -903,7 +903,15 @@ is('pipeline: approved and scheduled share Ready to Post',
    [stageOf(card({ status: 'Approved' }), nowC), stageOf(card({ status: 'Scheduled' }), nowC)],
    ['ready', 'ready']);
 is('pipeline: skipped is hidden', stageOf(card({ status: 'Skipped' }), nowC), null);
-is('pipeline: an idea is not on the pipeline', stageOf(card({ status: 'Idea' }), nowC), null);
+is('pipeline: an undated idea is not on the pipeline', stageOf(card({ status: 'Idea' }), nowC), null);
+is('pipeline: a dated idea lands in Planned',
+   stageOf(card({ status: 'Idea', postDate: '2026-11-09' }), nowC), 'planned');
+is('pipeline: a dated idea with a shoot date lands in To film',
+   stageOf(card({ status: 'Idea', postDate: '2026-11-09', filmBy: '2026-11-05' }), nowC), 'toFilm');
+is('pipeline: an idea with only a shoot date lands in To film',
+   stageOf(card({ status: 'Idea', filmBy: '2026-11-05' }), nowC), 'toFilm');
+is('ideas: a dated idea is off the Ideas board',
+   isIdea({ status: 'Idea', postDate: '2026-11-09' }), false);
 is('pipeline: a recent post still shows',
    stageOf(card({ status: 'Posted', postDate: '2026-10-20' }), nowC), 'posted');
 is('pipeline: a post older than 30 days drops off',

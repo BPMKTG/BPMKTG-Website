@@ -290,6 +290,13 @@ export function stageOf(
   now: Date = new Date(),
 ): Stage | null {
   switch (item.status) {
+    // A dated idea is not an idea any more. The Ideas board is the
+    // undated well, so without this a card someone gave a date to in
+    // Notion while leaving the status alone would appear on no board
+    // at all, which is worse than being in the wrong column.
+    case 'Idea':
+      if (!item.postDate && !item.filmBy) return null;
+      return item.filmBy ? 'toFilm' : 'planned';
     case 'Planned':          return item.filmBy ? 'toFilm' : 'planned';
     case 'Filmed':
     case 'Footage In':       return 'filmed';
@@ -303,7 +310,7 @@ export function stageOf(
       const age = (now.getTime() - d.getTime()) / 86_400_000;
       return age <= POSTED_WINDOW_DAYS ? 'posted' : null;
     }
-    default: return null;   // Idea, Skipped, anything unrecognised
+    default: return null;   // Skipped, anything unrecognised
   }
 }
 
