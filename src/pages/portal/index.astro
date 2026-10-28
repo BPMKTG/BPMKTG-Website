@@ -1260,7 +1260,7 @@ const NAV = [
       if (row.moment) b.appendChild(el('span', 'pt-chip-moment', row.moment.title));
       b.title = row.contentRole === 'film'
         ? `Film by: ${c.title}`
-        : `Posts: ${c.title}${c.bucket ? ` — ${c.bucket}` : ''}`;
+        : `Posts: ${c.title}${c.bucket ? ` · ${c.bucket}` : ''}`;
       b.addEventListener('click', (ev) => { ev.stopPropagation(); openDrawer(it); });
       return b;
     }
@@ -2890,36 +2890,49 @@ const NAV = [
     date: string | null;
     tickets: number;
     capacity: number | null;
-    /** The starting line, not a show we ran. */
+    /** The first bar: the starting line everything after it grew from. */
     baseline: boolean;
+    /** A KPI reading rather than a show, so it has no name or room size. */
+    snapshot: boolean;
   }
 
   function showPoints(): ShowPoint[] {
-    const out: ShowPoint[] = [];
-    // The oldest snapshot that counted tickets is where the line starts.
-    const base = [...SNAPS].reverse().find((s) => typeof s.metrics['Tickets Sold'] === 'number');
-    if (base) {
-      out.push({
-        label: 'Baseline',
-        date: base.date,
-        tickets: base.metrics['Tickets Sold'],
-        capacity: null,
-        baseline: true,
-      });
-    }
-    const shows = CAL_BASE
+    // A show we actually ran beats a snapshot reading every time: it has
+    // a name, a date and a room size, and the client was there. The
+    // snapshot is the starting line only while no show has sold a ticket.
+    const shows: ShowPoint[] = CAL_BASE
       .filter((i) => kindOf(i) === 'show' && typeof i.ticketsSold === 'number')
-      .sort((a, b) => (parseNotionDate(a.date)?.getTime() ?? 0) - (parseNotionDate(b.date)?.getTime() ?? 0));
-    for (const s of shows) {
-      out.push({
+      .sort((a, b) => (parseNotionDate(a.date)?.getTime() ?? 0) - (parseNotionDate(b.date)?.getTime() ?? 0))
+      .map((s) => ({
         label: s.title,
         date: s.date,
         tickets: s.ticketsSold!,
         capacity: s.capacity,
         baseline: false,
-      });
+        snapshot: false,
+      }));
+    if (shows.length) {
+      shows[0].baseline = true;
+      return shows;
     }
-    return out;
+
+    const base = [...SNAPS].reverse().find((s) => typeof s.metrics['Tickets Sold'] === 'number');
+    if (!base) return [];
+    return [{
+      label: 'Baseline',
+      date: base.date,
+      tickets: base.metrics['Tickets Sold'],
+      capacity: null,
+      baseline: true,
+      snapshot: true,
+    }];
+  }
+
+  /** How the starting line reads in prose, before there is a trend. */
+  function baselineLine(p: ShowPoint): string {
+    return p.snapshot
+      ? `Baseline: ${sellLabel(p.tickets, p.capacity)}.`
+      : `Baseline: ${p.label}, ${sellLabel(p.tickets, p.capacity)}.`;
   }
 
   /** How full the room was, when we know how big the room is. */
@@ -2964,8 +2977,10 @@ const NAV = [
     const card = el('section', 'pt-card');
     const body = el('div', 'pt-card-body');
 
-    const real = pts.filter((p) => !p.baseline);
-    if (!real.length) {
+    // Not "is there data" but "is there a trend": one bar is a starting
+    // line, and a chart of it would say nothing a sentence cannot.
+    const later = pts.filter((p) => !p.baseline);
+    if (!later.length) {
       const base = pts[0];
       const next = nextShow();
       const e = el('div', 'pt-empty');
@@ -2978,7 +2993,7 @@ const NAV = [
           : 'Your ticket trend starts at your first show'),
         el('p', undefined, [
           next ? `${next.title} is on ${fmtDateShort(next.date)}.` : null,
-          `Baseline: ${sellLabel(base.tickets, base.capacity)}.`,
+          baselineLine(base),
         ].filter(Boolean).join(' ')),
       );
       body.appendChild(e);
@@ -3042,7 +3057,7 @@ const NAV = [
       col.appendChild(el('span', 'pt-bar-sell',
         f === null ? '' : f >= 0.99 ? 'Sold out' : `${Math.round(f * 100)}% sold`));
       col.appendChild(el('span', 'pt-bar-name', p.label));
-      col.appendChild(el('span', 'pt-bar-date', p.baseline ? 'Starting line' : fmtDateShort(p.date)));
+      col.appendChild(el('span', 'pt-bar-date', p.snapshot ? 'Starting line' : fmtDateShort(p.date)));
       wrap.appendChild(col);
       // Grow from the baseline on the first paint, like the term bar.
       requestAnimationFrame(() => {
@@ -3053,7 +3068,9 @@ const NAV = [
   }
 
   function showStats(pts: ShowPoint[]): HTMLElement {
-    const real = pts.filter((p) => !p.baseline);
+    // Every real show counts here, the first one included. It is the
+    // starting line of the chart, but it was still a night they played.
+    const real = pts.filter((p) => !p.snapshot);
     const avg = real.length ? real.reduce((n, p) => n + p.tickets, 0) / real.length : 0;
     const best = real.reduce((b, p) => (p.tickets > (b?.tickets ?? -1) ? p : b), null as ShowPoint | null);
     const soldOut = real.filter((p) => (sellThrough(p) ?? 0) >= 0.99).length;
@@ -3107,18 +3124,16 @@ const NAV = [
       'Tickets sold at each show, in the order they happened. The first bar is where you started.'));
 
     const pts = showPoints();
-    const real = pts.filter((p) => !p.baseline);
+    const later = pts.filter((p) => !p.baseline);
 
     const card = el('section', 'pt-card');
     const body = el('div', 'pt-card-body');
-    if (!real.length) {
+    if (!later.length) {
       const next = nextShow();
       body.appendChild(el('p', 'pt-kpi-note', next
         ? `Nothing to chart yet. ${next.title} is on ${fmtDateShort(next.date)}.`
         : 'Nothing to chart yet.'));
-      if (pts.length) {
-        body.appendChild(el('p', 'pt-kpi-note', `Baseline: ${sellLabel(pts[0].tickets, pts[0].capacity)}.`));
-      }
+      if (pts.length) body.appendChild(el('p', 'pt-kpi-note', baselineLine(pts[0])));
     } else {
       body.appendChild(ticketHeadline(pts));
       body.appendChild(ticketBars(pts));
@@ -3137,8 +3152,8 @@ const NAV = [
       const dl = el('dl', 'pt-deflist');
       for (const p of [...pts].reverse()) {
         dl.append(
-          el('dt', undefined, p.baseline ? 'Baseline' : fmtDateShort(p.date)),
-          el('dd', undefined, `${p.label} — ${sellLabel(p.tickets, p.capacity)}`),
+          el('dt', undefined, p.snapshot ? 'Baseline' : fmtDateShort(p.date)),
+          el('dd', undefined, `${p.label} · ${sellLabel(p.tickets, p.capacity)}`),
         );
       }
       tb.appendChild(dl);

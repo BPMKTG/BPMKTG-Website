@@ -408,7 +408,7 @@ export async function fetchSnapshots(token: string, clientPageId: string): Promi
    allowed to change.
    ────────────────────────────────────────────────────────────── */
 
-export const CONTENT_DB = '4d967fc7-6948-445b-afe7-8d34bd31e228';
+export const CONTENT_DB = '086468af-a36c-414a-9dd0-e13fca387a42';
 
 /** One Notion page, shaped field by field into the client's view. */
 function shapeContent(page: any): PortalContentItem {
