@@ -1948,6 +1948,11 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
   .pt-layers::-webkit-scrollbar { display: none; }
   .pt-quick { width: 100%; overflow-x: auto; scrollbar-width: none; }
   .pt-quick::-webkit-scrollbar { display: none; }
-  .pt-calrow > .pt-select, .pt-calrow > .pt-multi { flex: 1 1 140px; }
+  /* The spacer exists to push the filters to the right of a wide
+     row. On one column it only strands the first control in the
+     middle of nowhere. */
+  .pt-calrow > .pt-toolbar-spacer { display: none; }
+  .pt-calrow > .pt-select, .pt-calrow > .pt-multi { flex: 1 1 136px; min-width: 0; }
   .pt-multi-sum { width: 100%; justify-content: space-between; }
+  .pt-multi-panel { right: 0; left: auto; }
 }
