@@ -1216,6 +1216,18 @@ is('step: they cannot move a step', canClientSetStep(own('Not Started'), 'Moved'
 is('step: nonsense is refused', canClientSetStep(own('Not Started'), 'Done!'), false);
 is('step: an object is refused', canClientSetStep(own('Not Started'), { select: 'Done' }), false);
 
+// The step write carries the same stamp a content write does, so a
+// to-do we ticked off on a client's behalf does not read as theirs.
+const tick = (role) => stampEdit({ Status: { select: { name: 'Done' } } }, role);
+is('step: a client ticking a box is stamped Client',
+   tick('client')['Last Edited By'].select.name, 'Client');
+is('step: one of us ticking a box is stamped Blueprint',
+   tick('admin')['Last Edited By'].select.name, 'Blueprint');
+is('step: the stamp does not disturb the status being written',
+   tick('client').Status.select.name, 'Done');
+is('step: and nothing else is written',
+   Object.keys(tick('client')).sort().join('|'), 'Last Edited By|Status');
+
 is('step: done is done', isStepDone(own('Done')), true);
 is('step: in progress is not done', isStepDone(own('In Progress')), false);
 is('step: no status is not done', isStepDone(own(null)), false);

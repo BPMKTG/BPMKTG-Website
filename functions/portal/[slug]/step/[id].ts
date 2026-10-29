@@ -4,7 +4,9 @@
    The only writable thing on Campaign Calendar. A client may move one
    of their OWN steps between Not Started, In Progress and Done, and
    nothing else: not a moment, not one of our steps, not a step we have
-   taken out of the plan, and no property other than Status.
+   taken out of the plan, and no property other than Status. The write
+   also stamps Last Edited By, which the client does not get to choose:
+   it is read off the session, not off the request.
 
    Three separate checks, all server side, because the id comes from
    whoever is asking:
@@ -21,6 +23,7 @@
 import { canClientSetStep } from '../../../../src/data/portal';
 import { portalNotFound } from '../../../../src/server/portal-auth';
 import { fetchOwnedStep, updateStepStatus } from '../../../../src/server/portal-notion';
+import { stampEdit } from '../../../../src/server/portal-write';
 import {
   beginWrite,
   bustDataCache,
@@ -57,7 +60,14 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
   // is what a double tap on a phone looks like.
   if (step.status === status) return writeOk({ ok: true, id, status, changed: false });
 
-  const saved = await updateStepStatus(env.NOTION_TOKEN, id, status);
+  // Stamped the same way a content write is: Blueprint when one of us
+  // ticked it off on a client's behalf, Client when they did it
+  // themselves. Status is still the only value this endpoint decides.
+  const saved = await updateStepStatus(
+    env.NOTION_TOKEN,
+    id,
+    stampEdit({ Status: { select: { name: status } } }, ctx.viewer.role),
+  );
   if (!saved) return portalNotFound();
 
   await bustDataCache(ctx.slug);

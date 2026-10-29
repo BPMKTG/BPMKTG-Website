@@ -81,9 +81,9 @@ the portal until someone adds it to that file on purpose.
 
 | Database | Sent | Never sent |
 |---|---|---|
-| Clients | Artist, Tier, Stage, Term Start, Term End, Client Announcement, Drive Folder, Content Vault, Roadmap Link, Access Complete | Portal Key, Monthly Rate, Full Rate, Notes, Next Action, Email, Phone, Lead Source, Access Granted, Intake Slug, everything else |
-| Campaign Calendar | Item, Kind, Moment Type, Date (or Auto Date), Status, Type, Owner, Playbook, Phase, Where, Why It Matters, Venue / City, Ticket or RSVP Link | Notes, Offset (days) |
-| KPI Snapshots | Date, Type, Data Source, Growth Score (/40), every numeric metric | Notes |
+| Clients | Artist, Tier, Stage, Term Start, Term End, Client Announcement, Drive Folder, Content Vault, Roadmap Link, Access Complete | Portal Emails, Portal Key, Monthly Rate, Full Rate, Notes, Next Action, Email, Phone, Lead Source, Access Granted, Intake Slug, everything else |
+| Campaign Calendar | Item, Kind, Moment Type, Date (or Auto Date), Status, Type, Owner, Playbook, Phase, Where, Why It Matters, Venue / City, Ticket or RSVP Link | Notes, Offset (days), Last Edited By |
+| KPI Snapshots | Date, Type, Data Source, Growth Score (/40), Summary, every numeric metric | Notes, Snapshot |
 
 `npm run test:portal` asserts this against fixtures that deliberately
 contain a rate, a portal key and internal notes.
@@ -146,9 +146,9 @@ sees, and gets a client switcher in the avatar menu plus a navy band
 across the top saying whose portal they are standing in.
 
 Anything an admin changes is stamped **Last Edited By = Blueprint**, not
-Client, so "the client changed this" keeps meaning that. The one
-exception is a Campaign Calendar step, which has no Last Edited By
-column at all; add one if you want tick-offs attributed.
+Client, so "the client changed this" keeps meaning that. That holds for
+a ticked-off Campaign Calendar step as well as a content card: both
+databases carry the column and both writes stamp it.
 
 ### What a client may write
 
@@ -353,6 +353,11 @@ tick off, and that every one of those failures is identical.
 The codes go out through [Resend](https://resend.com). Until the domain
 is verified there, nothing sends and nobody can sign in.
 
+**This is already done.** bpmktg.com is verified for sending on the
+Resend account and `RESEND_API_KEY` is set in Cloudflare for both
+Production and Preview. The rest of this section is what to do again for
+a new domain, or to check when mail stops arriving.
+
 ### 1. Add the domain
 
 Resend → **Domains** → **Add domain** → `bpmktg.com`, region
@@ -367,18 +372,28 @@ apply to it with the same shape.
 
 ### 2. Add the records Resend gives you
 
-Resend prints the exact values on the domain's page. **The DKIM value is
-generated per-domain and cannot be written down in advance**, so copy it
-from there rather than from here. What it asks for is three records:
+Resend prints the exact values on the domain's page, and **every one of
+them is generated per-domain**, so copy them from there rather than from
+here. What it asked for on bpmktg.com was three records:
 
 | Type | Name | Value | Note |
 |---|---|---|---|
 | `TXT` | `resend._domainkey` | `p=MIGfMA0...` (long, from Resend) | DKIM. The one that must be copied exactly. |
-| `TXT` | `send` | `v=spf1 include:amazonses.com ~all` | SPF for the sending subdomain. |
-| `MX` | `send` | `feedback-smtp.us-east-1.amazonses.com` priority `10` | Bounces. Match the region you picked. |
+| `CNAME` | `send` | `<generated>.forge.rmta.net` | Resend's own sending host. Carries SPF and the return path. |
+| `CNAME` | `rsend` | `<generated>.forge.rmta.net` | The same, for the second sending hostname. |
+
+Two CNAMEs and a TXT, not the SPF `TXT` and bounce `MX` that older
+Resend accounts were given. If the domain page shows you that older
+shape instead, add what it shows: the records are Resend's to choose,
+and they change.
 
 If bpmktg.com is on Cloudflare DNS, add all three as **DNS only** (grey
 cloud), not proxied. A proxied record breaks mail.
+
+Nothing here sets up **receiving**. bpmktg.com has no MX pointed at an
+inbox, which is deliberate: the portal only ever sends. A client who
+replies to a code email is replying into nothing, which is why the body
+says to write to Mason's own address instead of replying.
 
 One more, strongly recommended, which Resend does not add for you:
 
@@ -413,9 +428,6 @@ default is `Blueprint Marketing <noreply@bpmktg.com>`.
   within 60 seconds, the cache window, and it locks the client out too),
   or rotate `PORTAL_SECRET` (or `NOTION_TOKEN` when no `PORTAL_SECRET`
   is set), which signs every client out at once. Pick deliberately.
-- **Campaign Calendar has no Last Edited By**, so a step ticked off by
-  one of us looks the same as one ticked off by the client. Add the
-  column if that matters.
 - **Up to a minute stale**, by design. See Caching.
 - **No email to the client when something changes.** They have to open
   it. The only mail the portal ever sends is a sign-in code.

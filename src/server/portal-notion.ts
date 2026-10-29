@@ -462,19 +462,23 @@ export async function fetchOwnedStep(
   return { status: readSelect(p['Status']), owner: readSelect(p['Owner']) };
 }
 
-/** Set one step's Status, and nothing else. The status has already been
- *  checked against STEP_CLIENT_STATUSES and against the status the row
- *  is in now; this writes the single property. */
+/** Write a step's Status, plus whoever it was that ticked it.
+ *
+ *  The caller builds the properties and has already checked the status
+ *  against STEP_CLIENT_STATUSES and against the status the row is in
+ *  now. Taking properties rather than a bare string is what lets the
+ *  endpoint put Last Edited By through `stampEdit`, the same way a
+ *  content write does, instead of this file growing its own stamp. */
 export async function updateStepStatus(
   token: string,
   pageId: string,
-  status: string,
+  properties: Record<string, unknown>,
 ): Promise<string | null> {
   try {
     const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
       method: 'PATCH',
       headers: notionHeaders(token),
-      body: JSON.stringify({ properties: { Status: { select: { name: status } } } }),
+      body: JSON.stringify({ properties }),
     });
     if (!res.ok) {
       console.error('portal: step update failed', pageId, res.status, await res.text());
