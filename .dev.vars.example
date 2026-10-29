@@ -13,3 +13,16 @@ WEB3FORMS_KEY=
 # NOTION_TOKEN, which works fine; the only difference is that rotating the
 # Notion token then signs every client out.
 PORTAL_SECRET=
+
+# Needed for client-portal sign-in. Without it no code is ever sent and
+# nobody can log in. Get one from Resend, with sending access on a
+# verified domain. See docs/PORTAL_SETUP.md for the DNS records.
+RESEND_API_KEY=
+
+# Comma-separated. These addresses can sign in to EVERY client portal,
+# and their writes are stamped Blueprint rather than Client.
+ADMIN_EMAILS=
+
+# Optional. The From line on a sign-in code. Must be a verified sender
+# on the Resend account. Defaults to the one in src/server/portal-login.ts.
+PORTAL_MAIL_FROM=

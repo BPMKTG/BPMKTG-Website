@@ -6,6 +6,10 @@ import {
   isEngagementMetric,
   formatEngagement,
   isOpenClientTodo,
+  canClientSetStep,
+  isStepClientStatus,
+  isStepDone,
+  STEP_CLIENT_STATUSES,
   termProgress,
   parseNotionDate,
   goalProgress,
@@ -48,20 +52,44 @@ import {
   MAX_TEXT,
   // writes
   buildContentProperties,
-  stampClientEdit,
+  stampEdit,
   isSameOrigin,
   isJsonRequest,
   // auth
-  checkPortalKey,
   timingSafeEqual,
-  mintSession,
-  verifySession,
+  sha256Hex,
+  mintClientSession,
+  mintAdminSession,
+  verifyClientSession,
+  verifyAdminSession,
+  readViewer,
   sessionCookie,
+  adminCookie,
+  clearCookies,
+  clearAdminCookie,
+  clearClientCookie,
   readCookie,
   isValidSlug,
   portalNotFound,
+  // signing in
+  normaliseEmail,
+  looksLikeEmail,
+  parseEmailList,
+  parseAdminEmails,
+  makeCode,
+  isCodeShaped,
+  hashCode,
+  putCode,
+  takeCode,
+  checkCode,
+  overRequestLimit,
+  codeText,
+  CODE_ATTEMPTS,
+  CODE_REQUESTS_PER_HOUR,
   // notion
   findClientBySlug,
+  findClientByEmail,
+  fetchPortalClients,
   fetchCalendar,
   fetchSnapshots,
   CLIENTS_DB,
@@ -194,31 +222,10 @@ is('date: YYYY-MM-DD parses as a local day',
    [parseNotionDate('2026-10-22').getFullYear(), parseNotionDate('2026-10-22').getMonth(), parseNotionDate('2026-10-22').getDate()],
    [2026, 9, 22]);
 
-/* ══ 5. Key checks: every failure is the same failure ════════════ */
+/* ══ 5. Every failure is the same failure ═══════════════════════ */
 
-const KEY = 'k_7f3a91c24e8b45d6a0f1';
-const OTHER_KEY = 'k_11112222333344445555';
-
-ok('key: the right key for an enabled portal opens it', await checkPortalKey(KEY, KEY, true));
-is('key: wrong key fails', await checkPortalKey('wrong', KEY, true), false);
-is('key: right key but portal disabled fails', await checkPortalKey(KEY, KEY, false), false);
-is('key: another client\'s key fails', await checkPortalKey(OTHER_KEY, KEY, true), false);
-is('key: a blank stored key never matches a blank supplied key',
-   await checkPortalKey('', '', true), false);
-is('key: a blank stored key is not opened by anything',
-   await checkPortalKey(KEY, '', true), false);
-
-// The three named failure modes must be indistinguishable to a caller.
-const failures = [
-  await checkPortalKey('wrong', KEY, true),       // wrong key
-  await checkPortalKey(KEY, KEY, false),          // portal disabled
-  await checkPortalKey(OTHER_KEY, KEY, true),     // key for another client
-];
-is('key: wrong / disabled / other-client all return the same thing',
-   new Set(failures).size, 1);
-is('key: and that thing is false', failures, [false, false, false]);
-
-// ...and the response they produce is byte-identical.
+// There is no key any more, so there is nothing to compare. What is
+// left is the rule that outlived it: one response, for everything.
 const bodies = await Promise.all([portalNotFound(), portalNotFound(), portalNotFound()].map(r => r.text()));
 const statuses = [portalNotFound().status, portalNotFound().status, portalNotFound().status];
 is('404: identical bodies', new Set(bodies).size, 1);
@@ -231,28 +238,190 @@ is('compare: different lengths do not match', await timingSafeEqual('abc', 'abcd
 /* ══ 6. Sessions ═════════════════════════════════════════════════ */
 
 const SECRET = 'test-secret-value-at-least-16';
-const token = await mintSession(SECRET, 'sean-comma');
+const WHO = (await sha256Hex('sean@seancomma.com')).slice(0, 16);
+const token = await mintClientSession(SECRET, 'sean-comma', WHO);
 
-ok('session: a fresh token verifies', await verifySession(SECRET, 'sean-comma', token));
+is('session: a fresh token verifies, and says who',
+   await verifyClientSession(SECRET, 'sean-comma', token), WHO);
 is('session: a token for another slug is rejected',
-   await verifySession(SECRET, 'other-act', token), false);
+   await verifyClientSession(SECRET, 'other-act', token), null);
 is('session: a token signed with another secret is rejected',
-   await verifySession('a-completely-different-secret', 'sean-comma', token), false);
+   await verifyClientSession('a-completely-different-secret', 'sean-comma', token), null);
 is('session: a tampered signature is rejected',
-   await verifySession(SECRET, 'sean-comma', token.replace(/.$/, c => (c === 'a' ? 'b' : 'a'))), false);
-is('session: no token is rejected', await verifySession(SECRET, 'sean-comma', null), false);
-is('session: garbage is rejected', await verifySession(SECRET, 'sean-comma', 'nonsense'), false);
+   await verifyClientSession(SECRET, 'sean-comma', token.replace(/.$/, c => (c === 'a' ? 'b' : 'a'))), null);
+is('session: a tampered who is rejected',
+   await verifyClientSession(SECRET, 'sean-comma', token.replace(WHO, 'f'.repeat(16))), null);
+is('session: no token is rejected', await verifyClientSession(SECRET, 'sean-comma', null), null);
+is('session: garbage is rejected', await verifyClientSession(SECRET, 'sean-comma', 'nonsense'), null);
 is('session: an expired token is rejected',
-   await verifySession(SECRET, 'sean-comma', await mintSession(SECRET, 'sean-comma', Date.now() - 40 * 24 * 3600 * 1000)),
-   false);
+   await verifyClientSession(SECRET, 'sean-comma',
+     await mintClientSession(SECRET, 'sean-comma', WHO, Date.now() - 40 * 24 * 3600 * 1000)),
+   null);
+
+// The old shared-link sessions have no version prefix. Every one of
+// them has to stop working, or the links they came from still work.
+is('session: a token in the old format is rejected',
+   await verifyClientSession(SECRET, 'sean-comma', '99999999999.' + 'a'.repeat(64)), null);
+
+const adminToken = await mintAdminSession(SECRET, WHO);
+is('session: an admin token verifies', await verifyAdminSession(SECRET, adminToken), WHO);
+is('session: an admin token is not a client session',
+   await verifyClientSession(SECRET, 'sean-comma', adminToken), null);
+is('session: a client token is not an admin session',
+   await verifyAdminSession(SECRET, token), null);
+
+/* ── who the request says you are ───────────────────────────── */
+
+const asRequest = (cookie) =>
+  new Request('https://blueprint-marketing.com/portal/sean-comma/data',
+    cookie ? { headers: { Cookie: cookie } } : undefined);
+
+is('viewer: nobody, with no cookie', await readViewer(asRequest(''), SECRET, 'sean-comma'), null);
+is('viewer: a client, with their own cookie',
+   (await readViewer(asRequest(`bp_portal=${token}`), SECRET, 'sean-comma'))?.role, 'client');
+is('viewer: nobody, with a cookie for another client',
+   await readViewer(asRequest(`bp_portal=${token}`), SECRET, 'other-act'), null);
+is('viewer: an admin, in any client\'s portal',
+   (await readViewer(asRequest(`bp_admin=${adminToken}`), SECRET, 'other-act'))?.role, 'admin');
+is('viewer: the admin cookie wins over a client one',
+   (await readViewer(asRequest(`bp_portal=${token}; bp_admin=${adminToken}`), SECRET, 'sean-comma'))?.role,
+   'admin');
+is('viewer: a forged admin cookie is nobody',
+   await readViewer(asRequest('bp_admin=v2.99999999999.abc.deadbeef'), SECRET, 'sean-comma'), null);
 
 const cookie = sessionCookie('sean-comma', token);
 ok('cookie: scoped to the one client', cookie.includes('Path=/portal/sean-comma'));
 ok('cookie: HttpOnly', cookie.includes('HttpOnly'));
 ok('cookie: Secure', cookie.includes('Secure'));
 ok('cookie: SameSite=Lax', cookie.includes('SameSite=Lax'));
+ok('cookie: the admin cookie reaches every portal', adminCookie(adminToken).includes('Path=/portal;'));
+ok('cookie: the admin cookie is HttpOnly too', adminCookie(adminToken).includes('HttpOnly'));
 is('cookie: read back out', readCookie(`a=1; bp_portal=${token}; b=2`, 'bp_portal'), token);
 is('cookie: a missing cookie reads as null', readCookie('a=1', 'bp_portal'), null);
+
+// A sign-out has to clear both, or an admin who logs out is still an
+// admin on the next client's portal.
+// Signing in as one has to put the other out, or a stale admin cookie
+// on a shared laptop silently outranks the client's own session.
+ok('logout: a client sign-in clears the admin cookie',
+   clearAdminCookie().includes('bp_admin=;') && clearAdminCookie().includes('Max-Age=0'));
+ok('logout: an admin sign-in clears the client cookie',
+   clearClientCookie('sean-comma').includes('Path=/portal/sean-comma')
+   && clearClientCookie('sean-comma').includes('Max-Age=0'));
+
+const cleared = clearCookies('sean-comma');
+is('logout: clears two cookies', cleared.length, 2);
+ok('logout: expires the client cookie', cleared[0].includes('bp_portal=;') && cleared[0].includes('Max-Age=0'));
+ok('logout: expires the admin cookie', cleared[1].includes('bp_admin=;') && cleared[1].includes('Max-Age=0'));
+
+/* ══ 6b. Signing in ══════════════════════════════════════════════ */
+
+is('email: trimmed and lowercased', normaliseEmail('  Sean@SeanComma.com '), 'sean@seancomma.com');
+is('email: a non-string is empty', normaliseEmail(null), '');
+// Two addresses that differ only by a dot or a +tag are two people as
+// far as this is concerned. Folding them would hand one of them the
+// other's portal.
+is('email: dots are not stripped', normaliseEmail('a.b@x.com'), 'a.b@x.com');
+is('email: plus tags are not stripped', normaliseEmail('a+portal@x.com'), 'a+portal@x.com');
+
+is('email: an address looks like one', looksLikeEmail('sean@seancomma.com'), true);
+is('email: no at sign does not', looksLikeEmail('seanseancomma.com'), false);
+is('email: no dot in the domain does not', looksLikeEmail('sean@localhost'), false);
+is('email: a space does not', looksLikeEmail('se an@x.com'), false);
+
+is('email list: comma separated, cleaned',
+   parseEmailList(' Sean@SeanComma.com, mason@bpmktg.com ').join('|'),
+   'sean@seancomma.com|mason@bpmktg.com');
+is('email list: blank is no addresses', parseEmailList('').length, 0);
+is('email list: admins use the same shape',
+   parseAdminEmails('MASON@bpmktg.com').join('|'), 'mason@bpmktg.com');
+
+// Notion's `contains` would match an address inside a longer one, so
+// the list is what decides.
+is('email list: a longer address is not a member',
+   parseEmailList('notsean@seancomma.com').includes('sean@seancomma.com'), false);
+
+for (let i = 0; i < 200; i++) {
+  const c = makeCode();
+  if (!isCodeShaped(c)) { is('code: always six digits', c, '000000'); break; }
+}
+is('code: six digits is a code', isCodeShaped('012345'), true);
+is('code: five digits is not', isCodeShaped('01234'), false);
+is('code: letters are not', isCodeShaped('abcdef'), false);
+is('code: a number is not a string', isCodeShaped(123456), false);
+is('code: two codes differ', new Set(Array.from({ length: 50 }, makeCode)).size > 1, true);
+
+/* ── the pending code, against a Map standing in for KV ───────── */
+
+function fakeKV() {
+  const m = new Map();
+  return {
+    store: m,
+    get: async (k) => (m.has(k) ? m.get(k) : null),
+    put: async (k, v) => { m.set(k, v); },
+    delete: async (k) => { m.delete(k); },
+  };
+}
+
+const EMAIL = 'sean@seancomma.com';
+const EHASH = await sha256Hex(EMAIL);
+const pend = async (code, over = {}) => ({
+  hash: await hashCode(EMAIL, code),
+  email: EMAIL, role: 'client', slug: 'sean-comma',
+  exp: Math.floor(Date.now() / 1000) + 600, tries: 0, ...over,
+});
+
+{
+  const kv = fakeKV();
+  await putCode(kv, EHASH, await pend('123456'));
+  const got = await takeCode(kv, EHASH);
+  is('code: comes back out', got.slug, 'sean-comma');
+  ok('code: the code itself is not in the record', !JSON.stringify(got).includes('123456'));
+  is('code: the right code is accepted', await checkCode(kv, EHASH, got, '123456'), true);
+  is('code: and is gone afterwards', await takeCode(kv, EHASH), null);
+}
+{
+  const kv = fakeKV();
+  await putCode(kv, EHASH, await pend('123456'));
+  is('code: a wrong code is refused',
+     await checkCode(kv, EHASH, await takeCode(kv, EHASH), '654321'), false);
+  is('code: and the attempt is counted', (await takeCode(kv, EHASH)).tries, 1);
+}
+{
+  const kv = fakeKV();
+  await putCode(kv, EHASH, await pend('123456'));
+  for (let i = 0; i < CODE_ATTEMPTS; i++) {
+    const p = await takeCode(kv, EHASH);
+    if (p) await checkCode(kv, EHASH, p, '000000');
+  }
+  is('code: ten wrong guesses burn it', await takeCode(kv, EHASH), null);
+}
+{
+  const kv = fakeKV();
+  const expired = await pend('123456', { exp: Math.floor(Date.now() / 1000) - 1 });
+  is('code: an expired code is refused', await checkCode(kv, EHASH, expired, '123456'), false);
+}
+{
+  const kv = fakeKV();
+  const p = await pend('123456');
+  is('code: a code for another address does not verify',
+     await checkCode(kv, EHASH, { ...p, email: 'someone@else.com' }, '123456'), false);
+}
+{
+  const kv = fakeKV();
+  let blocked = 0;
+  for (let i = 0; i < CODE_REQUESTS_PER_HOUR + 3; i++) {
+    if (await overRequestLimit(kv, EHASH)) blocked++;
+  }
+  is('rate: five an hour, then no more', blocked, 3);
+  is('rate: another address is unaffected',
+     await overRequestLimit(kv, await sha256Hex('other@x.com')), false);
+}
+
+ok('mail: the code is in the body', codeText('123456', 'Sean Comma').includes('123456'));
+ok('mail: and says whose portal', codeText('123456', 'Sean Comma').includes('Sean Comma'));
+ok('mail: an unasked-for code says nothing has changed',
+   codeText('123456', '').includes('nobody has been let in'));
 
 is('slug: a normal slug is valid', isValidSlug('sean-comma'), true);
 is('slug: path traversal is not a slug', isValidSlug('../admin'), false);
@@ -273,6 +442,11 @@ const SECRETS = [
   'NEXT-ACTION-TEXT',
   'sean@example.com',
   '+15555550123',
+  // Who may sign in is ours to know. A client's own address is not a
+  // disaster on their own payload, but their manager's is, and the
+  // list is the thing an attacker would want.
+  'manager@seancomma.com',
+  'DRAFT-SUMMARY-NOT-READY',
 ];
 
 const clientPage = {
@@ -296,6 +470,8 @@ const clientPage = {
     // Everything below must never reach the browser.
     'Portal Key': { type: 'rich_text', rich_text: [{ plain_text: 'SUPERSECRETPORTALKEY' }] },
     'Portal Enabled': { type: 'checkbox', checkbox: true },
+    'Portal Emails': { type: 'rich_text', rich_text: [{ plain_text: 'Sean@SeanComma.com, manager@seancomma.com' }] },
+    'Intake Slug': { type: 'rich_text', rich_text: [{ plain_text: 'sean-comma' }] },
     'Monthly Rate': { type: 'number', number: 2500 },
     'Full Rate': { type: 'number', number: 4000 },
     'Notes': { type: 'rich_text', rich_text: [{ plain_text: 'INTERNAL-CLIENT-NOTE' }] },
@@ -435,6 +611,8 @@ const snapshotPages = [
       'Date': { type: 'date', date: { start: '2026-09-01' } },
       'Type': { type: 'select', select: { name: 'Baseline' } },
       'Data Source': { type: 'multi_select', multi_select: [{ name: 'Platform analytics' }] },
+      'Published': { type: 'checkbox', checkbox: true },
+      'Summary': { type: 'rich_text', rich_text: [{ plain_text: 'Where we are starting.' }] },
       'Growth Score (/40)': { type: 'number', number: 14 },
       'Instagram · Followers': { type: 'number', number: 10000 },
       'Instagram · Engagement': { type: 'number', number: 0.031 },
@@ -451,12 +629,25 @@ const snapshotPages = [
       'Date': { type: 'date', date: { start: '2026-10-22' } },
       'Type': { type: 'select', select: { name: 'Monthly' } },
       'Data Source': { type: 'multi_select', multi_select: [{ name: 'Platform analytics' }] },
+      'Published': { type: 'checkbox', checkbox: true },
       'Growth Score (/40)': { type: 'number', number: 21 },
       'Instagram · Followers': { type: 'number', number: 12400 },
       'Instagram · Engagement': { type: 'number', number: 0.042 },
       'Email + SMS List': { type: 'number', number: 610 },
       'Spotify · Monthly Listeners': { type: 'number', number: 11200 },
       'Notes': { type: 'rich_text', rich_text: [{ plain_text: 'INTERNAL-SNAPSHOT-NOTE' }] },
+    },
+  },
+  {
+    // Half filled in, not published. The client must never see it.
+    id: 'snap-3',
+    properties: {
+      'Snapshot': { type: 'title', title: [{ plain_text: 'Sean Comma November' }] },
+      'Date': { type: 'date', date: { start: '2026-11-22' } },
+      'Type': { type: 'select', select: { name: 'Monthly' } },
+      'Published': { type: 'checkbox', checkbox: false },
+      'Summary': { type: 'rich_text', rich_text: [{ plain_text: 'DRAFT-SUMMARY-NOT-READY' }] },
+      'Instagram · Followers': { type: 'number', number: 99999 },
     },
   },
 ];
@@ -493,10 +684,44 @@ for (const prop of [...CLIENT_NEVER_SEND, ...CALENDAR_NEVER_SEND, ...SNAPSHOT_NE
   is(`whitelist: no "${prop}" key in the payload`, wire.includes(`"${prop}"`), false);
 }
 
-// The server does hold the key, so the comparison can happen at all.
-// It just lives outside the payload.
-is('whitelist: the key is kept server-side for the compare', record.portalKey, 'SUPERSECRETPORTALKEY');
-is('whitelist: and not on the client object', 'portalKey' in record.client, false);
+// The server does hold the sign-in list, so the lookup can happen at
+// all. It just lives outside the payload.
+is('whitelist: the sign-in list is kept server-side',
+   record.portalEmails.join('|'), 'sean@seancomma.com|manager@seancomma.com');
+is('whitelist: and not on the client object', 'portalEmails' in record.client, false);
+is('whitelist: the slug is read for the lookup', record.slug, 'sean-comma');
+is('whitelist: and the slug is not on the client object', 'slug' in record.client, false);
+// The old portal key is not read any more at all, which is the
+// strongest form of "it does not ship".
+is('whitelist: the portal key is not read', 'portalKey' in record, false);
+
+// Only published months are a report. A snapshot being built is not
+// in the payload at all, so nothing downstream has to know about it.
+is('snapshots: only the published ones come through', snapshots.length, 2);
+is('snapshots: the unpublished month is not among them',
+   snapshots.some((s) => s.date === '2026-11-22'), false);
+is('snapshots: the baseline carries its summary', snapshots[0].summary, 'Where we are starting.');
+is('snapshots: a month with no summary says nothing', snapshots[1].summary, null);
+
+/* ── who may sign in ───────────────────────────────────────── */
+
+// Notion narrows with `contains`; this is what decides. The stub
+// answers with the same client page whatever the filter says, which is
+// the point: the exact check has to be in the code.
+is('login: a listed address finds the client',
+   (await findClientByEmail('fake-token', 'sean@seancomma.com'))?.slug, 'sean-comma');
+is('login: the list is case-insensitive, because it was normalised',
+   (await findClientByEmail('fake-token', 'sean@seancomma.com'))?.client.artist, 'Sean Comma');
+is('login: the manager on the same list gets in too',
+   (await findClientByEmail('fake-token', 'manager@seancomma.com'))?.slug, 'sean-comma');
+is('login: an address that merely contains a listed one does not',
+   await findClientByEmail('fake-token', 'ean@seancomma.com'), null);
+is('login: an address nobody has does not', await findClientByEmail('fake-token', 'nobody@x.com'), null);
+is('login: a blank address does not', await findClientByEmail('fake-token', ''), null);
+
+is('login: the switcher lists portals that are on',
+   (await fetchPortalClients('fake-token')).map((c) => `${c.slug}:${c.artist}`).join('|'),
+   'sean-comma:Sean Comma');
 
 // Positive side: the named fields DID come through.
 is('client: artist', record.client.artist, 'Sean Comma');
@@ -856,13 +1081,19 @@ is('build: a campaign this client cannot see is written as empty',
 is('build: clearing a date sends null, which is how Notion clears it',
    buildContentProperties({ postDate: null }, ctx()).properties['Post Date'].date, null);
 
-const stamped = stampClientEdit(buildContentProperties({ caption: 'x' }, ctx()).properties);
+const stamped = stampEdit(buildContentProperties({ caption: 'x' }, ctx()).properties, 'client');
 is('build: every client write is stamped Client',
    stamped['Last Edited By'].select.name, 'Client');
 is('build: the stamp is not something the request can set',
-   stampClientEdit(
+   stampEdit(
      buildContentProperties({ 'Last Edited By': { select: { name: 'Blueprint' } } }, ctx()).properties,
+     'client',
    )['Last Edited By'].select.name, 'Client');
+// One of us standing in a client's portal is still us. "The client
+// changed this" has to keep meaning that.
+is('build: an admin write is stamped Blueprint',
+   stampEdit(buildContentProperties({ caption: 'x' }, ctx()).properties, 'admin')['Last Edited By'].select.name,
+   'Blueprint');
 
 section('Content: request gates');
 
@@ -955,6 +1186,47 @@ is('phase: no status at all is in no phase', contentPhase(null), null);
 // hold has to land in one of them or be deliberately out.
 is('phase: every status is placed or deliberately skipped',
    CONTENT_STATUSES.every((s) => s === 'Skipped' || contentPhase(s) !== null), true);
+
+/* ── the one writable thing on Campaign Calendar ─────────────── */
+section('Steps: what a client may tick');
+
+const own = (status) => ({ owner: 'Client', status });
+const ours = (status) => ({ owner: 'Blueprint', status });
+
+is('step: the three statuses are exactly the client\'s three',
+   STEP_CLIENT_STATUSES.join('|'), 'Not Started|In Progress|Done');
+is('step: Done is a client status', isStepClientStatus('Done'), true);
+is('step: Skipped is not', isStepClientStatus('Skipped'), false);
+is('step: Moved is not', isStepClientStatus('Moved'), false);
+is('step: a made-up status is not', isStepClientStatus('Nearly'), false);
+is('step: a non-string is not', isStepClientStatus(1), false);
+
+is('step: ticking off your own not-started step', canClientSetStep(own('Not Started'), 'Done'), true);
+is('step: unticking your own done step', canClientSetStep(own('Done'), 'Not Started'), true);
+is('step: starting your own step', canClientSetStep(own('Not Started'), 'In Progress'), true);
+is('step: a step with no status yet reads as not started',
+   canClientSetStep(own(null), 'Done'), true);
+
+is('step: our step is not theirs to tick', canClientSetStep(ours('Not Started'), 'Done'), false);
+is('step: a step with no owner is not theirs', canClientSetStep({ owner: null, status: null }, 'Done'), false);
+is('step: a skipped step stays skipped', canClientSetStep(own('Skipped'), 'Done'), false);
+is('step: a moved step stays moved', canClientSetStep(own('Moved'), 'Done'), false);
+is('step: they cannot skip a step', canClientSetStep(own('Not Started'), 'Skipped'), false);
+is('step: they cannot move a step', canClientSetStep(own('Not Started'), 'Moved'), false);
+is('step: nonsense is refused', canClientSetStep(own('Not Started'), 'Done!'), false);
+is('step: an object is refused', canClientSetStep(own('Not Started'), { select: 'Done' }), false);
+
+is('step: done is done', isStepDone(own('Done')), true);
+is('step: in progress is not done', isStepDone(own('In Progress')), false);
+is('step: no status is not done', isStepDone(own(null)), false);
+
+// A ticked step leaves the to-do list, which is the whole point of the
+// box. These two rules have to agree or a step can be both done and
+// outstanding.
+is('step: a done step is off the to-do list', isOpenClientTodo(own('Done')), false);
+is('step: every status the client can set but Done stays on the list',
+   STEP_CLIENT_STATUSES.filter((s) => isOpenClientTodo(own(s))).join('|'),
+   'Not Started|In Progress');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

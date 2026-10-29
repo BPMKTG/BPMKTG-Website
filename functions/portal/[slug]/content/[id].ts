@@ -10,7 +10,7 @@
 
 import { portalNotFound } from '../../../../src/server/portal-auth';
 import { fetchOwnedContent, updateContentPage } from '../../../../src/server/portal-notion';
-import { buildContentProperties, stampClientEdit } from '../../../../src/server/portal-write';
+import { buildContentProperties, stampEdit } from '../../../../src/server/portal-write';
 import {
   beginWrite,
   bustDataCache,
@@ -29,6 +29,9 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
   const begun = await beginWrite(request, env, params.slug);
   if (!begun.ok) return begun.response;
   const { ctx } = begun;
+  // beginWrite only skips the schema when asked to, and a content
+  // write never asks. Narrowed rather than assumed.
+  if (!ctx.schema) return portalNotFound();
 
   const owned = await fetchOwnedContent(env.NOTION_TOKEN, ctx.record.pageId, id);
   if (!owned) return portalNotFound();
@@ -48,7 +51,7 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
     return writeOk({ ok: true, item: owned.item, changed: false });
   }
 
-  const item = await updateContentPage(env.NOTION_TOKEN, id, stampClientEdit(properties));
+  const item = await updateContentPage(env.NOTION_TOKEN, id, stampEdit(properties, ctx.viewer.role));
   if (!item) return portalNotFound();
 
   await bustDataCache(ctx.slug);

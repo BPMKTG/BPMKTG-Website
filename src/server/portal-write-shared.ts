@@ -5,13 +5,12 @@
    ────────────────────────────────────────────────────────────── */
 
 import {
-  COOKIE_NAME,
   isValidSlug,
   normaliseSlug,
   portalNotFound,
-  readCookie,
+  readViewer,
   sessionSecret,
-  verifySession,
+  type Viewer,
 } from './portal-auth';
 import { fetchCalendar, fetchContentSchema, findClientBySlug, type ClientRecord } from './portal-notion';
 import {
@@ -30,11 +29,24 @@ export interface WriteEnv {
 
 export interface WriteContext {
   slug: string;
+  /** Who is writing. Decides what the row is stamped with, and
+   *  nothing else: an admin sees and may change exactly what the
+   *  client may. */
+  viewer: Viewer;
   record: ClientRecord;
   body: Record<string, unknown>;
-  schema: PortalContentSchema;
+  /** Null when the caller said it does not need it. A step write only
+   *  sets a Status that is checked against a fixed list, so there is
+   *  nothing for Notion's content schema to validate. */
+  schema: PortalContentSchema | null;
   /** Moment ids this client may link a card to. */
   allowedCampaigns: string[];
+}
+
+export interface BeginOptions {
+  /** Content writes validate buckets, formats and platforms against
+   *  Notion's own schema, which costs a request. Step writes do not. */
+  schema?: boolean;
 }
 
 /** Everything that can go wrong returns the same 404 the rest of the
@@ -44,6 +56,7 @@ export async function beginWrite(
   request: Request,
   env: WriteEnv,
   rawSlug: unknown,
+  opts: BeginOptions = {},
 ): Promise<{ ok: true; ctx: WriteContext } | { ok: false; response: Response }> {
   const fail = { ok: false as const, response: portalNotFound() };
 
@@ -56,8 +69,8 @@ export async function beginWrite(
   const slug = normaliseSlug(rawSlug as string);
   if (!isValidSlug(slug)) return fail;
 
-  const token = readCookie(request.headers.get('Cookie'), COOKIE_NAME);
-  if (!(await verifySession(sessionSecret(env), slug, token))) return fail;
+  const viewer = await readViewer(request, sessionSecret(env), slug);
+  if (!viewer) return fail;
 
   if (await overWriteLimit(slug)) {
     console.error('portal: write rate limit hit', slug);
@@ -83,14 +96,16 @@ export async function beginWrite(
     wantsCampaign
       ? fetchCalendar(env.NOTION_TOKEN, record.pageId, record.client.artist)
       : Promise.resolve([]),
-    fetchContentSchema(env.NOTION_TOKEN),
+    opts.schema === false
+      ? Promise.resolve(null)
+      : fetchContentSchema(env.NOTION_TOKEN),
   ]);
   const allowedCampaigns = calendar
     .filter((i) => i.momentType)
     .map((i) => i.id)
     .filter(Boolean);
 
-  return { ok: true, ctx: { slug, record, body, schema, allowedCampaigns } };
+  return { ok: true, ctx: { slug, viewer, record, body, schema, allowedCampaigns } };
 }
 
 /* ── per-client write limit ────────────────────────────────────

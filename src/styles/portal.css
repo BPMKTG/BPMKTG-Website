@@ -690,26 +690,17 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
   .pt-cal-cell-selected .pt-cal-date { outline: 2px solid var(--pt-navy); outline-offset: 1px; }
 }
 
-/* legend */
-.pt-legend {
-  display: flex; flex-wrap: wrap; gap: var(--pt-2) var(--pt-4);
-  margin-top: var(--pt-4); padding: var(--pt-3) var(--pt-4);
-  background: var(--pt-surface); border: 1px solid var(--pt-line);
-  border-radius: var(--pt-r);
-}
-.pt-legend-item {
-  display: inline-flex; align-items: center; gap: var(--pt-2);
-  font-size: .76rem; color: var(--pt-ink-2); font-weight: 600;
-}
+/* The swatches. There is no legend strip under the grid any more: the
+   layer chips are the legend, and these keys are what the "?" popover
+   beside them shows. */
 .pt-legend-key {
   width: 11px; height: 11px; border-radius: 3px; flex: none;
   background: var(--pt-tint-slate); border-left: 3px solid var(--pt-slate);
 }
-.pt-legend-show    { background: var(--pt-tint-orange); border-left-color: var(--pt-orange); }
-.pt-legend-release { background: var(--pt-tint-navy);   border-left-color: var(--pt-navy); }
-.pt-legend-content { background: var(--pt-tint-blue);   border-left-color: var(--pt-blue); }
-.pt-legend-moment  { background: var(--pt-tint-slate);  border-left-color: var(--pt-slate); }
-.pt-legend-todo    { background: transparent; border: 1px solid var(--pt-orange); border-left-width: 3px; }
+.pt-legend-show      { background: var(--pt-tint-orange); border-left-color: var(--pt-orange); }
+.pt-legend-release   { background: var(--pt-tint-navy);   border-left-color: var(--pt-navy); }
+.pt-legend-todo      { background: transparent; border: 1px solid var(--pt-orange); border-left-width: 3px; }
+.pt-legend-tentative { background: transparent; border: 1px dashed var(--pt-slate); border-left-width: 3px; }
 
 /* ── drawer + popover ──────────────────────────────────────── */
 
@@ -1836,6 +1827,45 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
 .pt-layer-on.pt-layer-todos     .pt-layer-key { background: var(--pt-orange); border-radius: 50%; }
 .pt-layer-on.pt-layer-blueprint .pt-layer-key { background: var(--pt-slate); }
 
+/* The "?" at the end of the chip row. A <details>, so it opens, closes
+   and takes the keyboard without script, like the bucket filter. */
+.pt-help { position: relative; align-self: center; }
+.pt-help-sum {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 19px; height: 19px; border-radius: 50%;
+  border: 1px solid var(--pt-line);
+  background: var(--pt-surface);
+  font-size: .72rem; font-weight: 700; color: var(--pt-muted);
+  cursor: pointer; list-style: none;
+  transition: border-color var(--pt-t), color var(--pt-t);
+}
+.pt-help-sum::-webkit-details-marker { display: none; }
+.pt-help-sum:hover { border-color: var(--pt-line-strong); color: var(--pt-ink-2); }
+.pt-help[open] .pt-help-sum { border-color: var(--pt-navy); color: var(--pt-navy); }
+.pt-help-panel {
+  position: absolute; z-index: 40; top: calc(100% + 6px); left: 0;
+  width: 248px; padding: var(--pt-3);
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-sm);
+  box-shadow: var(--pt-shadow-md);
+}
+.pt-help-panel h4 {
+  margin: 0 0 var(--pt-2); font-family: var(--pt-display);
+  font-size: .72rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--pt-ink);
+}
+.pt-help-panel p {
+  margin: var(--pt-2) 0 0; padding-top: var(--pt-2);
+  border-top: 1px solid var(--pt-line-soft);
+  font-size: .76rem; line-height: 1.45; color: var(--pt-muted);
+}
+.pt-help-row {
+  display: flex; align-items: center; gap: var(--pt-2);
+  padding: 3px 0;
+  font-size: .78rem; font-weight: 600; color: var(--pt-ink-2);
+}
+
 /* ── the month, with the tray beside it ───────────────────────── */
 .pt-calwrap {
   display: grid; gap: var(--pt-4);
@@ -1955,4 +1985,302 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
   .pt-calrow > .pt-select, .pt-calrow > .pt-multi { flex: 1 1 136px; min-width: 0; }
   .pt-multi-sum { width: 100%; justify-content: space-between; }
   .pt-multi-panel { right: 0; left: auto; }
+  .pt-help-panel { right: 0; left: auto; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   TICKING OFF A TO-DO
+   The box that turns a client-owned step into something they can
+   finish, wherever that step appears.
+   ══════════════════════════════════════════════════════════════ */
+
+.pt-card-note {
+  margin-left: auto;
+  font-size: .74rem; font-weight: 600; color: var(--pt-muted);
+  white-space: nowrap;
+}
+
+.pt-check {
+  flex: none;
+  display: inline-flex; align-items: center; gap: var(--pt-2);
+  padding: 0;
+  background: none; border: 0;
+  cursor: pointer;
+  color: var(--pt-muted);
+  font-size: .78rem; font-weight: 700;
+}
+/* The box itself is the span, so a labelled version can put words
+   beside it without the words living inside a 20px square. */
+.pt-check-mark {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 19px; height: 19px;
+  border: 1.5px solid var(--pt-line-strong);
+  border-radius: 6px;
+  background: var(--pt-surface);
+  transition: background var(--pt-t), border-color var(--pt-t);
+}
+.pt-check-mark svg {
+  width: 13px; height: 13px;
+  color: #fff;
+  opacity: 0;
+  transform: scale(.7);
+  transition: opacity var(--pt-t), transform var(--pt-t);
+}
+.pt-check:hover .pt-check-mark { border-color: var(--pt-navy); }
+.pt-check-on .pt-check-mark { background: var(--pt-good); border-color: transparent; }
+.pt-check-on .pt-check-mark svg { opacity: 1; transform: scale(1); }
+.pt-check-on { color: var(--pt-ink-2); }
+
+/* the drawer's version: a real control, full width, with words */
+.pt-check-big {
+  width: 100%;
+  justify-content: center;
+  padding: 11px var(--pt-4);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-sm);
+  background: var(--pt-surface);
+  color: var(--pt-navy);
+  font-size: .82rem;
+}
+.pt-check-big:hover { background: var(--pt-tint); border-color: var(--pt-blue); }
+.pt-check-big.pt-check-on { color: var(--pt-ink-2); }
+
+/* a to-do row with its box beside it */
+.pt-row-wrap-check { align-items: center; gap: var(--pt-3); padding-left: var(--pt-4); }
+.pt-check-gap { width: 19px; flex: none; }
+.pt-row-wrap-check > .pt-row { padding-left: 0; }
+.pt-row-wrap-done > .pt-row .pt-row-title > span:first-child {
+  text-decoration: line-through;
+  text-decoration-color: var(--pt-dim);
+}
+.pt-row-wrap-done { opacity: .7; }
+
+/* a chip that is a box and a title, rather than one button */
+.pt-chip-tick-row {
+  display: flex; align-items: center; gap: 5px;
+  padding-right: 5px;
+}
+.pt-chip-tick-row .pt-check-mark { width: 14px; height: 14px; border-radius: 4px; }
+.pt-chip-tick-row .pt-check-mark svg { width: 10px; height: 10px; }
+.pt-chip-open {
+  flex: 1; min-width: 0;
+  padding: 0; background: none; border: 0;
+  text-align: left; color: inherit;
+  font-size: inherit; font-weight: inherit; line-height: inherit;
+  cursor: pointer;
+}
+.pt-chip-tick-row.pt-chip-done .pt-chip-title { text-decoration: line-through; }
+
+.pt-toast-undo {
+  margin-left: var(--pt-3);
+  padding: 2px 10px;
+  border: 1px solid rgba(255,255,255,.34);
+  border-radius: var(--pt-r-pill);
+  background: none; color: #fff;
+  font-size: .78rem; font-weight: 700;
+}
+.pt-toast-undo:hover { background: rgba(255,255,255,.14); }
+
+/* The toast comes up from the bottom, where the tab bar is. Above it
+   on a phone, or "Undo" is a button you cannot reach. */
+@media (max-width: 900px) {
+  .pt-toast { bottom: calc(72px + var(--pt-4) + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* NOTE: after the rules above, because a media query adds no
+   specificity of its own. */
+@media (max-width: 640px) {
+  /* The to-do row stacks on a phone, but its box must not: a tick
+     box on its own line above the row reads as a separate control. */
+  .pt-row-wrap-check { flex-direction: row; align-items: center; gap: var(--pt-2); }
+  .pt-row-wrap-check > .pt-row { gap: var(--pt-2); padding-right: var(--pt-2); }
+  /* The box is the action, and the whole row still opens the card, so
+     a chevron here costs 26px of title and says nothing. */
+  .pt-row-wrap-check > .pt-row .pt-row-chev { display: none; }
+  /* Every row in the list, not only the ones with a box: two widths
+     of date chip in one list is a column that does not line up. */
+  .pt-datechip { width: 38px; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   A MONTH'S REPORT, ON PAPER
+   "Download PDF" is the browser's own print dialog. Everything that
+   is a control rather than a number comes off, each platform starts
+   its own page, and the sheet says whose report it is.
+   ══════════════════════════════════════════════════════════════ */
+
+.pt-rep-print { margin-left: auto; }
+.pt-rep-print svg { width: 15px; height: 15px; }
+
+.pt-mason .pt-card-body p { font-size: .92rem; line-height: 1.6; color: var(--pt-ink-2); }
+.pt-mason .pt-card-body p + p { margin-top: var(--pt-3); }
+.pt-mason { border-left: 3px solid var(--pt-navy); }
+
+.pt-print-only { display: none; }
+
+@media print {
+  /* Screen furniture. None of it means anything on paper, and a
+     sidebar printed down the left of every page costs a third of the
+     width of the one thing the page is for. */
+  .pt-topbar, .pt-sidebar, .pt-tabbar, .pt-rep-head, .pt-drawer, .pt-scrim,
+  .pt-sheet, .pt-toast, .pt-fab, .pt-info, .pt-back, .pt-tip { display: none !important; }
+
+  .pt-print-only { display: block; }
+
+  .pt, body, .pt-shell, .pt-view { background: #fff; }
+  .pt-shell, .pt-body, .pt-main { display: block; margin: 0; padding: 0; }
+  .pt-main { max-width: none; }
+
+  /* Only the report prints, whatever else is mounted behind it. */
+  .pt-view { display: none !important; }
+  .pt-view[data-view='reports'] { display: block !important; }
+
+  .pt-print-head {
+    margin-bottom: 18pt;
+    padding-bottom: 8pt;
+    border-bottom: 1.5pt solid var(--pt-navy);
+  }
+  .pt-print-title {
+    font-family: var(--pt-display);
+    font-size: 15pt; font-weight: 700; color: var(--pt-navy);
+  }
+  .pt-print-sub {
+    margin-top: 2pt;
+    font-size: 8pt; font-weight: 700; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--pt-muted);
+  }
+
+  /* One section per page. The heading stays with the grid under it,
+     which is the whole point of printing a report rather than a
+     screenshot of one. */
+  .pt-platform-head { break-before: page; break-after: avoid; margin-top: 0; }
+  .pt-platform-head:first-of-type { break-before: auto; }
+  .pt-sect, .pt-card, .pt-grid { break-inside: avoid; }
+  .pt-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* Shadows print as grey smears, and a white card on white paper
+     needs an edge instead. */
+  .pt-card, .pt-kpi { box-shadow: none !important; border: 1pt solid var(--pt-line-strong); }
+
+  a[href]::after { content: none !important; }
+
+  @page { margin: 14mm; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SIGNING IN
+   One card, two steps. Nothing on it is per-client, by design.
+   ══════════════════════════════════════════════════════════════ */
+
+.pt-login {
+  width: min(100%, 42ch);
+  padding: var(--pt-7);
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-lg);
+  box-shadow: var(--pt-shadow-md);
+}
+.pt-login img { height: 26px; margin-bottom: var(--pt-6); }
+.pt-login h1 {
+  font-family: var(--pt-display);
+  font-size: 1.3rem; font-weight: 800; color: var(--pt-ink);
+  margin-bottom: var(--pt-2);
+}
+.pt-login-lede {
+  color: var(--pt-ink-2); font-size: .92rem; line-height: 1.5;
+  margin-bottom: var(--pt-5);
+}
+.pt-login-label {
+  display: block; margin-bottom: 6px;
+  font-size: .72rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--pt-muted);
+}
+.pt-login .pt-input { width: 100%; }
+.pt-login-go {
+  width: 100%; justify-content: center;
+  margin-top: var(--pt-4); padding: 12px var(--pt-4);
+}
+.pt-login-go:disabled { opacity: .6; cursor: default; }
+
+/* The code is read back off the screen a digit at a time, so it is
+   set wide and spaced rather than squeezed into prose. */
+.pt-code {
+  font-family: var(--pt-display);
+  font-size: 1.35rem; font-weight: 700;
+  letter-spacing: .34em; text-align: center;
+}
+
+.pt-login-back {
+  display: block; width: 100%;
+  margin-top: var(--pt-3); padding: var(--pt-2);
+  background: none; border: 0;
+  font-size: .82rem; font-weight: 600; color: var(--pt-navy);
+  cursor: pointer;
+}
+.pt-login-back:hover { text-decoration: underline; }
+
+.pt-login-err {
+  margin-top: var(--pt-4); padding: 10px var(--pt-3);
+  background: var(--pt-bad-tint);
+  border-radius: var(--pt-r-sm);
+  font-size: .84rem; font-weight: 600; color: var(--pt-bad);
+}
+.pt-login-foot {
+  margin-top: var(--pt-6); padding-top: var(--pt-4);
+  border-top: 1px solid var(--pt-line-soft);
+  font-size: .82rem; color: var(--pt-muted);
+}
+
+/* ── the avatar menu ──────────────────────────────────────────
+   Log out, and for us a list of every client whose portal is on. */
+
+.pt-identity-btn {
+  display: flex; align-items: center; gap: var(--pt-3);
+  padding: 4px 6px 4px 4px;
+  background: none; border: 0; border-radius: var(--pt-r-pill);
+  cursor: pointer; text-align: left;
+  transition: background var(--pt-t);
+}
+.pt-identity-btn:hover { background: var(--pt-tint-soft); }
+.pt-identity-wrap { position: relative; }
+.pt-identity-chev {
+  width: 13px; height: 13px; flex: none;
+  color: var(--pt-muted); transform: rotate(90deg);
+}
+
+.pt-menu {
+  position: absolute; z-index: 60; top: calc(100% + 6px); right: 0;
+  min-width: 230px; max-height: 70vh; overflow: auto;
+  padding: var(--pt-2);
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-sm);
+  box-shadow: var(--pt-shadow-md);
+}
+.pt-menu-label {
+  padding: 6px var(--pt-2) 4px;
+  font-size: .68rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--pt-muted);
+}
+.pt-menu-item {
+  display: flex; align-items: center; gap: var(--pt-2);
+  width: 100%; padding: 8px var(--pt-2); border-radius: 6px;
+  background: none; border: 0; text-align: left; cursor: pointer;
+  font-size: .85rem; font-weight: 600; color: var(--pt-ink);
+}
+.pt-menu-item:hover { background: var(--pt-tint-soft); text-decoration: none; }
+.pt-menu-item svg { width: 14px; height: 14px; flex: none; color: var(--pt-muted); }
+.pt-menu-on { color: var(--pt-navy); background: var(--pt-tint); }
+.pt-menu-rule { height: 1px; margin: var(--pt-2) 0; background: var(--pt-line-soft); }
+
+/* An admin is standing in someone else's portal. The band says so,
+   because forgetting that is how a note meant for us ends up in a
+   client's calendar. */
+.pt-asadmin {
+  display: flex; align-items: center; gap: var(--pt-2);
+  padding: 7px var(--pt-5);
+  background: var(--pt-navy); color: #fff;
+  font-size: .76rem; font-weight: 700; letter-spacing: .04em;
+}
+.pt-asadmin svg { width: 14px; height: 14px; }

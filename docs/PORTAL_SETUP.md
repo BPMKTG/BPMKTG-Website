@@ -1,8 +1,8 @@
 # Client portal
 
-A private, read-only page per client at `/portal/<slug>`, pulling that
-client's own data out of Notion. V1: no login screen, no password. The
-link itself is the credential.
+A private page per client at `/portal/<slug>`, pulling that client's own
+data out of Notion. Sign-in is a six-digit code sent to an email address
+written down in Notion. There is no password.
 
 ---
 
@@ -17,22 +17,25 @@ both. Lowercase letters, numbers and hyphens only: `sean-comma`.
 
 If it is already filled in for the intake form, leave it alone.
 
-### 2. Portal Key
+### 2. Portal Emails
 
-The secret half of the link. Generate a fresh one per client, never
-reuse one, and never use anything guessable.
+Who may sign in to this client's portal. Comma-separated, one line:
 
-```bash
-openssl rand -hex 24
+```
+sean@seancomma.com, manager@seancomma.com
 ```
 
-Paste the output into **Portal Key**. Roughly 48 characters of hex is
-the right order of magnitude; the code does not enforce a length, so
-this is on you.
+Anyone on this list can ask for a code and get into **this client's
+portal only**. Leave it blank and nobody can sign in, which is the safe
+direction to be wrong in.
 
-**A blank Portal Key opens nothing.** That is deliberate: a blank stored
-key would otherwise match a blank `?key=` and let anyone who guessed the
-slug straight in.
+The addresses are compared exactly, after trimming and lowercasing.
+Dots and `+tags` are **not** folded, because `a.b@x.com` and `ab@x.com`
+may be two different people and one of them must not get the other's
+numbers.
+
+One address must not appear on two clients. If it does, that address
+can sign in to neither: the code refuses to guess.
 
 ### 3. Portal Enabled
 
@@ -54,16 +57,19 @@ integration. A database that was never shared returns 404 from the API,
 which the portal reports to the client as "this link isn't working",
 with the real reason only in the Function logs.
 
-### 5. Send the link
+### 5. Tell them where it is
 
 ```
-https://blueprint-marketing.com/portal/<slug>?key=<portal key>
+https://blueprint-marketing.com/portal/login
 ```
 
-Send it somewhere the whole thing survives as one piece. The key is long
-and a client who copies half a link gets a dead portal. Tell them to
-bookmark it after the first open, at which point the key is no longer
-in the URL anyway.
+That is the whole thing. They put in their email, we send a code, and
+after that their browser remembers them for 30 days. They can also
+bookmark `/portal/<slug>` directly: without a session it sends them to
+the sign-in screen and back again afterwards.
+
+There is nothing secret in either URL, so it does not matter how the
+link travels.
 
 ---
 
@@ -112,21 +118,56 @@ Both mean you can keep writing titles for our board, not for the client.
 
 Two steps, kept separate on purpose.
 
-1. **`POST /portal/<slug>/auth`** takes the key, compares it against the
-   stored one in constant time, and requires `Portal Enabled`.
-2. On success it sets `bp_portal`, an HMAC-signed token in an
-   **HttpOnly, Secure, SameSite=Lax** cookie **scoped to `/portal/<slug>`**,
-   for 30 days. The page then strips `?key=` from the URL with
-   `history.replaceState`.
-3. **`GET /portal/<slug>/data`** checks the cookie and nothing else.
+**1. Establish who you are.**
 
-The data endpoint lives under the client's own path precisely so that
-path-scoped cookie reaches it. A shared `/api/portal` could not read it.
+| Endpoint | What it does |
+|---|---|
+| `POST /portal/login/start` | Takes an email. If it is on a client's **Portal Emails**, or in `ADMIN_EMAILS`, it stores a hashed six-digit code in Workers KV for ten minutes and sends the code by email. |
+| `POST /portal/login/verify` | Takes the email and the code. On success it sets the session cookie and answers with the slug to open. |
+
+**2. Carry it.** An HMAC-signed token in an **HttpOnly, Secure,
+SameSite=Lax** cookie, for 30 days. There are two:
+
+| Cookie | Path | Who |
+|---|---|---|
+| `bp_portal` | `/portal/<slug>` | One client, their own portal. |
+| `bp_admin` | `/portal` | Us, in any client's portal. |
+
+`GET /portal/<slug>/data` checks those cookies and nothing else. The
+admin one is checked first and wins. Signing in as one clears the other,
+so a stale admin cookie on a shared laptop cannot outrank a client's own
+session.
+
+### Admins
+
+`ADMIN_EMAILS` is a comma-separated secret. An address in it can sign in
+to **every** client whose portal is on, sees exactly what that client
+sees, and gets a client switcher in the avatar menu plus a navy band
+across the top saying whose portal they are standing in.
+
+Anything an admin changes is stamped **Last Edited By = Blueprint**, not
+Client, so "the client changed this" keeps meaning that. The one
+exception is a Campaign Calendar step, which has no Last Edited By
+column at all; add one if you want tick-offs attributed.
+
+### What a client may write
+
+Three things, and nothing else:
+
+- their own content cards (the whitelist in `src/data/portal-content.ts`),
+- a new idea,
+- the **Status** of a Campaign Calendar step whose **Owner** is Client,
+  and only between *Not Started*, *In Progress* and *Done*. Not Skipped,
+  not Moved, and never one of our steps or a moment.
+
+Every one of those is re-checked on the server against the row as Notion
+currently holds it, never against anything in the request.
 
 ### Every failure is the same failure
 
-Unknown slug, wrong key, disabled portal, a key for a different client,
-an expired session, rate limited, Notion down: all of them return
+Unknown slug, no session, a session for a different client, a disabled
+portal, an expired session, rate limited, Notion down: all of them
+return
 
 ```
 404  {"ok":false,"error":"not_found"}
@@ -135,17 +176,27 @@ an expired session, rate limited, Notion down: all of them return
 and `/portal/<anything>` serves byte-identical HTML. Nothing about the
 URL or the responses answers "is this artist a Blueprint client?".
 
-### Replacing the key with Cloudflare Access later
+The sign-in screen holds the same line. An address nobody has, an
+address on a client whose portal is off, and an address that works all
+produce the same sentence:
 
-Only step 1 knows what a portal key is. To move to email login:
+> If that email has access, we sent a code.
 
-1. Put Cloudflare Access in front of `/portal/*`.
-2. In `functions/portal/[slug]/auth.ts`, verify the Access JWT instead of
-   calling `checkPortalKey`, and check the email against the client's
-   **Email** in Notion.
-3. Mint the same session with the same `mintSession`.
+Do not "improve" that into "we don't recognise that email". It would
+turn the login page into a way to ask whether a given artist is a
+Blueprint client, and a way to sort a leaked address list into ours and
+not-ours.
 
-`data.ts`, the cookie, the whitelists and the page do not change.
+### Old `?key=` links
+
+They open nothing. The key is stripped from the URL before anything
+else happens and the visitor lands on the sign-in screen. Sessions
+minted by the old sign-in are rejected too: the new token format
+carries a `v2.` prefix that the old one does not have, so every browser
+holding one is signed out.
+
+The **Portal Key** column in Notion is no longer read. Delete it when
+you are satisfied.
 
 ---
 
@@ -154,7 +205,21 @@ Only step 1 knows what a portal key is. To move to email login:
 | Name | Required | What it does |
 |---|---|---|
 | `NOTION_TOKEN` | yes | The integration token. Same one the intake form uses. |
+| `RESEND_API_KEY` | yes, for sign-in | Sends the codes. Without it no code is ever sent and nobody can sign in. |
+| `ADMIN_EMAILS` | yes, for admins | Comma-separated. `mason@bpmktg.com`. These addresses open every client's portal. |
 | `PORTAL_SECRET` | no | Signs session cookies. Any random 16+ character string. |
+| `PORTAL_MAIL_FROM` | no | The From line. Defaults to `Blueprint Marketing <noreply@bpmktg.com>`. |
+
+There is also one **binding**, which is not a variable: a Workers KV
+namespace bound as `PORTAL_KV`, in **Settings → Functions → KV namespace
+bindings**, for Production and Preview both.
+
+That is where a pending code lives for its ten minutes. It has to be KV
+and not the Cache API: the cache is per-datacenter, so a code written in
+one colo may not be readable from another thirty seconds later, which is
+a login that fails at random. **With no `PORTAL_KV` bound, sign-in is
+off** and the login screen still says the same neutral sentence; the
+reason is in the Function logs.
 
 With `PORTAL_SECRET` unset, sessions are signed with `NOTION_TOKEN`,
 which is already a high-entropy secret present anywhere the portal can
@@ -189,7 +254,19 @@ Locally they come from `.dev.vars` (gitignored). See `.dev.vars.example`.
 
 ## Rate limiting
 
-Failed key checks are counted per IP in the Cloudflare Cache API: eight
+Three limits, each protecting a different thing.
+
+| Limit | Where | What it protects |
+|---|---|---|
+| 5 code requests per hour, per email | KV | Somebody's inbox |
+| 10 guesses per code, then the code is burned | KV | A six-digit code |
+| 8 failed sign-ins per IP per 10 minutes | Cache API | Everything, from one machine |
+
+The last one is the old one, and it is still a speed bump rather than a
+guarantee: the Cache API is per-datacenter. The first two are durable,
+because they are in KV.
+
+Failed sign-ins are counted per IP in the Cloudflare Cache API: eight
 failures and everything from that IP 404s.
 
 **The window is ten minutes since the last attempt, not since the first.**
@@ -237,10 +314,23 @@ npx wrangler pages dev dist --port 8788 --compatibility-date=2026-01-01
 
 Astro's own dev server will **not** work for the portal: `astro dev` does
 not run Pages Functions, so `/portal/<slug>` 404s and there is no
-`/auth` or `/data`. Build first, then serve `dist` through wrangler.
+`/data` and no `/portal/login/start`. Build first, then serve `dist`
+through wrangler.
 
 With a fake `NOTION_TOKEN` you can still verify all the routing and every
 failure path. The success path needs a real token.
+
+Sign-in locally needs a KV namespace as well. Either create a preview
+one:
+
+```bash
+npx wrangler kv namespace create PORTAL_KV --preview
+npx wrangler pages dev dist --kv PORTAL_KV --port 8788 --compatibility-date=2026-01-01
+```
+
+or leave it unbound and accept that `/portal/login/start` will log
+`PORTAL_KV is not bound` and send nothing, which is the correct
+behaviour and is also what the tests cover.
 
 ---
 
@@ -252,22 +342,80 @@ npm run test:portal     # or: npm test, which runs intake too
 
 Covers the calendar visibility rule, the whitelists (against fixtures
 stuffed with rates, keys and internal notes), title cleanup, engagement
-formatting, term progress, slug validation, session signing, and that
-wrong key / disabled portal / another client's key all fail identically.
+formatting, term progress, slug validation, session signing for both
+roles, who may sign in, the code store and its limits, what a client may
+tick off, and that every one of those failures is identical.
 
 ---
 
-## Known limits of V1
+## Sending the codes: Resend and DNS
 
-- **The link is the credential.** Anyone a client forwards it to is in.
-- **Rotating the Portal Key does not sign anyone out.** It stops the old
-  link working, but a browser that already exchanged the old key holds a
-  signed session for up to 30 days, and that session does not reference
-  the key. To actually cut existing sessions off there are two levers:
-  untick **Portal Enabled** (effective within 60 seconds, the cache
-  window, and it locks the client out too), or rotate `PORTAL_SECRET`
-  (or `NOTION_TOKEN` when no `PORTAL_SECRET` is set), which invalidates
-  every session for every client at once. Pick deliberately.
-- **Read only.** Nothing in the portal writes back to Notion.
+The codes go out through [Resend](https://resend.com). Until the domain
+is verified there, nothing sends and nobody can sign in.
+
+### 1. Add the domain
+
+Resend → **Domains** → **Add domain** → `bpmktg.com`, region
+**us-east-1**.
+
+Note the domain here is **bpmktg.com**, while the site is
+blueprint-marketing.com. That is a deliberate choice about where the
+mail comes from, not an accident, but it does mean these records go on
+bpmktg.com's DNS, not the site's. If you would rather send from
+blueprint-marketing.com, add that domain instead and the records below
+apply to it with the same shape.
+
+### 2. Add the records Resend gives you
+
+Resend prints the exact values on the domain's page. **The DKIM value is
+generated per-domain and cannot be written down in advance**, so copy it
+from there rather than from here. What it asks for is three records:
+
+| Type | Name | Value | Note |
+|---|---|---|---|
+| `TXT` | `resend._domainkey` | `p=MIGfMA0...` (long, from Resend) | DKIM. The one that must be copied exactly. |
+| `TXT` | `send` | `v=spf1 include:amazonses.com ~all` | SPF for the sending subdomain. |
+| `MX` | `send` | `feedback-smtp.us-east-1.amazonses.com` priority `10` | Bounces. Match the region you picked. |
+
+If bpmktg.com is on Cloudflare DNS, add all three as **DNS only** (grey
+cloud), not proxied. A proxied record breaks mail.
+
+One more, strongly recommended, which Resend does not add for you:
+
+| Type | Name | Value |
+|---|---|---|
+| `TXT` | `_dmarc` | `v=DMARC1; p=none; rua=mailto:mason@bpmktg.com` |
+
+Start at `p=none` and watch the reports before tightening to
+`quarantine`. A DMARC policy applied before DKIM and SPF are both
+passing will send your own mail to spam.
+
+### 3. Verify, then set the key
+
+Press **Verify** in Resend once the records have propagated, which is
+usually minutes and occasionally an hour. Then create an API key with
+**Sending access** and put it in Cloudflare as `RESEND_API_KEY`.
+
+Check `PORTAL_MAIL_FROM` matches a verified sender on that domain. The
+default is `Blueprint Marketing <noreply@bpmktg.com>`.
+
+---
+
+## Known limits
+
+- **An email account is the credential.** Whoever can read that inbox
+  can get in. That is the normal trade, and it is a long way better than
+  a link anyone can forward.
+- **Signing out one client does not sign out the rest.** Removing an
+  address from **Portal Emails** stops them asking for new codes, but a
+  browser they already signed in on holds a session for up to 30 days.
+  To cut existing sessions off: untick **Portal Enabled** (effective
+  within 60 seconds, the cache window, and it locks the client out too),
+  or rotate `PORTAL_SECRET` (or `NOTION_TOKEN` when no `PORTAL_SECRET`
+  is set), which signs every client out at once. Pick deliberately.
+- **Campaign Calendar has no Last Edited By**, so a step ticked off by
+  one of us looks the same as one ticked off by the client. Add the
+  column if that matters.
 - **Up to a minute stale**, by design. See Caching.
-- **No email to the client when something changes.** They have to open it.
+- **No email to the client when something changes.** They have to open
+  it. The only mail the portal ever sends is a sign-in code.

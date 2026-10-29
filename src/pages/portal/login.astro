@@ -1,0 +1,193 @@
+---
+// The sign-in screen.
+//
+// One static page for everyone, like the portal shell: nothing here is
+// per-client and nothing here may become per-client. It knows no
+// slugs, no names and no addresses. It asks for an email, posts it,
+// and prints whatever neutral sentence the server hands back.
+//
+// The server answers the same way for an address it has never seen as
+// for one it has, so this page cannot be used to ask whether somebody
+// is a Blueprint client. Keep it that way: no "we don't recognise
+// that", no different wording, no different timing.
+import PortalLayout from '../../layouts/PortalLayout.astro';
+import { DIRECT_EMAIL } from '../../config/cta';
+---
+
+<PortalLayout title="Sign in | Blueprint Marketing">
+  <div class="pt-centre">
+    <div class="pt-login">
+      <img src="/brand/logo-header-navy.svg" alt="Blueprint Marketing" />
+
+      {/* step one: the address */}
+      <form data-step="email" novalidate>
+        <h1>Your portal</h1>
+        <p class="pt-login-lede">
+          Put in the email you gave us and we'll send you a six-digit code.
+        </p>
+        <label class="pt-login-label" for="pt-email">Email</label>
+        <input
+          class="pt-input"
+          id="pt-email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          inputmode="email"
+          spellcheck="false"
+          required
+          placeholder="you@yourband.com"
+        />
+        <button class="pt-btn pt-btn-primary pt-login-go" type="submit" data-send>
+          <span>Send me a code</span>
+        </button>
+      </form>
+
+      {/* step two: the code */}
+      <form data-step="code" hidden novalidate>
+        <h1>Check your email</h1>
+        <p class="pt-login-lede" data-sent></p>
+        <label class="pt-login-label" for="pt-code">Six-digit code</label>
+        <input
+          class="pt-input pt-code"
+          id="pt-code"
+          name="code"
+          type="text"
+          autocomplete="one-time-code"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          maxlength="6"
+          required
+          placeholder="000000"
+        />
+        <button class="pt-btn pt-btn-primary pt-login-go" type="submit" data-go>
+          <span>Sign in</span>
+        </button>
+        <button class="pt-login-back" type="button" data-again>
+          Use a different email
+        </button>
+      </form>
+
+      <p class="pt-login-err" data-err role="alert" hidden></p>
+
+      <p class="pt-login-foot">
+        Can't get in? <a data-mail href={`mailto:${DIRECT_EMAIL}`}>{DIRECT_EMAIL}</a>
+      </p>
+    </div>
+  </div>
+</PortalLayout>
+
+<script>
+  /* The sign-in screen's whole job: post an address, post a code,
+     then go where the server says. It never decides anything itself. */
+
+  const q = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel);
+
+  const emailStep = q<HTMLFormElement>('[data-step="email"]')!;
+  const codeStep = q<HTMLFormElement>('[data-step="code"]')!;
+  const emailField = q<HTMLInputElement>('#pt-email')!;
+  const codeField = q<HTMLInputElement>('#pt-code')!;
+  const sentLine = q('[data-sent]')!;
+  const errLine = q('[data-err]')!;
+
+  /** Where they were heading before they were sent here. Only a hint,
+   *  and only ever honoured for an admin: a client always lands on
+   *  their own portal, which the server works out from their address. */
+  const WANT = 'bp.portal.want';
+  const want = (() => {
+    try { return sessionStorage.getItem(WANT) ?? ''; } catch { return ''; }
+  })();
+
+  let email = '';
+
+  function fail(message: string) {
+    errLine.textContent = message;
+    errLine.hidden = false;
+  }
+  function clearFail() {
+    errLine.hidden = true;
+    errLine.textContent = '';
+  }
+
+  function busy(form: HTMLFormElement, on: boolean, text: string) {
+    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+    if (!btn) return;
+    btn.disabled = on;
+    const span = btn.querySelector('span');
+    if (span) span.textContent = text;
+  }
+
+  emailStep.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    clearFail();
+    email = emailField.value.trim().toLowerCase();
+    if (!email.includes('@')) { fail('That does not look like an email address.'); return; }
+
+    busy(emailStep, true, 'Sending…');
+    let message = '';
+    try {
+      const res = await fetch('/portal/login/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const out = await res.json() as { message?: string };
+      message = out.message ?? '';
+    } catch {
+      busy(emailStep, false, 'Send me a code');
+      fail('We could not reach the server. Check your connection and try again.');
+      return;
+    }
+    busy(emailStep, false, 'Send me a code');
+
+    // The same sentence whatever happened, which is the point.
+    sentLine.textContent = message || 'If that email has access, we sent a code.';
+    emailStep.hidden = true;
+    codeStep.hidden = false;
+    codeField.focus();
+  });
+
+  codeField.addEventListener('input', () => {
+    codeField.value = codeField.value.replace(/\D/g, '').slice(0, 6);
+  });
+
+  codeStep.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    clearFail();
+    const code = codeField.value.replace(/\D/g, '');
+    if (code.length !== 6) { fail('A code is six digits.'); return; }
+
+    busy(codeStep, true, 'Signing in…');
+    try {
+      const res = await fetch('/portal/login/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email, code, want }),
+      });
+      const out = await res.json() as { ok?: boolean; slug?: string; message?: string };
+      if (!res.ok || !out.ok || !out.slug) {
+        busy(codeStep, false, 'Sign in');
+        codeField.value = '';
+        codeField.focus();
+        fail(out.message ?? "That code didn't work. Ask for a new one.");
+        return;
+      }
+      try { sessionStorage.removeItem(WANT); } catch { /* private mode */ }
+      // replace, not assign: the back button should not come back here
+      // with a code sitting in the field.
+      location.replace(`/portal/${encodeURIComponent(out.slug)}`);
+    } catch {
+      busy(codeStep, false, 'Sign in');
+      fail('We could not reach the server. Check your connection and try again.');
+    }
+  });
+
+  q<HTMLButtonElement>('[data-again]')!.addEventListener('click', () => {
+    clearFail();
+    codeField.value = '';
+    codeStep.hidden = true;
+    emailStep.hidden = false;
+    emailField.focus();
+    emailField.select();
+  });
+</script>

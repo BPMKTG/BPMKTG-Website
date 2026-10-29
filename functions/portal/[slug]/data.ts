@@ -1,9 +1,13 @@
 /* ──────────────────────────────────────────────────────────────
    GET /portal/<slug>/data — the client's own whitelisted data.
 
-   Requires the session cookie set by ../auth. Knows nothing about
-   portal keys, which is what lets the sign-in step be replaced later
-   without touching this file.
+   Requires a session cookie: either this client's own, or the admin
+   cookie, which opens every client's portal. Knows nothing about how
+   either was obtained.
+
+   An admin sees EXACTLY what the client sees. The only thing the
+   payload says about them is `viewer`, which the header uses to draw a
+   client switcher and a log-out.
 
    Everything it returns was assembled property by property from the
    whitelists in src/data/portal.ts. No Notion page object reaches this
@@ -14,18 +18,17 @@ import {
   fetchCalendar,
   fetchContent,
   fetchContentSchema,
+  fetchPortalClients,
   fetchSnapshots,
   findClientBySlug,
 } from '../../../src/server/portal-notion';
 import {
-  COOKIE_NAME,
   DATA_CACHE_SECONDS,
   isValidSlug,
   normaliseSlug,
   portalNotFound,
-  readCookie,
+  readViewer,
   sessionSecret,
-  verifySession,
 } from '../../../src/server/portal-auth';
 import type { PortalPayload } from '../../../src/data/portal';
 
@@ -49,14 +52,25 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
 
   // Auth first, always. The cache is read only after the session is
   // verified, so a cached payload can never be served to a stranger.
-  const token = readCookie(request.headers.get('Cookie'), COOKIE_NAME);
-  if (!(await verifySession(sessionSecret(env), slug, token))) return portalNotFound();
+  const viewer = await readViewer(request, sessionSecret(env), slug);
+  if (!viewer) return portalNotFound();
+
+  // The switcher's list is the one thing an admin gets that a client
+  // does not, so it is fetched per request and never cached with the
+  // payload. The cached body is identical for both roles.
+  const clients = viewer.role === 'admin'
+    ? await fetchPortalClients(env.NOTION_TOKEN).catch((err) => {
+        console.error('portal: listing clients for the switcher threw', err);
+        return [];
+      })
+    : [];
+  const viewerBlock = { role: viewer.role, ...(clients.length ? { clients } : {}) };
 
   const cache = caches.default;
   const key = cacheKey(slug);
 
   const hit = await cache.match(key).catch(() => undefined);
-  if (hit) return withHeaders(hit, 'hit');
+  if (hit) return withHeaders(await graft(hit, viewerBlock), 'hit');
 
   let payload: PortalPayload;
   try {
@@ -90,8 +104,20 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
   });
   await cache.put(key, cacheable.clone()).catch(() => {});
 
-  return withHeaders(cacheable, 'miss');
+  return withHeaders(await graft(cacheable, viewerBlock), 'miss');
 };
+
+/** Puts `viewer` on the payload on the way out.
+ *
+ *  Not baked into the cached body: the cache is per client, not per
+ *  viewer, and one admin's client list must never be served to the
+ *  client whose portal it was cached in. Cheaper than it looks, and a
+ *  great deal cheaper than two cache entries that can disagree. */
+async function graft(res: Response, viewer: unknown): Promise<Response> {
+  const payload = await res.clone().json() as Record<string, unknown>;
+  payload.viewer = viewer;
+  return new Response(JSON.stringify(payload), { headers: res.headers });
+}
 
 /** The browser never caches a portal payload, whatever the shared cache
  *  did. Re-headered on the way out rather than at construction so the

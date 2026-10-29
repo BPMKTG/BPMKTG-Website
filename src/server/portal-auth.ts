@@ -1,27 +1,46 @@
 /* ──────────────────────────────────────────────────────────────
-   Client portal: key check, session cookie, rate limit.
+   Client portal: sessions, cookies, rate limit.
 
    SERVER ONLY.
 
    Two steps on purpose, kept apart:
 
-     1. ESTABLISH IDENTITY. Today that is a portal key in the link.
-        Tomorrow it can be a Cloudflare Access JWT. Only `checkPortalKey`
-        and the /auth endpoint know which.
-     2. CARRY IT. A short signed token in an HttpOnly cookie, scoped to
-        the one client's path.
+     1. ESTABLISH IDENTITY. A six-digit code sent to an email address
+        Notion says may open this portal. Only portal-login.ts and the
+        /portal/login endpoints know that.
+     2. CARRY IT. A short signed token in an HttpOnly cookie.
 
-   Swapping step 1 for Cloudflare Access means replacing one function
-   and leaving the session, the cookie and the data endpoint alone.
+   There are two of those cookies, because there are two kinds of
+   viewer:
+
+     bp_portal  Path=/portal/<slug>   one client, their own portal.
+     bp_admin   Path=/portal          us, in any client's portal.
+
+   The admin cookie is checked first and wins. Both carry a role, so a
+   future /admin dashboard reads the same session rather than inventing
+   a second way in.
    ────────────────────────────────────────────────────────────── */
 
 export const COOKIE_NAME = 'bp_portal';
-/** 30 days, as a link a client bookmarks is the normal way back in. */
+export const ADMIN_COOKIE_NAME = 'bp_admin';
+/** 30 days, as signing in once a month is the most anyone should have
+ *  to do to look at their own calendar. */
 export const SESSION_SECONDS = 30 * 24 * 60 * 60;
 
-/** Failed key checks allowed per IP per window, then everything 404s. */
+/** Failed sign-ins allowed per IP per window, then everything 404s. */
 export const RL_LIMIT = 8;
 export const RL_WINDOW_SECONDS = 600;
+
+/** Who is looking. The role is carried in the signed token rather than
+ *  worked out again from an email on every request. */
+export type Role = 'client' | 'admin';
+
+export interface Viewer {
+  role: Role;
+  /** A short hash of the email, for logs and for a future dashboard.
+   *  The address itself never goes into a cookie. */
+  who: string;
+}
 
 /** How long a client's Notion data is reused. Notion's rate limit is
  *  ~3 requests/second and one portal load costs three queries. */
@@ -47,6 +66,9 @@ export function normaliseSlug(raw: string | undefined | null): string {
 
 const encoder = new TextEncoder();
 
+const hex = (bytes: Uint8Array) =>
+  Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+
 async function sha256(value: string): Promise<Uint8Array> {
   const digest = await crypto.subtle.digest('SHA-256', encoder.encode(value));
   return new Uint8Array(digest);
@@ -60,6 +82,13 @@ async function sha256(value: string): Promise<Uint8Array> {
  * either, which a plain byte-by-byte loop over the raw strings would
  * still give away.
  */
+/** SHA-256 as hex. Used to turn an email address into a key that can
+ *  sit in a cookie, a log line or a cache key without being an email
+ *  address. */
+export async function sha256Hex(value: string): Promise<string> {
+  return hex(await sha256(value));
+}
+
 export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   const [ha, hb] = await Promise.all([sha256(a), sha256(b)]);
   let diff = 0;
@@ -67,30 +96,7 @@ export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   return diff === 0;
 }
 
-/**
- * Does this key open this client's portal?
- *
- * Returns the same false for a disabled portal, a blank stored key and
- * a wrong key. The caller must not distinguish them either.
- */
-export async function checkPortalKey(
-  supplied: string,
-  stored: string,
-  portalEnabled: boolean,
-): Promise<boolean> {
-  // A blank stored key would otherwise match a blank ?key=, which is to
-  // say it would open every client who has not been given one yet.
-  // Still runs the compare, so a client with no key set takes the same
-  // time as one with a key.
-  const usable = portalEnabled && stored.length > 0;
-  const ok = await timingSafeEqual(supplied, stored);
-  return usable && ok;
-}
-
 /* ── session token ────────────────────────────────────────────── */
-
-const hex = (bytes: Uint8Array) =>
-  Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 
 async function hmac(secret: string, message: string): Promise<string> {
   const key = await crypto.subtle.importKey(
@@ -105,44 +111,144 @@ async function hmac(secret: string, message: string): Promise<string> {
 }
 
 /**
- * `<expiry>.<signature>`.
+ * A session token: `v2.<expiry>.<who>.<signature>`.
  *
- * The slug is signed but not stored in the token: the cookie is already
- * scoped to that client's path, and signing the slug is what stops a
- * cookie from one portal being replayed at another if that scoping is
- * ever loosened.
+ * The scope is signed but not stored in the token. For a client that
+ * scope is their slug, so a cookie lifted from one portal cannot be
+ * replayed at another even if the cookie Path is ever loosened. For an
+ * admin there is no slug, which is the whole point of the admin cookie.
+ *
+ * `v2` is deliberate. Tokens minted by the old shared-link sign-in have
+ * no version prefix and no longer verify, so every link that used to
+ * carry a key now lands on the sign-in screen.
  */
-export async function mintSession(secret: string, slug: string, now = Date.now()): Promise<string> {
+const TOKEN_V = 'v2';
+
+async function mint(secret: string, scope: string, who: string, now: number): Promise<string> {
   const exp = Math.floor(now / 1000) + SESSION_SECONDS;
-  return `${exp}.${await hmac(secret, `${slug}:${exp}`)}`;
+  const sig = await hmac(secret, `${scope}:${exp}:${who}`);
+  return `${TOKEN_V}.${exp}.${who}.${sig}`;
 }
 
-export async function verifySession(
+async function verify(
+  secret: string,
+  scope: string,
+  token: string | null,
+  now: number,
+): Promise<string | null> {
+  if (!token) return null;
+  const parts = token.split('.');
+  if (parts.length !== 4) return null;
+  const [v, expRaw, who, sig] = parts;
+  if (v !== TOKEN_V) return null;
+  // `who` is signed, so a tampered one fails the compare below anyway.
+  // It is bounded here so a megabyte of cookie never reaches the HMAC.
+  if (!/^[0-9a-f]{1,32}$/.test(who)) return null;
+
+  const exp = Number(expRaw);
+  if (!Number.isFinite(exp) || exp * 1000 <= now) return null;
+
+  const expected = await hmac(secret, `${scope}:${exp}:${who}`);
+  return (await timingSafeEqual(sig, expected)) ? who : null;
+}
+
+const clientScope = (slug: string) => `s:${slug}`;
+const ADMIN_SCOPE = 'a:blueprint';
+
+export function mintClientSession(
+  secret: string, slug: string, who: string, now = Date.now(),
+): Promise<string> {
+  return mint(secret, clientScope(slug), who, now);
+}
+
+export function mintAdminSession(
+  secret: string, who: string, now = Date.now(),
+): Promise<string> {
+  return mint(secret, ADMIN_SCOPE, who, now);
+}
+
+export function verifyClientSession(
+  secret: string, slug: string, token: string | null, now = Date.now(),
+): Promise<string | null> {
+  return verify(secret, clientScope(slug), token, now);
+}
+
+export function verifyAdminSession(
+  secret: string, token: string | null, now = Date.now(),
+): Promise<string | null> {
+  return verify(secret, ADMIN_SCOPE, token, now);
+}
+
+/**
+ * Who, if anyone, may look at this client's portal.
+ *
+ * The admin cookie is checked first: it is scoped to /portal rather
+ * than to one client, so an admin keeps one session while they switch
+ * between clients. A client's own cookie only ever reaches their own
+ * path.
+ *
+ * Returns null for no cookie, a cookie for another client, an expired
+ * one, a forged one, and a token minted before this version. Every one
+ * of those ends at the same 404.
+ */
+export async function readViewer(
+  request: Request,
   secret: string,
   slug: string,
-  token: string | null,
   now = Date.now(),
-): Promise<boolean> {
-  if (!token) return false;
-  const dot = token.indexOf('.');
-  if (dot === -1) return false;
+): Promise<Viewer | null> {
+  const header = request.headers.get('Cookie');
 
-  const exp = Number(token.slice(0, dot));
-  if (!Number.isFinite(exp) || exp * 1000 <= now) return false;
+  const admin = await verifyAdminSession(secret, readCookie(header, ADMIN_COOKIE_NAME), now);
+  if (admin) return { role: 'admin', who: admin };
 
-  const expected = await hmac(secret, `${slug}:${exp}`);
-  return timingSafeEqual(token.slice(dot + 1), expected);
+  const client = await verifyClientSession(secret, slug, readCookie(header, COOKIE_NAME), now);
+  if (client) return { role: 'client', who: client };
+
+  return null;
 }
 
-export function sessionCookie(slug: string, token: string): string {
+/* ── cookies ──────────────────────────────────────────────────── */
+
+function cookie(name: string, value: string, path: string, seconds: number): string {
   return [
-    `${COOKIE_NAME}=${token}`,
-    `Path=/portal/${slug}`,
+    `${name}=${value}`,
+    `Path=${path}`,
     'HttpOnly',
     'Secure',
     'SameSite=Lax',
-    `Max-Age=${SESSION_SECONDS}`,
+    `Max-Age=${seconds}`,
   ].join('; ');
+}
+
+export function sessionCookie(slug: string, token: string): string {
+  return cookie(COOKIE_NAME, token, `/portal/${slug}`, SESSION_SECONDS);
+}
+
+export function adminCookie(token: string): string {
+  return cookie(ADMIN_COOKIE_NAME, token, '/portal', SESSION_SECONDS);
+}
+
+/** Both of the cookies a sign-out has to clear. A client only ever has
+ *  the first; clearing one that was never set costs nothing, and
+ *  guessing which is set is how a log-out leaves someone logged in. */
+export function clearCookies(slug: string): string[] {
+  return [clearClientCookie(slug), clearAdminCookie()];
+}
+
+/** Cleared when a client signs in on a browser one of us used.
+ *
+ *  Without this, a stale admin cookie would quietly outrank the
+ *  session the client just created, and they would be looking at
+ *  their own portal with our permissions. */
+export function clearAdminCookie(): string {
+  return cookie(ADMIN_COOKIE_NAME, '', '/portal', 0);
+}
+
+/** The mirror of it: cleared when one of us signs in on a browser the
+ *  client used. */
+export function clearClientCookie(slug: string): string {
+  return cookie(COOKIE_NAME, '', `/portal/${slug}`, 0);
 }
 
 export function readCookie(header: string | null, name: string): string | null {
@@ -158,7 +264,7 @@ export function readCookie(header: string | null, name: string): string | null {
 /* ── rate limit ───────────────────────────────────────────────── */
 
 /**
- * Counts failed key checks per IP in the Cache API.
+ * Counts failed sign-ins per IP in the Cache API.
  *
  * Honest about what this is: a speed bump, not a guarantee. The cache
  * is per-datacenter and the read-modify-write races, so a determined
@@ -201,8 +307,8 @@ export async function recordFailure(cache: Cache, ip: string): Promise<void> {
 /* ── the one failure response ─────────────────────────────────── */
 
 /**
- * Unknown slug, wrong key, disabled portal, a key for a different
- * client, rate limited, Notion down. All of them end here.
+ * Unknown slug, no session, a session for a different client, a
+ * disabled portal, rate limited, Notion down. All of them end here.
  *
  * Nothing in the status, body or headers says which, because anything
  * that distinguishes them turns this endpoint into a way to ask whether

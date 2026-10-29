@@ -45,6 +45,7 @@ export const CLIENT_FIELDS = [
 export const CLIENT_NEVER_SEND = [
   'Portal Key',
   'Portal Enabled',
+  'Portal Emails',
   'Monthly Rate',
   'Full Rate',
   'Notes',
@@ -88,7 +89,7 @@ export const CALENDAR_NEVER_SEND = ['Notes', 'Offset (days)', 'Is Playbook', 'Hi
 
 /* ── KPI Snapshots ────────────────────────────────────────────── */
 
-export const SNAPSHOT_FIELDS = ['Date', 'Type', 'Data Source', 'Growth Score (/40)'] as const;
+export const SNAPSHOT_FIELDS = ['Date', 'Type', 'Data Source', 'Growth Score (/40)', 'Summary', 'Published'] as const;
 
 export const SNAPSHOT_NEVER_SEND = ['Notes', 'Snapshot'] as const;
 
@@ -284,6 +285,44 @@ export function isOpenClientTodo(row: { owner: string | null; status: string | n
   return !(CLOSED_STATUSES as readonly string[]).includes(row.status ?? '');
 }
 
+/**
+ * The only statuses a client may put one of their own steps into.
+ *
+ * Campaign Calendar also has "Skipped" and "Moved". Both are decisions
+ * about the campaign rather than about whether a task is finished, so
+ * they stay ours: a client ticking a box should never be able to drop a
+ * step out of the plan.
+ */
+export const STEP_CLIENT_STATUSES = ['Not Started', 'In Progress', 'Done'] as const;
+
+export type StepClientStatus = typeof STEP_CLIENT_STATUSES[number];
+
+export function isStepClientStatus(value: unknown): value is StepClientStatus {
+  return typeof value === 'string' && (STEP_CLIENT_STATUSES as readonly string[]).includes(value);
+}
+
+/**
+ * May the client set this step's status at all?
+ *
+ * Both ends are checked. A step sitting in Skipped or Moved is one we
+ * took out of the plan, and a tick box must not quietly put it back.
+ */
+export function canClientSetStep(
+  row: { owner: string | null; status: string | null },
+  to: unknown,
+): boolean {
+  if (row.owner !== 'Client') return false;
+  if (!isStepClientStatus(to)) return false;
+  // A status Notion has not been given yet reads as Not Started, which
+  // is where a step starts life anyway.
+  return row.status === null || isStepClientStatus(row.status);
+}
+
+/** Is this step ticked off? */
+export function isStepDone(row: { status: string | null }): boolean {
+  return row.status === 'Done';
+}
+
 /* ── Shapes the browser receives ──────────────────────────────── */
 
 export interface PortalClient {
@@ -349,12 +388,29 @@ export interface PortalSnapshot {
   type: string | null;
   dataSource: string[];
   growthScore: number | null;
+  /** Mason's note on the month. Rendered at the top of Reports, and
+   *  absent on an older payload. */
+  summary?: string | null;
   /** Metric name -> value. Only metrics that actually have a number. */
   metrics: Record<string, number>;
 }
 
+/** Who is looking at this portal, as the browser is told it.
+ *
+ *  Nothing here is a permission. It decides what the header draws: a
+ *  sign-out for everyone, and for us a list of the portals we can
+ *  step into. Every write is decided again on the server, from the
+ *  signed cookie, never from this. */
+export interface PortalViewer {
+  role: 'client' | 'admin';
+  /** Admins only: the clients whose portal is switched on. */
+  clients?: Array<{ slug: string; artist: string }>;
+}
+
 export interface PortalPayload {
   client: PortalClient;
+  /** Absent on an older payload, which reads as a plain client. */
+  viewer?: PortalViewer;
   calendar: PortalCalendarItem[];
   snapshots: PortalSnapshot[];
   /** The client's own content board. Absent on an older payload. */

@@ -84,6 +84,9 @@ const NAV = [
       <symbol id="pt-i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M4.6 5.5h14.8L21 13v5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18v-5z"/>
       </symbol>
+      <symbol id="pt-i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v12"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4 19.5h16"/>
+      </symbol>
     </defs>
   </svg>
 
@@ -135,14 +138,28 @@ const NAV = [
       </a>
       <span class="pt-topbar-spacer"></span>
       <span class="pt-badge" data-tier hidden></span>
-      <div class="pt-identity">
-        <span class="pt-avatar" data-avatar aria-hidden="true"></span>
-        <span class="pt-identity-text">
-          <span class="pt-identity-name" data-topname></span>
-          <span class="pt-identity-tier" data-topstage></span>
-        </span>
+      {/* The avatar is a menu: log out, and for us the list of every
+          client whose portal is on. Built by the script, because what
+          is in it depends on who is looking. */}
+      <div class="pt-identity-wrap">
+        <button class="pt-identity pt-identity-btn" type="button" data-identity
+                aria-haspopup="true" aria-expanded="false">
+          <span class="pt-avatar" data-avatar aria-hidden="true"></span>
+          <span class="pt-identity-text">
+            <span class="pt-identity-name" data-topname></span>
+            <span class="pt-identity-tier" data-topstage></span>
+          </span>
+          <svg class="pt-identity-chev" aria-hidden="true"><use href="#pt-i-chev" /></svg>
+        </button>
       </div>
     </header>
+
+    {/* Only ever shown to us, and only while we are standing in
+        somebody else's portal. */}
+    <div class="pt-asadmin" data-asadmin hidden>
+      <svg aria-hidden="true"><use href="#pt-i-info" /></svg>
+      <span data-asadmin-text></span>
+    </div>
 
     <div class="pt-body">
       <nav class="pt-sidebar" aria-label="Portal sections">
@@ -214,9 +231,11 @@ const NAV = [
 
 <script>
   import {
+    canClientSetStep,
     daysUntil,
     goalProgress,
     isOpenClientTodo,
+    isStepDone,
     metricLabel,
     metricPlatform,
     parseNotionDate,
@@ -229,6 +248,7 @@ const NAV = [
     type PortalCalendarItem,
     type PortalMoment,
     type PortalPayload,
+    type PortalViewer,
     type PortalSnapshot,
   } from '../../data/portal';
   import {
@@ -354,6 +374,10 @@ const NAV = [
   /* ── state ─────────────────────────────────────────────────── */
   let DATA: PortalPayload | null = null;
   let SLUG = '';
+  /** Who is looking, from the signed session. The browser is told so
+   *  it can draw a switcher and a sign-out; nothing it does with this
+   *  is a permission. Every write is decided again on the server. */
+  let VIEWER: PortalViewer = { role: 'client' };
 
   /* ── the one failure path ──────────────────────────────────── */
   function renderMissing() {
@@ -366,28 +390,34 @@ const NAV = [
   }
 
   /* ── boot ──────────────────────────────────────────────────── */
+
+  /** Everyone who is not signed in goes to the same screen: no cookie,
+   *  an expired one, a cookie for another client, an invented slug.
+   *  The slug is remembered so that one of us who follows a client's
+   *  link lands back on that client's portal after signing in; for a
+   *  client the server decides, and this is ignored. */
+  function toLogin(slug: string) {
+    try {
+      if (slug) sessionStorage.setItem('bp.portal.want', slug);
+    } catch { /* private mode: they land on their own portal, which is
+                 the same place for everyone but us */ }
+    location.replace('/portal/login');
+  }
+
   async function boot() {
     const parts = location.pathname.split('/').filter(Boolean);
     const slug = (parts[0] === 'portal' ? parts[1] : '') ?? '';
-    if (!slug) return renderMissing();
+    if (!slug) return toLogin('');
     SLUG = slug;
 
     const base = `/portal/${encodeURIComponent(slug)}`;
 
-    // A key in the URL is exchanged for a cookie once, then removed, so
-    // a client who shares a screenshot or leaves the tab open in a
-    // history list is not handing out their key.
+    // A key in the URL opens nothing any more. It is stripped before
+    // anything else happens, so an old bookmark does not leave the key
+    // sitting in the address bar or in a screenshot on the way to the
+    // sign-in screen.
     const params = new URLSearchParams(location.search);
-    const key = params.get('key');
-    if (key) {
-      try {
-        await fetch(`${base}/auth`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key }),
-        });
-      } catch { /* fall through: the data call decides */ }
-
+    if (params.has('key')) {
       params.delete('key');
       const rest = params.toString();
       history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
@@ -396,9 +426,12 @@ const NAV = [
     let payload: PortalPayload;
     try {
       const res = await fetch(`${base}/data`, { credentials: 'same-origin' });
-      if (!res.ok) return renderMissing();
+      if (!res.ok) return toLogin(slug);
       payload = await res.json();
     } catch {
+      // A network failure is not a sign-in failure, and bouncing
+      // someone to a login screen because their train went into a
+      // tunnel is the wrong answer.
       return renderMissing();
     }
 
@@ -419,6 +452,15 @@ const NAV = [
     const tier = q('[data-tier]');
     if (tier && c.tier) { tier.textContent = c.tier; show(tier, true); }
 
+    VIEWER = data.viewer ?? { role: 'client' };
+    wireIdentityMenu();
+    if (VIEWER.role === 'admin') {
+      const band = q('[data-asadmin]');
+      const text = q('[data-asadmin-text]');
+      if (text) text.textContent = `You are looking at ${name}'s portal as Blueprint. Anything you change here is saved as ours.`;
+      show(band, true);
+    }
+
     // Content first: the calendar and Home both draw content rows, so
     // the content state has to exist before either of them runs.
     renderContent(data);
@@ -433,6 +475,98 @@ const NAV = [
 
     window.addEventListener('hashchange', route);
     route();
+  }
+
+  /* ── the avatar menu ──────────────────────────────────────────
+     Sign out, and for us a list of every client whose portal is on.
+     One menu rather than two, because "which portal am I in" and "get
+     me out of here" are the same question asked from the same corner. */
+
+  let MENU: HTMLElement | null = null;
+
+  function closeMenu() {
+    if (!MENU) return;
+    MENU.remove();
+    MENU = null;
+    q('[data-identity]')?.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('keydown', onMenuKey);
+  }
+
+  function onMenuKey(ev: KeyboardEvent) {
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      closeMenu();
+      q<HTMLButtonElement>('[data-identity]')?.focus();
+    }
+  }
+
+  function wireIdentityMenu() {
+    const btn = q<HTMLButtonElement>('[data-identity]');
+    if (!btn) return;
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (MENU) { closeMenu(); return; }
+      openIdentityMenu(btn);
+    });
+  }
+
+  function openIdentityMenu(btn: HTMLElement) {
+    const menu = el('div', 'pt-menu');
+    menu.setAttribute('role', 'menu');
+
+    const clients = VIEWER.clients ?? [];
+    if (VIEWER.role === 'admin' && clients.length) {
+      menu.appendChild(el('div', 'pt-menu-label', 'Switch client'));
+      for (const c of clients) {
+        const here = c.slug === SLUG;
+        const a = el('a', 'pt-menu-item' + (here ? ' pt-menu-on' : '')) as HTMLAnchorElement;
+        a.href = `/portal/${encodeURIComponent(c.slug)}`;
+        a.setAttribute('role', 'menuitem');
+        a.appendChild(icon(here ? 'check' : 'chev'));
+        a.appendChild(el('span', undefined, c.artist));
+        menu.appendChild(a);
+      }
+      menu.appendChild(el('div', 'pt-menu-rule'));
+    }
+
+    const out = el('button', 'pt-menu-item');
+    out.type = 'button';
+    out.setAttribute('role', 'menuitem');
+    out.appendChild(icon('ext'));
+    out.appendChild(el('span', undefined, 'Log out'));
+    out.addEventListener('click', () => { closeMenu(); void logOut(); });
+    menu.appendChild(out);
+
+    btn.parentElement?.appendChild(menu);
+    btn.setAttribute('aria-expanded', 'true');
+    MENU = menu;
+
+    document.addEventListener('keydown', onMenuKey);
+    setTimeout(() => {
+      document.addEventListener('click', function away(ev) {
+        if (MENU && !MENU.contains(ev.target as Node)) closeMenu();
+        else if (MENU) setTimeout(() => document.addEventListener('click', away, { once: true }), 0);
+      }, { once: true });
+    }, 0);
+  }
+
+  /**
+   * Sign out.
+   *
+   * The cookies are HttpOnly, so only the server can clear them. If
+   * that call fails we still leave: a log-out that appears to do
+   * nothing is worse than one that sends you to the sign-in screen
+   * with a stale cookie the next page load will reject anyway.
+   */
+  async function logOut() {
+    try {
+      await fetch(`/portal/${encodeURIComponent(SLUG)}/logout`, {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+    } catch { /* leaving either way */ }
+    try { sessionStorage.removeItem('bp.portal.want'); } catch { /* private mode */ }
+    location.replace('/portal/login');
   }
 
   /* ── router ────────────────────────────────────────────────────
@@ -568,7 +702,12 @@ const NAV = [
         emptyIcon: 'check',
         emptyTitle: "Nothing on you right now",
         emptyBody: "When we need something from you, it shows up here and on your calendar.",
-      }, { count: Math.max(0, todos.length - 6), href: '#/calendar', label: 'in the next two weeks' }),
+      }, { count: Math.max(0, todos.length - 6), href: '#/calendar', label: 'in the next two weeks' },
+        (() => {
+          // Only worth saying when there was something to do this week.
+          const t = weekTally(data.calendar);
+          return t.all ? `${t.done} of ${t.all} done this week` : null;
+        })()),
     );
 
     // "Coming up" is what WE are doing next. Client-owned rows belong in
@@ -868,10 +1007,13 @@ const NAV = [
     empty: { emptyIcon: string; emptyTitle: string; emptyBody: string },
     /** How many were cut, and where the rest of them live. */
     more?: { count: number; href: string; label: string },
+    /** A line beside the title. Left off when there is nothing to say. */
+    note?: string | null,
   ): HTMLElement {
     const card = el('section', 'pt-card');
     const head = el('div', 'pt-card-head');
     head.appendChild(el('h2', undefined, title));
+    if (note) head.appendChild(el('span', 'pt-card-note', note));
     card.appendChild(head);
     const body = el('div', 'pt-card-body');
 
@@ -883,7 +1025,10 @@ const NAV = [
       body.appendChild(e);
     } else {
       const list = el('ul');
-      for (const it of items) list.appendChild(itemRow(it));
+      // One tick box in the list means every row leaves room for one,
+      // or the dates and titles step in and out as you read down.
+      const pad = items.some(canTick);
+      for (const it of items) list.appendChild(itemRow(it, pad));
       body.appendChild(list);
       // A card that quietly drops the seventh item is a card that can
       // hide a shoot. Say how many, and where they are.
@@ -899,7 +1044,7 @@ const NAV = [
     return card;
   }
 
-  function itemRow(it: PortalCalendarItem): HTMLLIElement {
+  function itemRow(it: PortalCalendarItem, pad = false): HTMLLIElement {
     const row = it as CalRow;
     const li = el('li');
     const btn = el('button', 'pt-row');
@@ -947,6 +1092,26 @@ const NAV = [
     const chev = el('span', 'pt-row-chev');
     chev.appendChild(icon('chev'));
     btn.appendChild(chev);
+
+    // A step the client owns is one tap from done. A nested button
+    // inside the row would not be a button at all, so the box sits
+    // beside it, before the row, where a list of things to do reads.
+    if (canTick(it)) {
+      const wrap = el('div', 'pt-row-wrap pt-row-wrap-check'
+        + (isStepDone(it) ? ' pt-row-wrap-done' : ''));
+      wrap.append(stepBox(it), btn);
+      li.appendChild(wrap);
+      return li;
+    }
+
+    // Not tickable, but in a list that is. An empty slot the width of
+    // a box, so the column does not wander.
+    if (pad) {
+      const wrap = el('div', 'pt-row-wrap pt-row-wrap-check');
+      wrap.append(el('span', 'pt-check-gap'), btn);
+      li.appendChild(wrap);
+      return li;
+    }
 
     // A post the client puts up themselves is one tap from done, and a
     // nested button inside the row would not be a button at all, so the
@@ -1246,7 +1411,6 @@ const NAV = [
     else if (CAL.view === 'week') grid.appendChild(weekView(visible));
     else grid.appendChild(monthView(visible));
 
-    if (CAL.view !== 'agenda') grid.appendChild(legend());
     if (isNarrow() && CAL.view === 'month' && CAL.selected) {
       grid.appendChild(selectedDayList(visible));
     }
@@ -1447,7 +1611,42 @@ const NAV = [
       });
       row.appendChild(b);
     }
+    row.appendChild(layerHelp());
     return row;
+  }
+
+  /**
+   * Two things a row of chips cannot say on its own: what a dashed
+   * outline means, and that a post wears its bucket's colour rather
+   * than one colour of its own. They used to be a legend strip under
+   * the grid, which spent a row of height on every view explaining
+   * what nobody was asking about most of the time.
+   */
+  function layerHelp(): HTMLElement {
+    const d = el('details', 'pt-help') as HTMLDetailsElement;
+    const sum = el('summary', 'pt-help-sum');
+    sum.setAttribute('aria-label', 'What the colours and outlines mean');
+    sum.appendChild(el('span', undefined, '?'));
+    d.appendChild(sum);
+
+    const panel = el('div', 'pt-help-panel');
+    panel.appendChild(el('h4', undefined, 'Reading the calendar'));
+    for (const [cls, text] of [
+      ['pt-legend-post', 'A post, in its bucket colour'],
+      ['pt-legend-film', 'A shoot: dashed, and written "Film \u00b7"'],
+      ['pt-legend-tentative', 'Dashed anywhere else means tentative'],
+      ['pt-legend-show', 'A show'],
+      ['pt-legend-release', 'A release'],
+      ['pt-legend-todo', 'Something on you'],
+    ] as const) {
+      const r = el('div', 'pt-help-row');
+      r.append(el('span', `pt-legend-key ${cls}`), el('span', undefined, text));
+      panel.appendChild(r);
+    }
+    panel.appendChild(el('p', undefined,
+      'A post that has already gone out steps back and wears a tick.'));
+    d.appendChild(panel);
+    return d;
   }
 
   function stepCursor(dir: number) {
@@ -1653,13 +1852,31 @@ const NAV = [
     const cls = `pt-chip pt-chip-${k}`
       + (it.tentative ? ' pt-chip-tentative' : '')
       + (m ? ` pt-edge-${momentKind(m)}` : '');
+    const label = m
+      ? `${KIND_LABEL[k]}: ${it.title} — part of ${m.title}`
+      : `${KIND_LABEL[k]}: ${it.title}`;
+
+    // A step the client owns carries its box here too, so a week can be
+    // cleared from the month without opening anything. A button cannot
+    // hold a button, so the chip becomes a box and a title beside it.
+    if (canTick(it)) {
+      const done = isStepDone(it);
+      const wrap = el('div', cls + ' pt-chip-tick-row' + (done ? ' pt-chip-done' : ''));
+      const open = el('button', 'pt-chip-open');
+      open.type = 'button';
+      open.appendChild(el('span', 'pt-chip-title', it.title));
+      if (m) open.appendChild(el('span', 'pt-chip-moment', m.title));
+      open.title = label;
+      open.addEventListener('click', (ev) => { ev.stopPropagation(); openDrawer(it); });
+      wrap.append(stepBox(it), open);
+      return wrap;
+    }
+
     const b = el('button', cls);
     b.type = 'button';
     b.appendChild(el('span', 'pt-chip-title', it.title));
     if (m) b.appendChild(el('span', 'pt-chip-moment', m.title));
-    b.title = m
-      ? `${KIND_LABEL[k]}: ${it.title} — part of ${m.title}`
-      : `${KIND_LABEL[k]}: ${it.title}`;
+    b.title = label;
     b.addEventListener('click', (ev) => { ev.stopPropagation(); openDrawer(it); });
     return b;
   }
@@ -1732,7 +1949,9 @@ const NAV = [
       if (sameDay(day, today)) head.appendChild(el('span', 'pt-tag', 'Today'));
       group.appendChild(head);
       const list = el('ul');
-      for (const it of sortDay(map.get(k)!)) list.appendChild(itemRow(it));
+      const day_ = sortDay(map.get(k)!);
+      const pad = day_.some(canTick);
+      for (const it of day_) list.appendChild(itemRow(it, pad));
       group.appendChild(list);
       wrap.appendChild(group);
     }
@@ -1753,35 +1972,12 @@ const NAV = [
       body.appendChild(el('p', 'pt-kpi-note', 'Nothing scheduled on this day.'));
     } else {
       const list = el('ul');
-      for (const it of dayItems) list.appendChild(itemRow(it));
+      const pad = dayItems.some(canTick);
+      for (const it of dayItems) list.appendChild(itemRow(it, pad));
       body.appendChild(list);
     }
     card.appendChild(body);
     return card;
-  }
-
-  function legend(): HTMLElement {
-    const wrap = el('div', 'pt-legend');
-    wrap.setAttribute('aria-label', 'What the colours mean');
-    for (const [k, text] of [
-      ['show', 'Show'], ['release', 'Release'], ['content', 'Content step'],
-      ['moment', 'Moment'], ['todo', 'Your to-do'],
-    ] as const) {
-      const item = el('span', 'pt-legend-item');
-      item.append(el('span', `pt-legend-key pt-legend-${k}`), el('span', undefined, text));
-      wrap.appendChild(item);
-    }
-    const post = el('span', 'pt-legend-item');
-    post.append(el('span', 'pt-legend-key pt-legend-post'),
-                el('span', undefined, 'A post (bucket colour)'));
-    wrap.appendChild(post);
-    const film = el('span', 'pt-legend-item');
-    film.append(el('span', 'pt-legend-key pt-legend-film'), el('span', undefined, 'A shoot'));
-    wrap.appendChild(film);
-    const t = el('span', 'pt-legend-item');
-    t.append(el('span', 'pt-legend-key pt-chip-tentative', ''), el('span', undefined, 'Tentative (dashed)'));
-    wrap.appendChild(t);
-    return wrap;
   }
 
   /* ── the unscheduled tray ─────────────────────────────────────
@@ -1998,8 +2194,11 @@ const NAV = [
       if (!value) return;
       dl.append(el('dt', undefined, label), el('dd', undefined, value));
     };
+    // A step the client can tick gets the box below instead. Two
+    // places saying what the status is means one of them is stale.
+    const tickable = canTick(it);
     add('Date', fmtDate(it.date));
-    add('Status', it.status);
+    if (!tickable) add('Status', it.status);
     add('Channel', it.where);
     add('Venue', it.venueCity);
     add('Playbook', it.playbook);
@@ -2012,6 +2211,12 @@ const NAV = [
       add('Capacity', `${fmtNumber(it.capacity)} tickets`);
     }
     body.appendChild(dl);
+
+    if (tickable) {
+      const box = stepBox(it, true);
+      box.style.marginTop = 'var(--pt-4)';
+      body.appendChild(box);
+    }
 
     if (it.whyItMatters) {
       const why = el('div', 'pt-why');
@@ -2530,15 +2735,41 @@ const NAV = [
   function toast(text: string, bad = false) {
     const t = q('[data-toast]');
     if (!t) return;
-    t.textContent = text;
+    clear(t);
+    t.appendChild(el('span', undefined, text));
     t.classList.toggle('pt-toast-bad', bad);
     show(t, true);
     requestAnimationFrame(() => { t.dataset.open = 'true'; });
     window.clearTimeout(TOAST_T);
-    TOAST_T = window.setTimeout(() => {
-      t.dataset.open = 'false';
-      window.setTimeout(() => show(t, false), 200);
-    }, bad ? 5000 : 2200);
+    TOAST_T = window.setTimeout(hideToast, bad ? 5000 : 2200);
+  }
+
+  /** A toast you can take back. Five seconds, because it is the only
+   *  way back from a tick that has already taken the row off the list,
+   *  and two seconds is not long enough to notice a mistake. */
+  function undoToast(text: string, undo: () => void) {
+    const t = q('[data-toast]');
+    if (!t) return;
+    clear(t);
+    t.classList.remove('pt-toast-bad');
+    t.appendChild(el('span', undefined, text));
+    const b = el('button', 'pt-toast-undo');
+    b.type = 'button';
+    b.textContent = 'Undo';
+    b.addEventListener('click', () => { hideToast(); undo(); });
+    t.appendChild(b);
+    show(t, true);
+    requestAnimationFrame(() => { t.dataset.open = 'true'; });
+    window.clearTimeout(TOAST_T);
+    TOAST_T = window.setTimeout(hideToast, 5000);
+  }
+
+  function hideToast() {
+    const t = q('[data-toast]');
+    if (!t) return;
+    window.clearTimeout(TOAST_T);
+    t.dataset.open = 'false';
+    window.setTimeout(() => show(t, false), 200);
   }
 
   const conIndex = (id: string) => CON.items.findIndex((i) => i.id === id);
@@ -3357,6 +3588,144 @@ const NAV = [
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
+  /* ── ticking off a to-do ──────────────────────────────────────
+     A Campaign Calendar step the client owns is the one row on that
+     board they may write, and the only thing they may write on it is
+     its status. The box appears wherever the step appears: Home, the
+     agenda, a chip on the month, the day popover and the drawer.
+
+     The server checks all of this again. Nothing here is a guard; it
+     is only what gets drawn. */
+
+  /** Is this one of the client's own steps, and in a state they may
+   *  move? A moment is not, a content row has its own actions, and a
+   *  step we skipped or moved is ours. */
+  function canTick(it: PortalCalendarItem): boolean {
+    if ((it as CalRow).content) return false;
+    if (it.momentType || it.kind === 'Moment') return false;
+    return canClientSetStep(it, 'Done');
+  }
+
+  /** A box, drawn from the step's current status. `big` is the drawer's
+   *  version: full width, with words on it. */
+  function stepBox(it: PortalCalendarItem, big = false): HTMLElement {
+    const done = isStepDone(it);
+    const b = el('button', 'pt-check' + (big ? ' pt-check-big' : '') + (done ? ' pt-check-on' : ''));
+    b.type = 'button';
+    b.dataset.stepBox = '';
+    b.dataset.stepId = it.id;
+    b.setAttribute('role', 'checkbox');
+    b.setAttribute('aria-checked', String(done));
+    b.setAttribute('aria-label', `${it.title}: ${done ? 'done' : 'not done'}`);
+    const mark = el('span', 'pt-check-mark');
+    mark.appendChild(icon('check'));
+    b.appendChild(mark);
+    if (big) b.appendChild(el('span', undefined, done ? 'Done' : 'Mark as done'));
+    // The box sits inside rows and chips that open a drawer. A tick is
+    // not a request to read the thing.
+    b.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      void setStep(it, isStepDone(it) ? 'Not Started' : 'Done', true);
+    });
+    return b;
+  }
+
+  /** Every box on screen, brought back in line with its step. The
+   *  redraws rebuild most of them; the drawer's box outlives a redraw,
+   *  which is why this walks the DOM rather than trusting that. */
+  function syncStepBoxes() {
+    const byId = new Map(CAL_BASE.map((i) => [i.id, i]));
+    for (const b of qq<HTMLElement>('[data-step-box]')) {
+      const it = byId.get(b.dataset.stepId ?? '');
+      if (!it) continue;
+      const done = isStepDone(it);
+      b.classList.toggle('pt-check-on', done);
+      b.setAttribute('aria-checked', String(done));
+      b.setAttribute('aria-label', `${it.title}: ${done ? 'done' : 'not done'}`);
+      const words = b.querySelector('.pt-check-mark + span');
+      if (words) words.textContent = done ? 'Done' : 'Mark as done';
+    }
+  }
+
+  function redrawSteps() {
+    if (DATA) renderHome(DATA);
+    if (currentRoute().view === 'calendar') drawCalendar();
+    syncStepBoxes();
+  }
+
+  /**
+   * One tick.
+   *
+   * The step changes on screen first and goes back if the server says
+   * no, like a content save. CAL_BASE holds the same objects as
+   * DATA.calendar, so setting the status here moves it everywhere at
+   * once.
+   */
+  async function setStep(it: PortalCalendarItem, status: string, offerUndo: boolean) {
+    const before = it.status;
+    if (before === status) return;
+    it.status = status;
+    redrawSteps();
+
+    if (!(await patchStep(it.id, status))) {
+      it.status = before;
+      redrawSteps();
+      toast('That did not save. Check your connection and try again.', true);
+      return;
+    }
+    // A tick that takes a row off the list needs a way back that does
+    // not involve hunting for the row.
+    if (offerUndo) {
+      const back = before ?? 'Not Started';
+      undoToast(
+        status === 'Done' ? 'Ticked off' : 'Back on your list',
+        () => { void setStep(it, back, false); },
+      );
+    }
+  }
+
+  async function patchStep(id: string, status: string): Promise<boolean> {
+    try {
+      const res = await fetch(
+        `/portal/${encodeURIComponent(SLUG)}/step/${encodeURIComponent(id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ status }),
+        },
+      );
+      if (!res.ok) return false;
+      const out = await res.json() as { ok?: boolean; status?: string };
+      // The server replies with the status as it now stands. Anything
+      // other than what we asked for means it refused.
+      return !!out.ok && out.status === status;
+    } catch {
+      return false;
+    }
+  }
+
+  /** How much of this week is already ticked off. Monday to Sunday,
+   *  counting only steps the client could tick: ours are not theirs to
+   *  be behind on. */
+  function weekTally(cal: PortalCalendarItem[]): { done: number; all: number } {
+    const start = todayStart();
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    let done = 0;
+    let all = 0;
+    for (const it of cal) {
+      if (!canTick(it)) continue;
+      const d = parseNotionDate(it.date);
+      if (!d || d < start || d >= end) continue;
+      all++;
+      if (isStepDone(it)) done++;
+    }
+    return { done, all };
+  }
+
   /* ── reports ───────────────────────────────────────────────── */
   const PLATFORM_ORDER = ['Instagram', 'TikTok', 'YouTube', 'Spotify', 'Apple Music', 'SoundCloud', 'Facebook', 'X', 'Threads'];
   const REP = { snapIndex: 0, cmpIndex: -1, metricTab: '' };
@@ -3371,12 +3740,22 @@ const NAV = [
       return db - da;
     });
     REP.snapIndex = 0;
-    REP.cmpIndex = SNAPS.length > 1 ? SNAPS.length - 1 : -1;
+    // The month before, not the baseline. "Compare to the beginning" is
+    // a thing you choose; "compare to last month" is what a monthly
+    // report is, and with only a baseline there is nothing to compare.
+    REP.cmpIndex = SNAPS.length > 1 ? 1 : -1;
     showPlatform('');
   }
 
+  /** How a snapshot reads in the picker. A monthly report is its month
+   *  and nothing else; a baseline or a review says so, because those
+   *  are not one of twelve. */
   function snapLabel(s: PortalSnapshot): string {
-    return [s.type, fmtDate(s.date)].filter(Boolean).join(' · ');
+    const d = parseNotionDate(s.date);
+    const month = d ? `${MONTHS[d.getMonth()]} ${d.getFullYear()}` : fmtDate(s.date);
+    const bits = [month];
+    if (s.type && s.type !== 'Monthly') bits.push(s.type);
+    return bits.filter(Boolean).join(' \u00b7 ');
   }
 
   /** Platforms present in a snapshot, in a deliberate order, plus the
@@ -3781,7 +4160,29 @@ const NAV = [
       if (sel) sel.disabled = true;
     }
     head.appendChild(cmpField);
+
+    // A month's report is a thing people send on, so it has to leave
+    // the browser. The print stylesheet does the work; this is the
+    // button that asks for it.
+    const pdf = el('button', 'pt-btn pt-rep-print');
+    pdf.type = 'button';
+    pdf.appendChild(icon('download'));
+    pdf.appendChild(el('span', undefined, 'Download PDF'));
+    pdf.addEventListener('click', () => window.print());
+    head.appendChild(pdf);
     wrap.appendChild(head);
+
+    // Printed, the page has no idea whose report it is or which month,
+    // so it says so. On screen this is hidden.
+    const stamp = el('div', 'pt-print-only pt-print-head');
+    stamp.append(
+      el('div', 'pt-print-title', `${DATA?.client.artist ?? ''} \u2014 ${snapLabel(snap)}`.trim()),
+      el('div', 'pt-print-sub', 'Blueprint Marketing'),
+    );
+    wrap.appendChild(stamp);
+
+    const note = fromMason(snap);
+    if (note) wrap.appendChild(note);
 
     wrap.appendChild(headlineRow(snap, cmp));
 
@@ -3842,6 +4243,28 @@ const NAV = [
       wrap.appendChild(grid);
     }
     return wrap;
+  }
+
+  /** Mason's note on the month, if he wrote one. Not a placeholder: a
+   *  card headed "From Mason" with nothing under it reads worse than
+   *  no card at all. */
+  function fromMason(snap: PortalSnapshot): HTMLElement | null {
+    const text = (snap.summary ?? '').trim();
+    if (!text) return null;
+    const card = el('section', 'pt-card pt-mason');
+    const head = el('div', 'pt-card-head');
+    head.appendChild(el('h2', undefined, 'From Mason'));
+    head.appendChild(el('span', 'pt-card-note', snapLabel(snap)));
+    card.appendChild(head);
+    const body = el('div', 'pt-card-body');
+    // Blank lines are paragraphs. Nothing else in it is markup, and
+    // nothing in the portal ever sets innerHTML.
+    for (const para of text.split(/\n\s*\n/)) {
+      const t = para.trim();
+      if (t) body.appendChild(el('p', undefined, t));
+    }
+    card.appendChild(body);
+    return card;
   }
 
   /**

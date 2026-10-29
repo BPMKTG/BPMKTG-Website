@@ -10,7 +10,7 @@
 
 import { portalNotFound } from '../../../../src/server/portal-auth';
 import { createContentPage } from '../../../../src/server/portal-notion';
-import { buildContentProperties, stampClientEdit } from '../../../../src/server/portal-write';
+import { buildContentProperties, stampEdit } from '../../../../src/server/portal-write';
 import {
   beginWrite,
   bustDataCache,
@@ -22,6 +22,9 @@ export const onRequestPost: PagesFunction<WriteEnv> = async ({ request, env, par
   const begun = await beginWrite(request, env, params.slug);
   if (!begun.ok) return begun.response;
   const { ctx } = begun;
+  // beginWrite only skips the schema when asked to, and a content
+  // write never asks. Narrowed rather than assumed.
+  if (!ctx.schema) return portalNotFound();
 
   const { properties, rejected } = buildContentProperties(ctx.body, {
     schema: ctx.schema,
@@ -47,7 +50,7 @@ export const onRequestPost: PagesFunction<WriteEnv> = async ({ request, env, par
   }
 
   const item = await createContentPage(env.NOTION_TOKEN, {
-    ...stampClientEdit(properties),
+    ...stampEdit(properties, ctx.viewer.role),
     Client: { relation: [{ id: ctx.record.pageId }] },
     Source: { select: { name: 'Client Films' } },
     'Posted By': { select: { name: 'Client' } },

@@ -12,6 +12,8 @@
    keeps a rate or an internal note from reaching the browser.
    ────────────────────────────────────────────────────────────── */
 
+import { isValidSlug, normaliseSlug } from './portal-auth';
+import { parseEmailList } from './portal-login';
 import {
   CLIENT_FIELDS,
   CALENDAR_FIELDS,
@@ -180,9 +182,13 @@ async function queryAll(
 
 export interface ClientRecord {
   pageId: string;
-  /** The stored key, for the caller to compare. Never leaves the server. */
-  portalKey: string;
+  /** The slug this client answers to, so a lookup by email can say
+   *  which portal to open. */
+  slug: string;
   portalEnabled: boolean;
+  /** Addresses allowed to sign in to this client's portal, lowercased.
+   *  Never leaves the server. */
+  portalEmails: string[];
   client: PortalClient;
 }
 
@@ -203,13 +209,16 @@ export async function findClientBySlug(token: string, slug: string): Promise<Cli
     return null;
   }
 
-  const page = results[0];
-  const p = page.properties ?? {};
+  return shapeClient(results[0]);
+}
 
+function shapeClient(page: any): ClientRecord {
+  const p = page.properties ?? {};
   return {
     pageId: String(page.id),
-    portalKey: readText(p['Portal Key']) ?? '',
+    slug: normaliseSlug(readText(p['Intake Slug'])),
     portalEnabled: readCheckbox(p['Portal Enabled']),
+    portalEmails: parseEmailList(readText(p['Portal Emails'])),
     // Built field by field from CLIENT_FIELDS. Nothing else on the page
     // is read, so nothing else can ship.
     client: {
@@ -366,16 +375,142 @@ export async function fetchCalendar(
   return items;
 }
 
+/* ── who may sign in ──────────────────────────────────────────── */
+
+/**
+ * The client whose portal this address opens, if any.
+ *
+ * Notion narrows the search; this code decides. `contains` would match
+ * sean@seancomma.com inside notsean@seancomma.com, so every candidate
+ * is checked again against the parsed list, exactly.
+ *
+ * Returns null for an address nobody has, an address on a client whose
+ * portal is off, and an address on a client with no slug. The caller
+ * must not be able to tell those apart.
+ */
+export async function findClientByEmail(token: string, email: string): Promise<ClientRecord | null> {
+  if (!email) return null;
+
+  const results = await queryAll(token, CLIENTS_DB, {
+    filter: {
+      and: [
+        { property: 'Portal Enabled', checkbox: { equals: true } },
+        { property: 'Portal Emails', rich_text: { contains: email } },
+      ],
+    },
+  });
+
+  const matches = results
+    .map((page: any) => shapeClient(page))
+    .filter((r) => r.portalEnabled && r.slug && r.portalEmails.includes(email));
+
+  if (!matches.length) return null;
+  if (matches.length > 1) {
+    // One address on two clients is a data problem, not a login the
+    // code should guess its way through.
+    console.error('portal: one address is on more than one client', matches.map((m) => m.slug).join(','));
+    return null;
+  }
+  return matches[0];
+}
+
+/** Every client an admin may switch to: portal on, slug set. Name and
+ *  slug only, which is all the switcher draws. */
+export async function fetchPortalClients(token: string): Promise<Array<{ slug: string; artist: string }>> {
+  const results = await queryAll(token, CLIENTS_DB, {
+    filter: { property: 'Portal Enabled', checkbox: { equals: true } },
+  });
+
+  return results
+    .map((page: any) => shapeClient(page))
+    .filter((r) => r.slug && isValidSlug(r.slug))
+    .map((r) => ({ slug: r.slug, artist: r.client.artist || r.slug }))
+    .sort((a, b) => a.artist.localeCompare(b.artist));
+}
+
+/* ── one step, for the client's tick box ───────────────────────── */
+
+/**
+ * The one Campaign Calendar step with this id that this client owns.
+ *
+ * Returns null for a row that does not exist, belongs to someone else,
+ * is hidden, is a playbook template, is a moment rather than a step, or
+ * is ours rather than theirs. The caller turns every one of those into
+ * the same 404, so a forged id cannot be used to probe what exists.
+ *
+ * Only the three fields the write needs come back. The whole page is
+ * not shaped, because a step's Notes must not leave this file.
+ */
+export async function fetchOwnedStep(
+  token: string,
+  clientPageId: string,
+  pageId: string,
+): Promise<{ status: string | null; owner: string | null } | null> {
+  const page = await fetchPage(token, pageId);
+  if (!page || page.object !== 'page' || page.archived) return null;
+
+  const p = page.properties ?? {};
+  const owners = readRelation(p['Client']).map((id) => id.replace(/-/g, ''));
+  if (!owners.includes(clientPageId.replace(/-/g, ''))) {
+    console.error('portal: step write aimed at another client', pageId);
+    return null;
+  }
+  if (readCheckbox(p['Hide from Client'])) return null;
+  if (readCheckbox(p['Is Playbook'])) return null;
+  if (readSelect(p['Kind']) === 'Moment') return null;
+
+  return { status: readSelect(p['Status']), owner: readSelect(p['Owner']) };
+}
+
+/** Set one step's Status, and nothing else. The status has already been
+ *  checked against STEP_CLIENT_STATUSES and against the status the row
+ *  is in now; this writes the single property. */
+export async function updateStepStatus(
+  token: string,
+  pageId: string,
+  status: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+      method: 'PATCH',
+      headers: notionHeaders(token),
+      body: JSON.stringify({ properties: { Status: { select: { name: status } } } }),
+    });
+    if (!res.ok) {
+      console.error('portal: step update failed', pageId, res.status, await res.text());
+      return null;
+    }
+    const page = await res.json();
+    return readSelect((page.properties ?? {})['Status']);
+  } catch (err) {
+    console.error('portal: step update threw', pageId, err);
+    return null;
+  }
+}
+
 /* ── snapshots ─────────────────────────────────────────────────── */
 
 export async function fetchSnapshots(token: string, clientPageId: string): Promise<PortalSnapshot[]> {
+  // Published is the switch that decides when a month's numbers are a
+  // report rather than a half-filled row. A snapshot being built is
+  // simply not in the payload, so nothing downstream has to know the
+  // difference.
   const results = await queryAll(token, SNAPSHOTS_DB, {
-    filter: { property: 'Client', relation: { contains: clientPageId } },
+    filter: {
+      and: [
+        { property: 'Client', relation: { contains: clientPageId } },
+        { property: 'Published', checkbox: { equals: true } },
+      ],
+    },
     sorts: [{ property: 'Date', direction: 'ascending' }],
   });
 
-  return results.map((page: any) => {
+  const out: PortalSnapshot[] = [];
+  for (const page of results) {
     const p = page.properties ?? {};
+    // Checked again here, not only in the filter above. A filter that
+    // silently stops matching would publish every half-filled month.
+    if (!readCheckbox(p[SNAPSHOT_FIELDS[5]])) continue;
     const metrics: Record<string, number> = {};
 
     // Only number-typed properties are even considered, and only those
@@ -390,14 +525,16 @@ export async function fetchSnapshots(token: string, clientPageId: string): Promi
       metrics[name] = value;
     }
 
-    return {
+    out.push({
       date: readDate(p[SNAPSHOT_FIELDS[0]]),
       type: readSelect(p[SNAPSHOT_FIELDS[1]]),
       dataSource: readMultiSelect(p[SNAPSHOT_FIELDS[2]]),
       growthScore: readNumber(p[SNAPSHOT_FIELDS[3]]),
+      summary: cleanText(readText(p[SNAPSHOT_FIELDS[4]])),
       metrics,
-    };
-  });
+    });
+  }
+  return out;
 }
 
 /* ── Content Pipeline ──────────────────────────────────────────
