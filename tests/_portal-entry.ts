@@ -9,5 +9,6 @@ export * from '../src/data/portal-content';
 export * from '../src/data/portal-labels';
 export * from '../src/server/portal-auth';
 export * from '../src/server/portal-login';
+export * from '../src/server/portal-move';
 export * from '../src/server/portal-notion';
 export * from '../src/server/portal-write';

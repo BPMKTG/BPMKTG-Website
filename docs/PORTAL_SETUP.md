@@ -152,16 +152,50 @@ databases carry the column and both writes stamp it.
 
 ### What a client may write
 
-Three things, and nothing else:
+Five things, and nothing else:
 
 - their own content cards (the whitelist in `src/data/portal-content.ts`),
 - a new idea,
 - the **Status** of a Campaign Calendar step whose **Owner** is Client,
   and only between *Not Started*, *In Progress* and *Done*. Not Skipped,
-  not Moved, and never one of our steps or a moment.
+  not Moved, and never one of our steps or a moment,
+- the **Date** of one of those same steps, by dragging it to another day
+  or picking one in the drawer,
+- the **Date** of a moment, which takes its campaign with it. See below.
 
 Every one of those is re-checked on the server against the row as Notion
 currently holds it, never against anything in the request.
+
+**Offset (days) is never written.** It is the playbook's default
+position for a step, and a dragged date is an override of that default,
+not a rewrite of it. After a whole campaign moves, every offset is still
+correct, because the moment and its steps moved by the same number of
+days.
+
+### Moving a moment moves its campaign
+
+`PATCH /portal/<slug>/moment/<id>/move` shifts a show or a release and
+every Campaign Calendar row pointing at it by the same number of days,
+in one request. Three things worth knowing:
+
+- **It includes rows the client cannot see.** Hidden steps and ours move
+  too, or the plan in Notion comes apart the first time a client drags a
+  release. They are never shown these rows; the count in the confirm
+  dialog is the only thing about them that reaches the browser, and it
+  comes from a `{ "preview": true }` call so the dialog cannot be wrong.
+- **Skipped, Moved and Done stay where they are.** Those are the record
+  of what happened, and the release slipping a week does not change the
+  day something was skipped.
+- **Undo is a replay, not an inverse.** Every write records the value it
+  replaced; the list is kept in `PORTAL_KV` for fifteen minutes under a
+  single-use token, and the pages it names are checked against Notion
+  again before anything goes back. Without `PORTAL_KV` the move still
+  works and simply offers no Undo.
+
+A cascade is capped at 90 days, at 40 steps (a Worker has a fixed budget
+of outgoing requests, and half a moved campaign is worse than none), and
+at six moves a minute per client, separately from the ordinary write
+limit.
 
 ### Every failure is the same failure
 
@@ -214,12 +248,14 @@ There is also one **binding**, which is not a variable: a Workers KV
 namespace bound as `PORTAL_KV`, in **Settings → Functions → KV namespace
 bindings**, for Production and Preview both.
 
-That is where a pending code lives for its ten minutes. It has to be KV
-and not the Cache API: the cache is per-datacenter, so a code written in
-one colo may not be readable from another thirty seconds later, which is
-a login that fails at random. **With no `PORTAL_KV` bound, sign-in is
-off** and the login screen still says the same neutral sentence; the
-reason is in the Function logs.
+That is where a pending code lives for its ten minutes, and where the
+undo record for a moved campaign lives for its fifteen. Both have to be
+KV and not the Cache API: the cache is per-datacenter, so something
+written in one colo may not be readable from another thirty seconds
+later, which is a login that fails at random and an Undo button that
+does nothing. **With no `PORTAL_KV` bound, sign-in is off** and the
+login screen still says the same neutral sentence; a campaign still
+moves but offers no Undo. Both reasons are in the Function logs.
 
 With `PORTAL_SECRET` unset, sessions are signed with `NOTION_TOKEN`,
 which is already a high-entropy secret present anywhere the portal can

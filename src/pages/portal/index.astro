@@ -232,18 +232,23 @@ const NAV = [
 <script>
   import {
     canClientSetStep,
+    canSetStepDate,
+    daysBetween,
     daysUntil,
     goalProgress,
     isOpenClientTodo,
     isStepDone,
     metricLabel,
     metricPlatform,
+    movesWithMoment,
     parseNotionDate,
+    shiftIsoDay,
     showsInMonth,
     showsPerMonthAverage,
     songsAtTarget,
     weeklyPaceNeeded,
     termProgress,
+    MAX_MOVE_DAYS,
     SONG_STREAM_TARGET,
     type PortalCalendarItem,
     type PortalMoment,
@@ -1223,7 +1228,33 @@ const NAV = [
     return c.postedBy === 'Client' && c.status !== 'Posted' && c.status !== 'Skipped';
   }
 
-  /** Which layers an item belongs to. Most belong to exactly one. */
+  /**
+   * A campaign step whose job is to put something out.
+   *
+   * Drawn as a post wherever it appears, and sitting in the Posts
+   * layer beside the content board's own cards, because from the
+   * client's side there is no difference: both are a thing that goes
+   * out on a day. Which database it lives in is our bookkeeping.
+   */
+  function isCampaignPost(it: PortalCalendarItem): boolean {
+    if ((it as CalRow).content) return false;
+    if (it.momentType || it.kind === 'Moment') return false;
+    return it.type === 'Content';
+  }
+
+  /**
+   * Which layers an item belongs to. Some belong to two.
+   *
+   * The rule is about what a row IS, not who owns it. A campaign step
+   * that posts something is a post: it goes out on a channel on a day,
+   * exactly like a card off the content board, and a client looking
+   * for "what goes out in November" wants both in front of them. Only
+   * the back-office work is ours alone, so Blueprint tasks is the one
+   * layer that reads the owner and the type together.
+   *
+   * An item in two layers is drawn once and shows if EITHER is on,
+   * which is what passesFilter does with this list.
+   */
   function layersOf(it: PortalCalendarItem): Layer[] {
     const row = it as CalRow;
     if (row.content && row.contentRole) {
@@ -1233,7 +1264,15 @@ const NAV = [
     // A moment is a moment whoever owns it: it is the thing the steps
     // are counting down to, not a task.
     if (it.momentType) return ['moments'];
-    return it.owner === 'Client' ? ['todos'] : ['blueprint'];
+
+    const ls: Layer[] = [];
+    if (it.type === 'Content') ls.push('posts');
+    if (it.owner === 'Client') ls.push('todos');
+    if (it.owner === 'Blueprint' && it.type === 'Admin') ls.push('blueprint');
+    // Nothing visible should land here: a row only reaches the client
+    // if it is a moment, is Content, or is theirs. A row that somehow
+    // does is better shown in our column than silently dropped.
+    return ls.length ? ls : ['blueprint'];
   }
 
   function passesFilter(it: PortalCalendarItem): boolean {
@@ -1644,7 +1683,13 @@ const NAV = [
       panel.appendChild(r);
     }
     panel.appendChild(el('p', undefined,
+      'A post with \u21b3 under it belongs to that campaign. It counts as a '
+      + 'post either way, so Posts shows it next to the ones off your board.'));
+    panel.appendChild(el('p', undefined,
       'A post that has already gone out steps back and wears a tick.'));
+    panel.appendChild(el('p', undefined,
+      'Drag anything you own to another day. Drag a show or a release and '
+      + 'its whole campaign follows, once you have said yes.'));
     d.appendChild(panel);
     return d;
   }
@@ -1688,9 +1733,25 @@ const NAV = [
     return items.slice().sort((a, b) => dayRank(a) - dayRank(b));
   }
 
-  /* ── dragging a card onto a day ───────────────────────────────
-     Desktop only. A phone gets the Schedule button in the drawer. */
-  let CALDRAG: PortalContentItem | null = null;
+  /* ── dragging onto a day ──────────────────────────────────────
+     Desktop only; a phone gets a Move button in the drawer, because a
+     drag inside a scrolling month grid on a touch screen is a fight.
+
+     Three things can be dragged and they are not the same weight:
+
+       a content card    one date, one row, no questions
+       a step            one date, one row, no questions
+       a moment          the whole campaign, so it asks first
+
+     None of this is a permission. It decides what gets a handle; the
+     server decides again on every drop, from the signed cookie. */
+
+  type Drag =
+    | { kind: 'card'; card: PortalContentItem }
+    | { kind: 'step'; item: PortalCalendarItem }
+    | { kind: 'moment'; item: PortalCalendarItem };
+
+  let CALDRAG: Drag | null = null;
 
   /** Whether the client may give this card a date at all. One we post,
    *  and one already posted, are theirs to read and not to move. */
@@ -1698,8 +1759,88 @@ const NAV = [
     return c.status !== 'Posted' && c.postedBy !== 'Blueprint';
   }
 
+  const isMomentRow = (it: PortalCalendarItem) => !!it.momentType || it.kind === 'Moment';
+
+  /** A step this viewer may drag. Their own, and in a state that is
+   *  still part of the plan; any of them when one of us is looking. */
+  function canDragStep(it: PortalCalendarItem): boolean {
+    if ((it as CalRow).content) return false;
+    if (isMomentRow(it)) return false;
+    if (!it.id || !it.date) return false;
+    return canSetStepDate(it, VIEWER.role);
+  }
+
+  /** A moment can be dragged by whoever can see it. Moving one is a
+   *  question rather than an edit, and the question is the same one we
+   *  get asked: the dialog is where it is decided. */
+  function canDragMoment(it: PortalCalendarItem): boolean {
+    if ((it as CalRow).content) return false;
+    if (!isMomentRow(it)) return false;
+    return !!it.id && !!it.date;
+  }
+
+  /** Why this row will not move, in words, or '' when it will. The
+   *  cursor and the tooltip say it before anyone tries to drag. */
+  function dragBlock(it: PortalCalendarItem): string {
+    if ((it as CalRow).content) return '';
+    if (isMomentRow(it) || !it.id || !it.date) return '';
+    if (canSetStepDate(it, VIEWER.role)) return '';
+    if (it.owner !== 'Client') return 'Blueprint handles this one';
+    return 'We took this step out of the plan';
+  }
+
   const isoOf = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  /**
+   * The pill that follows the pointer.
+   *
+   * The browser's default drag image is a screenshot of the element,
+   * and inside a cramped month cell that is a clipped sliver of a chip
+   * with the cell's background showing through. This is a small opaque
+   * label that says what is moving.
+   */
+  function dragGhost(text: string, cls: string): HTMLElement {
+    const g = el('div', `pt-ghost ${cls}`, text);
+    document.body.appendChild(g);
+    return g;
+  }
+
+  function attachDrag(node: HTMLElement, label: string, ghostCls: string, make: () => Drag) {
+    node.draggable = true;
+    node.addEventListener('dragstart', (ev) => {
+      CALDRAG = make();
+      node.classList.add('pt-chip-dragging');
+      // Every day in the grid lights its edge, so it reads as a thing
+      // with places to be put rather than a page that went pale.
+      document.body.classList.add('pt-dragging');
+      ev.dataTransfer?.setData('text/plain', label);
+      if (ev.dataTransfer) {
+        ev.dataTransfer.effectAllowed = 'move';
+        const g = dragGhost(label, ghostCls);
+        ev.dataTransfer.setDragImage(g, 14, 16);
+        // The browser takes its snapshot during this event; the node
+        // only has to exist until it returns.
+        window.setTimeout(() => g.remove(), 0);
+      }
+    });
+    node.addEventListener('dragend', () => {
+      CALDRAG = null;
+      node.classList.remove('pt-chip-dragging');
+      document.body.classList.remove('pt-dragging');
+      for (const c of qq<HTMLElement>('.pt-cal-cell-drop')) {
+        c.classList.remove('pt-cal-cell-drop');
+      }
+    });
+  }
+
+  /** The not-allowed cursor and the reason, on a row that will not
+   *  move. Said once, on the element, so it is there before the drag
+   *  that would have failed. */
+  function markUndraggable(node: HTMLElement, why: string) {
+    node.classList.add('pt-chip-locked');
+    node.title = node.title ? `${node.title}\n${why}` : why;
+  }
 
   function dayDropTarget(cell: HTMLElement, day: Date) {
     cell.addEventListener('dragover', (ev) => {
@@ -1717,9 +1858,14 @@ const NAV = [
     cell.addEventListener('drop', (ev) => {
       ev.preventDefault();
       cell.classList.remove('pt-cal-cell-drop');
-      const c = CALDRAG;
+      const d = CALDRAG;
       CALDRAG = null;
-      if (c) void scheduleCard(c, isoOf(day));
+      document.body.classList.remove('pt-dragging');
+      if (!d) return;
+      const iso = isoOf(day);
+      if (d.kind === 'card') void scheduleCard(d.card, iso);
+      else if (d.kind === 'step') void moveStep(d.item, iso);
+      else askMoveMoment(d.item, iso);
     });
   }
 
@@ -1830,26 +1976,27 @@ const NAV = [
       // A post date the client owns can be dragged to another day. A
       // film date cannot: the shoot is planned around other things.
       if (row.contentRole === 'post' && canSchedule(c) && !isNarrow()) {
-        b.draggable = true;
-        b.addEventListener('dragstart', (ev) => {
-          CALDRAG = c;
-          b.classList.add('pt-chip-dragging');
-          ev.dataTransfer?.setData('text/plain', c.title);
-          if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
-        });
-        b.addEventListener('dragend', () => {
-          CALDRAG = null;
-          b.classList.remove('pt-chip-dragging');
-        });
+        attachDrag(b, c.title, `pt-nc-${bucketColor(c.bucket)}`,
+                   () => ({ kind: 'card', card: c }));
       }
       return b;
     }
     const k = kindOf(it);
     const m = it.moment;
+    // A campaign step that posts something wears the post pill, not a
+    // task's. It goes out on a day on a channel, which is what a post
+    // is; that it came off a playbook rather than the content board is
+    // our bookkeeping, not something the client should have to decode.
+    // It has no bucket of its own, so it takes the colour an unbucketed
+    // card takes, and the ↳ campaign line underneath says where it
+    // came from.
+    const asPost = isCampaignPost(it);
     // The fill says what KIND of work this is; the left edge says which
     // campaign it belongs to. Two campaigns in one week are otherwise a
     // wall of identical blue.
-    const cls = `pt-chip pt-chip-${k}`
+    const cls = (asPost
+      ? `pt-chip pt-chip-post pt-nc-${bucketColor(null)}`
+      : `pt-chip pt-chip-${k}`)
       + (it.tentative ? ' pt-chip-tentative' : '')
       + (m ? ` pt-edge-${momentKind(m)}` : '');
     const label = m
@@ -1869,6 +2016,9 @@ const NAV = [
       open.title = label;
       open.addEventListener('click', (ev) => { ev.stopPropagation(); openDrawer(it); });
       wrap.append(stepBox(it), open);
+      if (!isNarrow() && canDragStep(it)) {
+        attachDrag(wrap, it.title, '', () => ({ kind: 'step', item: it }));
+      }
       return wrap;
     }
 
@@ -1878,6 +2028,20 @@ const NAV = [
     if (m) b.appendChild(el('span', 'pt-chip-moment', m.title));
     b.title = label;
     b.addEventListener('click', (ev) => { ev.stopPropagation(); openDrawer(it); });
+
+    if (!isNarrow()) {
+      // A moment first: dragging one is the big move, and a row cannot
+      // be both. Then a step. Then, for everything else, the reason it
+      // is staying put, so the cursor says so before anyone tries.
+      if (canDragMoment(it)) {
+        attachDrag(b, it.title, 'pt-ghost-moment', () => ({ kind: 'moment', item: it }));
+      } else if (canDragStep(it)) {
+        attachDrag(b, it.title, '', () => ({ kind: 'step', item: it }));
+      } else {
+        const why = dragBlock(it);
+        if (why) markUndraggable(b, why);
+      }
+    }
     return b;
   }
 
@@ -2083,14 +2247,16 @@ const NAV = [
       grip.appendChild(icon('grip'));
       card.appendChild(grip);
       card.addEventListener('dragstart', (ev) => {
-        CALDRAG = c;
+        CALDRAG = { kind: 'card', card: c };
         card.classList.add('pt-traycard-dragging');
+        document.body.classList.add('pt-dragging');
         ev.dataTransfer?.setData('text/plain', c.title);
         if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
       });
       card.addEventListener('dragend', () => {
         CALDRAG = null;
         card.classList.remove('pt-traycard-dragging');
+        document.body.classList.remove('pt-dragging');
       });
     } else {
       card.classList.add('pt-traycard-locked');
@@ -2216,6 +2382,22 @@ const NAV = [
       const box = stepBox(it, true);
       box.style.marginTop = 'var(--pt-4)';
       body.appendChild(box);
+    }
+
+    // The way to move something without a mouse, and the only way at
+    // all on a phone, where dragging inside a grid that scrolls is a
+    // fight. Shown at every width for that reason, not only the narrow
+    // one: a keyboard cannot drag either.
+    if (canDragMoment(it) || canDragStep(it)) {
+      const mv = el('button', 'pt-btn');
+      mv.type = 'button';
+      mv.style.marginTop = 'var(--pt-4)';
+      mv.appendChild(icon('cal'));
+      mv.appendChild(el('span', undefined, isMomentRow(it)
+        ? 'Move this and its steps'
+        : 'Move to another day'));
+      mv.addEventListener('click', () => { closeDrawer(); openMoveSheet(it); });
+      body.appendChild(mv);
     }
 
     if (it.whyItMatters) {
@@ -3382,6 +3564,51 @@ const NAV = [
     });
   }
 
+  /**
+   * Pick a day instead of dragging onto one.
+   *
+   * For a step this is the whole job. For a moment it is the first
+   * half: naming the day hands over to the same confirm a drag opens,
+   * because the question a cascade asks does not change with how the
+   * date was chosen.
+   */
+  function openMoveSheet(it: PortalCalendarItem) {
+    const moment = isMomentRow(it);
+    openSheet(moment ? `Move ${it.title}` : 'Move to another day', (form, close) => {
+      const when = el('input', 'pt-input') as HTMLInputElement;
+      when.type = 'date';
+      when.required = true;
+      when.value = it.date ?? dateKeyToday();
+      // A moment may only go so far in one move, so the picker will
+      // not offer a day the server is going to refuse.
+      if (moment && it.date) {
+        const lo = shiftIsoDay(it.date, -MAX_MOVE_DAYS);
+        const hi = shiftIsoDay(it.date, MAX_MOVE_DAYS);
+        if (lo) when.min = lo;
+        if (hi) when.max = hi;
+      }
+      form.appendChild(sheetField('New date', when));
+      form.appendChild(el('p', 'pt-sheet-note', moment
+        ? 'Everything counting down to it moves by the same number of days.'
+        : 'Only this step moves. The rest of the campaign stays where it is.'));
+
+      const go = sheetSubmit(form, moment ? 'Next' : 'Move it');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const iso = when.value;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || iso === it.date) { when.focus(); return; }
+        go.disabled = true;
+        // The confirm reuses this same sheet, so it is not closed
+        // first: closing it would animate out and straight back in.
+        // If it had nothing to ask, this sheet is still the one on
+        // screen and its button has to work again.
+        if (moment) { if (!askMoveMoment(it, iso)) go.disabled = false; return; }
+        close();
+        await moveStep(it, iso);
+      });
+    });
+  }
+
   function openPostedSheet(c: PortalContentItem) {
     openSheet('Mark as posted', (form, close) => {
       const link = el('input', 'pt-input') as HTMLInputElement;
@@ -3616,6 +3843,9 @@ const NAV = [
     b.dataset.stepId = it.id;
     b.setAttribute('role', 'checkbox');
     b.setAttribute('aria-checked', String(done));
+    // The chip around this box may be draggable. The box is for
+    // ticking, so a drag that starts on it is a miss, not a move.
+    b.draggable = false;
     b.setAttribute('aria-label', `${it.title}: ${done ? 'done' : 'not done'}`);
     const mark = el('span', 'pt-check-mark');
     mark.appendChild(icon('check'));
@@ -3701,6 +3931,270 @@ const NAV = [
       // The server replies with the status as it now stands. Anything
       // other than what we asked for means it refused.
       return !!out.ok && out.status === status;
+    } catch {
+      return false;
+    }
+  }
+
+  /* ── moving things to another day ─────────────────────────────
+     A step is one row, and moves like a tick does: on screen first,
+     back where it was if the server says no.
+
+     A moment is a campaign. Moving one drags everything that counts
+     down to it, including rows the client never sees, so it asks
+     first, says how many rows it is about to touch, and can be taken
+     back for as long as the toast is up and a while after. */
+
+  /** One step onto another day, dragged or picked from the drawer. */
+  async function moveStep(it: PortalCalendarItem, iso: string, offerUndo = true) {
+    const before = it.date;
+    if (!before || before === iso) return;
+    if (!canDragStep(it)) { toast('That one is ours to schedule.', true); return; }
+
+    it.date = iso;
+    redrawSteps();
+
+    if (!(await patchStepDate(it.id, iso))) {
+      it.date = before;
+      redrawSteps();
+      toast('That did not save. Check your connection and try again.', true);
+      return;
+    }
+    if (offerUndo) {
+      undoToast(`Moved to ${fmtDate(iso)}`, () => { void moveStep(it, before, false); });
+    }
+  }
+
+  async function patchStepDate(id: string, date: string): Promise<boolean> {
+    try {
+      const res = await fetch(
+        `/portal/${encodeURIComponent(SLUG)}/step/${encodeURIComponent(id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ date }),
+        },
+      );
+      if (!res.ok) return false;
+      const out = await res.json() as { ok?: boolean; date?: string };
+      // The server replies with the date as it now stands. Anything
+      // else means it refused.
+      return !!out.ok && out.date === date;
+    } catch {
+      return false;
+    }
+  }
+
+  /* ── moving a moment, and its campaign with it ─────────────── */
+
+  interface MoveResult {
+    ok?: boolean;
+    error?: string;
+    message?: string;
+    days?: number;
+    title?: string;
+    date?: string;
+    /** A preview: how many steps would move. */
+    moves?: number;
+    /** A real move: how many did. */
+    moved?: number;
+    failed?: number;
+    frozen?: number;
+    undo?: string;
+    undone?: boolean;
+  }
+
+  async function postMove(id: string, body: Record<string, unknown>): Promise<MoveResult | null> {
+    try {
+      const res = await fetch(
+        `/portal/${encodeURIComponent(SLUG)}/moment/${encodeURIComponent(id)}/move`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(body),
+        },
+      );
+      if (!res.ok) return null;
+      return await res.json() as MoveResult;
+    } catch {
+      return null;
+    }
+  }
+
+  const dayWord = (days: number) =>
+    `${Math.abs(days)} ${Math.abs(days) === 1 ? 'day' : 'days'} ${days > 0 ? 'later' : 'earlier'}`;
+  const stepWord = (n: number) => (n === 1 ? 'step' : 'steps');
+
+  /** A drop on a day, which is a question rather than a save. False
+   *  when there was nothing to ask about, so a caller that disabled
+   *  its own button can put it back. */
+  function askMoveMoment(it: PortalCalendarItem, iso: string): boolean {
+    if (!it.date || it.date === iso) return false;
+    const days = daysBetween(it.date, iso);
+    if (days === null || days === 0) return false;
+    if (Math.abs(days) > MAX_MOVE_DAYS) {
+      toast(`A move has to be within ${MAX_MOVE_DAYS} days. Ask us to shift it further.`, true);
+      return false;
+    }
+    openMomentSheet(it, iso, days);
+    return true;
+  }
+
+  /**
+   * The confirm, and then the progress.
+   *
+   * The count comes from the server, not from the chips on screen: the
+   * cascade moves rows the client cannot see, and a dialog that said
+   * "4 steps" before moving 13 of them would be the wrong number in
+   * the one place it has to be right.
+   */
+  function openMomentSheet(it: PortalCalendarItem, iso: string, days: number) {
+    openSheet(`Move ${it.title}?`, (form, close) => {
+      form.appendChild(el('p', 'pt-move-when',
+        `${fmtDate(it.date)} to ${fmtDate(iso)}, ${dayWord(days)}.`));
+
+      const count = el('p', 'pt-move-count', 'Counting its campaign steps\u2026');
+      form.appendChild(count);
+
+      const frozen = el('p', 'pt-sheet-note');
+      show(frozen, false);
+      form.appendChild(frozen);
+
+      const bar = el('div', 'pt-move-bar');
+      bar.appendChild(el('span'));
+      show(bar, false);
+      form.appendChild(bar);
+
+      const go = sheetSubmit(form, 'Move it');
+      go.disabled = true;
+      const cancel = el('button', 'pt-btn') as HTMLButtonElement;
+      cancel.type = 'button';
+      cancel.textContent = 'Leave it';
+      cancel.addEventListener('click', close);
+      go.parentElement?.prepend(cancel);
+
+      void (async () => {
+        const pre = await postMove(it.id, { days, preview: true });
+        if (!pre || !pre.ok) {
+          count.textContent = pre?.message
+            ?? 'We could not work out what that would move. Try again in a moment.';
+          return;
+        }
+        const n = pre.moves ?? 0;
+        count.textContent = n
+          ? `This also moves its ${n} campaign ${stepWord(n)}.`
+          : 'Nothing else is hanging off it, so only the date moves.';
+        if (pre.frozen) {
+          frozen.textContent = `${pre.frozen} ${stepWord(pre.frozen)} `
+            + `${pre.frozen === 1 ? 'stays' : 'stay'} put: done, skipped, or out of the plan.`;
+          show(frozen, true);
+        }
+        go.disabled = false;
+      })();
+
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (go.disabled) return;
+        go.disabled = true;
+        cancel.disabled = true;
+        go.textContent = 'Moving\u2026';
+        count.textContent = 'Moving the campaign. This takes a few seconds.';
+        show(frozen, false);
+        show(bar, true);
+
+        const out = await postMove(it.id, { days });
+        close();
+        finishMove(it, days, out);
+      });
+    });
+  }
+
+  function finishMove(it: PortalCalendarItem, days: number, out: MoveResult | null) {
+    if (!out || !out.ok) {
+      toast(out?.message ?? 'That did not move. Nothing has changed.', true);
+      // Part of it may have landed before it stopped, so the only
+      // honest thing to show is whatever Notion actually holds.
+      void reloadCalendar();
+      return;
+    }
+    const failed = out.failed ?? 0;
+    if (failed) {
+      toast(`Moved, but ${failed} ${stepWord(failed)} did not. We will sort it out.`, true);
+      void reloadCalendar();
+      return;
+    }
+
+    shiftCampaign(it.id, days);
+    const moved = out.moved ?? 0;
+    const text = moved
+      ? `Moved ${it.title} and ${moved} ${stepWord(moved)}`
+      : `Moved ${it.title}`;
+    const token = out.undo;
+    if (token) undoToast(text, () => { void undoMove(it, token); });
+    else toast(text);
+  }
+
+  async function undoMove(it: PortalCalendarItem, token: string) {
+    const out = await postMove(it.id, { undo: token });
+    const ok = !!out?.ok && !out.failed;
+    // Either way the screen is rebuilt from the server rather than by
+    // shifting back by hand: an undo is rare, and being right about it
+    // matters more than being quick.
+    await reloadCalendar();
+    toast(ok
+      ? `${it.title} is back where it was`
+      : 'We could not put all of that back. This is what we have now.', !ok);
+  }
+
+  /**
+   * The same arithmetic the server just did, applied to what is on
+   * screen, so a moved campaign does not wait for a round trip to look
+   * moved.
+   *
+   * Which rows move is not decided twice: movesWithMoment is the one
+   * rule, and the endpoint and this both read it.
+   */
+  function shiftCampaign(momentId: string, days: number) {
+    // Every step of a moment shares ONE flattened copy of it, so the
+    // copy is shifted once by identity rather than once per step.
+    const seen = new Set<PortalMoment>();
+    for (const i of CAL_BASE) {
+      const own = i.id === momentId;
+      if (own || (i.moment?.id === momentId && movesWithMoment(i))) {
+        const next = i.date ? shiftIsoDay(i.date, days) : null;
+        if (next) i.date = next;
+      }
+      const m = i.moment;
+      if (m && m.id === momentId && !seen.has(m)) {
+        seen.add(m);
+        const next = m.date ? shiftIsoDay(m.date, days) : null;
+        if (next) m.date = next;
+      }
+    }
+    redrawSteps();
+  }
+
+  /**
+   * Pull the calendar again and redraw it.
+   *
+   * Narrower than booting: the month on screen, the layers and the
+   * open day are where the client left them, and a reload that threw
+   * all three away would be its own small bug.
+   */
+  async function reloadCalendar(): Promise<boolean> {
+    try {
+      const res = await fetch(`/portal/${encodeURIComponent(SLUG)}/data`, {
+        credentials: 'same-origin',
+      });
+      if (!res.ok) return false;
+      const payload = await res.json() as PortalPayload;
+      CAL_BASE = payload.calendar;
+      if (DATA) DATA.calendar = payload.calendar;
+      syncCalendarContent();
+      redrawSteps();
+      return true;
     } catch {
       return false;
     }

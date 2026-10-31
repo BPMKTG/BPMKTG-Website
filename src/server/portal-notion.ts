@@ -445,7 +445,7 @@ export async function fetchOwnedStep(
   token: string,
   clientPageId: string,
   pageId: string,
-): Promise<{ status: string | null; owner: string | null } | null> {
+): Promise<{ status: string | null; owner: string | null; date: string | null } | null> {
   const page = await fetchPage(token, pageId);
   if (!page || page.object !== 'page' || page.archived) return null;
 
@@ -459,21 +459,112 @@ export async function fetchOwnedStep(
   if (readCheckbox(p['Is Playbook'])) return null;
   if (readSelect(p['Kind']) === 'Moment') return null;
 
-  return { status: readSelect(p['Status']), owner: readSelect(p['Owner']) };
+  return {
+    status: readSelect(p['Status']),
+    owner: readSelect(p['Owner']),
+    date: readDate(p['Date']),
+  };
 }
 
-/** Write a step's Status, plus whoever it was that ticked it.
+/**
+ * The one moment with this id that this client owns.
  *
- *  The caller builds the properties and has already checked the status
- *  against STEP_CLIENT_STATUSES and against the status the row is in
- *  now. Taking properties rather than a bare string is what lets the
- *  endpoint put Last Edited By through `stampEdit`, the same way a
- *  content write does, instead of this file growing its own stamp. */
-export async function updateStepStatus(
+ * Same shape of check as a step, with Kind read the other way round: a
+ * cascade may only start from a moment, because a step has no steps of
+ * its own and "move everything under this" would mean nothing.
+ *
+ * The title comes back because the confirm dialog names it, and a
+ * client who can see a moment can already see its name.
+ */
+export async function fetchOwnedMoment(
+  token: string,
+  clientPageId: string,
+  pageId: string,
+): Promise<{ title: string; date: string | null; dateEnd: string | null } | null> {
+  const page = await fetchPage(token, pageId);
+  if (!page || page.object !== 'page' || page.archived) return null;
+
+  const p = page.properties ?? {};
+  const owners = readRelation(p['Client']).map((id) => id.replace(/-/g, ''));
+  if (!owners.includes(clientPageId.replace(/-/g, ''))) {
+    console.error('portal: moment move aimed at another client', pageId);
+    return null;
+  }
+  if (readCheckbox(p['Hide from Client'])) return null;
+  if (readCheckbox(p['Is Playbook'])) return null;
+  if (readSelect(p['Kind']) !== 'Moment') return null;
+
+  const d = p['Date'] as any;
+  return {
+    title: readText(p['Item']) ?? '',
+    date: readDate(p['Date']),
+    dateEnd: d?.type === 'date' ? (d.date?.end ?? null) : null,
+  };
+}
+
+/**
+ * Every step hanging off one moment, for the cascade.
+ *
+ * Deliberately WIDER than what the client can see: a moment moving has
+ * to take our steps and the hidden ones with it, or the plan in Notion
+ * comes apart the moment a client drags a release. The client is never
+ * shown these rows; they are only shifted by the same number of days
+ * as the row they belong to.
+ *
+ * Playbook templates are excluded. They are the source the steps were
+ * stamped from, and nothing on a real calendar should ever write to
+ * them.
+ */
+export async function fetchMomentSteps(
+  token: string,
+  clientPageId: string,
+  momentId: string,
+): Promise<Array<{ id: string; status: string | null; date: string | null; dateEnd: string | null }>> {
+  const results = await queryAll(token, CALENDAR_DB, {
+    filter: {
+      and: [
+        { property: 'Client', relation: { contains: clientPageId } },
+        { property: 'Moment', relation: { contains: momentId } },
+        { property: 'Is Playbook', checkbox: { equals: false } },
+      ],
+    },
+  });
+
+  const out: Array<{ id: string; status: string | null; date: string | null; dateEnd: string | null }> = [];
+  for (const page of results) {
+    if (page.archived) continue;
+    const p = page.properties ?? {};
+    // A moment relating to itself would otherwise be shifted twice.
+    if (readSelect(p['Kind']) === 'Moment') continue;
+    const d = p['Date'] as any;
+    out.push({
+      id: String(page.id),
+      status: readSelect(p['Status']),
+      date: readDate(p['Date']),
+      dateEnd: d?.type === 'date' ? (d.date?.end ?? null) : null,
+    });
+  }
+  return out;
+}
+
+/**
+ * Write properties onto one Campaign Calendar row.
+ *
+ * The caller builds them and has already decided they are allowed:
+ * a status checked against STEP_CLIENT_STATUSES, a date checked
+ * against the rule for who may move what. Taking properties rather
+ * than a named value is what lets every caller put them through the
+ * same `stampEdit` a content write uses, instead of this file growing
+ * a stamp of its own.
+ *
+ * Returns the row as Notion now holds it, so the browser is told what
+ * landed rather than what was asked for.
+ */
+export async function patchCalendarPage(
   token: string,
   pageId: string,
   properties: Record<string, unknown>,
-): Promise<string | null> {
+): Promise<{ status: string | null; date: string | null } | null> {
   try {
     const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
       method: 'PATCH',
@@ -481,13 +572,14 @@ export async function updateStepStatus(
       body: JSON.stringify({ properties }),
     });
     if (!res.ok) {
-      console.error('portal: step update failed', pageId, res.status, await res.text());
+      console.error('portal: calendar write failed', pageId, res.status, await res.text());
       return null;
     }
     const page = await res.json();
-    return readSelect((page.properties ?? {})['Status']);
+    const p = page.properties ?? {};
+    return { status: readSelect(p['Status']), date: readDate(p['Date']) };
   } catch (err) {
-    console.error('portal: step update threw', pageId, err);
+    console.error('portal: calendar write threw', pageId, err);
     return null;
   }
 }

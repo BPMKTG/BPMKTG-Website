@@ -112,18 +112,29 @@ export async function beginWrite(
    Per colo, like the sign-in limiter, and for the same reason: it is
    cheap and it stops a script pointed at one portal. */
 
-const wlKey = (slug: string) => `https://portal-wl.invalid/${encodeURIComponent(slug)}`;
+const wlKey = (name: string, slug: string) =>
+  `https://portal-wl.invalid/${name}/${encodeURIComponent(slug)}`;
 
-async function overWriteLimit(slug: string): Promise<boolean> {
+/**
+ * One counter, named, per client, per window.
+ *
+ * Exported because not every write costs the same. A content save is
+ * one Notion request; moving a campaign is thirty, so it answers to a
+ * tighter counter of its own rather than spending one token out of
+ * thirty and multiplying by thirty on the way out.
+ */
+export async function overLimit(
+  name: string, slug: string, limit: number, seconds: number,
+): Promise<boolean> {
   try {
     const cache = caches.default;
-    const key = wlKey(slug);
+    const key = wlKey(name, slug);
     const hit = await cache.match(key);
     const n = hit ? Number(await hit.text()) : 0;
     const count = Number.isFinite(n) ? n : 0;
-    if (count >= WRITE_LIMIT) return true;
+    if (count >= limit) return true;
     await cache.put(key, new Response(String(count + 1), {
-      headers: { 'Cache-Control': `max-age=${WRITE_WINDOW_SECONDS}` },
+      headers: { 'Cache-Control': `max-age=${seconds}` },
     }));
     return false;
   } catch {
@@ -131,6 +142,9 @@ async function overWriteLimit(slug: string): Promise<boolean> {
     return false;
   }
 }
+
+const overWriteLimit = (slug: string) =>
+  overLimit('w', slug, WRITE_LIMIT, WRITE_WINDOW_SECONDS);
 
 /** A write invalidates the 60s payload cache, or the client saves
  *  something and watches the page show them the old value. */

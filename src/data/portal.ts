@@ -323,6 +323,89 @@ export function isStepDone(row: { status: string | null }): boolean {
   return row.status === 'Done';
 }
 
+/* ── Moving things on the calendar ────────────────────────────── */
+
+/**
+ * How far one drag may move a moment.
+ *
+ * A drop two months out is a mistake you can make with a mouse. A year
+ * is not a mistake, it is a different plan, and a different plan is a
+ * conversation rather than a drag.
+ */
+export const MAX_MOVE_DAYS = 90;
+
+export function isMoveDays(value: unknown): value is number {
+  return typeof value === 'number'
+    && Number.isInteger(value)
+    && value !== 0
+    && Math.abs(value) <= MAX_MOVE_DAYS;
+}
+
+/** A plain Notion date, which is all this calendar holds: every row in
+ *  Campaign Calendar is a bare day, with no end and no time. */
+export function isIsoDay(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const t = Date.parse(`${value}T00:00:00Z`);
+  // Parsing is not enough: Date.parse rolls 2026-02-31 forward into
+  // March and reports success, so a day that comes back as a different
+  // day was never a day. Shifting one of those would write a date
+  // nobody asked for.
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === value;
+}
+
+/**
+ * The statuses a cascade leaves where they are.
+ *
+ * A step we skipped, took out of the plan, or already finished is a
+ * record of what happened. Dragging the release to a new week does not
+ * get to rewrite that.
+ */
+export const STEP_FROZEN_STATUSES = ['Skipped', 'Moved', 'Done'] as const;
+
+export function movesWithMoment(row: { status: string | null }): boolean {
+  return !(STEP_FROZEN_STATUSES as readonly string[]).includes(row.status ?? '');
+}
+
+/**
+ * May this viewer give this step a different date?
+ *
+ * A client may move their own steps and nothing else: ours are ours to
+ * schedule, and a step sitting in Skipped or Moved is out of the plan.
+ * One of us standing in their portal may move any step, which is the
+ * single place an admin is allowed more than the client.
+ */
+export function canSetStepDate(
+  row: { owner: string | null; status: string | null },
+  role: 'client' | 'admin',
+): boolean {
+  if (role === 'admin') return true;
+  if (row.owner !== 'Client') return false;
+  return row.status === null || isStepClientStatus(row.status);
+}
+
+/** Whole days from one plain date to another. Both are read at
+ *  midnight UTC, so no daylight saving hour can turn 7 days into 6. */
+export function daysBetween(from: unknown, to: unknown): number | null {
+  if (!isIsoDay(from) || !isIsoDay(to)) return null;
+  const DAY = 24 * 60 * 60 * 1000;
+  return Math.round(
+    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY,
+  );
+}
+
+/** A date, N days later. A datetime stays a datetime, though nothing
+ *  in this calendar has ever been one. */
+export function shiftIsoDay(value: string, days: number): string | null {
+  const DAY = 24 * 60 * 60 * 1000;
+  if (isIsoDay(value)) {
+    return new Date(Date.parse(`${value}T00:00:00Z`) + days * DAY)
+      .toISOString().slice(0, 10);
+  }
+  const t = Date.parse(value);
+  if (Number.isNaN(t)) return null;
+  return new Date(t + days * DAY).toISOString();
+}
+
 /* ── Shapes the browser receives ──────────────────────────────── */
 
 export interface PortalClient {

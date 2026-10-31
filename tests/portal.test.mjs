@@ -10,6 +10,22 @@ import {
   isStepClientStatus,
   isStepDone,
   STEP_CLIENT_STATUSES,
+  // moving things
+  canSetStepDate,
+  daysBetween,
+  isIsoDay,
+  isMoveDays,
+  movesWithMoment,
+  shiftIsoDay,
+  planMomentMove,
+  reverseWrites,
+  dateProperty,
+  isMoveUndo,
+  MAX_CASCADE_STEPS,
+  MAX_MOVE_DAYS,
+  MOVE_LIMIT,
+  WRITE_LIMIT,
+  STEP_FROZEN_STATUSES,
   termProgress,
   parseNotionDate,
   goalProgress,
@@ -1239,6 +1255,175 @@ is('step: a done step is off the to-do list', isOpenClientTodo(own('Done')), fal
 is('step: every status the client can set but Done stays on the list',
    STEP_CLIENT_STATUSES.filter((s) => isOpenClientTodo(own(s))).join('|'),
    'Not Started|In Progress');
+
+section('Moving a step to another day');
+
+const dstep = (owner, status) => ({ owner, status });
+
+is('date: a client may move their own not-started step',
+   canSetStepDate(dstep('Client', 'Not Started'), 'client'), true);
+is('date: and one with no status yet',
+   canSetStepDate(dstep('Client', null), 'client'), true);
+is('date: and one they have already done',
+   canSetStepDate(dstep('Client', 'Done'), 'client'), true);
+is('date: but not ours', canSetStepDate(dstep('Blueprint', 'Not Started'), 'client'), false);
+is('date: and not one with no owner', canSetStepDate(dstep(null, null), 'client'), false);
+// Skipped and Moved are rows we took out of the plan. A client dragging
+// one back onto the month would be putting it back in.
+is('date: and not one we took out of the plan',
+   canSetStepDate(dstep('Client', 'Moved'), 'client'), false);
+is('date: nor a skipped one', canSetStepDate(dstep('Client', 'Skipped'), 'client'), false);
+
+// One of us standing in a client's portal is the one place where more
+// is allowed than the client has: we schedule our own work.
+is('date: an admin may move our step', canSetStepDate(dstep('Blueprint', 'Not Started'), 'admin'), true);
+is('date: an admin may move a moved one', canSetStepDate(dstep('Blueprint', 'Moved'), 'admin'), true);
+is('date: an admin may move an unowned one', canSetStepDate(dstep(null, null), 'admin'), true);
+
+is('day: a plain date is one', isIsoDay('2026-11-13'), true);
+is('day: a datetime is not', isIsoDay('2026-11-13T10:00:00Z'), false);
+is('day: the 31st of February is not', isIsoDay('2026-02-31'), false);
+is('day: nonsense is not', isIsoDay('tomorrow'), false);
+is('day: a number is not', isIsoDay(20261113), false);
+is('day: null is not', isIsoDay(null), false);
+
+is('shift: seven days on', shiftIsoDay('2026-11-13', 7), '2026-11-20');
+is('shift: seven days back', shiftIsoDay('2026-11-13', -7), '2026-11-06');
+is('shift: over the end of a month', shiftIsoDay('2026-11-27', 7), '2026-12-04');
+is('shift: over the end of a year', shiftIsoDay('2026-12-28', 7), '2027-01-04');
+// March in a timezone west of UTC is where a naive local-time shift
+// quietly loses an hour and lands a day early.
+is('shift: across a daylight saving change', shiftIsoDay('2027-03-13', 1), '2027-03-14');
+is('shift: a leap day exists', shiftIsoDay('2028-02-28', 1), '2028-02-29');
+
+is('between: a week later is seven', daysBetween('2026-11-13', '2026-11-20'), 7);
+is('between: a week earlier is minus seven', daysBetween('2026-11-20', '2026-11-13'), -7);
+is('between: the same day is zero', daysBetween('2026-11-13', '2026-11-13'), 0);
+is('between: across the spring change is still a day',
+   daysBetween('2027-03-13', '2027-03-14'), 1);
+is('between: a date that is not one gives nothing', daysBetween('2026-11-13', 'soon'), null);
+
+is('days: ninety is allowed', isMoveDays(MAX_MOVE_DAYS), true);
+is('days: ninety back is allowed', isMoveDays(-MAX_MOVE_DAYS), true);
+is('days: ninety-one is not', isMoveDays(MAX_MOVE_DAYS + 1), false);
+is('days: nought is not a move', isMoveDays(0), false);
+is('days: half a day is not', isMoveDays(1.5), false);
+is('days: a string is not', isMoveDays('7'), false);
+
+section('Moving a moment, and its campaign with it');
+
+is('frozen: the three that stay put',
+   STEP_FROZEN_STATUSES.join('|'), 'Skipped|Moved|Done');
+is('frozen: a not-started step moves', movesWithMoment({ status: 'Not Started' }), true);
+is('frozen: an in-progress step moves', movesWithMoment({ status: 'In Progress' }), true);
+is('frozen: a step with no status moves', movesWithMoment({ status: null }), true);
+is('frozen: a done step stays', movesWithMoment({ status: 'Done' }), false);
+is('frozen: a skipped step stays', movesWithMoment({ status: 'Skipped' }), false);
+is('frozen: a moved step stays', movesWithMoment({ status: 'Moved' }), false);
+
+/* Rooftop Remix, as Notion actually holds it: a release on the 13th
+   with twenty-nine rows pointing at it, sixteen of them left over from
+   an earlier run of the playbook and marked Moved. Thirteen move. */
+const REMIX = 'remix-moment';
+const remixSteps = [
+  { id: 's1', status: 'Not Started',  date: '2026-10-30' },
+  { id: 's2', status: 'Not Started',  date: '2026-11-06' },
+  { id: 's3', status: 'In Progress',  date: '2026-11-10' },
+  { id: 's4', status: 'Not Started',  date: '2026-11-13' },
+  { id: 's5', status: null,           date: '2026-11-27' },
+  { id: 'x1', status: 'Moved',        date: '2026-10-28' },
+  { id: 'x2', status: 'Moved',        date: '2026-11-13' },
+  { id: 'x3', status: 'Done',         date: '2026-11-03' },
+  { id: 'x4', status: 'Skipped',      date: '2026-11-06' },
+  { id: 'u1', status: 'Not Started',  date: null },
+];
+
+const plan = planMomentMove({ id: REMIX, date: '2026-11-13' }, remixSteps, 7);
+
+is('plan: the moment moves to the day asked for', plan.moment.to, '2026-11-20');
+is('plan: and remembers where it was', plan.moment.from, '2026-11-13');
+is('plan: every step still in the plan moves',
+   plan.steps.map((w) => w.id).join(','), 's1,s2,s3,s4,s5');
+is('plan: each by the same seven days',
+   plan.steps.map((w) => w.to).join(','),
+   '2026-11-06,2026-11-13,2026-11-17,2026-11-20,2026-12-04');
+is('plan: the ones out of the plan are counted, not moved', plan.frozen, 4);
+is('plan: a step with no date is neither moved nor counted as frozen',
+   plan.steps.some((w) => w.id === 'u1'), false);
+is('plan: days is echoed back', plan.days, 7);
+
+// A moment relating to itself would otherwise be shifted twice: once
+// as the moment and once as one of its own steps.
+is('plan: a moment is never its own step',
+   planMomentMove({ id: REMIX, date: '2026-11-13' },
+                  [{ id: REMIX, status: 'Not Started', date: '2026-11-13' }], 7).steps.length,
+   0);
+
+is('plan: no move is no plan',
+   planMomentMove({ id: REMIX, date: '2026-11-13' }, remixSteps, 0), null);
+is('plan: further than the cap is no plan',
+   planMomentMove({ id: REMIX, date: '2026-11-13' }, remixSteps, MAX_MOVE_DAYS + 1), null);
+is('plan: a moment with no date is no plan',
+   planMomentMove({ id: REMIX, date: null }, remixSteps, 7), null);
+// Every step is its own Notion write, and a Worker has a fixed budget
+// of those. Past the cap we refuse rather than half-move a campaign.
+is('plan: more steps than one request can carry is no plan',
+   planMomentMove(
+     { id: REMIX, date: '2026-11-13' },
+     Array.from({ length: MAX_CASCADE_STEPS + 1 }, (_, i) => (
+       { id: `b${i}`, status: 'Not Started', date: '2026-11-13' })),
+     7,
+   ), null);
+
+const backwards = planMomentMove({ id: REMIX, date: '2026-11-13' }, remixSteps, -3);
+is('plan: backwards works the same way', backwards.moment.to, '2026-11-10');
+is('plan: and takes the steps with it',
+   backwards.steps.map((w) => w.to).join(','),
+   '2026-10-27,2026-11-03,2026-11-07,2026-11-10,2026-11-24');
+
+/* Undo is a replay of the old values, not an arithmetic inverse, so a
+   row somebody edited in between goes back to what it was when we
+   changed it rather than to wherever minus-seven days lands. */
+const undone = reverseWrites([plan.moment, ...plan.steps]);
+is('undo: it puts everything back',
+   undone.map((w) => w.to).join(','),
+   '2026-11-13,2026-10-30,2026-11-06,2026-11-10,2026-11-13,2026-11-27');
+is('undo: and names the same rows',
+   undone.map((w) => w.id).join(','), `${REMIX},s1,s2,s3,s4,s5`);
+is('undo: a write with no old value is left alone',
+   reverseWrites([{ id: 'z', from: null, to: '2026-11-20' }]).length, 0);
+
+is('write: a plan becomes one Notion date property',
+   dateProperty(plan.steps[0]).Date.date.start, '2026-11-06');
+is('write: and nothing but the date',
+   Object.keys(dateProperty(plan.steps[0])).join('|'), 'Date');
+
+const rec = {
+  slug: 'sean-comma', momentId: REMIX, days: 7,
+  writes: [plan.moment], exp: 9999999999,
+};
+is('undo record: a whole one is one', isMoveUndo(rec), true);
+is('undo record: one with no slug is not', isMoveUndo({ ...rec, slug: undefined }), false);
+is('undo record: one with no days is not', isMoveUndo({ ...rec, days: undefined }), false);
+// The record is read back out of KV, so a corrupt or crafted one must
+// not become a list of dates we write to pages.
+is('undo record: one whose writes are not dates is not',
+   isMoveUndo({ ...rec, writes: [{ id: 'a', to: 'whenever' }] }), false);
+is('undo record: one with no writes array is not',
+   isMoveUndo({ ...rec, writes: 'all of them' }), false);
+is('undo record: a string is not', isMoveUndo('{}'), false);
+is('undo record: null is not', isMoveUndo(null), false);
+
+// A date is the only thing a cascade writes. Last Edited By comes from
+// the session on top of this, the same as every other portal write.
+is('write: a cascade write stamps Blueprint for us',
+   stampEdit(dateProperty(plan.moment), 'admin')['Last Edited By'].select.name, 'Blueprint');
+is('write: and Client when they did it',
+   stampEdit(dateProperty(plan.moment), 'client')['Last Edited By'].select.name, 'Client');
+
+// One cascade is tens of Notion writes, so it cannot be allowed to
+// spend from the same budget as a content save that costs one.
+ok('limit: a cascade is rarer than an ordinary write', MOVE_LIMIT < WRITE_LIMIT);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
