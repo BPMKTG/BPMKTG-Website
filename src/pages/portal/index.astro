@@ -1245,12 +1245,15 @@ const NAV = [
   /**
    * Which layers an item belongs to. Some belong to two.
    *
-   * The rule is about what a row IS, not who owns it. A campaign step
+   * Posts is about what a row IS, not who owns it. A campaign step
    * that posts something is a post: it goes out on a channel on a day,
    * exactly like a card off the content board, and a client looking
-   * for "what goes out in November" wants both in front of them. Only
-   * the back-office work is ours alone, so Blueprint tasks is the one
-   * layer that reads the owner and the type together.
+   * for "what goes out in November" wants both in front of them.
+   *
+   * Blueprint tasks is about who it is ON, and a post we put out is
+   * still work of ours. So a Blueprint-owned content step sits in
+   * both, and turning Posts off does not make it vanish from the
+   * column that is meant to list everything we are doing.
    *
    * An item in two layers is drawn once and shows if EITHER is on,
    * which is what passesFilter does with this list.
@@ -1268,7 +1271,7 @@ const NAV = [
     const ls: Layer[] = [];
     if (it.type === 'Content') ls.push('posts');
     if (it.owner === 'Client') ls.push('todos');
-    if (it.owner === 'Blueprint' && it.type === 'Admin') ls.push('blueprint');
+    if (it.owner === 'Blueprint') ls.push('blueprint');
     // Nothing visible should land here: a row only reaches the client
     // if it is a moment, is Content, or is theirs. A row that somehow
     // does is better shown in our column than silently dropped.
@@ -1685,6 +1688,9 @@ const NAV = [
     panel.appendChild(el('p', undefined,
       'A post with \u21b3 under it belongs to that campaign. It counts as a '
       + 'post either way, so Posts shows it next to the ones off your board.'));
+    panel.appendChild(el('p', undefined,
+      'A campaign post we put out sits in Posts and in Blueprint tasks at '
+      + 'once. Either filter will show it, and it is only drawn once.'));
     panel.appendChild(el('p', undefined,
       'A post that has already gone out steps back and wears a tick.'));
     panel.appendChild(el('p', undefined,
