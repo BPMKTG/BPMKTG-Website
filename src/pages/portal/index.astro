@@ -4685,7 +4685,7 @@ const NAV = [
     const note = fromMason(snap);
     if (note) wrap.appendChild(note);
 
-    wrap.appendChild(headlineRow(snap, cmp));
+    wrap.appendChild(headlineRow(snap, cmp, !note));
 
     /* growth score */
     if (typeof snap.growthScore === 'number') {
@@ -4776,7 +4776,9 @@ const NAV = [
    * dropped rather than shown as zero: a missing number and a real zero
    * mean very different things to someone reading their own report.
    */
-  function headlineRow(snap: PortalSnapshot, cmp: PortalSnapshot | null): HTMLElement {
+  function headlineRow(
+    snap: PortalSnapshot, cmp: PortalSnapshot | null, first: boolean,
+  ): HTMLElement {
     const sum = (names: readonly string[]) => sumMetrics(snap.metrics, names);
     const cards: Array<{ label: string; value: string; note: string; delta?: HTMLElement }> = [];
 
@@ -4799,7 +4801,11 @@ const NAV = [
     if (!cards.length) return wrap;
 
     const h = el('div', 'pt-platform-head');
-    h.style.marginTop = '0';
+    // Flush with the top when it opens the report. Under Mason's note
+    // it keeps its margin: a band heading tucked against the card
+    // above reads as the bottom of that card rather than the start of
+    // what comes next.
+    if (first) h.style.marginTop = '0';
     // "This month" was a guess. A baseline is a single reading on one
     // day, and every rolling metric under it covers 28 days, so the
     // heading says which.
