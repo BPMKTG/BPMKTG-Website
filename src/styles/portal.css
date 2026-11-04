@@ -2301,10 +2301,15 @@ body.pt-dragging .pt-cal-cell {
 body.pt-dragging .pt-cal-cell-drop {
   box-shadow: inset 0 0 0 2px var(--pt-navy);
 }
-/* Nothing on the grid should answer the pointer while something is
-   being carried over it: a chip that highlights under the cursor reads
-   as the drop target when the day is. */
-body.pt-dragging .pt-chip { pointer-events: none; }
+/* No chip should light up under the pointer while something is being
+   carried over it: the day is the drop target, and a chip that
+   brightens on the way past reads as if it were.
+   This suppresses the hover and NOTHING ELSE. It used to be
+   `pointer-events: none` on the whole grid, which did the same job in
+   Chromium and broke every calendar drag in Safari: WebKit treats a
+   drag source that stops hit-testing as a drag that is over, and fired
+   dragstart then dragend with nothing in between. */
+body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 
 /* The pill that follows the pointer. The browser's own drag image is a
    screenshot of the chip, which inside a cramped month cell comes out

@@ -1843,6 +1843,13 @@ const NAV = [
   }
 
   function dayDropTarget(cell: HTMLElement, day: Date) {
+    // Refusing the default in dragover is what makes a day a drop
+    // target. dragenter is refused as well, which no engine here
+    // needed, as insurance against one that gates dragover on it.
+    cell.addEventListener('dragenter', (ev) => {
+      if (!CALDRAG) return;
+      ev.preventDefault();
+    });
     cell.addEventListener('dragover', (ev) => {
       if (!CALDRAG) return;
       ev.preventDefault();
