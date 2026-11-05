@@ -162,10 +162,40 @@ share with a person, and it can read that folder and nothing else.
    downloaded file afterwards; the only copy that needs to exist is
    the one in Cloudflare.
 
-The address to share folders with is the `client_email` field in that
-JSON, and it is also printed on the Credentials page. It looks like
-`portal-covers@blueprint-portal-123456.iam.gserviceaccount.com`. It is
-an identifier, not a secret.
+**The address to share folders with:**
+
+```
+portal-covers@blueprint-portal-513817.iam.gserviceaccount.com
+```
+
+That is the `client_email` field in the JSON, also printed on the
+Credentials page. It is an identifier, not a secret: knowing it grants
+nothing, because access comes from the folders it has been shared on.
+
+**If key creation is blocked.** Google's security baseline enforces
+`iam.disableServiceAccountKeyCreation` on new organizations, and the
+Keys tab answers "Service account key creation is disabled". The fix
+is an override on this one project, and it needs **Organization Policy
+Administrator**, which can only be granted on the organization, not on
+a project:
+
+1. [IAM](https://console.cloud.google.com/iam-admin/iam), resource
+   picker switched to the **organization** → grant yourself
+   **Organization Policy Administrator**.
+2. [Organization
+   Policies](https://console.cloud.google.com/iam-admin/orgpolicies),
+   picker switched **back to the project** → search
+   `disableServiceAccountKeyCreation` → for each match, plain and
+   `managed` → **Manage policy → Override parent's policy →
+   Enforcement Off → Set policy**.
+3. Wait a couple of minutes, then create the key.
+
+The override is left in place rather than reverted. It is scoped to
+one project holding one read-only service account, and the policy
+stays enforced everywhere else. Google documents the constraint as
+blocking key *creation* and says nothing about keys that already
+exist, so reverting it probably leaves the key working, but "probably"
+is not a thing to build a monthly report on.
 
 **Per client, once.** Share the client's main folder with that address
 as **Viewer**, with notifications off. Inside that folder make a
