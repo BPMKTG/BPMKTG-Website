@@ -554,8 +554,20 @@ export interface PortalViewer {
   clients?: Array<{ slug: string; artist: string }>;
 }
 
+/** The client's brand brief, stored as one PDF in R2 rather than as a
+ *  Notion row. Absent on an older payload, and null when none has
+ *  been uploaded. */
+export interface PortalBrief {
+  /** Root-relative, through the portal's own file endpoint. */
+  url: string;
+  size: number;
+  uploaded: string | null;
+}
+
 export interface PortalPayload {
   client: PortalClient;
+  /** Absent on an older payload, which reads as a client with none. */
+  brief?: PortalBrief | null;
   /** Absent on an older payload, which reads as a plain client. */
   viewer?: PortalViewer;
   calendar: PortalCalendarItem[];

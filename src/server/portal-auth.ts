@@ -46,6 +46,24 @@ export interface Viewer {
  *  ~3 requests/second and one portal load costs three queries. */
 export const DATA_CACHE_SECONDS = 60;
 
+/** Cache key for one client's assembled payload. The hostname is not
+ *  routable, so nothing can fetch this out of the cache over HTTP. */
+export const portalDataKey = (slug: string) => `https://portal-data.invalid/${slug}`;
+
+/** Forgets a client's cached payload.
+ *
+ *  For an admin action that changes what the portal shows without
+ *  going through Notion, where waiting out the minute would look like
+ *  the action had not worked. Best effort: a cache that will not drop
+ *  an entry is a stale minute, not a failure. */
+export async function dropPortalData(slug: string): Promise<void> {
+  try {
+    await caches.default.delete(portalDataKey(slug));
+  } catch (err) {
+    console.error('portal: dropping the cached payload threw', slug, err);
+  }
+}
+
 /* ── slug ─────────────────────────────────────────────────────── */
 
 /**

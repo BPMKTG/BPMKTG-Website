@@ -418,6 +418,33 @@ A fallback says why on a second line, for example
 
 ---
 
+## 3c. The brand brief
+
+One PDF per client, on the **Files** tab, stored in R2 at:
+
+```
+briefs/<clientSlug>/brand-brief.pdf
+```
+
+There is no Notion row behind it. The key is the whole record that it
+exists, which is why uploading again replaces it: a client has one
+brand brief, not a history of them.
+
+To upload one, open the client's portal as Blueprint, go to **Files**,
+and use **Upload PDF** in the orange panel. It has to be a PDF: the
+first five bytes are checked rather than the filename, because the
+file is served back as `application/pdf`. The cap is 25MB.
+
+The client sees it as the first card on their Files tab, ahead of the
+Drive folder, with its size on it. They download it through
+`/portal/<slug>/files/briefs/<slug>/brand-brief.pdf`, behind the same
+session check as their reports. R2 has no public URL here.
+
+Uploading drops that client's cached payload, so the new brief is on
+their next load rather than up to a minute later.
+
+---
+
 ## 4. Publishing a report
 
 Sign in to any client's portal as an admin and open **Reports**. The
@@ -495,9 +522,9 @@ The portal admin cookie is scoped to `/portal`, so it does not reach
 
 Files are served from `/portal/<slug>/files/<key>`, behind the client
 session. A client can only fetch keys that begin with their own
-`reports/<slug>/` or `audits/<slug>/`; an admin can fetch any. Keys are
-checked against a pattern before R2 is touched, so a traversal never
-gets as far as a lookup.
+`reports/<slug>/`, `audits/<slug>/` or `briefs/<slug>/`; an admin can
+fetch any. Keys are checked against a pattern before R2 is touched, so
+a traversal never gets as far as a lookup.
 
 Drafts never reach a client. The portal payload is built from a
 whitelist of field names, and an unpublished snapshot is dropped before

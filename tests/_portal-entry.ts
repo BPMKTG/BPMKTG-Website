@@ -12,3 +12,9 @@ export * from '../src/server/portal-login';
 export * from '../src/server/portal-move';
 export * from '../src/server/portal-notion';
 export * from '../src/server/portal-write';
+// The brand brief. Everything in here that touches R2 takes the
+// bucket as an argument, so what is testable is what decides: the
+// key, the URL, the size cap and whether the bytes are a PDF.
+export {
+  BRIEF_FILE, MAX_BRIEF_BYTES, briefKey, briefUrl, looksLikePdf, fileSize,
+} from '../src/server/brief';

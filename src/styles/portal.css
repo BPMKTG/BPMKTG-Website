@@ -2509,6 +2509,10 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
     var(--pt-tint-soft);
 }
 
+/* The file picker is a hidden input and a button standing in for it,
+   so the pair has to sit in the actions row as one control. */
+.pt-brief-pick { display: inline-flex; }
+
 /* None of this belongs in a printed report. */
 @media print {
   .pt-docs, .pt-admin { display: none !important; }

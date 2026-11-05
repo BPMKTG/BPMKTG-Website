@@ -253,6 +253,7 @@ const NAV = [
     type PortalCalendarItem,
     type PortalMoment,
     type PortalPayload,
+    type PortalBrief,
     type PortalViewer,
     type PortalSnapshot,
     type PortalAudit,
@@ -382,6 +383,10 @@ const NAV = [
 
   /* ── state ─────────────────────────────────────────────────── */
   let DATA: PortalPayload | null = null;
+  /** The brand brief, kept out here because an upload changes it
+   *  without a reload and both the client's card and the admin row
+   *  are drawn from it. */
+  let BRIEF: PortalBrief | null = null;
   let SLUG = '';
   /** Who is looking, from the signed session. The browser is told so
    *  it can draw a switcher and a sign-out; nothing it does with this
@@ -478,6 +483,7 @@ const NAV = [
     AUDITS = data.audits ?? [];
     ADMIN = data.admin ?? null;
     renderReports(data.snapshots);
+    BRIEF = data.brief ?? null;
     renderFiles(c);
 
     show(q('[data-state="loading"]'), false);
@@ -4929,6 +4935,27 @@ const NAV = [
     return { ok: res.ok && json?.ok === true, status: res.status, json };
   }
 
+  /**
+   * A file to an admin endpoint: the bytes are the body.
+   *
+   * No FormData. There is one file and no fields, so a multipart
+   * boundary would be packaging around a single value, and the server
+   * would have to unwrap it before it could look at the first five
+   * bytes to see whether this is a PDF at all.
+   */
+  async function adminUpload(path: string, file: File) {
+    const res = await fetch(`${adminBase()}/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/pdf' },
+      credentials: 'same-origin',
+      body: file,
+    });
+    const text = await res.text();
+    let json: Record<string, unknown> | null = null;
+    try { json = JSON.parse(text) as Record<string, unknown>; } catch { json = null; }
+    return { ok: res.ok && json?.ok === true, status: res.status, json };
+  }
+
   async function adminGet(path: string) {
     const res = await fetch(`${adminBase()}/${path}`, { credentials: 'same-origin' });
     const text = await res.text();
@@ -5675,7 +5702,21 @@ const NAV = [
     return d ? `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}` : '';
   };
 
-  /* ── files ─────────────────────────────────────────────────── */
+  /* ── files ───────────────────────────────────────────────────
+     Three links out to Drive and Notion, and one document that is
+     ours: the brand brief, which is a PDF in R2 rather than a link
+     to somebody else's app. It is served through the portal's own
+     file endpoint, so the session is what grants it, not the URL.
+     ─────────────────────────────────────────────────────────────── */
+
+  /** Mirrors MAX_BRIEF_BYTES in src/server/brief.ts, which has the
+   *  final say. Checking here only saves Mason uploading 40MB to be
+   *  told no at the other end. A test keeps the two in step. */
+  const MAX_BRIEF_MB = 25;
+
+  const briefSize = (bytes: number) =>
+    bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
   function renderFiles(c: PortalPayload['client']) {
     const root = q('[data-view="files"]');
     if (!root) return;
@@ -5688,17 +5729,21 @@ const NAV = [
     ];
     const live = defs.filter(([url]) => !!url);
 
-    if (!live.length) {
+    if (!live.length && !BRIEF) {
       const e = el('div', 'pt-empty');
       const ic = el('div', 'pt-empty-icon');
       ic.appendChild(icon('folder'));
       e.append(ic, el('h3', undefined, 'Nothing shared yet'),
         el('p', undefined, 'Your Drive folder, Content Vault and roadmap land here as we set them up.'));
       root.appendChild(e);
+      // And the upload panel. Same lesson as the Publish button: the
+      // one moment Mason needs it is when there is nothing here.
+      appendBrief(root);
       return;
     }
 
     const grid = el('div', 'pt-grid pt-grid-2');
+    if (BRIEF) grid.appendChild(briefCard(BRIEF));
     for (const [url, title, desc, ic] of live) {
       const a = el('a', 'pt-file');
       (a as HTMLAnchorElement).href = url!;
@@ -5713,6 +5758,126 @@ const NAV = [
       grid.appendChild(a);
     }
     root.appendChild(grid);
+    appendBrief(root);
+  }
+
+  /** The client's own card. First in the grid, because it is the only
+   *  thing on this tab that is a document rather than a door. */
+  function briefCard(brief: PortalBrief): HTMLElement {
+    const a = el('a', 'pt-file');
+    (a as HTMLAnchorElement).href = brief.url;
+    // A new tab: the PDF opens in the browser's viewer and losing the
+    // portal behind it is how people lose their place.
+    (a as HTMLAnchorElement).target = '_blank';
+    (a as HTMLAnchorElement).rel = 'noopener noreferrer';
+    const box = el('div', 'pt-file-icon');
+    box.appendChild(icon('download'));
+    a.append(box, el('h3', undefined, 'Brand brief'),
+      el('p', undefined, 'How your name, type and colours are used, and the look everything we make for you follows.'));
+    const open = el('span', 'pt-file-open');
+    open.append(el('span', undefined, `PDF \u00b7 ${briefSize(brief.size)}`), icon('download'));
+    a.appendChild(open);
+    return a;
+  }
+
+  function appendBrief(root: HTMLElement): boolean {
+    const panel = briefPanel();
+    if (panel) root.appendChild(panel);
+    return Boolean(panel);
+  }
+
+  /** Upload and replace. Admin only, and keyed off the viewer rather
+   *  than off ADMIN, which is null when a client has no rows at all
+   *  and would hide the panel from the person who fills it. */
+  function briefPanel(): HTMLElement | null {
+    if (VIEWER.role !== 'admin') return null;
+
+    const card = el('section', 'pt-card pt-admin');
+    const head = el('div', 'pt-card-head');
+    head.appendChild(el('h2', undefined, 'Brand brief'));
+    head.appendChild(el('span', 'pt-card-note', 'Blueprint only'));
+    card.appendChild(head);
+
+    const body = el('div', 'pt-card-body');
+    body.appendChild(el('p', 'pt-sect-blurb',
+      'One PDF per client, stored with their reports. Uploading again replaces '
+      + 'it, and the client sees the new one on their next load.'));
+
+    const list = el('ul', 'pt-admin-list');
+    const row = el('li', 'pt-admin-row');
+    const text = el('div', 'pt-doc-text');
+    text.appendChild(el('div', 'pt-doc-title', 'Brand brief'));
+    text.appendChild(el('div', 'pt-doc-sub', BRIEF
+      ? `PDF \u00b7 ${briefSize(BRIEF.size)}${BRIEF.uploaded ? ` \u00b7 ${fmtDate(BRIEF.uploaded.slice(0, 10))}` : ''}`
+      : 'Nothing uploaded yet'));
+    row.append(text, adminPill(BRIEF ? 'In portal' : 'Not shown', BRIEF ? 'good' : 'warn'));
+
+    const acts = el('div', 'pt-admin-acts');
+    acts.appendChild(briefUpload(BRIEF ? 'Replace PDF' : 'Upload PDF'));
+    if (BRIEF) acts.appendChild(pdfLink(BRIEF.url, 'PDF', 'pt-btn-sm'));
+    row.appendChild(acts);
+
+    list.appendChild(row);
+    body.appendChild(list);
+    card.appendChild(body);
+    return card;
+  }
+
+  /**
+   * The file picker, as one button.
+   *
+   * The input is hidden and clicked by the button rather than shown,
+   * because a bare file input next to a row of pill buttons is the
+   * one control on this page that would look like somebody forgot to
+   * style it.
+   */
+  function briefUpload(label: string): HTMLElement {
+    const wrap = el('span', 'pt-brief-pick');
+    const input = el('input') as HTMLInputElement;
+    input.type = 'file';
+    input.accept = 'application/pdf,.pdf';
+    input.hidden = true;
+
+    const btn = el('button', 'pt-btn pt-btn-sm') as HTMLButtonElement;
+    btn.type = 'button';
+    const span = el('span', undefined, label);
+    btn.appendChild(span);
+    btn.addEventListener('click', () => { if (!btn.disabled) input.click(); });
+
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      // Cleared straight away, so picking the same file twice after a
+      // failure still fires a change event.
+      input.value = '';
+      if (!file) return;
+
+      if (file.size > MAX_BRIEF_MB * 1024 * 1024) {
+        errorToast(`That file is ${briefSize(file.size)} and the limit is ${MAX_BRIEF_MB} MB.`);
+        return;
+      }
+      btn.disabled = true;
+      span.textContent = 'Uploading\u2026';
+      try {
+        const res = await adminUpload('brief', file);
+        if (!res.ok) {
+          errorToast(why(res, 'The brief did not upload.'));
+          return;
+        }
+        BRIEF = (res.json?.brief as PortalBrief | undefined) ?? BRIEF;
+        toast('Brand brief uploaded. The client can see it now.');
+        // Redraw: the card, the pill and this button's own label all
+        // read from BRIEF, which has just changed.
+        if (DATA) renderFiles(DATA.client);
+      } catch (err) {
+        errorToast(`That did not go through. ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        btn.disabled = false;
+        span.textContent = label;
+      }
+    });
+
+    wrap.append(input, btn);
+    return wrap;
   }
 
   /* ── wiring ────────────────────────────────────────────────── */

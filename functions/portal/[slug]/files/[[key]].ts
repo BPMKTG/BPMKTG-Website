@@ -29,8 +29,12 @@ interface Env {
   REPORTS_BUCKET?: R2Bucket;
 }
 
-/** The prefixes a client of this slug owns. Nothing else is theirs. */
-const ownedPrefixes = (slug: string) => [`reports/${slug}/`, `audits/${slug}/`];
+/** The prefixes a client of this slug owns. Nothing else is theirs.
+ *  briefs/ is the brand brief, which has no Notion row behind it: the
+ *  key is the whole record that it exists. */
+const ownedPrefixes = (slug: string) => [
+  `reports/${slug}/`, `audits/${slug}/`, `briefs/${slug}/`,
+];
 
 /**
  * Is this a key we are willing to look up at all?

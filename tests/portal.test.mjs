@@ -112,7 +112,15 @@ import {
   CLIENTS_DB,
   CALENDAR_DB,
   SNAPSHOTS_DB,
+  // the brand brief
+  BRIEF_FILE,
+  MAX_BRIEF_BYTES,
+  briefKey,
+  briefUrl,
+  looksLikePdf,
+  fileSize,
 } from '../.tmp-portal-lib.mjs';
+import { readFileSync } from 'node:fs';
 
 let pass = 0, fail = 0;
 const is = (name, got, want) => {
@@ -1433,6 +1441,95 @@ is('write: and Client when they did it',
 // One cascade is tens of Notion writes, so it cannot be allowed to
 // spend from the same budget as a content save that costs one.
 ok('limit: a cascade is rarer than an ordinary write', MOVE_LIMIT < WRITE_LIMIT);
+
+/* ══ The brand brief ═════════════════════════════════════════════
+   One PDF per client at one key, replaced on re-upload. There is no
+   Notion row behind it, so the key IS the record: get it wrong and a
+   client's brief either cannot be found or, far worse, is served to
+   somebody else. */
+
+section('The brand brief');
+
+is('brief: the key is briefs/<slug>/brand-brief.pdf',
+   briefKey('sean-comma'), 'briefs/sean-comma/brand-brief.pdf');
+// Replace on re-upload is the whole design: same client, same key,
+// every time, whatever the uploaded file was called.
+is('brief: the same client always gets the same key',
+   briefKey('sean-comma'), briefKey('sean-comma'));
+is('brief: two clients never share one',
+   briefKey('sean-comma') === briefKey('other-artist'), false);
+// The slug reaches a storage key, so it goes through the same cleaner
+// as every other key rather than being trusted as it arrives.
+is('brief: a slug with junk in it is cleaned',
+   briefKey('../../etc/passwd'), 'briefs/etc-passwd/brand-brief.pdf');
+is('brief: and an empty one does not collapse the path',
+   briefKey(''), 'briefs/unnamed/brand-brief.pdf');
+is('brief: the file is always called the same thing', BRIEF_FILE, 'brand-brief.pdf');
+
+// The URL is root-relative on purpose: it rides in the cached payload
+// and a baked-in origin would be wrong the moment a preview
+// deployment and production shared a cache entry.
+is('brief: the URL goes through the portal, never at R2',
+   briefUrl('sean-comma'), '/portal/sean-comma/files/briefs/sean-comma/brand-brief.pdf');
+ok('brief: and it is relative', briefUrl('sean-comma').startsWith('/'));
+
+// The files endpoint only hands over keys that match its own filter.
+// A brief key that cannot get through it is a brief nobody can read.
+const BRIEF_KEY_SHAPE = /^[a-z0-9/-]+\.pdf$/;
+ok('brief: the key passes the file endpoint\u2019s filter',
+   BRIEF_KEY_SHAPE.test(briefKey('sean-comma')));
+ok('brief: and it sits under the client\u2019s own prefix',
+   briefKey('sean-comma').startsWith('briefs/sean-comma/'));
+
+/* What counts as a PDF. The endpoint stores this under a key it then
+   serves as application/pdf, so the bytes decide, not the filename. */
+
+const pdfBytes = (head) => new TextEncoder().encode(head);
+ok('brief: a real header passes', looksLikePdf(pdfBytes('%PDF-1.4\n…')));
+is('brief: HTML does not', looksLikePdf(pdfBytes('<!doctype html>')), false);
+is('brief: a PNG does not', looksLikePdf(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d])), false);
+is('brief: empty does not', looksLikePdf(new Uint8Array()), false);
+is('brief: and nor does something shorter than the magic',
+   looksLikePdf(pdfBytes('%PDF')), false);
+// The real thing, off disk, so this does not only pass against bytes
+// the test made up.
+const REAL_PDF = new Uint8Array(readFileSync(new URL('./fixtures/brief-head.bin', import.meta.url)));
+ok('brief: the file Mason actually uploaded passes', looksLikePdf(REAL_PDF));
+
+is('brief: the cap is 25MB', MAX_BRIEF_BYTES, 25 * 1024 * 1024);
+
+/* The browser carries its own copy of the cap so a 40MB file is
+   refused before it is uploaded. Two numbers, one rule. */
+const PANEL_SRC = readFileSync(new URL('../src/pages/portal/index.astro', import.meta.url), 'utf8');
+const mb = /const MAX_BRIEF_MB = (\d+);/.exec(PANEL_SRC);
+ok('brief: the panel has a cap of its own', Boolean(mb));
+is('brief: and it is the server\u2019s cap',
+   Number(mb?.[1] ?? -1) * 1024 * 1024, MAX_BRIEF_BYTES);
+
+/* The file endpoint is what actually hands the bytes over, and it
+   only serves prefixes it has been told a client owns. Miss this and
+   the brief is stored, listed, linked and then 404s. */
+const FILES_SRC = readFileSync(
+  new URL('../functions/portal/[slug]/files/[[key]].ts', import.meta.url), 'utf8');
+const owned = /const ownedPrefixes = \(slug: string\) => \[([^\]]*)\]/.exec(FILES_SRC);
+ok('brief: the file endpoint lists what a client owns', Boolean(owned));
+ok('brief: and briefs/ is one of them', (owned?.[1] ?? '').includes('briefs/${slug}/'));
+// Under the slug, never bare: `briefs/` on its own would hand every
+// client every other client's brief.
+is('brief: never a bare briefs/ prefix',
+   /`briefs\/`/.test(owned?.[1] ?? ''), false);
+
+/* And the upload panel has to be reachable from the state it exists
+   to fix: a Files tab with nothing on it. Same bug as the Publish
+   button, which went missing for exactly this reason. */
+const filesEmpty = PANEL_SRC.indexOf("if (!live.length && !BRIEF) {");
+ok('brief: the empty Files state exists', filesEmpty > 0);
+ok('brief: and it still offers the upload panel',
+   PANEL_SRC.slice(filesEmpty, filesEmpty + 700).includes('appendBrief'));
+
+is('brief: kilobytes under a megabyte', fileSize(350 * 1024), '350 KB');
+is('brief: megabytes above it', fileSize(1_197_865), '1.1 MB');
+is('brief: bytes when it is tiny', fileSize(900), '900 B');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

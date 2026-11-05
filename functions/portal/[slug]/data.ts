@@ -32,20 +32,23 @@ import {
   DATA_CACHE_SECONDS,
   isValidSlug,
   normaliseSlug,
+  portalDataKey,
   portalNotFound,
   readViewer,
   sessionSecret,
 } from '../../../src/server/portal-auth';
+import { readBrief } from '../../../src/server/brief';
 import type { PortalPayload } from '../../../src/data/portal';
 
 interface Env {
   NOTION_TOKEN: string;
   PORTAL_SECRET?: string;
+  /** Where the brand brief lives. Optional: a deployment without it
+   *  is a portal with no brief, not a broken one. */
+  REPORTS_BUCKET?: R2Bucket;
 }
 
-/** Cache key for one client's assembled payload. The hostname is not
- *  routable, so nothing can fetch this out of the cache over HTTP. */
-const cacheKey = (slug: string) => `https://portal-data.invalid/${slug}`;
+
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, params }) => {
   if (!env.NOTION_TOKEN) {
@@ -82,7 +85,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     : null;
 
   const cache = caches.default;
-  const key = cacheKey(slug);
+  const key = portalDataKey(slug);
 
   const hit = await cache.match(key).catch(() => undefined);
   if (hit) return withHeaders(await graft(hit, viewerBlock, adminBlock), 'hit');
@@ -94,7 +97,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     // their portal switched off gets the same 404 as everyone else.
     if (!record || !record.portalEnabled) return portalNotFound();
 
-    const [calendar, snapshots, content, contentSchema, audits] = await Promise.all([
+    const [calendar, snapshots, content, contentSchema, audits, brief] = await Promise.all([
       fetchCalendar(env.NOTION_TOKEN, record.pageId, record.client.artist),
       fetchSnapshots(env.NOTION_TOKEN, record.pageId),
       fetchContent(env.NOTION_TOKEN, record.pageId),
@@ -106,9 +109,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
         console.error('portal: audits threw', err);
         return [];
       }),
+      // One HEAD against R2, and never a throw. The brief is the same
+      // for both roles, so unlike the admin block it belongs in the
+      // cached body: a client who sees it is meant to.
+      readBrief(env, record.slug),
     ]);
 
-    payload = { client: record.client, calendar, snapshots, content, contentSchema, audits };
+    payload = { client: record.client, brief, calendar, snapshots, content, contentSchema, audits };
   } catch (err) {
     console.error('portal: data build threw', err);
     return portalNotFound();
