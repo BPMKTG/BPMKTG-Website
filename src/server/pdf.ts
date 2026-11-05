@@ -120,6 +120,41 @@ export function auditKey(subject: string, auditId: string): string {
 }
 
 /**
+ * The request body, as its own function so a test can read it.
+ *
+ * Every value here is checked against Browser Rendering's schema
+ * rather than puppeteer's. They are not the same: puppeteer takes
+ * `format: 'Letter'` and the REST API rejects it, because its enum is
+ * lowercase. That one capital cost a deploy and an afternoon, so the
+ * shape of this object is pinned by tests.
+ */
+export function pdfRequest(url: string) {
+  return {
+    url,
+    // The viewport is the sheet. A narrower one makes the media
+    // queries and the grid resolve against the wrong width before
+    // print styles apply, which shows up as clipped cards.
+    viewport: { width: 816, height: 1056, deviceScaleFactor: 2 },
+    gotoOptions: { waitUntil: 'networkidle0', timeout: GOTO_TIMEOUT_MS },
+    // The whole reason the template sets this attribute. See above.
+    waitForSelector: { selector: 'html[data-print-ready="1"]', timeout: READY_TIMEOUT_MS },
+    pdfOptions: {
+      // Lowercase. The API's enum is letter|legal|tabloid|ledger|a0..a6.
+      format: 'letter',
+      printBackground: true,
+      preferCSSPageSize: true,
+    },
+  };
+}
+
+/** The paper sizes the API accepts, for the test that stops anyone
+ *  reaching for puppeteer's spelling again. */
+export const PDF_FORMATS = [
+  'letter', 'legal', 'tabloid', 'ledger',
+  'a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6',
+] as const;
+
+/**
  * Renders one print route and returns the PDF bytes.
  *
  * `origin` is this deployment's own origin, taken from the incoming
@@ -139,21 +174,7 @@ export async function renderPdf(
   const token = await mintPrintToken(printSecret(env), kind, id);
   const url = `${origin}/print/${kind}/${encodeURIComponent(id)}?t=${encodeURIComponent(token)}`;
 
-  const body = JSON.stringify({
-    url,
-    // The viewport is the sheet. A narrower one makes the media
-    // queries and the grid resolve against the wrong width before
-    // print styles apply, which shows up as clipped cards.
-    viewport: { width: 816, height: 1056, deviceScaleFactor: 2 },
-    gotoOptions: { waitUntil: 'networkidle0', timeout: GOTO_TIMEOUT_MS },
-    // The whole reason the template sets this attribute. See above.
-    waitForSelector: { selector: 'html[data-print-ready="1"]', timeout: READY_TIMEOUT_MS },
-    pdfOptions: {
-      format: 'Letter',
-      printBackground: true,
-      preferCSSPageSize: true,
-    },
-  });
+  const body = JSON.stringify(pdfRequest(url));
 
   let res: Response | null = null;
   for (const path of API_PATHS) {

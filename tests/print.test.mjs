@@ -75,6 +75,8 @@ import {
   auditKey,
   canRender,
   redactToken,
+  pdfRequest,
+  PDF_FORMATS,
   // the publish stamp
   stampSnapshotEdit,
   editedBy,
@@ -453,6 +455,28 @@ is('redact: inside JSON quotes',
    redactToken('{"url":"https://x/p?t=p1.9.zz"}'), '{"url":"https://x/p?t=REDACTED"}');
 ok('redact: leaves everything else alone',
    redactToken('status 403: Browser Run Edit required').includes('Browser Run Edit required'));
+
+/* The request body is checked against Browser Rendering's schema, not
+   puppeteer's. They differ, and the difference is a 400 at publish
+   time rather than anything a build or a type would catch. */
+const REQ = pdfRequest('https://x/print/report/1?t=tok');
+
+is('body: the paper size is one the API accepts',
+   PDF_FORMATS.includes(REQ.pdfOptions.format), true);
+// puppeteer takes 'Letter'; the REST enum is lowercase, and that one
+// capital is what returned 400 on the first real publish.
+is('body: and it is lowercase', REQ.pdfOptions.format, 'letter');
+is('body: backgrounds print', REQ.pdfOptions.printBackground, true);
+is('body: the page picks its own paper size', REQ.pdfOptions.preferCSSPageSize, true);
+is('body: the viewport is the sheet',
+   [REQ.viewport.width, REQ.viewport.height], [816, 1056]);
+is('body: it waits for the fonts, not just the network',
+   REQ.waitForSelector.selector, 'html[data-print-ready="1"]');
+is('body: waitUntil is one the API accepts',
+   ['load', 'domcontentloaded', 'networkidle0', 'networkidle2']
+     .includes(REQ.gotoOptions.waitUntil), true);
+is('body: the url is passed through whole',
+   REQ.url, 'https://x/print/report/1?t=tok');
 
 /* ══ 12. The email ═══════════════════════════════════════════════ */
 
