@@ -48,6 +48,21 @@ const READY_TIMEOUT_MS = 20_000;
  *  faults and the logs should be able to tell them apart. */
 const GOTO_TIMEOUT_MS = 30_000;
 
+/**
+ * The API path, new name first.
+ *
+ * Cloudflare renamed Browser Rendering to Browser Run and moved the
+ * endpoint with it. The product docs give `browser-run`; the API
+ * reference still prints `browser-rendering`. One of them is a legacy
+ * alias and there is no way to tell which from the outside, so this
+ * tries the current name and falls back once on a 404.
+ *
+ * Only on a 404. A 401 is a bad token and a 400 is a bad body, and
+ * retrying either against the other path turns one clear error in the
+ * log into two confusing ones.
+ */
+const API_PATHS = ['browser-run', 'browser-rendering'] as const;
+
 export interface PdfEnv {
   REPORTS_BUCKET: R2Bucket;
   /** The Cloudflare account the Browser Rendering call is billed to. */
@@ -117,40 +132,47 @@ export async function renderPdf(
   const token = await mintPrintToken(printSecret(env), kind, id);
   const url = `${origin}/print/${kind}/${encodeURIComponent(id)}?t=${encodeURIComponent(token)}`;
 
-  const res = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/browser-rendering/pdf`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.CF_BROWSER_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url,
-        // The viewport is the sheet. A narrower one makes the media
-        // queries and the grid resolve against the wrong width before
-        // print styles apply, which shows up as clipped cards.
-        viewport: { width: 816, height: 1056, deviceScaleFactor: 2 },
-        gotoOptions: { waitUntil: 'networkidle0', timeout: GOTO_TIMEOUT_MS },
-        // The whole reason the template sets this attribute. See above.
-        waitForSelector: { selector: 'html[data-print-ready="1"]', timeout: READY_TIMEOUT_MS },
-        pdfOptions: {
-          format: 'Letter',
-          printBackground: true,
-          preferCSSPageSize: true,
-        },
-      }),
+  const body = JSON.stringify({
+    url,
+    // The viewport is the sheet. A narrower one makes the media
+    // queries and the grid resolve against the wrong width before
+    // print styles apply, which shows up as clipped cards.
+    viewport: { width: 816, height: 1056, deviceScaleFactor: 2 },
+    gotoOptions: { waitUntil: 'networkidle0', timeout: GOTO_TIMEOUT_MS },
+    // The whole reason the template sets this attribute. See above.
+    waitForSelector: { selector: 'html[data-print-ready="1"]', timeout: READY_TIMEOUT_MS },
+    pdfOptions: {
+      format: 'Letter',
+      printBackground: true,
+      preferCSSPageSize: true,
     },
-  );
+  });
 
-  if (!res.ok) {
-    // The body is Cloudflare's JSON error, which names the real cause
-    // (a token without Browser Rendering Write, an origin it could not
-    // reach, a selector that never appeared). Worth logging whole:
-    // without it every failure looks identical from the portal.
-    const detail = await res.text().catch(() => '');
-    console.error('pdf: browser rendering failed', res.status, detail.slice(0, 500));
-    throw new Error(`browser rendering returned ${res.status}`);
+  let res: Response | null = null;
+  for (const path of API_PATHS) {
+    res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/${path}/pdf`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.CF_BROWSER_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body,
+      },
+    );
+    if (res.status !== 404) break;
+    console.warn(`pdf: ${path}/pdf answered 404, trying the other spelling`);
+  }
+
+  if (!res || !res.ok) {
+    // Cloudflare's JSON error names the real cause: a token without
+    // Browser Run Edit, an origin it could not reach, a selector that
+    // never appeared. Worth logging whole, because without it every
+    // failure looks identical from the portal.
+    const detail = res ? await res.text().catch(() => '') : '';
+    console.error('pdf: browser rendering failed', res?.status, detail.slice(0, 500));
+    throw new Error(`browser rendering returned ${res?.status ?? 'no response'}`);
   }
 
   return new Uint8Array(await res.arrayBuffer());

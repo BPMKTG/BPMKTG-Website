@@ -42,12 +42,21 @@ Production and Preview:
 Create the token at **My Profile → API Tokens → Create Token →
 Create Custom Token**:
 
-- Permissions: **Account → Browser Rendering → Edit**
+- Name: anything. `bpmktg-website · report PDFs` says which project
+  breaks if you revoke it, which is the only job the name has.
+- Permissions: **Account → Browser Run → Edit**. Cloudflare renamed
+  Browser Rendering to Browser Run, so that is the row to look for.
 - Account Resources: **Include → your account**
 - Nothing else. This token can start a headless browser and that is
   all it should ever be able to do.
 
 Copy it once, when it is shown. Cloudflare will not show it again.
+
+The rename moved the API path too. `src/server/pdf.ts` calls
+`/accounts/<id>/browser-run/pdf` and falls back to the older
+`/browser-rendering/pdf` if that answers 404, because the product docs
+and the API reference currently disagree about which one is live. If
+the logs ever show the fallback firing, drop the dead path.
 
 This works on the **Free plan**, which allows 10 minutes of browser
 time a day. A report takes a few seconds to render, so that is on the
