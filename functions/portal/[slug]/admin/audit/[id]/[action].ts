@@ -24,7 +24,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { loadAudit } from '../../../../../../src/server/audit-data';
-import { adminJson, beginAdmin, type AdminEnv } from '../../../../../../src/server/admin-guard';
+import { adminJson, beginAdmin, reason, type AdminEnv } from '../../../../../../src/server/admin-guard';
 import { portalNotFound } from '../../../../../../src/server/portal-auth';
 import { setAuditPdf, setAuditShareLink } from '../../../../../../src/server/report-publish';
 import { mintPrintToken, printSecret } from '../../../../../../src/server/print-token';
@@ -148,6 +148,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     return adminJson({ ok: true, key, url, missing: loaded.input.missing });
   } catch (err) {
     console.error('portal: audit pdf failed', ctx.id, err);
-    return adminJson({ ok: false, error: 'render_failed' }, 502);
+    return adminJson({ ok: false, error: 'render_failed', detail: reason(err) }, 502);
   }
 };

@@ -77,6 +77,19 @@ export async function beginAdmin(
   };
 }
 
+/**
+ * A thrown thing, as a sentence an admin can act on.
+ *
+ * These endpoints are admin-only and the renderer already redacts the
+ * signed token from its own message, so the real cause goes back to
+ * the panel rather than only to a log stream nobody has open at the
+ * moment the button is pressed.
+ */
+export function reason(err: unknown): string {
+  const text = err instanceof Error ? err.message : String(err ?? '');
+  return text.trim().slice(0, 300) || 'no reason given';
+}
+
 /** A JSON answer for an admin action. Never cached. */
 export function adminJson(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

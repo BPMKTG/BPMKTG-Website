@@ -12,7 +12,7 @@ export * from '../src/server/print-token';
 export * from '../src/server/print-html';
 export * from '../src/server/share-link';
 export * from '../src/server/report-mail';
-export { fileSlug, reportKey, auditKey, canRender } from '../src/server/pdf';
+export { fileSlug, reportKey, auditKey, canRender, redactToken } from '../src/server/pdf';
 // The one pure piece of the publish path: what a Notion PATCH is
 // shaped like. The writes themselves need a network and are not here.
 export { stampSnapshotEdit } from '../src/server/report-publish';

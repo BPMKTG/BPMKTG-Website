@@ -4879,6 +4879,14 @@ const NAV = [
     return { ok: res.ok && json?.ok === true, status: res.status, json };
   }
 
+  /** What the server said went wrong, or a fallback. These endpoints
+   *  are admin-only, so the real cause belongs on the button rather
+   *  than in a log Mason has to go and open. */
+  function why(res: { json: Record<string, unknown> | null }, fallback: string): string {
+    const detail = String(res.json?.detail ?? '').trim();
+    return detail ? `${fallback} ${detail}` : fallback;
+  }
+
   /**
    * One admin button: disables itself, runs, says what happened.
    *
@@ -4939,12 +4947,12 @@ const NAV = [
     acts.appendChild(previewLink('report', r.id));
     acts.appendChild(adminButton('Regenerate PDF', async () => {
       const res = await adminPost(`report/${encodeURIComponent(r.id)}/pdf`);
-      return res.ok ? 'PDF regenerated.' : 'The PDF did not generate.';
+      return res.ok ? 'PDF regenerated.' : why(res, 'The PDF did not generate.');
     }));
     if (!r.published) {
       acts.appendChild(adminButton('Publish', async () => {
         const res = await adminPost(`report/${encodeURIComponent(r.id)}/publish`);
-        if (!res.ok) return 'Publishing did not go through.';
+        if (!res.ok) return why(res, 'Publishing did not go through.');
         const mail = String(res.json?.mail ?? '');
         if (mail === 'sent') return 'Published, and the email is on its way.';
         if (mail === 'already') return 'Published. The email had already gone.';
@@ -4969,7 +4977,7 @@ const NAV = [
     acts.appendChild(previewLink('audit', r.id));
     acts.appendChild(adminButton('Generate PDF', async () => {
       const res = await adminPost(`audit/${encodeURIComponent(r.id)}/pdf`);
-      if (!res.ok) return 'The PDF did not generate.';
+      if (!res.ok) return why(res, 'The PDF did not generate.');
       const missing = Array.isArray(res.json?.missing) ? res.json?.missing as string[] : [];
       return missing.length
         ? `PDF ready. ${missing.length} heading${missing.length === 1 ? '' : 's'} missing: ${missing.join(', ')}`

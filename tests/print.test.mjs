@@ -74,6 +74,7 @@ import {
   reportKey,
   auditKey,
   canRender,
+  redactToken,
   // the publish stamp
   stampSnapshotEdit,
   editedBy,
@@ -440,6 +441,18 @@ is('render: no account', canRender({ CF_BROWSER_TOKEN: 't' }), false);
 is('render: neither', canRender({}), false);
 is('render: an empty string is not a credential',
    canRender({ CF_ACCOUNT_ID: '', CF_BROWSER_TOKEN: 't' }), false);
+
+// A render failure is shown to the admin, and error strings get
+// pasted into chats, so the signed token does not ride along.
+is('redact: a token in a URL',
+   redactToken('fetch https://x/print/report/1?t=p1.123.abcdef failed'),
+   'fetch https://x/print/report/1?t=REDACTED failed');
+is('redact: and as a later parameter',
+   redactToken('url=https://x/p?a=1&t=p1.9.zz&b=2'), 'url=https://x/p?a=1&t=REDACTED&b=2');
+is('redact: inside JSON quotes',
+   redactToken('{"url":"https://x/p?t=p1.9.zz"}'), '{"url":"https://x/p?t=REDACTED"}');
+ok('redact: leaves everything else alone',
+   redactToken('status 403: Browser Run Edit required').includes('Browser Run Edit required'));
 
 /* ══ 12. The email ═══════════════════════════════════════════════ */
 

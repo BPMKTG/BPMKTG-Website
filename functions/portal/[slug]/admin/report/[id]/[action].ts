@@ -24,7 +24,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { monthLabel } from '../../../../../../src/data/print';
-import { adminJson, beginAdmin, type AdminEnv } from '../../../../../../src/server/admin-guard';
+import { adminJson, beginAdmin, reason, type AdminEnv } from '../../../../../../src/server/admin-guard';
 import { portalNotFound } from '../../../../../../src/server/portal-auth';
 import { loadReport } from '../../../../../../src/server/report-data';
 import { publishSnapshot, setSnapshotPdf } from '../../../../../../src/server/report-publish';
@@ -129,6 +129,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     return adminJson({ ok: true, key, url, mail });
   } catch (err) {
     console.error('portal: report action failed', action, ctx.id, err);
-    return adminJson({ ok: false, error: 'render_failed' }, 502);
+    // The reason travels back to the panel. Everything that reaches
+    // here is admin-only and the renderer redacts the signed token
+    // from its own message, so this tells Mason what broke rather
+    // than making him go and find a log stream.
+    return adminJson({ ok: false, error: 'render_failed', detail: reason(err) }, 502);
   }
 };

@@ -48,6 +48,13 @@ const READY_TIMEOUT_MS = 20_000;
  *  faults and the logs should be able to tell them apart. */
 const GOTO_TIMEOUT_MS = 30_000;
 
+/** The print URL carries a signed token. It is good for ten minutes
+ *  and only an admin ever sees these messages, but an error string
+ *  gets pasted into chats and tickets, so it does not travel. */
+export function redactToken(text: string): string {
+  return text.replace(/([?&]t=)[^&"'\s]+/g, '$1REDACTED');
+}
+
 /**
  * The API path, new name first.
  *
@@ -168,11 +175,14 @@ export async function renderPdf(
   if (!res || !res.ok) {
     // Cloudflare's JSON error names the real cause: a token without
     // Browser Run Edit, an origin it could not reach, a selector that
-    // never appeared. Worth logging whole, because without it every
-    // failure looks identical from the portal.
-    const detail = res ? await res.text().catch(() => '') : '';
-    console.error('pdf: browser rendering failed', res?.status, detail.slice(0, 500));
-    throw new Error(`browser rendering returned ${res?.status ?? 'no response'}`);
+    // never appeared. It goes in the log AND into the thrown message,
+    // because the admin panel shows it to Mason and he is the only
+    // person who can reach these endpoints. Hunting a dashboard log
+    // stream to find out why a button went grey is not a workflow.
+    const raw = res ? await res.text().catch(() => '') : '';
+    const detail = redactToken(raw).slice(0, 300);
+    console.error('pdf: browser rendering failed', res?.status, detail);
+    throw new Error(`Browser Rendering returned ${res?.status ?? 'no response'}. ${detail}`);
   }
 
   return new Uint8Array(await res.arrayBuffer());
