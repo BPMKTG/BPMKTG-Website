@@ -26,3 +26,20 @@ ADMIN_EMAILS=
 # Optional. The From line on a sign-in code. Must be a verified sender
 # on the Resend account. Defaults to the one in src/server/portal-login.ts.
 PORTAL_MAIL_FROM=
+
+# ── Reports and audits (see docs/REPORTS_SETUP.md) ──────────────────
+
+# Signs the ten-minute token the PDF renderer uses to open /print/*.
+# Any random string of 16+ characters. When unset the print routes fall
+# back to the same secret the portal session uses, which works; the only
+# difference is that rotating one rotates both.
+PRINT_SIGNING_SECRET=
+
+# Not a variable. BROWSER (Browser Rendering) and REPORTS_BUCKET (R2) are
+# BINDINGS, so they cannot live in this file. `wrangler pages dev` takes
+# them as flags, and in the cloud they are set in the Pages dashboard:
+#
+#   wrangler pages dev dist --r2 REPORTS_BUCKET=bpmktg-reports
+#
+# Browser Rendering has no local emulator. Preview and Publish both need
+# it, so test those against a Preview deployment rather than locally.

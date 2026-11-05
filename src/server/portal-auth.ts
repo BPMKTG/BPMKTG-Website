@@ -98,7 +98,10 @@ export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
 
 /* ── session token ────────────────────────────────────────────── */
 
-async function hmac(secret: string, message: string): Promise<string> {
+/** HMAC-SHA256 as hex. Exported so print-token.ts signs its
+ *  short-lived render tokens with the same primitive rather than a
+ *  second copy of this five-line function. */
+export async function hmacHex(secret: string, message: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     'raw',
     encoder.encode(secret),
@@ -126,7 +129,7 @@ const TOKEN_V = 'v2';
 
 async function mint(secret: string, scope: string, who: string, now: number): Promise<string> {
   const exp = Math.floor(now / 1000) + SESSION_SECONDS;
-  const sig = await hmac(secret, `${scope}:${exp}:${who}`);
+  const sig = await hmacHex(secret, `${scope}:${exp}:${who}`);
   return `${TOKEN_V}.${exp}.${who}.${sig}`;
 }
 
@@ -148,7 +151,7 @@ async function verify(
   const exp = Number(expRaw);
   if (!Number.isFinite(exp) || exp * 1000 <= now) return null;
 
-  const expected = await hmac(secret, `${scope}:${exp}:${who}`);
+  const expected = await hmacHex(secret, `${scope}:${exp}:${who}`);
   return (await timingSafeEqual(sig, expected)) ? who : null;
 }
 

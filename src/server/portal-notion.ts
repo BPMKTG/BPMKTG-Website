@@ -10,6 +10,13 @@
    Every function here returns already-whitelisted values. A raw Notion
    page object must not escape this file: that is the one rule that
    keeps a rate or an internal note from reaching the browser.
+
+   The property readers and the paged query are exported, because
+   report-data.ts and audit-data.ts read the same databases and a
+   second copy of readRelation is a second place for a null to slip
+   through. They are the safe half: each one takes a wrapped Notion
+   value and hands back a plain one. The rule above is about the page
+   objects, which still stop here.
    ────────────────────────────────────────────────────────────── */
 
 import { isValidSlug, normaliseSlug } from './portal-auth';
@@ -46,6 +53,25 @@ const PAGE_SIZE = 100;
 /** Hard stop, so a runaway cursor cannot spin a Function forever. */
 const MAX_PAGES = 12;
 
+/* ── page ids ──────────────────────────────────────────────────── */
+
+/**
+ * Is this a Notion page id?
+ *
+ * Checked before any id taken from a URL reaches an API call or an R2
+ * key. Notion writes them dashed and the API accepts either form, so
+ * both are allowed and the dashes are dropped for comparison.
+ */
+export function isNotionId(raw: unknown): boolean {
+  return typeof raw === 'string' && /^[0-9a-f]{32}$/.test(raw.replace(/-/g, '').toLowerCase());
+}
+
+/** The dashless, lowercase form. One id has one spelling, so a cache
+ *  key or an R2 key built from it is stable. */
+export function normaliseNotionId(raw: string): string {
+  return raw.replace(/-/g, '').toLowerCase();
+}
+
 export const notionHeaders = (token: string) => ({
   Authorization: `Bearer ${token}`,
   'Notion-Version': NOTION_VERSION,
@@ -59,9 +85,9 @@ export const notionHeaders = (token: string) => ({
    was renamed look the same from here.
    ────────────────────────────────────────────────────────────── */
 
-type Prop = Record<string, any> | undefined;
+export type Prop = Record<string, any> | undefined;
 
-function readText(p: Prop): string | null {
+export function readText(p: Prop): string | null {
   if (!p) return null;
   const parts = p.type === 'title' ? p.title : p.type === 'rich_text' ? p.rich_text : null;
   if (!Array.isArray(parts)) return null;
@@ -71,20 +97,20 @@ function readText(p: Prop): string | null {
   return cleanText(parts.map((t: any) => t?.plain_text ?? '').join(''));
 }
 
-function readSelect(p: Prop): string | null {
+export function readSelect(p: Prop): string | null {
   return p?.type === 'select' ? cleanText(p.select?.name ?? null) : null;
 }
 
-function readMultiSelect(p: Prop): string[] {
+export function readMultiSelect(p: Prop): string[] {
   if (p?.type !== 'multi_select' || !Array.isArray(p.multi_select)) return [];
   return p.multi_select.map((o: any) => String(o?.name ?? '')).filter(Boolean);
 }
 
-function readCheckbox(p: Prop): boolean {
+export function readCheckbox(p: Prop): boolean {
   return p?.type === 'checkbox' ? Boolean(p.checkbox) : false;
 }
 
-function readUrl(p: Prop): string | null {
+export function readUrl(p: Prop): string | null {
   if (p?.type !== 'url') return null;
   const raw = typeof p.url === 'string' ? p.url.trim() : '';
   if (!raw) return null;
@@ -94,19 +120,19 @@ function readUrl(p: Prop): string | null {
   return /^https?:\/\//i.test(raw) ? raw : null;
 }
 
-function readDate(p: Prop): string | null {
+export function readDate(p: Prop): string | null {
   return p?.type === 'date' ? (p.date?.start ?? null) : null;
 }
 
 /** Related page ids, nothing else. A relation never carries the
  *  related page's own properties into the payload. */
-function readRelation(p: Prop): string[] {
+export function readRelation(p: Prop): string[] {
   const r = p as any;
   if (r?.type !== 'relation' || !Array.isArray(r.relation)) return [];
   return r.relation.map((x: any) => String(x?.id ?? '')).filter(Boolean);
 }
 
-function readNumber(p: Prop): number | null {
+export function readNumber(p: Prop): number | null {
   if (p?.type !== 'number') return null;
   return typeof p.number === 'number' && Number.isFinite(p.number) ? p.number : null;
 }
@@ -130,7 +156,7 @@ const MAX_MOMENT_FETCH = 25;
 
 /** One page by id, or null. Never throws: a moment we cannot read is a
  *  step without a campaign label, not a dead portal. */
-async function fetchPage(token: string, id: string): Promise<any | null> {
+export async function fetchPage(token: string, id: string): Promise<any | null> {
   try {
     const res = await fetch(`https://api.notion.com/v1/pages/${id}`, { headers: notionHeaders(token) });
     if (!res.ok) {
@@ -146,7 +172,7 @@ async function fetchPage(token: string, id: string): Promise<any | null> {
 
 /* ── paged query ───────────────────────────────────────────────── */
 
-async function queryAll(
+export async function queryAll(
   token: string,
   databaseId: string,
   body: Record<string, unknown>,
@@ -210,6 +236,18 @@ export async function findClientBySlug(token: string, slug: string): Promise<Cli
   }
 
   return shapeClient(results[0]);
+}
+
+/**
+ * The one Client with this page id, or null.
+ *
+ * The report and audit routes are handed a snapshot or an audit id and
+ * follow its Client relation, which is a page id rather than a slug.
+ * Shaped through the same whitelist as every other client read.
+ */
+export async function findClientById(token: string, pageId: string): Promise<ClientRecord | null> {
+  const page = await fetchPage(token, pageId);
+  return page ? shapeClient(page) : null;
 }
 
 function shapeClient(page: any): ClientRecord {
@@ -584,6 +622,37 @@ export async function patchCalendarPage(
   }
 }
 
+/**
+ * Sets properties on any page, and says whether it landed.
+ *
+ * Deliberately returns a boolean rather than the page: the publish
+ * flow needs to know the write succeeded, not to read values back out
+ * of a raw Notion object. Callers that want shaped values re-read
+ * through the function that owns that shape.
+ */
+export async function patchPage(
+  token: string,
+  pageId: string,
+  properties: Record<string, unknown>,
+  label = 'page',
+): Promise<boolean> {
+  try {
+    const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+      method: 'PATCH',
+      headers: notionHeaders(token),
+      body: JSON.stringify({ properties }),
+    });
+    if (!res.ok) {
+      console.error(`portal: ${label} write failed`, pageId, res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error(`portal: ${label} write threw`, pageId, err);
+    return false;
+  }
+}
+
 /* ── snapshots ─────────────────────────────────────────────────── */
 
 export async function fetchSnapshots(token: string, clientPageId: string): Promise<PortalSnapshot[]> {
@@ -627,6 +696,13 @@ export async function fetchSnapshots(token: string, clientPageId: string): Promi
       dataSource: readMultiSelect(p[SNAPSHOT_FIELDS[2]]),
       growthScore: readNumber(p[SNAPSHOT_FIELDS[3]]),
       summary: cleanText(readText(p[SNAPSHOT_FIELDS[4]])),
+      win: cleanText(readText(p[SNAPSHOT_FIELDS[6]])),
+      // Written by the publish endpoint and pointed at our own files
+      // route. readUrl keeps it to http(s), so a value typed into
+      // Notion by hand cannot become a javascript: link in a client's
+      // browser.
+      reportPdf: readUrl(p[SNAPSHOT_FIELDS[7]]),
+      publishedAt: readDate(p[SNAPSHOT_FIELDS[8]]),
       metrics,
     });
   }

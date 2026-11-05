@@ -255,6 +255,10 @@ const NAV = [
     type PortalPayload,
     type PortalViewer,
     type PortalSnapshot,
+    type PortalAudit,
+    type PortalAdmin,
+    type PortalAdminAudit,
+    type PortalAdminSnapshot,
   } from '../../data/portal';
   import {
     canClientMove,
@@ -471,6 +475,8 @@ const NAV = [
     renderContent(data);
     renderCalendar(data.calendar);
     renderHome(data);
+    AUDITS = data.audits ?? [];
+    ADMIN = data.admin ?? null;
     renderReports(data.snapshots);
     renderFiles(c);
 
@@ -4238,6 +4244,12 @@ const NAV = [
   const REP = { snapIndex: 0, cmpIndex: -1, metricTab: '' };
 
   let SNAPS: PortalSnapshot[] = [];
+  /** Published client audits, newest first. The server decides which
+   *  ones those are; this never filters by Published itself. */
+  let AUDITS: PortalAudit[] = [];
+  /** Drafts and controls. Null for a client, and absent from the
+   *  payload entirely, so there is nothing here to leak. */
+  let ADMIN: PortalAdmin | null = null;
 
   function renderReports(snapshots: PortalSnapshot[]) {
     // Newest first, so index 0 is always "now".
@@ -4669,15 +4681,19 @@ const NAV = [
     head.appendChild(cmpField);
 
     // A month's report is a thing people send on, so it has to leave
-    // the browser. The print stylesheet does the work; this is the
-    // button that asks for it.
-    const pdf = el('button', 'pt-btn pt-rep-print');
-    pdf.type = 'button';
-    pdf.appendChild(icon('download'));
-    pdf.appendChild(el('span', undefined, 'Download PDF'));
-    pdf.addEventListener('click', () => window.print());
-    head.appendChild(pdf);
+    // the browser. When the real PDF has been generated that is the
+    // one to hand over: it is the designed six-page document, not a
+    // print of this screen. Without one, the print stylesheet is
+    // still the honest fallback.
+    head.appendChild(snap.reportPdf
+      ? pdfLink(snap.reportPdf, 'Download PDF')
+      : printButton());
     wrap.appendChild(head);
+
+    const docs = documentsSection();
+    if (docs) wrap.appendChild(docs);
+    const panel = adminPanel();
+    if (panel) wrap.appendChild(panel);
 
     // Printed, the page has no idea whose report it is or which month,
     // so it says so. On screen this is hidden.
@@ -4750,6 +4766,297 @@ const NAV = [
       wrap.appendChild(grid);
     }
     return wrap;
+  }
+
+  /* ── documents ─────────────────────────────────────────────────
+     The Reports tab is a live view of the numbers; this is the shelf
+     of finished documents beside it. One row per thing a client can
+     actually keep: a month's report, the baseline, a growth audit.
+
+     Every link points at /portal/<slug>/files/..., which is our own
+     endpoint behind the session check, never at R2. A row with no PDF
+     yet still appears, without a link, because "October is published
+     and the PDF is coming" is true and worth saying.
+     ─────────────────────────────────────────────────────────────── */
+
+  function printButton(): HTMLElement {
+    const b = el('button', 'pt-btn pt-rep-print');
+    b.type = 'button';
+    b.appendChild(icon('download'));
+    b.appendChild(el('span', undefined, 'Download PDF'));
+    b.addEventListener('click', () => window.print());
+    return b;
+  }
+
+  function pdfLink(href: string, label: string, extra = ''): HTMLElement {
+    const a = el('a', `pt-btn pt-rep-print${extra ? ` ${extra}` : ''}`) as HTMLAnchorElement;
+    a.href = href;
+    // A new tab, because the PDF opens in the browser's own viewer and
+    // losing the portal behind it is how people lose their place.
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.appendChild(icon('download'));
+    a.appendChild(el('span', undefined, label));
+    return a;
+  }
+
+  interface DocRow {
+    sort: number;
+    kind: 'report' | 'audit';
+    title: string;
+    sub: string | null;
+    pdf: string | null;
+  }
+
+  function reportDocRow(s: PortalSnapshot): DocRow {
+    return {
+      sort: parseNotionDate(s.date)?.getTime() ?? 0,
+      kind: 'report',
+      title: snapLabel(s),
+      sub: (s.win ?? '').trim() || null,
+      pdf: s.reportPdf ?? null,
+    };
+  }
+
+  function auditDocRow(a: PortalAudit): DocRow {
+    const bits = [
+      a.score === null ? null : `Growth score ${a.score} / 40`,
+      (a.dataWindow ?? '').trim() || null,
+    ].filter(Boolean) as string[];
+    return {
+      sort: parseNotionDate(a.auditDate)?.getTime() ?? 0,
+      kind: 'audit',
+      title: a.title || 'Growth audit',
+      sub: bits.length ? bits.join(' · ') : ((a.shortVersion ?? '').trim() || null),
+      pdf: a.pdf,
+    };
+  }
+
+  function documentsSection(): HTMLElement | null {
+    const rows: DocRow[] = [
+      ...SNAPS.map(reportDocRow),
+      ...AUDITS.map(auditDocRow),
+    ].sort((a, b) => b.sort - a.sort);
+
+    // Nothing to shelve, so no shelf. A month with no PDF and no audit
+    // is the normal state of a brand new portal.
+    if (!rows.some((r) => r.pdf) && rows.length < 2) return null;
+
+    const card = el('section', 'pt-card pt-docs');
+    const head = el('div', 'pt-card-head');
+    head.appendChild(el('h2', undefined, 'Documents'));
+    head.appendChild(el('span', 'pt-card-note', 'Yours to keep'));
+    card.appendChild(head);
+
+    const body = el('div', 'pt-card-body');
+    const list = el('ul', 'pt-doc-list');
+    for (const r of rows) {
+      const li = el('li', 'pt-doc');
+      const ic = el('span', 'pt-doc-icon');
+      ic.appendChild(icon(r.kind === 'audit' ? 'chart' : 'inbox'));
+      const text = el('div', 'pt-doc-text');
+      text.appendChild(el('div', 'pt-doc-title', r.title));
+      if (r.sub) text.appendChild(el('div', 'pt-doc-sub', r.sub));
+      li.append(ic, text);
+      li.appendChild(r.pdf
+        ? pdfLink(r.pdf, 'PDF', 'pt-doc-get')
+        : el('span', 'pt-doc-pending', 'PDF coming'));
+      list.appendChild(li);
+    }
+    body.appendChild(list);
+    card.appendChild(body);
+    return card;
+  }
+
+  /* ── the admin panel ───────────────────────────────────────────
+     Mason's controls, drawn only from `payload.admin`, which the
+     server grafts on per request for an admin session and leaves off
+     entirely otherwise. A client's payload has no `admin` key, so
+     there is nothing here for a client to reveal with devtools: the
+     rows do not exist in their browser.
+     ─────────────────────────────────────────────────────────────── */
+
+  const adminBase = () => `/portal/${encodeURIComponent(SLUG)}/admin`;
+
+  async function adminPost(path: string, body?: Record<string, unknown>) {
+    const res = await fetch(`${adminBase()}/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body ?? {}),
+    });
+    const text = await res.text();
+    let json: Record<string, unknown> | null = null;
+    try { json = JSON.parse(text) as Record<string, unknown>; } catch { json = null; }
+    return { ok: res.ok && json?.ok === true, status: res.status, json };
+  }
+
+  /**
+   * One admin button: disables itself, runs, says what happened.
+   *
+   * Disabling is the double-click guard in the browser. The real one is
+   * on the server, where the publish email is claimed in KV before it
+   * is sent, because a disabled button does nothing about a second tab.
+   */
+  function adminButton(label: string, run: () => Promise<string>): HTMLElement {
+    const b = el('button', 'pt-btn pt-btn-sm');
+    b.type = 'button';
+    b.appendChild(el('span', undefined, label));
+    b.addEventListener('click', async () => {
+      const btn = b as HTMLButtonElement;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const was = label;
+      const span = q('span', b);
+      if (span) span.textContent = 'Working…';
+      try {
+        toast(await run());
+      } catch {
+        toast('That did not go through. Try again.', true);
+      } finally {
+        btn.disabled = false;
+        if (span) span.textContent = was;
+      }
+    });
+    return b;
+  }
+
+  function previewLink(kind: 'report' | 'audit', id: string): HTMLElement {
+    const a = el('a', 'pt-btn pt-btn-sm') as HTMLAnchorElement;
+    a.href = `${adminBase()}/${kind}/${encodeURIComponent(id)}/preview`;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.appendChild(el('span', undefined, 'Preview'));
+    return a;
+  }
+
+  /** Named for its panel rather than "pill", because two functions in
+   *  here already use that word for a delta chip. */
+  function adminPill(text: string, tone: 'good' | 'warn'): HTMLElement {
+    return el('span', `pt-admin-pill pt-admin-pill-${tone}`, text);
+  }
+
+  function adminSnapshotRow(r: PortalAdminSnapshot): HTMLElement {
+    const row = el('li', 'pt-admin-row');
+    const text = el('div', 'pt-doc-text');
+    const label = [
+      snapLabel({ date: r.date, type: r.type, dataSource: [], growthScore: null, metrics: {} }),
+    ].join('');
+    text.appendChild(el('div', 'pt-doc-title', label));
+    const sub = (r.win ?? '').trim();
+    if (sub) text.appendChild(el('div', 'pt-doc-sub', sub));
+    row.append(text, adminPill(r.published ? 'Published' : 'Draft', r.published ? 'good' : 'warn'));
+
+    const acts = el('div', 'pt-admin-acts');
+    acts.appendChild(previewLink('report', r.id));
+    acts.appendChild(adminButton('Regenerate PDF', async () => {
+      const res = await adminPost(`report/${encodeURIComponent(r.id)}/pdf`);
+      return res.ok ? 'PDF regenerated.' : 'The PDF did not generate.';
+    }));
+    if (!r.published) {
+      acts.appendChild(adminButton('Publish', async () => {
+        const res = await adminPost(`report/${encodeURIComponent(r.id)}/publish`);
+        if (!res.ok) return 'Publishing did not go through.';
+        const mail = String(res.json?.mail ?? '');
+        if (mail === 'sent') return 'Published, and the email is on its way.';
+        if (mail === 'already') return 'Published. The email had already gone.';
+        if (mail === 'no-recipients') return 'Published. No portal emails on file, so nothing was sent.';
+        return 'Published. The email did not send, which is in the logs.';
+      }));
+    }
+    if (r.reportPdf) acts.appendChild(pdfLink(r.reportPdf, 'PDF', 'pt-btn-sm'));
+    row.appendChild(acts);
+    return row;
+  }
+
+  function adminAuditRow(r: PortalAdminAudit): HTMLElement {
+    const row = el('li', 'pt-admin-row');
+    const text = el('div', 'pt-doc-text');
+    text.appendChild(el('div', 'pt-doc-title', r.title || 'Growth audit'));
+    const bits = [r.audience, r.status, fmtDate(r.auditDate)].filter(Boolean) as string[];
+    if (bits.length) text.appendChild(el('div', 'pt-doc-sub', bits.join(' · ')));
+    row.append(text, adminPill(r.published ? 'In portal' : 'Not shown', r.published ? 'good' : 'warn'));
+
+    const acts = el('div', 'pt-admin-acts');
+    acts.appendChild(previewLink('audit', r.id));
+    acts.appendChild(adminButton('Generate PDF', async () => {
+      const res = await adminPost(`audit/${encodeURIComponent(r.id)}/pdf`);
+      if (!res.ok) return 'The PDF did not generate.';
+      const missing = Array.isArray(res.json?.missing) ? res.json?.missing as string[] : [];
+      return missing.length
+        ? `PDF ready. ${missing.length} heading${missing.length === 1 ? '' : 's'} missing: ${missing.join(', ')}`
+        : 'PDF ready.';
+    }));
+    if (r.audience === 'Prospect') {
+      acts.appendChild(adminButton(r.shareLink ? 'New share link' : 'Create share link', async () => {
+        const res = await adminPost(`audit/${encodeURIComponent(r.id)}/share`, { days: 30 });
+        if (res.json?.error === 'no_pdf_yet') return 'Generate the PDF first.';
+        if (!res.ok) return 'The share link was not created.';
+        const url = String(res.json?.url ?? '');
+        if (url) await copy(url);
+        return url ? 'Share link copied. It expires in 30 days.' : 'Share link created.';
+      }));
+      if (r.shareLink) {
+        acts.appendChild(adminButton('Revoke', async () => {
+          const res = await adminPost(`audit/${encodeURIComponent(r.id)}/revoke`);
+          return res.ok ? 'That link no longer works.' : 'The link was not revoked.';
+        }));
+      }
+    }
+    if (r.pdf) acts.appendChild(pdfLink(r.pdf, 'PDF', 'pt-btn-sm'));
+    row.appendChild(acts);
+    return row;
+  }
+
+  /** Clipboard, with the old-fashioned fallback. A share link that is
+   *  created but not copied is a link Mason has to go and find. */
+  async function copy(text: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* nothing else to try */ }
+      ta.remove();
+    }
+  }
+
+  function adminPanel(): HTMLElement | null {
+    if (!ADMIN) return null;
+    const snapshots = ADMIN.snapshots ?? [];
+    const audits = ADMIN.audits ?? [];
+    if (!snapshots.length && !audits.length) return null;
+
+    const card = el('section', 'pt-card pt-admin');
+    const head = el('div', 'pt-card-head');
+    head.appendChild(el('h2', undefined, 'Publishing'));
+    head.appendChild(el('span', 'pt-card-note', 'Blueprint only'));
+    card.appendChild(head);
+
+    const body = el('div', 'pt-card-body');
+    body.appendChild(el('p', 'pt-sect-blurb',
+      'Preview opens the printable document. Publish generates the PDF, '
+      + 'switches the month on in this portal and emails the client once.'));
+
+    if (snapshots.length) {
+      body.appendChild(el('h3', 'pt-admin-head', 'Monthly reports'));
+      const list = el('ul', 'pt-admin-list');
+      for (const r of snapshots) list.appendChild(adminSnapshotRow(r));
+      body.appendChild(list);
+    }
+    if (audits.length) {
+      body.appendChild(el('h3', 'pt-admin-head', 'Growth audits'));
+      const list = el('ul', 'pt-admin-list');
+      for (const r of audits) list.appendChild(adminAuditRow(r));
+      body.appendChild(list);
+    }
+    card.appendChild(body);
+    return card;
   }
 
   /** Mason's note on the month, if he wrote one. Not a placeholder: a

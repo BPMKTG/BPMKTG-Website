@@ -23,6 +23,12 @@ import {
   findClientBySlug,
 } from '../../../src/server/portal-notion';
 import {
+  fetchClientAudits,
+  fetchPortalAudits,
+  toAdminAudit,
+} from '../../../src/server/audit-data';
+import { clientSnapshots, toAdminSnapshot } from '../../../src/server/report-data';
+import {
   DATA_CACHE_SECONDS,
   isValidSlug,
   normaliseSlug,
@@ -66,11 +72,20 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     : [];
   const viewerBlock = { role: viewer.role, ...(clients.length ? { clients } : {}) };
 
+  // Drafts and controls. Read per request and grafted on the way out,
+  // never written into the cached body: the cache is keyed by client,
+  // so anything cached with it would be served to that client on the
+  // next hit. An unpublished month must not be one cache entry away
+  // from the person it is about.
+  const adminBlock = viewer.role === 'admin'
+    ? await adminExtras(env.NOTION_TOKEN, slug)
+    : null;
+
   const cache = caches.default;
   const key = cacheKey(slug);
 
   const hit = await cache.match(key).catch(() => undefined);
-  if (hit) return withHeaders(await graft(hit, viewerBlock), 'hit');
+  if (hit) return withHeaders(await graft(hit, viewerBlock, adminBlock), 'hit');
 
   let payload: PortalPayload;
   try {
@@ -79,14 +94,21 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     // their portal switched off gets the same 404 as everyone else.
     if (!record || !record.portalEnabled) return portalNotFound();
 
-    const [calendar, snapshots, content, contentSchema] = await Promise.all([
+    const [calendar, snapshots, content, contentSchema, audits] = await Promise.all([
       fetchCalendar(env.NOTION_TOKEN, record.pageId, record.client.artist),
       fetchSnapshots(env.NOTION_TOKEN, record.pageId),
       fetchContent(env.NOTION_TOKEN, record.pageId),
       fetchContentSchema(env.NOTION_TOKEN),
+      // Published client audits only, filtered on the server. A draft
+      // teardown is not in this list at all, so there is nothing for
+      // the browser to decide not to draw.
+      fetchPortalAudits(env.NOTION_TOKEN, record.pageId).catch((err) => {
+        console.error('portal: audits threw', err);
+        return [];
+      }),
     ]);
 
-    payload = { client: record.client, calendar, snapshots, content, contentSchema };
+    payload = { client: record.client, calendar, snapshots, content, contentSchema, audits };
   } catch (err) {
     console.error('portal: data build threw', err);
     return portalNotFound();
@@ -104,7 +126,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
   });
   await cache.put(key, cacheable.clone()).catch(() => {});
 
-  return withHeaders(await graft(cacheable, viewerBlock), 'miss');
+  return withHeaders(await graft(cacheable, viewerBlock, adminBlock), 'miss');
 };
 
 /** Puts `viewer` on the payload on the way out.
@@ -113,10 +135,46 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
  *  viewer, and one admin's client list must never be served to the
  *  client whose portal it was cached in. Cheaper than it looks, and a
  *  great deal cheaper than two cache entries that can disagree. */
-async function graft(res: Response, viewer: unknown): Promise<Response> {
+async function graft(res: Response, viewer: unknown, admin: unknown): Promise<Response> {
   const payload = await res.clone().json() as Record<string, unknown>;
   payload.viewer = viewer;
+  if (admin) payload.admin = admin;
   return new Response(JSON.stringify(payload), { headers: res.headers });
+}
+
+/**
+ * The admin-only half of the payload.
+ *
+ * Three extra Notion queries, including its own client lookup: this
+ * runs before the cache is read, where there is no record to reuse,
+ * and a cached hit has to be able to carry the admin block too. Which
+ * is why the whole thing is behind the role check rather than fetched
+ * for everyone and filtered later. Failure here
+ * returns null rather than throwing: a Notion hiccup should cost
+ * Mason the publish buttons for sixty seconds, not take the client's
+ * portal down with it.
+ *
+ * Audit parse warnings are NOT here. Finding out which H2 headings a
+ * page is missing means reading every audit's body, which is a dozen
+ * block requests per portal load. They come back from the Generate PDF
+ * response instead, at the moment Mason is actually looking.
+ */
+async function adminExtras(token: string, slug: string) {
+  try {
+    const record = await findClientBySlug(token, slug);
+    if (!record) return null;
+    const [snapshots, audits] = await Promise.all([
+      clientSnapshots(token, record.pageId),
+      fetchClientAudits(token, record.pageId),
+    ]);
+    return {
+      snapshots: snapshots.map(toAdminSnapshot),
+      audits: audits.map(toAdminAudit),
+    };
+  } catch (err) {
+    console.error('portal: admin extras threw', slug, err);
+    return null;
+  }
 }
 
 /** The browser never caches a portal payload, whatever the shared cache

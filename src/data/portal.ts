@@ -89,7 +89,12 @@ export const CALENDAR_NEVER_SEND = ['Notes', 'Offset (days)', 'Is Playbook', 'Hi
 
 /* ── KPI Snapshots ────────────────────────────────────────────── */
 
-export const SNAPSHOT_FIELDS = ['Date', 'Type', 'Data Source', 'Growth Score (/40)', 'Summary', 'Published'] as const;
+/* Appended to, never reordered: the readers index this list, and
+   SNAPSHOT_FIELDS[5] is Published in half a dozen places. */
+export const SNAPSHOT_FIELDS = [
+  'Date', 'Type', 'Data Source', 'Growth Score (/40)', 'Summary', 'Published',
+  'Win', 'Report PDF', 'Published At',
+] as const;
 
 export const SNAPSHOT_NEVER_SEND = ['Notes', 'Snapshot'] as const;
 
@@ -474,8 +479,62 @@ export interface PortalSnapshot {
   /** Mason's note on the month. Rendered at the top of Reports, and
    *  absent on an older payload. */
   summary?: string | null;
+  /** The month's headline, one line. Shown on the Reports row next to
+   *  the download, because it is the reason to open the PDF. */
+  win?: string | null;
+  /** Our own /portal/<slug>/files/... URL for the report PDF, or null
+   *  when this month has not been generated. Never an R2 URL: the
+   *  session check lives on our endpoint. */
+  reportPdf?: string | null;
+  /** When the report went out. Null on a month published before this
+   *  field existed. */
+  publishedAt?: string | null;
   /** Metric name -> value. Only metrics that actually have a number. */
   metrics: Record<string, number>;
+}
+
+/* ── Audits ───────────────────────────────────────────────────────
+   What a client sees of a growth audit: the date, the window, the
+   score, the one-paragraph summary and a link to the PDF. The eight
+   individual scores, the offer, the prospect name and the share link
+   are NOT here, and that is the point of a separate type rather than
+   passing the row through.
+   ────────────────────────────────────────────────────────────── */
+
+/** Audits properties a client may see. A new field is invisible to the
+ *  portal until it is added here AND read into PortalAudit. */
+export const AUDIT_CLIENT_FIELDS = [
+  'Audit',
+  'Audit Date',
+  'Data Window',
+  'Platforms Reviewed',
+  'Short Version',
+  'Audit PDF',
+] as const;
+
+/** The tripwire list. These exist on the row and must never ship to a
+ *  client: the offer is a price, the share link is a credential, and
+ *  the prospect name belongs to somebody else. */
+export const AUDIT_NEVER_SEND = [
+  'Offer',
+  'Share Link',
+  'Prospect Name',
+  'Book a Call Link',
+  'Positioning Read',
+  'Status',
+] as const;
+
+export interface PortalAudit {
+  id: string;
+  title: string;
+  auditDate: string | null;
+  dataWindow: string | null;
+  platformsReviewed: string | null;
+  shortVersion: string | null;
+  /** Our own files URL, or null when no PDF has been generated. */
+  pdf: string | null;
+  /** Out of 40, or null when the scores are not all filled in. */
+  score: number | null;
 }
 
 /** Who is looking at this portal, as the browser is told it.
@@ -501,6 +560,41 @@ export interface PortalPayload {
   /** Bucket, format and platform options, read from Notion's schema
    *  so a bucket added there appears here without a deploy. */
   contentSchema?: import('./portal-content').PortalContentSchema;
+  /** Published client audits, newest first. Absent on an older
+   *  payload, which reads as a client with none. */
+  audits?: PortalAudit[];
+  /** Admin only, grafted per request and never cached. Everything in
+   *  here is a draft or a control, so it must not be able to reach a
+   *  client even through a stale cache entry. */
+  admin?: PortalAdmin;
+}
+
+/** The rows Mason sees that a client does not: unpublished months, and
+ *  every audit rather than only the published ones. */
+export interface PortalAdmin {
+  snapshots: PortalAdminSnapshot[];
+  audits: PortalAdminAudit[];
+}
+
+export interface PortalAdminSnapshot {
+  id: string;
+  date: string | null;
+  type: string | null;
+  published: boolean;
+  win: string | null;
+  reportPdf: string | null;
+  publishedAt: string | null;
+}
+
+export interface PortalAdminAudit {
+  id: string;
+  title: string;
+  auditDate: string | null;
+  audience: 'Client' | 'Prospect';
+  status: string | null;
+  published: boolean;
+  pdf: string | null;
+  shareLink: string | null;
 }
 
 /** Headline metrics, in the order the Reports section shows them.

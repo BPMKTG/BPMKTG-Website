@@ -11,9 +11,11 @@
     "astro": "astro",
     "test:intake": "esbuild functions/api/intake.ts --bundle --format=esm --platform=neutral --outfile=.tmp-intake-lib.mjs && node tests/intake-shaping.test.mjs; rm -f .tmp-intake-lib.mjs",
     "test:portal": "esbuild tests/_portal-entry.ts --bundle --format=esm --platform=neutral --outfile=.tmp-portal-lib.mjs && node tests/portal.test.mjs; rm -f .tmp-portal-lib.mjs",
-    "test": "npm run test:intake && npm run test:portal"
+    "test": "npm run test:intake && npm run test:portal && npm run test:print",
+    "test:print": "esbuild tests/_print-entry.ts --bundle --format=esm --platform=neutral --external:@cloudflare/puppeteer --outfile=.tmp-print-lib.mjs && node tests/print.test.mjs; rm -f .tmp-print-lib.mjs"
   },
   "dependencies": {
+    "@cloudflare/puppeteer": "^1.4.0",
     "astro": "^6.3.3"
   }
 }
