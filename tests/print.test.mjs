@@ -642,6 +642,22 @@ is('name: exactly at the limit is still full size',
 is('name: one over is not',
    coverTitleTight(`${'a'.repeat(COVER_TITLE_MAX_CHARS + 1)} b`), true);
 
+/* ── the panel has to be reachable ───────────────────────────── */
+
+// The Reports tab renders an empty state when the CLIENT has nothing
+// published, and that branch used to return before the publishing
+// panel was added, which made the Publish button vanish at the one
+// moment it was needed. A client with no published report could never
+// get a first one: no snapshot visible, no overview, no panel.
+const emptyAt = PANEL.indexOf('if (!SNAPS.length) {');
+const emptyBranch = emptyAt < 0 ? '' : PANEL.slice(emptyAt, emptyAt + 900);
+ok('panel: the empty Reports state exists', emptyAt > 0);
+ok('panel: and it still offers the publishing panel', emptyBranch.includes('appendAdmin'));
+// The overview half and the empty half, plus the declaration itself.
+// If this drops to two, one of the halves has stopped offering it.
+is('panel: two call sites and one declaration',
+   (PANEL.match(/appendAdmin\(/g) ?? []).length, 3);
+
 /* ── which URL is a folder ────────────────────────────────────── */
 
 is('folder: an ordinary share link',

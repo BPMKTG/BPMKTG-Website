@@ -4406,6 +4406,13 @@ const NAV = [
       e.append(ic, el('h3', undefined, 'No reports yet'),
         el('p', undefined, 'Your first snapshot lands after we have access to your accounts.'));
       root.appendChild(e);
+      // And the publishing panel, which is otherwise unreachable from
+      // here. SNAPS is what the CLIENT can see, so it is empty while
+      // nothing is published, which is precisely the moment Mason
+      // needs the Publish button. Without this a new client can never
+      // have a first report published at all: no published snapshot,
+      // no overview, no panel, no way to publish one.
+      appendAdmin(root);
       return;
     }
     if (platform === 'Shows') root.appendChild(showsDetail());
@@ -4729,8 +4736,7 @@ const NAV = [
 
     const docs = documentsSection();
     if (docs) wrap.appendChild(docs);
-    const panel = adminPanel();
-    if (panel) wrap.appendChild(panel);
+    appendAdmin(wrap);
 
     // Printed, the page has no idea whose report it is or which month,
     // so it says so. On screen this is hidden.
@@ -5190,6 +5196,14 @@ const NAV = [
       try { document.execCommand('copy'); } catch { /* nothing else to try */ }
       ta.remove();
     }
+  }
+
+  /** The publishing panel, if there is one to show. Called from both
+   *  halves of the Reports tab, because the half that shows when
+   *  nothing is published is the half that most needs it. */
+  function appendAdmin(root: HTMLElement): void {
+    const panel = adminPanel();
+    if (panel) root.appendChild(panel);
   }
 
   function adminPanel(): HTMLElement | null {
