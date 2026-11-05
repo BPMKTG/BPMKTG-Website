@@ -31,6 +31,7 @@ import { mintPrintToken, printSecret } from '../../../../../../src/server/print-
 import { readJsonBody } from '../../../../../../src/server/portal-write';
 import {
   auditKey,
+  canRender,
   generatePdf,
   type PdfEnv,
 } from '../../../../../../src/server/pdf';
@@ -136,8 +137,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     return adminJson({ ok: true, url: shareUrl, expiresAt });
   }
 
-  if (!env.BROWSER || !env.REPORTS_BUCKET) {
-    console.error('portal: BROWSER or REPORTS_BUCKET is not bound');
+  if (!canRender(env) || !env.REPORTS_BUCKET) {
+    console.error('portal: browser rendering credentials or REPORTS_BUCKET missing');
     return adminJson({ ok: false, error: 'not_configured' }, 503);
   }
 

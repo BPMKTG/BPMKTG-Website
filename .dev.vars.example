@@ -35,11 +35,18 @@ PORTAL_MAIL_FROM=
 # difference is that rotating one rotates both.
 PRINT_SIGNING_SECRET=
 
-# Not a variable. BROWSER (Browser Rendering) and REPORTS_BUCKET (R2) are
-# BINDINGS, so they cannot live in this file. `wrangler pages dev` takes
-# them as flags, and in the cloud they are set in the Pages dashboard:
+# Browser Rendering, reached over its REST API rather than a binding:
+# Pages Functions cannot bind it. The token needs Browser Rendering
+# Edit and nothing else. Without both of these, Preview still works
+# and Publish answers 503.
+CF_ACCOUNT_ID=
+CF_BROWSER_TOKEN=
+
+# Not a variable. REPORTS_BUCKET (R2) is a BINDING, so it cannot live
+# in this file. `wrangler pages dev` takes it as a flag, and in the
+# cloud it is set in the Pages dashboard:
 #
 #   wrangler pages dev dist --r2 REPORTS_BUCKET=bpmktg-reports
 #
-# Browser Rendering has no local emulator. Preview and Publish both need
-# it, so test those against a Preview deployment rather than locally.
+# Browser Rendering renders by fetching a URL, so it cannot reach a
+# localhost origin. Test Preview and Publish against a deployment.

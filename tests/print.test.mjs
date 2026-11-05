@@ -73,6 +73,7 @@ import {
   fileSlug,
   reportKey,
   auditKey,
+  canRender,
   // the publish stamp
   stampSnapshotEdit,
   editedBy,
@@ -428,6 +429,17 @@ is('key: nor can a slash', fileSlug('a/b'), 'a-b');
 is('key: an empty name is still a segment', fileSlug(''), 'unnamed');
 is('key: an undated snapshot does not make an empty segment',
    reportKey('sean-comma', null), 'reports/sean-comma/undated-kpi-report.pdf');
+
+// Browser Rendering is reached over HTTP with a token, not through a
+// binding, because Pages Functions cannot bind it. Both halves of the
+// credential have to be present or the endpoints answer 503 rather
+// than starting a publish they cannot finish.
+is('render: configured', canRender({ CF_ACCOUNT_ID: 'a', CF_BROWSER_TOKEN: 't' }), true);
+is('render: no token', canRender({ CF_ACCOUNT_ID: 'a' }), false);
+is('render: no account', canRender({ CF_BROWSER_TOKEN: 't' }), false);
+is('render: neither', canRender({}), false);
+is('render: an empty string is not a credential',
+   canRender({ CF_ACCOUNT_ID: '', CF_BROWSER_TOKEN: 't' }), false);
 
 /* ══ 12. The email ═══════════════════════════════════════════════ */
 

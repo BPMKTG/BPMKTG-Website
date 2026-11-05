@@ -30,6 +30,7 @@ import { loadReport } from '../../../../../../src/server/report-data';
 import { publishSnapshot, setSnapshotPdf } from '../../../../../../src/server/report-publish';
 import { mintPrintToken, printSecret } from '../../../../../../src/server/print-token';
 import {
+  canRender,
   generatePdf,
   renderPdf,
   putPdf,
@@ -77,8 +78,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
   if (!gate.ok) return gate.response;
   const { ctx } = gate;
 
-  if (!env.BROWSER || !env.REPORTS_BUCKET) {
-    console.error('portal: BROWSER or REPORTS_BUCKET is not bound');
+  if (!canRender(env) || !env.REPORTS_BUCKET) {
+    console.error('portal: browser rendering credentials or REPORTS_BUCKET missing');
     return adminJson({ ok: false, error: 'not_configured' }, 503);
   }
 

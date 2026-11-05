@@ -3,11 +3,11 @@
 
    SERVER ONLY.
 
-   Cloudflare Browser Rendering drives a real Chrome against our own
-   print route and captures it. That is a deliberate choice over
-   building the PDF by hand: the document is already a web page, it is
-   designed as one, and a client who opens the share link and a client
-   who downloads the PDF should be looking at the same thing.
+   Browser Rendering drives a real Chrome against our own print route
+   and captures it. That is a deliberate choice over building the PDF
+   by hand: the document is already a web page, it is designed as one,
+   and a client who opens the share link and a client who downloads
+   the PDF should be looking at the same thing.
 
    Three things make the capture deterministic:
 
@@ -19,9 +19,22 @@
    downloaded" and "the font is in use", and you get a PDF set in
    Times roughly one time in ten. Which is the worst possible rate,
    because it passes every time you check it.
+
+   ── why the REST API and not the BROWSER binding ──
+
+   Pages Functions support only a subset of Workers bindings, and
+   Browser Rendering is not in it. There is no `BROWSER` to bind on a
+   Pages project, so the binding version of this file could never have
+   run here however the dashboard was configured.
+
+   The REST API does the same job over HTTP with an API token, and
+   costs us the one thing a binding gives for free: a credential to
+   store. In exchange it drops @cloudflare/puppeteer, which was ten
+   megabytes of dependency that imported `node:buffer` and therefore
+   needed the nodejs_compat flag set on the project before anything in
+   functions/ would deploy at all.
    ────────────────────────────────────────────────────────────── */
 
-import puppeteer from '@cloudflare/puppeteer';
 import { monthKey } from '../data/print';
 import { mintPrintToken, printSecret, type PrintKind } from './print-token';
 
@@ -30,12 +43,27 @@ import { mintPrintToken, printSecret, type PrintKind } from './print-token';
  *  own fallback fires at 8. */
 const READY_TIMEOUT_MS = 20_000;
 
+/** The navigation itself. Separate from the readiness wait, because a
+ *  slow origin and a page that never signals ready are different
+ *  faults and the logs should be able to tell them apart. */
+const GOTO_TIMEOUT_MS = 30_000;
+
 export interface PdfEnv {
-  BROWSER: Fetcher;
   REPORTS_BUCKET: R2Bucket;
+  /** The Cloudflare account the Browser Rendering call is billed to. */
+  CF_ACCOUNT_ID?: string;
+  /** An API token with Browser Rendering Write, and nothing else. */
+  CF_BROWSER_TOKEN?: string;
   PRINT_SIGNING_SECRET?: string;
   PORTAL_SECRET?: string;
   NOTION_TOKEN: string;
+}
+
+/** Is this deployment able to render at all? The admin endpoints ask
+ *  before they start, so a missing credential is a clean 503 rather
+ *  than a failure halfway through a publish. */
+export function canRender(env: PdfEnv): boolean {
+  return Boolean(env.CF_ACCOUNT_ID && env.CF_BROWSER_TOKEN);
 }
 
 /**
@@ -82,31 +110,50 @@ export async function renderPdf(
   kind: PrintKind,
   id: string,
 ): Promise<Uint8Array> {
+  if (!canRender(env)) {
+    throw new Error('browser rendering is not configured');
+  }
+
   const token = await mintPrintToken(printSecret(env), kind, id);
   const url = `${origin}/print/${kind}/${encodeURIComponent(id)}?t=${encodeURIComponent(token)}`;
 
-  const browser = await puppeteer.launch(env.BROWSER);
-  try {
-    const page = await browser.newPage();
-    // The viewport is the sheet. A narrower one makes the media
-    // queries and the grid resolve against the wrong width before
-    // print styles apply, which shows up as clipped cards.
-    await page.setViewport({ width: 816, height: 1056, deviceScaleFactor: 2 });
-    await page.goto(url, { waitUntil: 'networkidle0' });
-    await page.waitForSelector('html[data-print-ready="1"]', { timeout: READY_TIMEOUT_MS });
+  const res = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/browser-rendering/pdf`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.CF_BROWSER_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        // The viewport is the sheet. A narrower one makes the media
+        // queries and the grid resolve against the wrong width before
+        // print styles apply, which shows up as clipped cards.
+        viewport: { width: 816, height: 1056, deviceScaleFactor: 2 },
+        gotoOptions: { waitUntil: 'networkidle0', timeout: GOTO_TIMEOUT_MS },
+        // The whole reason the template sets this attribute. See above.
+        waitForSelector: { selector: 'html[data-print-ready="1"]', timeout: READY_TIMEOUT_MS },
+        pdfOptions: {
+          format: 'Letter',
+          printBackground: true,
+          preferCSSPageSize: true,
+        },
+      }),
+    },
+  );
 
-    const pdf = await page.pdf({
-      format: 'Letter',
-      printBackground: true,
-      preferCSSPageSize: true,
-    });
-    return new Uint8Array(pdf);
-  } finally {
-    // Always. A session left open holds a Browser Rendering slot until
-    // it times out, and the next publish then fails for no visible
-    // reason.
-    await browser.close();
+  if (!res.ok) {
+    // The body is Cloudflare's JSON error, which names the real cause
+    // (a token without Browser Rendering Write, an origin it could not
+    // reach, a selector that never appeared). Worth logging whole:
+    // without it every failure looks identical from the portal.
+    const detail = await res.text().catch(() => '');
+    console.error('pdf: browser rendering failed', res.status, detail.slice(0, 500));
+    throw new Error(`browser rendering returned ${res.status}`);
   }
+
+  return new Uint8Array(await res.arrayBuffer());
 }
 
 /** Writes the PDF to R2, overwriting whatever was at that key. */

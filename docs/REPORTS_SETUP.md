@@ -23,39 +23,31 @@ Set each one for **Production AND Preview**. A binding that exists only
 in Production means Preview answers 404 on every Preview button, which
 looks like a bug in the code and is not.
 
-### The `nodejs_compat` flag, first
+### Browser Rendering (`CF_ACCOUNT_ID` + `CF_BROWSER_TOKEN`)
 
-**Settings → Runtime → Compatibility flags**, add:
+Not a binding. **Pages Functions support only a subset of Workers
+bindings and Browser Rendering is not one of them**, so there is no
+`BROWSER` to add here however long you look for it in the dashboard.
+The REST API does the same job over HTTP, which is what
+`src/server/pdf.ts` calls.
 
-```
-nodejs_compat
-```
+Two values, both under **Settings → Variables and Secrets**, for
+Production and Preview:
 
-for Production **and** Preview, with a **compatibility date of
-2024-09-23 or later**.
+| Name | Type | Value |
+|---|---|---|
+| `CF_ACCOUNT_ID` | Plaintext | your account id, the hex string in any dashboard URL |
+| `CF_BROWSER_TOKEN` | Secret | an API token, created as below |
 
-Do this before anything else. `@cloudflare/puppeteer` imports
-`node:buffer`, and without the flag the Worker cannot resolve it, so
-the deploy is rejected outright:
+Create the token at **My Profile → API Tokens → Create Token →
+Create Custom Token**:
 
-```
-Failed to publish your Function. Got error:
-Uncaught Error: No such module "node:buffer".
-```
+- Permissions: **Account → Browser Rendering → Edit**
+- Account Resources: **Include → your account**
+- Nothing else. This token can start a headless browser and that is
+  all it should ever be able to do.
 
-That failure is not limited to the print routes. The whole `functions/`
-directory compiles into one Worker, so an unresolvable import at the
-top of its module graph takes down sign-in and the portal with it. A
-build that went green and a deploy that failed a minute later is this,
-every time.
-
-`wrangler pages functions build` warns about it locally and still exits
-zero, so a clean local build proves nothing here. The flag is the fix.
-
-### Browser Rendering (`BROWSER`)
-
-**Settings → Bindings → Add → Browser Rendering**, named exactly
-`BROWSER`.
+Copy it once, when it is shown. Cloudflare will not show it again.
 
 This works on the **Free plan**, which allows 10 minutes of browser
 time a day. A report takes a few seconds to render, so that is on the
@@ -66,9 +58,37 @@ The **Workers Paid plan** removes that cap and raises the concurrency
 from 3 browsers to 200. Worth having, not required. This project is on
 it as of November 2026.
 
+### No `nodejs_compat` needed
+
+Worth writing down because it cost a deploy. The first version of this
+used `@cloudflare/puppeteer` and a `BROWSER` binding, which was wrong
+twice over: Pages cannot bind Browser Rendering at all, and the
+package imports `node:buffer`, so the whole `functions/` Worker failed
+to publish with:
+
+```
+Failed to publish your Function. Got error:
+Uncaught Error: No such module "node:buffer".
+```
+
+Everything in `functions/` compiles into one Worker, so that took
+sign-in and the portal down with it, not just the print routes. The
+REST API needs no such dependency, so the flag is not needed and the
+functions bundle is 232 KB rather than 1 MB.
+
+If you ever add a package that wants Node built-ins, the flag goes in
+**Settings → Runtime → Compatibility flags**, for both environments.
+
 ### R2 bucket (`REPORTS_BUCKET`)
 
-Create the bucket first, under **R2 → Create bucket**:
+R2 has to be switched on for the account before the Pages dashboard
+will offer it as a binding at all. Until then it sits under "Discover
+additional bindings" marked "Available on R2 subscription". Enabling
+it costs nothing on its own: the free tier is 10 GB of storage, a
+million writes and ten million reads a month, with free egress, and a
+year of reports for every client is a few megabytes.
+
+Enable it under **R2 Object Storage**, then create the bucket:
 
 ```
 bpmktg-reports
@@ -114,14 +134,14 @@ records, so a missing `PORTAL_KV` disables share links entirely.
 
 ### The checklist
 
-- [ ] `nodejs_compat` flag set, Production
-- [ ] `nodejs_compat` flag set, Preview
-- [ ] compatibility date 2024-09-23 or later
-- [ ] R2 bucket `bpmktg-reports` created, private
-- [ ] `BROWSER` bound, Production
-- [ ] `BROWSER` bound, Preview
+- [ ] R2 enabled on the account
+- [ ] bucket `bpmktg-reports` created, private
 - [ ] `REPORTS_BUCKET` bound, Production
 - [ ] `REPORTS_BUCKET` bound, Preview
+- [ ] `CF_ACCOUNT_ID` set, Production
+- [ ] `CF_ACCOUNT_ID` set, Preview
+- [ ] `CF_BROWSER_TOKEN` set, Production
+- [ ] `CF_BROWSER_TOKEN` set, Preview
 - [ ] `PRINT_SIGNING_SECRET` set, Production
 - [ ] `PRINT_SIGNING_SECRET` set, Preview
 
