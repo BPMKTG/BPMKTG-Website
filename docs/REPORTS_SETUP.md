@@ -57,8 +57,14 @@ zero, so a clean local build proves nothing here. The flag is the fix.
 **Settings → Bindings → Add → Browser Rendering**, named exactly
 `BROWSER`.
 
-This needs the **Workers Paid plan**. Without it the binding cannot be
-added at all, and Publish fails with "Browser Rendering is not bound".
+This works on the **Free plan**, which allows 10 minutes of browser
+time a day. A report takes a few seconds to render, so that is on the
+order of a hundred PDFs a day: enough for every client, every month,
+with room to regenerate.
+
+The **Workers Paid plan** removes that cap and raises the concurrency
+from 3 browsers to 200. Worth having, not required. This project is on
+it as of November 2026.
 
 ### R2 bucket (`REPORTS_BUCKET`)
 
@@ -118,7 +124,6 @@ records, so a missing `PORTAL_KV` disables share links entirely.
 - [ ] `REPORTS_BUCKET` bound, Preview
 - [ ] `PRINT_SIGNING_SECRET` set, Production
 - [ ] `PRINT_SIGNING_SECRET` set, Preview
-- [ ] Workers Paid plan active
 
 ---
 
