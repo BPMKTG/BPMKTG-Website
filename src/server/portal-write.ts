@@ -152,17 +152,32 @@ export function buildContentProperties(body: Record<string, unknown>, ctx: Build
 }
 
 /**
- * Stamped on every write, so the Notion board shows at a glance who
- * last touched a row.
+ * The two names a `Last Edited By` can hold, and the only place the
+ * mapping from a session role to one of them is written down.
  *
  * Taken from the signed session, never from the request. When one of
  * us is standing in a client's portal the row says Blueprint, because
  * "the client changed this" has to keep meaning that.
+ *
+ * Shared with report-publish.ts, which stamps the same two words into
+ * a column that happens to be typed Text rather than Select. The two
+ * writers must keep agreeing on the vocabulary or the Notion board
+ * ends up filtering on words that only half the rows use.
+ */
+export function editedBy(role: 'client' | 'admin'): 'Blueprint' | 'Client' {
+  return role === 'admin' ? 'Blueprint' : 'Client';
+}
+
+/**
+ * Stamped on every write, so the Notion board shows at a glance who
+ * last touched a row.
+ *
+ * Content Pipeline and Campaign Calendar both type this column as a
+ * Select, hence the shape here.
  */
 export function stampEdit(
   props: Record<string, unknown>,
   role: 'client' | 'admin',
 ): Record<string, unknown> {
-  const by = role === 'admin' ? 'Blueprint' : 'Client';
-  return { ...props, 'Last Edited By': { select: { name: by } } };
+  return { ...props, 'Last Edited By': { select: { name: editedBy(role) } } };
 }

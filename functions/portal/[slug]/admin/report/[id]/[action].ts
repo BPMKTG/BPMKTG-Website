@@ -100,7 +100,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       await generatePdf(env, ctx.origin, 'report', ctx.id, key);
       // Keep the stored URL in step with the file we just wrote, so a
       // regenerate after a slug change does not leave a dead link.
-      await setSnapshotPdf(env.NOTION_TOKEN, ctx.id, url);
+      await setSnapshotPdf(env.NOTION_TOKEN, ctx.id, url, ctx.viewer.role);
       return adminJson({ ok: true, key, url });
     }
 
@@ -110,7 +110,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     const pdf = await renderPdf(env, ctx.origin, 'report', ctx.id);
     await putPdf(env, key, pdf);
 
-    const written = await publishSnapshot(env.NOTION_TOKEN, ctx.id, url);
+    const written = await publishSnapshot(env.NOTION_TOKEN, ctx.id, url, ctx.viewer.role);
     if (!written) return adminJson({ ok: false, error: 'notion_write_failed' }, 502);
 
     const month = monthLabel(loaded.input.snapshot.date);

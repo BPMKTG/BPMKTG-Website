@@ -69,6 +69,7 @@ import {
   // writes
   buildContentProperties,
   stampEdit,
+  editedBy,
   isSameOrigin,
   isJsonRequest,
   // auth
@@ -1110,6 +1111,14 @@ is('build: the stamp is not something the request can set',
 is('build: an admin write is stamped Blueprint',
    stampEdit(buildContentProperties({ caption: 'x' }, ctx()).properties, 'admin')['Last Edited By'].select.name,
    'Blueprint');
+
+// report-publish.ts stamps the same two words into KPI Snapshots,
+// where the column is Text rather than a Select. The shapes differ;
+// the vocabulary must not.
+is('build: the stamp vocabulary has one source',
+   [editedBy('admin'), editedBy('client')],
+   [stampEdit({}, 'admin')['Last Edited By'].select.name,
+    stampEdit({}, 'client')['Last Edited By'].select.name]);
 
 section('Content: request gates');
 

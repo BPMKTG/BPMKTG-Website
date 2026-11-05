@@ -11,33 +11,64 @@
    ────────────────────────────────────────────────────────────── */
 
 import { patchPage } from './portal-notion';
+import { editedBy } from './portal-write';
 
 /* ── snapshots ────────────────────────────────────────────────── */
 
 /**
- * Marks a month published: the PDF URL, the date, and the switch.
+ * Stamps who did it, the same way every other portal write does.
  *
- * One PATCH, so the three cannot disagree. A row with Published true
+ * The vocabulary is shared with `stampEdit`, but the shape is not:
+ * on Content Pipeline and Campaign Calendar `Last Edited By` is a
+ * Select, and on KPI Snapshots it is a Text column. Writing a
+ * `{ select: … }` into a Text property is a 400 from Notion, not a
+ * silently ignored field, so the two cannot share one writer.
+ *
+ * Every write to a snapshot goes through here, not just Publish. A
+ * Regenerate that left yesterday's name behind would make the column
+ * mean "who last published" on some rows and "who last touched this"
+ * on others, and Content Pipeline's rule is the second one.
+ *
+ * The audit writes below do not stamp, because the Audits database
+ * has no such column to stamp.
+ */
+export function stampSnapshotEdit(
+  role: 'client' | 'admin',
+  props: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    ...props,
+    'Last Edited By': { rich_text: [{ text: { content: editedBy(role) } }] },
+  };
+}
+
+/**
+ * Marks a month published: the PDF URL, the date, the switch, and who
+ * did it.
+ *
+ * One PATCH, so the four cannot disagree. A row with Published true
  * and no Report PDF would show a client a Reports entry with nothing
  * to download, and that is exactly the state a two-step write leaves
  * behind when the second step fails.
  *
- * KPI Snapshots has no `Last Edited By` column, unlike Content
- * Pipeline and Campaign Calendar. Nothing is stamped, and nothing
- * should be: the client cannot write to this database at all, so
- * every row in it is already ours.
+ * `role` comes from the signed session the admin guard already read.
+ * In practice it is always 'admin', because a client cannot reach any
+ * endpoint that calls this; it is threaded through rather than
+ * hardcoded so the stamp keeps telling the truth if that ever stops
+ * being so.
  */
 export async function publishSnapshot(
   token: string,
   snapshotId: string,
   pdfUrl: string,
+  role: 'client' | 'admin' = 'admin',
   now = new Date(),
 ): Promise<boolean> {
-  return patchPage(token, snapshotId, {
+  return patchPage(token, snapshotId, stampSnapshotEdit(role, {
     'Report PDF': { url: pdfUrl },
     'Published At': { date: { start: now.toISOString().slice(0, 10) } },
     Published: { checkbox: true },
-  }, 'snapshot publish');
+  }), 'snapshot publish');
 }
 
 /** Just the PDF URL, for a Regenerate on a month already published. */
@@ -45,8 +76,14 @@ export async function setSnapshotPdf(
   token: string,
   snapshotId: string,
   pdfUrl: string,
+  role: 'client' | 'admin' = 'admin',
 ): Promise<boolean> {
-  return patchPage(token, snapshotId, { 'Report PDF': { url: pdfUrl } }, 'snapshot pdf');
+  return patchPage(
+    token,
+    snapshotId,
+    stampSnapshotEdit(role, { 'Report PDF': { url: pdfUrl } }),
+    'snapshot pdf',
+  );
 }
 
 /* ── audits ───────────────────────────────────────────────────── */

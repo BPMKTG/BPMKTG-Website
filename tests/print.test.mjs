@@ -73,6 +73,9 @@ import {
   fileSlug,
   reportKey,
   auditKey,
+  // the publish stamp
+  stampSnapshotEdit,
+  editedBy,
   // fixtures
   BASELINE,
   NOVEMBER,
@@ -452,11 +455,40 @@ is('mail: base64 round-trips', base64(new Uint8Array([72, 105])), 'SGk=');
 ok('mail: and survives a real PDF’s worth of bytes',
    base64(new Uint8Array(400_000)).length > 500_000);
 
-/* ══ 13. Tripwires ═══════════════════════════════════════════════
+/* ══ 13. The publish stamp ═══════════════════════════════════════
+   `Last Edited By` is a Select on Content Pipeline and a Text column
+   on KPI Snapshots. The words have to match across the two; the
+   shapes must not, because Notion rejects a select written into a
+   text property. */
+
+section('13. The publish stamp');
+
+const stampAdmin = stampSnapshotEdit('admin', { Published: { checkbox: true } });
+const stampClient = stampSnapshotEdit('client', {});
+
+is('stamp: publishing says Blueprint',
+   stampAdmin['Last Edited By'].rich_text[0].text.content, 'Blueprint');
+is('stamp: and a client would say Client',
+   stampClient['Last Edited By'].rich_text[0].text.content, 'Client');
+is('stamp: the same two words Content Pipeline uses',
+   [editedBy('admin'), editedBy('client')], ['Blueprint', 'Client']);
+
+// The column is Text. A `{ select: … }` here is a 400 from Notion on
+// every publish, which is the kind of thing that only shows up in
+// production, so assert the shape and not just the value.
+ok('stamp: written as rich_text', Array.isArray(stampAdmin['Last Edited By'].rich_text));
+is('stamp: never as a select', 'select' in stampAdmin['Last Edited By'], false);
+
+is('stamp: it does not disturb the other properties',
+   stampAdmin.Published, { checkbox: true });
+is('stamp: and adds exactly one key',
+   Object.keys(stampClient), ['Last Edited By']);
+
+/* ══ 14. Tripwires ═══════════════════════════════════════════════
    The field lists are the contract with Notion. A name deleted here by
    accident fails loudly rather than quietly rendering a blank page. */
 
-section('13. Tripwires');
+section('14. Tripwires');
 
 is('fields: fourteen audit headings', AUDIT_HEADINGS.length, 14);
 is('fields: and they are the ones the parser looks for',
@@ -467,6 +499,11 @@ is('fields: every score property is prefixed',
    SCORE_FIELDS.every((s) => s.prop.startsWith('Score · ')), true);
 is('fields: the audit row has the fourteen properties the cover needs',
    AUDIT_FIELDS.length, 14);
+// Mason added this column to KPI Snapshots as Text. If it is ever
+// retyped as a Select to match the other two databases, this is the
+// line that has to change, and the stamp above with it.
+is('fields: the snapshot stamp is the Text shape, not the Select one',
+   Object.keys(stampSnapshotEdit('admin', {})['Last Edited By']), ['rich_text']);
 is('fields: the report reads Win, Report PDF and Published At',
    REPORT_SNAPSHOT_FIELDS.includes('Win')
    && REPORT_SNAPSHOT_FIELDS.includes('Report PDF')

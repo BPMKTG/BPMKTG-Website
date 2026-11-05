@@ -155,24 +155,34 @@ already fill in each month, plus four fields that are report copy:
 | Published | Checkbox | written by Publish |
 | Report PDF | URL | written by Publish |
 | Published At | Date | written by Publish |
+| Last Edited By | Text | written by Publish and by Regenerate |
 
 Everything else on the report is read from rows that already exist:
 the metrics from the same snapshot, the goals from the Clients row,
 the top posts from Content Pipeline, the shows and releases from
 Campaign Calendar.
 
-### One thing the spec asked for that cannot be done
+### Last Edited By
 
-**KPI Snapshots has no `Last Edited By` property.** Content Pipeline
-and Campaign Calendar both have one, which is how a ticked step records
-who ticked it, but the snapshots database does not. Publishing
-therefore stamps `Published At` and nothing else.
+Stamped `Blueprint` on every portal write to the row, which is the
+same rule and the same vocabulary Content Pipeline and Campaign
+Calendar use. Both Publish and Regenerate stamp it, so the column
+answers "who last touched this from the portal" rather than meaning
+one thing on some rows and another on the rest.
 
-Adding a `Last Edited By` column to KPI Snapshots in Notion would make
-it possible, and `publishSnapshot` in `src/server/report-publish.ts` is
-the one place that would set it. It is left undone rather than guessed
-at. It also matters less here than elsewhere: a client cannot write to
-the snapshots database at all, so every row in it is already ours.
+The name comes from the signed session, never from the request. In
+practice it is always `Blueprint`, because a client cannot reach any
+endpoint that writes to this database, but the role is threaded
+through rather than hardcoded so the stamp keeps telling the truth if
+that ever changes.
+
+One difference worth knowing about. On Content Pipeline and Campaign
+Calendar this column is a **Select**; on KPI Snapshots it is a
+**Text** column. The words match, the API shapes do not, and writing a
+select into a text property is a 400 from Notion on every publish. If
+you ever retype this column as a Select to match the other two, change
+`stampSnapshotEdit` in `src/server/report-publish.ts` with it; there is
+a test pinned to the current shape that will fail first and tell you.
 
 ### Release numbers
 
