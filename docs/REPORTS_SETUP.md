@@ -23,6 +23,35 @@ Set each one for **Production AND Preview**. A binding that exists only
 in Production means Preview answers 404 on every Preview button, which
 looks like a bug in the code and is not.
 
+### The `nodejs_compat` flag, first
+
+**Settings → Runtime → Compatibility flags**, add:
+
+```
+nodejs_compat
+```
+
+for Production **and** Preview, with a **compatibility date of
+2024-09-23 or later**.
+
+Do this before anything else. `@cloudflare/puppeteer` imports
+`node:buffer`, and without the flag the Worker cannot resolve it, so
+the deploy is rejected outright:
+
+```
+Failed to publish your Function. Got error:
+Uncaught Error: No such module "node:buffer".
+```
+
+That failure is not limited to the print routes. The whole `functions/`
+directory compiles into one Worker, so an unresolvable import at the
+top of its module graph takes down sign-in and the portal with it. A
+build that went green and a deploy that failed a minute later is this,
+every time.
+
+`wrangler pages functions build` warns about it locally and still exits
+zero, so a clean local build proves nothing here. The flag is the fix.
+
 ### Browser Rendering (`BROWSER`)
 
 **Settings → Bindings → Add → Browser Rendering**, named exactly
@@ -79,6 +108,9 @@ records, so a missing `PORTAL_KV` disables share links entirely.
 
 ### The checklist
 
+- [ ] `nodejs_compat` flag set, Production
+- [ ] `nodejs_compat` flag set, Preview
+- [ ] compatibility date 2024-09-23 or later
 - [ ] R2 bucket `bpmktg-reports` created, private
 - [ ] `BROWSER` bound, Production
 - [ ] `BROWSER` bound, Preview
