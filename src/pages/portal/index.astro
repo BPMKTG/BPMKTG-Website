@@ -4680,14 +4680,11 @@ const NAV = [
     }
     head.appendChild(cmpField);
 
-    // A month's report is a thing people send on, so it has to leave
-    // the browser. When the real PDF has been generated that is the
-    // one to hand over: it is the designed six-page document, not a
-    // print of this screen. Without one, the print stylesheet is
-    // still the honest fallback.
-    head.appendChild(snap.reportPdf
-      ? pdfLink(snap.reportPdf, 'Download PDF')
-      : printButton());
+    // No download button up here any more. Every report and audit
+    // with a PDF is listed in Documents a few inches below, which is
+    // one place rather than two, and the thing this button used to do
+    // without a PDF was print the screen: a different document to the
+    // designed six-page one, handed over under the same name.
     wrap.appendChild(head);
 
     const docs = documentsSection();
@@ -4778,15 +4775,6 @@ const NAV = [
      yet still appears, without a link, because "October is published
      and the PDF is coming" is true and worth saying.
      ─────────────────────────────────────────────────────────────── */
-
-  function printButton(): HTMLElement {
-    const b = el('button', 'pt-btn pt-rep-print');
-    b.type = 'button';
-    b.appendChild(icon('download'));
-    b.appendChild(el('span', undefined, 'Download PDF'));
-    b.addEventListener('click', () => window.print());
-    return b;
-  }
 
   function pdfLink(href: string, label: string, extra = ''): HTMLElement {
     const a = el('a', `pt-btn pt-rep-print${extra ? ` ${extra}` : ''}`) as HTMLAnchorElement;

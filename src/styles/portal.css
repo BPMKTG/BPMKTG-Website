@@ -2379,11 +2379,21 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
    ─────────────────────────────────────────────────────────────── */
 
 .pt-doc-list,
-.pt-admin-list { list-style: none; margin: 0; padding: 0; }
+.pt-admin-list {
+  list-style: none; margin: 0; padding: 0;
+  /* A row is a title on the left and a couple of controls on the
+     right. Let the card run to the full width of a desktop and those
+     two ends end up a thousand pixels apart with nothing in between,
+     which reads as a layout bug rather than a list. */
+  max-width: 880px;
+}
 
 .pt-doc {
   display: flex; align-items: center; gap: var(--pt-3);
-  padding: var(--pt-3) 0;
+  padding: var(--pt-2) 0;
+  /* One-line and two-line rows otherwise differ by 15px, which is
+     enough to make an even list look ragged. */
+  min-height: 52px;
   border-bottom: 1px solid var(--pt-line-soft);
 }
 .pt-doc:last-child { border-bottom: 0; }
@@ -2417,15 +2427,16 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
    client's own report even at a glance. */
 .pt-admin { border-color: var(--pt-orange); }
 .pt-admin-head {
-  margin: var(--pt-5) 0 var(--pt-2);
+  margin: var(--pt-4) 0 var(--pt-1);
   font-size: .72rem; font-weight: 700; letter-spacing: .08em;
   text-transform: uppercase; color: var(--pt-muted);
 }
-.pt-admin-head:first-of-type { margin-top: var(--pt-4); }
+.pt-admin-head:first-of-type { margin-top: var(--pt-3); }
 
 .pt-admin-row {
   display: flex; align-items: center; gap: var(--pt-3); flex-wrap: wrap;
-  padding: var(--pt-3) 0;
+  padding: var(--pt-2) 0;
+  min-height: 52px;
   border-bottom: 1px solid var(--pt-line-soft);
 }
 .pt-admin-row:last-child { border-bottom: 0; }
