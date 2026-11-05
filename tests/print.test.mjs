@@ -99,6 +99,7 @@ import {
   COVERS_FOLDER,
   COVER_TYPES,
   COVER_WIDTH,
+  COVER_FALLBACK_WIDTH,
   // fixtures
   BASELINE,
   NOVEMBER,
@@ -730,6 +731,11 @@ is('resize: a link with no size directive is refused',
 is('resize: so is http', thumbnailAt('http://lh3.googleusercontent.com/x=s220'), null);
 is('resize: and nothing', thumbnailAt(null), null);
 ok('resize: wide enough for the frame at 2x', COVER_WIDTH >= 1376);
+// Drive will sometimes refuse the biggest rendition of a very large
+// original and serve a smaller one without complaint, so there is a
+// second rung. It still has to be big enough to be worth having.
+ok('resize: the fallback rung is smaller', COVER_FALLBACK_WIDTH < COVER_WIDTH);
+ok('resize: but still wide enough for the frame', COVER_FALLBACK_WIDTH >= 1376);
 
 /* ── the keys ─────────────────────────────────────────────────── */
 

@@ -25,7 +25,7 @@ export { editedBy } from '../src/server/portal-write';
 // part that decides: which URL is a folder, which file is newest, what
 // a key looks like.
 export {
-  COVERS_FOLDER, COVER_TYPES, COVER_WIDTH, MAX_COVER_BYTES,
+  COVERS_FOLDER, COVER_TYPES, COVER_WIDTH, COVER_FALLBACK_WIDTH, MAX_COVER_BYTES,
   assertionClaims, driveFolderId, googleCredentials, isCoverImage,
   pickNewest, pkcs8Bytes, thumbnailAt,
 } from '../src/server/google-drive';

@@ -50,6 +50,16 @@ export const COVER_TYPES = [
  *  having to re-upload a photo. */
 export const COVER_WIDTH = 2400;
 
+/** Asked for when 2400 does not come back.
+ *
+ *  Drive renders its own images on demand, and on a very large
+ *  original it sometimes declines the biggest size and serves a
+ *  smaller one happily. Sean's first cover is a 29MB camera JPEG, so
+ *  this is not a hypothetical. 1600 is still comfortably above the
+ *  1376 device pixels the frame actually uses, so the retry costs
+ *  nothing anybody can see. */
+export const COVER_FALLBACK_WIDTH = 1600;
+
 /** A hard ceiling on what we will pull out of Drive and put in R2.
  *  Drive's own 2400px rendition is a few hundred kilobytes; this only
  *  fires when we have fallen back to the original file, and it is
@@ -361,25 +371,47 @@ export interface CoverBytes {
  * MAX_COVER_BYTES. Refused, not truncated: half a JPEG is a broken
  * image, and the caller's fallback is a working cover.
  */
-export async function fetchCoverBytes(token: string, file: DriveFile): Promise<CoverBytes> {
-  const resized = thumbnailAt(file.thumbnailLink);
-  if (resized) {
-    const res = await fetch(resized).catch(() => null);
-    if (res && res.ok) {
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      if (bytes.byteLength) {
-        return {
-          bytes,
-          contentType: res.headers.get('Content-Type') || 'image/jpeg',
-          via: 'thumbnail',
-        };
-      }
-    }
-    console.warn('drive: thumbnail declined, falling back to the original', file.id, res?.status);
+async function tryThumbnail(file: DriveFile, px: number): Promise<CoverBytes | null> {
+  const url = thumbnailAt(file.thumbnailLink, px);
+  if (!url) return null;
+
+  // No Authorization header: these links carry their own signature and
+  // are meant to be fetched plain. Sending a bearer token to
+  // googleusercontent would be sending a credential somewhere it is
+  // not needed, which is never a good trade.
+  const res = await fetch(url).catch(() => null);
+  if (!res || !res.ok) {
+    console.warn(`drive: no ${px}px rendition for ${file.id}`, res?.status ?? 'fetch failed');
+    return null;
   }
 
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (!bytes.byteLength) {
+    console.warn(`drive: empty ${px}px rendition for ${file.id}`);
+    return null;
+  }
+
+  return {
+    bytes,
+    contentType: res.headers.get('Content-Type') || 'image/jpeg',
+    via: 'thumbnail',
+  };
+}
+
+export async function fetchCoverBytes(token: string, file: DriveFile): Promise<CoverBytes> {
+  for (const px of [COVER_WIDTH, COVER_FALLBACK_WIDTH]) {
+    const got = await tryThumbnail(file, px);
+    if (got) return got;
+  }
+
+  // Nothing left but the original, and a Worker cannot shrink it. A
+  // 29MB camera JPEG put on a cover is a render that times out, so it
+  // is refused and the caller falls back to a cover that works.
   if (file.size !== null && file.size > MAX_COVER_BYTES) {
-    throw new Error(`${file.name} is ${Math.round(file.size / 1024 / 1024)}MB, too big to use as a cover`);
+    throw new Error(
+      `${file.name} is ${Math.round(file.size / 1024 / 1024)}MB and Drive would not resize it.`
+      + ` Put a smaller export in Report Covers, around 2400px wide.`,
+    );
   }
 
   const res = await fetch(`${DRIVE_FILES}/${encodeURIComponent(file.id)}?alt=media&supportsAllDrives=true`, {

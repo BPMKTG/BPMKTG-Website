@@ -388,12 +388,19 @@ Which means the renderer never talks to Google. A Drive permission
 changed on a Tuesday cannot make a report fail to render on Wednesday;
 the worst it can do is make the next Regenerate fall back.
 
-**On the 2400px.** A Cloudflare Worker has no image decoder, so it
-cannot resample a JPEG. Drive renders its own images at whatever size
-you ask for, so the Worker asks for 2400 and stores what comes back,
-typically a few hundred kilobytes. When Drive declines to render a
-thumbnail the original file is used instead, and a file over 10MB is
-refused rather than stored, which falls back to the Hero Photo.
+**On the 2400px, and on what to put in the folder.** A Cloudflare
+Worker has no image decoder, so it cannot resample a JPEG. Drive
+renders its own images at whatever size you ask for, so the Worker
+asks for 2400, then 1600 if that is declined, and stores what comes
+back: typically a few hundred kilobytes. Only if Drive renders
+neither does it fall back to the original file, and a file over 10MB
+is then refused rather than stored, because a 29MB JPEG on a cover is
+a render that times out.
+
+So: **put a web-sized export in Report Covers, around 2400px wide.**
+A straight-off-the-camera JPEG usually still works, because Drive
+renders it down, but it is relying on Drive to do something it is not
+contractually obliged to do. A 3MB export never has to find out.
 
 Nothing here can fail a render. Every path ends in a cover and a log
 line saying which source was used.
