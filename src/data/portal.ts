@@ -61,6 +61,11 @@ export const CLIENT_NEVER_SEND = [
   'Contract Signed',
   'Rate Step-Up',
   'Intake Slug',
+  // The client's own shared Drive folder. Read server-side for the
+  // report cover and never sent to a browser: the portal has no use
+  // for it, and a private folder link is not a thing to hand out by
+  // accident. See src/server/cover.ts.
+  'Client Folder',
 ] as const;
 
 /* ── Campaign Calendar ────────────────────────────────────────── */

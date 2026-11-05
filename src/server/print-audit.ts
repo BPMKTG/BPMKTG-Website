@@ -30,6 +30,9 @@ import {
   SCORE_FIELDS,
   SCORE_MAX,
   SCORE_PRIORITY_AT,
+  coverNameLines,
+  coverPosition,
+  coverTitleTight,
   effortTone,
   hasContent,
   impactTone,
@@ -103,17 +106,19 @@ export function renderAudit(input: AuditInput): string {
  * Kowalczyk" is 760 and does not. Breaking at the last space keeps the
  * canvas's look for two-word names and keeps every other name on the
  * page.
+ *
+ * A name long enough to need a third line is set smaller instead. On
+ * this cover a third line reaches the score dial, and a name nobody
+ * can read because it is sitting on a circle is not a name set at
+ * 72px. See coverTitleTight in data/print.ts.
  */
 function coverName(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length < 2) return esc(name);
-  const last = parts.pop() as string;
-  return `${esc(parts.join(' '))}<br>${esc(last)}`;
+  return coverNameLines(name).map(esc).join('<br>');
 }
 
 function cover(input: AuditInput): string {
   const total = scoreTotal(input.scores);
-  const dial = total === null ? '' : `<div class="cv__dial">
+  const dial = total === null ? '' : `<div class="cv__dial${input.coverImage ? ' cv__dial--photo' : ''}">
   <svg width="220" height="220" viewBox="0 0 220 220" role="img"
        aria-label="Growth score ${esc(String(total))} out of ${SCORE_MAX}">
     <circle cx="110" cy="110" r="88" fill="none" stroke="${T.tint2}" stroke-width="14"></circle>
@@ -135,20 +140,36 @@ function cover(input: AuditInput): string {
     input.platformsReviewed && fact('Platforms reviewed', input.platformsReviewed, true),
   ]);
 
+  // A client audit gets the same cover photo a monthly report gets. A
+  // prospect teardown gets the grid, because the Drive folder it would
+  // come from belongs to a client relationship that does not exist.
+  //
+  // The photo is a band rather than the report's 400px frame, because
+  // this cover already carries a title, a score dial and three facts.
+  // Everything below the band shifts down by one `--photo` class, and
+  // the no-photo layout is left at the coordinates it has always had:
+  // a prospect cover prints byte for byte as it did before.
+  const photo = input.coverImage
+    ? `<div class="cv__hero cv__hero--audit"><img src="${esc(input.coverImage)}" alt=""`
+      + ` style="object-position:${coverPosition(input.coverFocus)}"></div>`
+    : '';
+  const shift = input.coverImage ? ' cv__at--photo' : '';
+
   return `<div class="pg">
 <div class="grid" style="position:absolute;left:0;top:0;width:816px;height:1056px"></div>
 <div class="cv__hd">
   <img class="cv__logo" src="/brand/logo-header-navy.svg" alt="Blueprint Marketing">
   <div class="cv__doc">${esc(DOC)}</div>
 </div>
-<div style="position:absolute;left:64px;right:64px;top:230px" class="stack g18">
+${photo}
+<div class="cv__at${shift} stack g18">
   <div class="cv__kick">${esc(DOC)} · ${esc(monthLabel(input.auditDate))}</div>
-  <h1 class="cv__title cv__title--audit">${coverName(input.subject)}</h1>
+  <h1 class="cv__title cv__title--audit${coverTitleTight(input.subject) ? ' cv__title--long' : ''}">${coverName(input.subject)}</h1>
   <div class="cv__bar"></div>
   <div class="cv__sub cv__sub--audit">Where your music, shows and audience stand today, and the three moves that will grow them.</div>
 </div>
 ${dial}
-${facts ? `<div class="cv__facts">${facts}</div>` : ''}
+${facts ? `<div class="cv__facts${input.coverImage ? ' cv__facts--photo' : ''}">${facts}</div>` : ''}
 <div class="cv__ft">
   <div class="note">Prepared by Mason Celum<br>Blueprint Marketing · mason@bpmktg.com</div>
   <div class="note--sm">Confidential · for ${esc(input.subject)}</div>

@@ -22,6 +22,7 @@ import {
   type PortalAdminAudit,
   type PortalAudit,
 } from '../data/portal';
+import { clientCoverFields } from './cover';
 import { fetchAuditBody } from './notion-blocks';
 import {
   fetchPage,
@@ -197,6 +198,10 @@ export async function loadAudit(token: string, auditId: string): Promise<LoadedA
     return null;
   }
 
+  // The Hero Photo and the crop, when there is a client to read them
+  // off. A prospect teardown has neither, and gets the grid.
+  const cover = row.clientId ? await clientCoverFields(token, row.clientId) : null;
+
   const body = await fetchAuditBody(token, auditId);
   if (body.missing.length) {
     // A warning, not a failure. The templates skip what is absent, and
@@ -225,6 +230,12 @@ export async function loadAudit(token: string, auditId: string): Promise<LoadedA
       sections: body.sections,
       missing: body.missing,
       slug: client?.slug ?? null,
+      // The fallback. A client audit has its Drive cover swapped in by
+      // the route, the same way a monthly report does; a prospect
+      // teardown keeps whatever is here, which is the Hero Photo or
+      // nothing. See functions/print/audit/[id].ts.
+      coverImage: cover?.hero ?? null,
+      coverFocus: cover?.focus ?? 'center',
     },
   };
 }

@@ -11,9 +11,14 @@
    Publish is the only action here with a side effect a client sees,
    and the order it does things in is deliberate:
 
-     1  render and store the PDF      nothing is announced that does not exist
-     2  flip the Notion row           the portal now shows it
-     3  send the email                last, because it cannot be undone
+     1  resolve the cover photo       Drive, read once, into R2
+     2  render and store the PDF      nothing is announced that does not exist
+     3  flip the Notion row           the portal now shows it
+     4  send the email                last, because it cannot be undone
+
+   Step one cannot fail the action. A cover is decoration; a report is
+   the deliverable. Whatever goes wrong in Drive, `refreshCover` comes
+   back with a source and the render carries on. See src/server/cover.ts.
 
    A failure at step 1 changes nothing. A failure at step 2 leaves a
    PDF in R2 that nobody is pointed at, which costs a few hundred
@@ -25,6 +30,7 @@
 
 import { monthLabel } from '../../../../../../src/data/print';
 import { adminJson, beginAdmin, reason, type AdminEnv } from '../../../../../../src/server/admin-guard';
+import { refreshCover } from '../../../../../../src/server/cover';
 import { portalNotFound } from '../../../../../../src/server/portal-auth';
 import { loadReport } from '../../../../../../src/server/report-data';
 import { publishSnapshot, setSnapshotPdf } from '../../../../../../src/server/report-publish';
@@ -42,7 +48,11 @@ import {
   type ReportMailEnv,
 } from '../../../../../../src/server/report-mail';
 
-interface Env extends AdminEnv, PdfEnv, ReportMailEnv {}
+interface Env extends AdminEnv, PdfEnv, ReportMailEnv {
+  /** The Drive service account, for the cover photo. Optional: a
+   *  deployment without it falls back to the Hero Photo. */
+  GOOGLE_SERVICE_ACCOUNT_JSON?: string;
+}
 
 /** Where the client finds it. The hash is the portal's own router. */
 const reportsTab = (origin: string, slug: string) => `${origin}/portal/${slug}#/reports`;
@@ -96,13 +106,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
   const key = reportKey(ctx.record.slug, loaded.input.snapshot.date);
   const url = fileUrl(ctx.origin, ctx.record.slug, key);
 
+  // Before the render, so the print route reads a copy that matches
+  // what Drive holds right now. Never throws.
+  const cover = await refreshCover(env, printSecret(env), ctx.record.slug, ctx.record.pageId);
+
   try {
     if (action === 'pdf') {
       await generatePdf(env, ctx.origin, 'report', ctx.id, key);
       // Keep the stored URL in step with the file we just wrote, so a
       // regenerate after a slug change does not leave a dead link.
       await setSnapshotPdf(env.NOTION_TOKEN, ctx.id, url, ctx.viewer.role);
-      return adminJson({ ok: true, key, url });
+      return adminJson({ ok: true, key, url, cover });
     }
 
     // Publish. The bytes are kept so the email can attach the very
@@ -126,7 +140,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       filename: `${ctx.record.slug}-${month ? month.toLowerCase().replace(/\s+/g, '-') : 'report'}.pdf`,
     });
 
-    return adminJson({ ok: true, key, url, mail });
+    return adminJson({ ok: true, key, url, mail, cover });
   } catch (err) {
     console.error('portal: report action failed', action, ctx.id, err);
     // The reason travels back to the panel. Everything that reaches

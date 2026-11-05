@@ -42,6 +42,13 @@ PRINT_SIGNING_SECRET=
 CF_ACCOUNT_ID=
 CF_BROWSER_TOKEN=
 
+# The Drive service account that reads each client's Report Covers
+# folder, as the whole JSON key file on one line. Optional: without it
+# the cover falls back to the Clients row's Hero Photo, and then to the
+# blue grid. Scope is drive.readonly. See docs/REPORTS_SETUP.md for
+# making one and for the Workspace sharing setting.
+GOOGLE_SERVICE_ACCOUNT_JSON=
+
 # Not a variable. REPORTS_BUCKET (R2) is a BINDING, so it cannot live
 # in this file. `wrangler pages dev` takes it as a flag, and in the
 # cloud it is set in the Pages dashboard:

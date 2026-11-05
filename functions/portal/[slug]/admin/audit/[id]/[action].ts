@@ -25,6 +25,7 @@
 
 import { loadAudit } from '../../../../../../src/server/audit-data';
 import { adminJson, beginAdmin, reason, type AdminEnv } from '../../../../../../src/server/admin-guard';
+import { refreshCover } from '../../../../../../src/server/cover';
 import { portalNotFound } from '../../../../../../src/server/portal-auth';
 import { setAuditPdf, setAuditShareLink } from '../../../../../../src/server/report-publish';
 import { mintPrintToken, printSecret } from '../../../../../../src/server/print-token';
@@ -45,6 +46,8 @@ import {
 
 interface Env extends AdminEnv, PdfEnv {
   PORTAL_KV?: ShareStore;
+  /** The Drive service account, for a client audit's cover photo. */
+  GOOGLE_SERVICE_ACCOUNT_JSON?: string;
 }
 
 const fileUrl = (origin: string, slug: string, key: string) =>
@@ -142,10 +145,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     return adminJson({ ok: false, error: 'not_configured' }, 503);
   }
 
+  // Only a client audit has a Drive folder behind it. A prospect
+  // teardown is nobody's client yet, so its cover is the Hero Photo if
+  // the row happens to point at a client, and the grid otherwise.
+  const cover = loaded.input.audience === 'Client'
+    ? await refreshCover(env, printSecret(env), ctx.record.slug, ctx.record.pageId)
+    : null;
+
   try {
     await generatePdf(env, ctx.origin, 'audit', ctx.id, key);
     await setAuditPdf(env.NOTION_TOKEN, ctx.id, url);
-    return adminJson({ ok: true, key, url, missing: loaded.input.missing });
+    return adminJson({ ok: true, key, url, missing: loaded.input.missing, cover });
   } catch (err) {
     console.error('portal: audit pdf failed', ctx.id, err);
     return adminJson({ ok: false, error: 'render_failed', detail: reason(err) }, 502);

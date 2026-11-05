@@ -20,4 +20,14 @@ export {
 // shaped like. The writes themselves need a network and are not here.
 export { stampSnapshotEdit } from '../src/server/report-publish';
 export { editedBy } from '../src/server/portal-write';
+// The cover pipeline, pure pieces only. Everything in here that needs
+// Google or R2 takes them as arguments, so what is left to test is the
+// part that decides: which URL is a folder, which file is newest, what
+// a key looks like.
+export {
+  COVERS_FOLDER, COVER_TYPES, COVER_WIDTH, MAX_COVER_BYTES,
+  assertionClaims, driveFolderId, googleCredentials, isCoverImage,
+  pickNewest, pkcs8Bytes, thumbnailAt,
+} from '../src/server/google-drive';
+export { COVER_SOURCE_LABELS, coverKey, pointerKey } from '../src/server/cover';
 export * from './fixtures/print-fixture';

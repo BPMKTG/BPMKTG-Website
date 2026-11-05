@@ -25,6 +25,8 @@
 
 import {
   ADMIN_COOKIE_NAME,
+  isValidSlug,
+  normaliseSlug,
   portalNotFound,
   readCookie,
   sessionSecret,
@@ -72,6 +74,39 @@ export async function allowPrint(
     readCookie(request.headers.get('Cookie'), ADMIN_COOKIE_NAME),
   );
   if (admin) return { ok: true, id };
+
+  return fail;
+}
+
+/**
+ * May this request fetch this client's cover photo?
+ *
+ * Same two keys as a document, under the cover kind. The slug is
+ * normalised and validated here and the caller never names an R2 key:
+ * the key comes out of the stored pointer, so there is no object path
+ * in this URL to traverse out of, and nothing a caller can ask for
+ * beyond "the current cover of the one client they hold a token for".
+ */
+export async function allowPrintCover(
+  request: Request,
+  env: PrintEnv,
+  rawSlug: unknown,
+): Promise<{ ok: true; slug: string } | { ok: false; response: Response }> {
+  const fail = { ok: false as const, response: portalNotFound() };
+
+  const slug = normaliseSlug(rawSlug as string);
+  if (!isValidSlug(slug)) return fail;
+
+  const token = new URL(request.url).searchParams.get('t');
+  if (await verifyPrintToken(printSecret(env), 'cover', slug, token)) {
+    return { ok: true, slug };
+  }
+
+  const admin = await verifyAdminSession(
+    sessionSecret(env),
+    readCookie(request.headers.get('Cookie'), ADMIN_COOKIE_NAME),
+  );
+  if (admin) return { ok: true, slug };
 
   return fail;
 }

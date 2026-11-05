@@ -14,7 +14,6 @@
 
 import {
   REPORT_SNAPSHOT_FIELDS,
-  heroImageUrl,
   monthRange,
   shiftMonth,
   type ReleaseStats,
@@ -31,6 +30,7 @@ import {
   type PortalAdminSnapshot,
 } from '../data/portal';
 import { CONTENT_FIELDS } from '../data/portal-content';
+import { clientCoverFields } from './cover';
 import {
   CALENDAR_DB,
   CONTENT_DB,
@@ -240,14 +240,15 @@ async function releaseStats(
   return out;
 }
 
-/* ── the hero photo ───────────────────────────────────────────── */
+/* ── the cover photo ──────────────────────────────────────────── */
 
-/** The client's cover photo, rewritten into something an <img> can
- *  actually load. Null is a working cover, not a broken one. */
-async function heroPhoto(token: string, clientPageId: string): Promise<string | null> {
-  const page = await fetchPage(token, clientPageId);
-  return heroImageUrl(readUrl(page?.properties?.['Hero Photo']));
-}
+/*
+ * Read fresh on every load rather than taken from the stored pointer,
+ * so that changing Cover Focus in Notion shows up in the next Preview
+ * instead of waiting for someone to press Regenerate. The photo
+ * itself cannot work that way: it lives in R2 and is chosen by an
+ * admin action. See src/server/cover.ts.
+ */
 
 /* ── the whole thing ──────────────────────────────────────────── */
 
@@ -281,12 +282,12 @@ export async function loadReport(token: string, snapshotId: string): Promise<Loa
     return null;
   }
 
-  const [series, posts, calendar, stats, heroImage] = await Promise.all([
+  const [series, posts, calendar, stats, cover] = await Promise.all([
     clientSnapshots(token, clientId),
     reportPosts(token, clientId, snapshot.date),
     fetchCalendar(token, clientId, client.client.artist),
     releaseStats(token, clientId),
-    heroPhoto(token, clientId),
+    clientCoverFields(token, clientId),
   ]);
 
   const day = (snapshot.date ?? '').slice(0, 10);
@@ -319,7 +320,10 @@ export async function loadReport(token: string, snapshotId: string): Promise<Loa
       termMonth: term && term.state === 'during'
         ? { month: term.month, total: term.total }
         : null,
-      heroImage,
+      // The Hero Photo, which is the fallback. The route swaps in the
+      // stored Drive cover when there is one: see functions/print.
+      heroImage: cover.hero,
+      coverFocus: cover.focus,
     },
   };
 }

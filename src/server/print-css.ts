@@ -385,6 +385,9 @@ table{border-collapse:collapse;width:100%}
   color:${T.navyDeep};line-height:1.02;letter-spacing:-0.5px;margin:0;
 }
 .cv__title--audit{font-size:72px;line-height:1}
+/* A name that would run to a third line at 72px. Smaller type, so the
+   title stays a title instead of running into the dial below it. */
+.cv__title--long{font-size:56px;letter-spacing:-0.3px}
 .cv__kick{
   font-family:Orbitron,sans-serif;font-size:13px;font-weight:600;
   letter-spacing:3px;color:${T.orangeInk};text-transform:uppercase;
@@ -409,6 +412,24 @@ table{border-collapse:collapse;width:100%}
    white margin around it; a hairline is all it needed. A border would
    have been wrong here, because the SVG is positioned against the
    padding box and would have overflowed it. */
+/* ── the audit cover, with and without a photo ──────────────────
+   A prospect teardown has no Drive folder to read a cover from, so its
+   cover is the grid and these are the coordinates it has always had.
+   A client audit adds a photo band at the top and everything below it
+   moves down by one class. Two layouts rather than one flexible
+   column, because the dial and the facts are absolutely positioned
+   against a fixed sheet and "roughly where it was" is not a thing a
+   printed page gets to be.
+   ────────────────────────────────────────────────────────────── */
+.cv__hero--audit{top:130px;height:150px}
+.cv__at{position:absolute;left:64px;right:64px;top:230px}
+/* Measured on the page rather than chosen. With the band at 130 the
+   title starts at 310, and the deepest it can reach is 582: two lines
+   at 72px, which is the most 72px ever gets, because a line long
+   enough to wrap is set at 56px instead and three of those stop at
+   550. So the dial and the facts start at 630 and the footer at 908 is
+   never in doubt. */
+.cv__at--photo{top:310px}
 .cv__dial{
   position:absolute;right:64px;top:590px;width:220px;height:220px;
   border-radius:999px;background:#ffffff;outline:1px solid ${T.rule};
@@ -416,7 +437,9 @@ table{border-collapse:collapse;width:100%}
 }
 .cv__dial svg{position:absolute;left:0;top:0}
 .cv__dialn{font-family:Orbitron,sans-serif;font-size:52px;font-weight:700;color:${T.navyDeep};line-height:1}
+.cv__dial--photo{top:630px}
 .cv__facts{position:absolute;left:64px;top:640px;width:360px;display:flex;flex-direction:column;gap:14px}
+.cv__facts--photo{top:630px}
 .fact__k{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:${T.muted}}
 .fact__v{font-size:16px;font-weight:500}
 .fact__v--wrap{font-size:15px;line-height:1.5;font-weight:400}

@@ -11,19 +11,29 @@
    was approved in.
    ────────────────────────────────────────────────────────────── */
 
+import { storedCoverUrl, type CoverEnv } from '../../../src/server/cover';
 import { renderReport } from '../../../src/server/print-report';
 import { loadReport } from '../../../src/server/report-data';
 import { allowPrint, printResponse, type PrintEnv } from '../../../src/server/print-route';
+import { printSecret } from '../../../src/server/print-token';
 import { portalNotFound } from '../../../src/server/portal-auth';
 
-export const onRequestGet: PagesFunction<PrintEnv> = async ({ request, env, params }) => {
+interface Env extends PrintEnv, CoverEnv {}
+
+export const onRequestGet: PagesFunction<Env> = async ({ request, env, params }) => {
   const gate = await allowPrint(request, env, 'report', params.id);
   if (!gate.ok) return gate.response;
 
   try {
     const loaded = await loadReport(env.NOTION_TOKEN, gate.id);
     if (!loaded) return portalNotFound();
-    return printResponse(renderReport(loaded.input));
+
+    // The Drive cover, if an admin has resolved one. It wins over the
+    // Hero Photo the loader put there, which stays as the fallback.
+    const cover = await storedCoverUrl(env, printSecret(env), loaded.client.slug);
+    const input = cover ? { ...loaded.input, heroImage: cover } : loaded.input;
+
+    return printResponse(renderReport(input));
   } catch (err) {
     // Logged with the id, answered without it. A 500 that quoted the
     // Notion error would echo row content into a browser.

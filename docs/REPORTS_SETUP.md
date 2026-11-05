@@ -134,6 +134,56 @@ If it is unset, the print routes fall back to the portal session
 secret, which works; the only difference is that rotating one rotates
 both at once.
 
+### The cover photo (`GOOGLE_SERVICE_ACCOUNT_JSON`)
+
+Optional. Without it the cover falls back to the Clients row's Hero
+Photo, and the blue grid after that. Nothing fails.
+
+The report cover is the newest image in a `Report Covers` folder
+inside the client's own shared Drive folder. Reading it needs a Google
+service account, which is a robot Google account with no password and
+no inbox: you share a folder with its address, the same way you would
+share with a person, and it can read that folder and nothing else.
+
+**Making one, once.**
+
+1. [console.cloud.google.com](https://console.cloud.google.com) →
+   project dropdown → **New Project**, named `blueprint-portal`.
+2. Search for **Google Drive API** → **Enable**.
+3. **APIs & Services → Credentials → Create Credentials → Service
+   account**, named `portal-covers`. Skip the "grant this service
+   account access to the project" step: it needs no role in the Cloud
+   project, and its access to Drive comes from sharing, not from here.
+4. On the new service account → **Keys → Add Key → Create new key →
+   JSON**. A file downloads.
+5. Pages → `bpmktg-website` → Settings → Variables and Secrets. Add
+   `GOOGLE_SERVICE_ACCOUNT_JSON` as a **Secret**, value being the
+   whole file. Do it for Production and again for Preview. Delete the
+   downloaded file afterwards; the only copy that needs to exist is
+   the one in Cloudflare.
+
+The address to share folders with is the `client_email` field in that
+JSON, and it is also printed on the Credentials page. It looks like
+`portal-covers@blueprint-portal-123456.iam.gserviceaccount.com`. It is
+an identifier, not a secret.
+
+**Per client, once.** Share the client's main folder with that address
+as **Viewer**, with notifications off. Inside that folder make a
+subfolder called `Report Covers`, and drop photos in it. Then paste
+the main folder's link into **Client Folder** on the Clients row.
+
+The folders stay private throughout. Nothing is ever set to "anyone
+with the link".
+
+**If Workspace blocks the share.** Google Workspace can forbid sharing
+outside the organisation, and a service account is outside it. Fix at
+admin.google.com → **Apps → Google Workspace → Drive and Docs →
+Sharing settings**, setting sharing outside the domain to **On** or
+**On, but warn**. The narrower alternative is to put the client folder
+in a Shared Drive and add the service account as a member of that
+drive, which is governed by its own setting rather than the global
+one.
+
 ### Already set, and still needed
 
 `NOTION_TOKEN`, `RESEND_API_KEY`, `ADMIN_EMAILS`, `PORTAL_SECRET` and
@@ -153,6 +203,10 @@ records, so a missing `PORTAL_KV` disables share links entirely.
 - [ ] `CF_BROWSER_TOKEN` set, Preview
 - [ ] `PRINT_SIGNING_SECRET` set, Production
 - [ ] `PRINT_SIGNING_SECRET` set, Preview
+- [ ] `GOOGLE_SERVICE_ACCOUNT_JSON` set, Production *(cover photos)*
+- [ ] `GOOGLE_SERVICE_ACCOUNT_JSON` set, Preview
+- [ ] each client's Drive folder shared with the service account, Viewer
+- [ ] each client's `Client Folder` filled in on the Clients row
 
 ---
 
@@ -260,6 +314,70 @@ instead, because that is where Laylo and HubSpot growth already lands.
 
 A card with no number behind it is hidden rather than printed as a
 zero.
+
+---
+
+## 3b. The cover photo
+
+### Where it comes from
+
+In order, stopping at the first that works:
+
+1. the newest image in `Report Covers`, inside the client's
+   **Client Folder**
+2. the Clients row's **Hero Photo** URL
+3. the blue grid, which is the template's own background
+
+"Newest" is by Drive's modified time. Only `Report Covers` directly
+inside the client folder is looked at, case-insensitively, and only
+jpg, png and webp count. A HEIC straight off a phone is skipped on
+purpose: Chrome cannot draw one.
+
+Two fields on Clients drive it:
+
+| Property | Type | What it does |
+|---|---|---|
+| Client Folder | URL | the client's main shared Drive folder |
+| Cover Focus | Select | Top / Center / Bottom. Which part survives the crop. Blank means Center |
+
+**Client Folder is not Drive Folder and not Content Vault.** Drive
+Folder is Blueprint's internal folder and Content Vault is a
+spreadsheet. Pasting either one in does no harm, it just falls back to
+the Hero Photo, but the cover will not be what you expected.
+
+### What actually happens
+
+Publish and Regenerate resolve the cover before they render. The
+Worker signs in as the service account, finds the folder, picks the
+newest image, pulls it down at 2400px, and writes a copy into R2 at
+`reports/<slug>/covers/<fileId>.jpg`, with a small `current.json` next
+to it recording what was chosen. The print route reads that pointer,
+and nothing else.
+
+Which means the renderer never talks to Google. A Drive permission
+changed on a Tuesday cannot make a report fail to render on Wednesday;
+the worst it can do is make the next Regenerate fall back.
+
+**On the 2400px.** A Cloudflare Worker has no image decoder, so it
+cannot resample a JPEG. Drive renders its own images at whatever size
+you ask for, so the Worker asks for 2400 and stores what comes back,
+typically a few hundred kilobytes. When Drive declines to render a
+thumbnail the original file is used instead, and a file over 10MB is
+refused rather than stored, which falls back to the Hero Photo.
+
+Nothing here can fail a render. Every path ends in a cover and a log
+line saying which source was used.
+
+### Checking it
+
+The Reports tab's publishing panel has a **Cover photo** row at the
+top: the thumbnail, the filename and the source, cropped the way the
+PDF will crop it. It reads the stored decision and does not call
+Google, so opening the panel is cheap. It repaints after every Publish
+and Regenerate, which are the two actions that do look at Drive.
+
+A fallback says why on a second line, for example
+`no "Report Covers" folder in the client folder`.
 
 ---
 

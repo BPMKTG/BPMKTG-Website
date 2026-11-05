@@ -667,6 +667,70 @@ export function heroImageUrl(raw: string | null): string | null {
   return url;
 }
 
+/**
+ * Which part of a cover photo survives the crop.
+ *
+ * The frame is 688 by 400 and a photo almost never is, so
+ * `object-fit: cover` throws some of it away. Which part it throws
+ * away is the difference between a portrait and a photograph of a
+ * chin, and the person who knows is the person who took it. So the
+ * Clients row carries a Cover Focus and this is the only place the
+ * three words become CSS.
+ *
+ * Blank, unrecognised, or a fourth option somebody adds to the Notion
+ * select next year all come out as Center, because a cover that is
+ * cropped the ordinary way is never a bug report.
+ */
+export type CoverFocus = 'top' | 'center' | 'bottom';
+
+export function coverFocus(raw: string | null | undefined): CoverFocus {
+  const value = (raw ?? '').trim().toLowerCase();
+  if (value === 'top') return 'top';
+  if (value === 'bottom') return 'bottom';
+  return 'center';
+}
+
+/** The `object-position` for a focus. Horizontally always centred: a
+ *  cover is a 1.7:1 letterbox, so the crop that matters is vertical. */
+export function coverPosition(focus: CoverFocus): string {
+  if (focus === 'top') return '50% 0%';
+  if (focus === 'bottom') return '50% 100%';
+  return '50% 50%';
+}
+
+/**
+ * A name broken across lines the way the audit cover sets it.
+ *
+ * The canvas puts the first name over the last, so the break is at the
+ * last space. One word stays one line, and a line too long for the
+ * frame still wraps on its own: this decides where the deliberate
+ * break goes, not where every break goes.
+ */
+export function coverNameLines(name: string): string[] {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts.length ? [parts[0]] : [];
+  const last = parts.pop() as string;
+  return [parts.join(' '), last];
+}
+
+/**
+ * Does this name need the smaller size?
+ *
+ * Orbitron Bold at 72px runs about 45px to the character, so roughly
+ * fifteen of them fill the 688px frame. Past that the line wraps, the
+ * title grows by 72px, and on the audit cover it lands on the score
+ * dial. Fourteen is that limit with one character of margin.
+ *
+ * Measured rather than guessed: the three-line case was found by
+ * rendering "The Brooklyn Midnight Collective" and reading the boxes
+ * off the page, where it overlapped the dial by 24px.
+ */
+export const COVER_TITLE_MAX_CHARS = 14;
+
+export function coverTitleTight(name: string): boolean {
+  return coverNameLines(name).some((line) => line.length > COVER_TITLE_MAX_CHARS);
+}
+
 /* ── the report model ─────────────────────────────────────────── */
 
 /** One KPI Snapshot, as the report needs it. */
@@ -721,7 +785,11 @@ export interface ReportInput {
   releaseStats: Record<string, ReleaseStats>;
   /** Term progress, "Month 1 of 6". */
   termMonth: { month: number; total: number } | null;
+  /** The cover photo, already resolved to something an <img> can load:
+   *  our own cover route when a Drive photo was stored, the Hero Photo
+   *  URL when it was not, null for the grid. */
   heroImage: string | null;
+  coverFocus: CoverFocus;
 }
 
 export interface ReleaseStats {
@@ -1253,6 +1321,11 @@ export interface AuditInput {
   missing: AuditHeading[];
   /** The client's portal slug, for the closing band. Null for prospects. */
   slug: string | null;
+  /** Same cover rule as a monthly report, for a client audit. A
+   *  prospect teardown never reaches the Drive folder, because there
+   *  is no client and therefore no folder to reach. */
+  coverImage: string | null;
+  coverFocus: CoverFocus;
 }
 
 /** The scorecard total, and whether it is complete enough to print. */

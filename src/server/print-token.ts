@@ -12,6 +12,10 @@
      the admin cookie      Mason, previewing in his own browser
      one of these tokens   the renderer, for ten minutes, for one id
 
+   The cover images those pages load are reachable the same two ways,
+   under their own kind, because the headless browser that fetches the
+   page also has to fetch its <img>.
+
    The token is scoped to a single document. A token minted to render
    Sean's October report cannot be replayed against November's, or
    against an audit, because the kind and the id are both signed. It
@@ -26,7 +30,16 @@
 
 import { hmacHex, sessionSecret, timingSafeEqual } from './portal-auth';
 
-export type PrintKind = 'report' | 'audit';
+/**
+ * What a token is for.
+ *
+ * 'cover' is the odd one out: its id is a client slug rather than a
+ * Notion page id, and what it unlocks is one image out of R2 rather
+ * than a document. It is a separate kind precisely so it cannot be
+ * confused for one: a token minted to fetch Sean's cover photo is not
+ * a token that renders Sean's report, because the kind is signed.
+ */
+export type PrintKind = 'report' | 'audit' | 'cover';
 
 const V = 'p1';
 

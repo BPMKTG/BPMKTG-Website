@@ -245,6 +245,7 @@ export const BASELINE_REPORT: ReportInput = {
   releaseStats: {},
   termMonth: null,
   heroImage: null,
+  coverFocus: 'center',
 };
 
 export const MONTHLY_REPORT: ReportInput = {
@@ -326,6 +327,21 @@ export const MONTHLY_REPORT: ReportInput = {
   },
   termMonth: { month: 1, total: 6 },
   heroImage: null,
+  coverFocus: 'center',
+};
+
+/**
+ * The same month with a cover photo on it.
+ *
+ * The URL is the shape the print route actually builds: our own cover
+ * endpoint with a signed token on it, not a Drive link. That matters
+ * to the test, because the point of the whole cover pipeline is that
+ * the renderer never fetches anything from Google.
+ */
+export const REPORT_WITH_COVER: ReportInput = {
+  ...MONTHLY_REPORT,
+  heroImage: '/print/cover/sean-comma?t=p1.1800000000.' + 'a'.repeat(64),
+  coverFocus: 'bottom',
 };
 
 /* ── the audit ────────────────────────────────────────────────── */
@@ -499,6 +515,15 @@ export const CLIENT_AUDIT: AuditInput = {
   sections: SECTIONS,
   missing: [],
   slug: 'sean-comma',
+  coverImage: null,
+  coverFocus: 'center',
+};
+
+/** A client audit with the cover photo a client audit gets. */
+export const CLIENT_AUDIT_WITH_COVER: AuditInput = {
+  ...CLIENT_AUDIT,
+  coverImage: '/print/cover/sean-comma?t=p1.1800000000.' + 'b'.repeat(64),
+  coverFocus: 'top',
 };
 
 /** The same audit as a teardown. Only the closing band differs, and
@@ -513,4 +538,7 @@ export const PROSPECT_AUDIT: AuditInput = {
   offer: 'Tier 3 · Fan Growth Engine, $3,500 a month, six months. Content system, campaign calendar, show and release playbooks, and this scorecard re-scored at day 90.',
   bookACallLink: 'https://bpmktg.com/book',
   slug: null,
+  // A prospect has no client folder to read a cover from. The grid is
+  // not a fallback here, it is the design.
+  coverImage: null,
 };

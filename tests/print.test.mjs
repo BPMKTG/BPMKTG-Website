@@ -80,16 +80,38 @@ import {
   // the publish stamp
   stampSnapshotEdit,
   editedBy,
+  // the cover photo
+  coverFocus,
+  coverNameLines,
+  coverPosition,
+  coverTitleTight,
+  COVER_TITLE_MAX_CHARS,
+  driveFolderId,
+  thumbnailAt,
+  isCoverImage,
+  pickNewest,
+  googleCredentials,
+  assertionClaims,
+  pkcs8Bytes,
+  coverKey,
+  pointerKey,
+  COVER_SOURCE_LABELS,
+  COVERS_FOLDER,
+  COVER_TYPES,
+  COVER_WIDTH,
   // fixtures
   BASELINE,
   NOVEMBER,
   BASELINE_REPORT,
   MONTHLY_REPORT,
+  REPORT_WITH_COVER,
   CLIENT_AUDIT,
+  CLIENT_AUDIT_WITH_COVER,
   PROSPECT_AUDIT,
   SECTIONS,
   SCORES,
 } from '../.tmp-print-lib.mjs';
+import { readFileSync } from 'node:fs';
 
 let pass = 0, fail = 0;
 const is = (name, got, want) => {
@@ -561,6 +583,259 @@ is('fields: the report reads Win, Report PDF and Published At',
 // would silently test nothing.
 is('fixture: every section it defines is a real heading',
    Object.keys(SECTIONS).every((h) => AUDIT_HEADINGS.includes(h)), true);
+
+/* ══ 15. The cover photo ═════════════════════════════════════════
+   The cover is read out of a Drive folder on Publish and Regenerate,
+   copied into R2, and served to the renderer from our own origin. The
+   network halves of that need Google and a bucket; what is testable is
+   every decision in between, which is where all the bugs would be:
+   which URL is a folder, which file is the newest, which end of a
+   photograph survives the crop. */
+
+section('15. The cover photo');
+
+/* ── the crop ─────────────────────────────────────────────────── */
+
+is('focus: Center', coverFocus('Center'), 'center');
+is('focus: Top', coverFocus('Top'), 'top');
+is('focus: Bottom', coverFocus('Bottom'), 'bottom');
+is('focus: however it is typed', coverFocus('  bOTTom '), 'bottom');
+// A blank select, and a fourth option somebody adds next year, both
+// have to be an ordinary cover rather than a crash.
+is('focus: blank is centre', coverFocus(null), 'center');
+is('focus: so is a word we do not know', coverFocus('Left'), 'center');
+
+is('crop: top keeps the top', coverPosition('top'), '50% 0%');
+is('crop: centre keeps the middle', coverPosition('center'), '50% 50%');
+is('crop: bottom keeps the bottom', coverPosition('bottom'), '50% 100%');
+
+// The admin panel draws the same crop on its thumbnail, in its own
+// browser-side map. Two maps, one answer, or the panel starts lying
+// about what the PDF will look like.
+const PANEL = readFileSync(new URL('../src/pages/portal/index.astro', import.meta.url), 'utf8');
+const panelMap = /const coverPositions: Record<string, string> = \{([^}]*)\}/.exec(PANEL);
+ok('panel: it has a crop map at all', Boolean(panelMap));
+for (const focus of ['top', 'center', 'bottom']) {
+  const found = new RegExp(`${focus}:\\s*'([^']+)'`).exec(panelMap?.[1] ?? '');
+  is(`panel: ${focus} matches the template`, found?.[1], coverPosition(focus));
+}
+
+/* ── the name on an audit cover ───────────────────────────────── */
+
+is('name: broken at the last space', coverNameLines('Sean Comma'), ['Sean', 'Comma']);
+is('name: three words break before the last',
+   coverNameLines('The Midnight Collective'), ['The Midnight', 'Collective']);
+is('name: one word stays one line', coverNameLines('Skrillex'), ['Skrillex']);
+is('name: nothing is no lines', coverNameLines('   '), []);
+
+is('name: a short one keeps the full size', coverTitleTight('Sean Comma'), false);
+// Measured, not guessed: at 72px this one ran to three lines and
+// landed on the score dial by 24px.
+is('name: a long one does not', coverTitleTight('The Brooklyn Midnight Collective'), true);
+// Nineteen characters in all, but nine on each line, and it is the
+// line that has to fit the frame.
+is('name: the limit is the longest LINE, not the whole name',
+   coverTitleTight('Alexandra Kowalczyk'), false);
+is('name: exactly at the limit is still full size',
+   coverTitleTight(`${'a'.repeat(COVER_TITLE_MAX_CHARS)} b`), false);
+is('name: one over is not',
+   coverTitleTight(`${'a'.repeat(COVER_TITLE_MAX_CHARS + 1)} b`), true);
+
+/* ── which URL is a folder ────────────────────────────────────── */
+
+is('folder: an ordinary share link',
+   driveFolderId('https://drive.google.com/drive/folders/1enuxELA_dTyXQquuWXHlkW-QemjmPo8p'),
+   '1enuxELA_dTyXQquuWXHlkW-QemjmPo8p');
+is('folder: with a query on the end',
+   driveFolderId('https://drive.google.com/drive/folders/1enuxELA_dTyXQquuWXHlkW-QemjmPo8p?usp=sharing'),
+   '1enuxELA_dTyXQquuWXHlkW-QemjmPo8p');
+is('folder: the /u/0/ shape',
+   driveFolderId('https://drive.google.com/drive/u/0/folders/1AbC_defGHIjkl'),
+   '1AbC_defGHIjkl');
+is('folder: the old open?id= shape',
+   driveFolderId('https://drive.google.com/open?id=1AbC_defGHIjkl'),
+   '1AbC_defGHIjkl');
+// Clients already has a Content Vault, which is a Sheet, and a Drive
+// Folder, which is Blueprint's own. Pasting either into Client Folder
+// has to come back as nothing rather than as a parent id.
+is('folder: a Sheet is not a folder',
+   driveFolderId('https://docs.google.com/spreadsheets/d/1AbC_defGHIjkl/edit'), null);
+is('folder: a file is not a folder',
+   driveFolderId('https://drive.google.com/file/d/1AbC_defGHIjkl/view'), null);
+is('folder: nothing is nothing', driveFolderId(null), null);
+is('folder: and neither is a sentence', driveFolderId('see the shared folder'), null);
+
+/* ── which file is the cover ──────────────────────────────────── */
+
+is('types: jpeg, png and webp', COVER_TYPES.length, 4);
+ok('types: and jpg spelled both ways',
+   COVER_TYPES.includes('image/jpeg') && COVER_TYPES.includes('image/jpg'));
+// A HEIC straight off a phone is the obvious thing to drop in the
+// folder and the one thing Chrome cannot draw.
+is('types: a HEIC is not usable', isCoverImage({ mimeType: 'image/heic' }), false);
+is('types: nor is a PDF', isCoverImage({ mimeType: 'application/pdf' }), false);
+is('types: a JPEG is', isCoverImage({ mimeType: 'image/jpeg' }), true);
+is('types: however it is cased', isCoverImage({ mimeType: 'IMAGE/PNG' }), true);
+
+const img = (id, modifiedTime, mimeType = 'image/jpeg') =>
+  ({ id, name: `${id}.jpg`, mimeType, modifiedTime, thumbnailLink: null, size: null });
+
+is('newest: the latest modifiedTime wins',
+   pickNewest([
+     img('older', '2026-09-01T10:00:00.000Z'),
+     img('newest', '2026-11-02T08:30:00.000Z'),
+     img('middle', '2026-10-15T23:59:59.000Z'),
+   ])?.id,
+   'newest');
+// Four files dragged in at once share a timestamp. Drive's own order
+// is then whatever it is, so the id breaks the tie and two renders of
+// one report agree with each other.
+is('newest: a tie is broken by the id, not by luck',
+   pickNewest([img('aaa', '2026-11-02T08:30:00.000Z'), img('zzz', '2026-11-02T08:30:00.000Z')])?.id,
+   'zzz');
+is('newest: non-images are not candidates',
+   pickNewest([
+     img('doc', '2026-11-03T00:00:00.000Z', 'application/pdf'),
+     img('photo', '2026-10-01T00:00:00.000Z'),
+   ])?.id,
+   'photo');
+is('newest: an empty folder is null', pickNewest([]), null);
+is('newest: and so is a folder of the wrong things',
+   pickNewest([img('doc', '2026-11-03T00:00:00.000Z', 'application/pdf')]), null);
+is('newest: a file with no id is not a file',
+   pickNewest([{ ...img('x', '2026-11-03T00:00:00.000Z'), id: '' }]), null);
+
+is('folder name: matched lowercase', COVERS_FOLDER, 'report covers');
+
+/* ── the resize, which Drive does for us ──────────────────────── */
+
+// A Worker cannot decode a JPEG, so it never resizes one. Drive serves
+// its own rendition at whatever size is asked for, and this is the one
+// line that asks.
+is('resize: the thumbnail size is swapped, not appended',
+   thumbnailAt('https://lh3.googleusercontent.com/drive-storage/abc123=s220'),
+   `https://lh3.googleusercontent.com/drive-storage/abc123=s${COVER_WIDTH}`);
+is('resize: a width directive too',
+   thumbnailAt('https://lh3.googleusercontent.com/drive-storage/abc123=w1920'),
+   `https://lh3.googleusercontent.com/drive-storage/abc123=s${COVER_WIDTH}`);
+is('resize: and one with a crop suffix',
+   thumbnailAt('https://lh3.googleusercontent.com/drive-storage/abc123=s220-p-k-rw'),
+   `https://lh3.googleusercontent.com/drive-storage/abc123=s${COVER_WIDTH}`);
+is('resize: an explicit size', thumbnailAt('https://lh3.googleusercontent.com/x=s100', 800),
+   'https://lh3.googleusercontent.com/x=s800');
+// No directive to swap means we do not know how to ask, so the caller
+// falls back to the original bytes rather than guessing.
+is('resize: a link with no size directive is refused',
+   thumbnailAt('https://docs.google.com/feeds/vt?gd=true&id=abc'), null);
+is('resize: so is http', thumbnailAt('http://lh3.googleusercontent.com/x=s220'), null);
+is('resize: and nothing', thumbnailAt(null), null);
+ok('resize: wide enough for the frame at 2x', COVER_WIDTH >= 1376);
+
+/* ── the keys ─────────────────────────────────────────────────── */
+
+is('key: the cover copy',
+   coverKey('sean-comma', '1enuxELA_dTyXQquuWXHlkW-QemjmPo8p'),
+   'reports/sean-comma/covers/1enuxela-dtyxqquuwxhlkw-qemjmpo8p.jpg');
+is('key: the pointer next to it',
+   pointerKey('sean-comma'), 'reports/sean-comma/covers/current.json');
+// Both have to pass the files endpoint's whitelist, which is lowercase
+// letters, digits, hyphens and slashes. A key with an underscore in it
+// would be a 404 on a URL nobody could explain.
+ok('key: the cover is servable',
+   /^[a-z0-9/-]+\.jpg$/.test(coverKey('sean-comma', 'A_b-C')));
+is('key: a cover lives under the client, with the PDFs',
+   coverKey('sean-comma', 'x').startsWith('reports/sean-comma/'), true);
+
+/* ── the three words the panel prints ─────────────────────────── */
+
+is('source: the Drive folder', COVER_SOURCE_LABELS.covers, 'Report Covers');
+is('source: the Notion field', COVER_SOURCE_LABELS.hero, 'Hero Photo');
+is('source: nothing at all', COVER_SOURCE_LABELS.grid, 'Grid');
+is('source: and there are only three', Object.keys(COVER_SOURCE_LABELS).length, 3);
+
+/* ── the credential ──────────────────────────────────────────── */
+
+const FAKE_KEY = '-----BEGIN PRIVATE KEY-----\nMIIBOgIBAAJBAKj3\n-----END PRIVATE KEY-----\n';
+
+is('creds: nothing configured', googleCredentials({}), null);
+is('creds: an empty secret', googleCredentials({ GOOGLE_SERVICE_ACCOUNT_JSON: '   ' }), null);
+is('creds: something that is not JSON',
+   googleCredentials({ GOOGLE_SERVICE_ACCOUNT_JSON: 'not json at all' }), null);
+// The whole JSON file pasted in, minus a field. Half a credential is
+// worse than none, because it fails at the token exchange instead of
+// at startup.
+is('creds: JSON with no private key',
+   googleCredentials({ GOOGLE_SERVICE_ACCOUNT_JSON: '{"client_email":"a@b.iam.gserviceaccount.com"}' }),
+   null);
+is('creds: JSON with no email',
+   googleCredentials({ GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ private_key: FAKE_KEY }) }),
+   null);
+is('creds: a whole one',
+   googleCredentials({
+     GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({
+       client_email: 'portal-covers@blueprint-portal.iam.gserviceaccount.com',
+       private_key: FAKE_KEY,
+     }),
+   })?.clientEmail,
+   'portal-covers@blueprint-portal.iam.gserviceaccount.com');
+
+const claims = assertionClaims('portal-covers@blueprint-portal.iam.gserviceaccount.com', 1_800_000_000_000);
+is('claims: the service account signs as itself',
+   claims.iss, 'portal-covers@blueprint-portal.iam.gserviceaccount.com');
+// Read-only, and said so in the one place that asks Google for
+// anything. A scope that could write would be a scope that could
+// delete a client's folder.
+is('claims: read-only, and nothing else',
+   claims.scope, 'https://www.googleapis.com/auth/drive.readonly');
+is('claims: addressed to the token endpoint', claims.aud, 'https://oauth2.googleapis.com/token');
+is('claims: good for an hour', claims.exp - claims.iat, 3600);
+is('claims: and dated in seconds, not milliseconds', claims.iat, 1_800_000_000);
+
+is('pem: the armour comes off',
+   Array.from(pkcs8Bytes('-----BEGIN PRIVATE KEY-----\nQUJD\n-----END PRIVATE KEY-----\n')),
+   [65, 66, 67]);
+is('pem: and whitespace with it',
+   pkcs8Bytes('-----BEGIN PRIVATE KEY-----\n  QU\n  JD  \n-----END PRIVATE KEY-----').length, 3);
+
+/* ── what reaches the page ────────────────────────────────────── */
+
+// Every assertion below looks for a class ATTRIBUTE rather than a
+// class name. The whole stylesheet is inlined in the document, so
+// `includes('cv__hero')` is true of a page that never draws one.
+const coverHtml = renderReport(REPORT_WITH_COVER);
+ok('report: the cover photo is drawn', coverHtml.includes('<div class="cv__hero">'));
+ok('report: from our own origin, not from Google',
+   coverHtml.includes('src="/print/cover/sean-comma?t='));
+ok('report: nothing on the page fetches googleusercontent',
+   !coverHtml.includes('googleusercontent'));
+ok('report: the crop follows Cover Focus',
+   coverHtml.includes('object-position:50% 100%'));
+const noCover = renderReport(MONTHLY_REPORT);
+is('report: no photo, no frame', noCover.includes('<div class="cv__hero'), false);
+ok('report: and the grid band is still there', noCover.includes('class="grid"'));
+
+const auditCover = renderAudit(CLIENT_AUDIT_WITH_COVER);
+ok('audit: a client audit gets the band',
+   auditCover.includes('<div class="cv__hero cv__hero--audit">'));
+ok('audit: cropped to the top', auditCover.includes('object-position:50% 0%'));
+// Everything below the band moves down together. If one of the three
+// shifts and the others do not, the dial lands on the title.
+ok('audit: the title block drops', auditCover.includes('class="cv__at cv__at--photo stack'));
+ok('audit: the dial with it', auditCover.includes('class="cv__dial cv__dial--photo"'));
+ok('audit: and the facts', auditCover.includes('class="cv__facts cv__facts--photo"'));
+
+const prospectCover = renderAudit(PROSPECT_AUDIT);
+is('audit: a prospect gets no photo', prospectCover.includes('<div class="cv__hero'), false);
+// A prospect cover has to print exactly where it always printed, so
+// none of the shifted coordinates may appear on it.
+is('audit: and none of the shifted layout',
+   /class="[^"]*cv__(at|dial|facts)--photo/.test(prospectCover), false);
+ok('audit: the title block is still at its own coordinates',
+   prospectCover.includes('class="cv__at stack g18"'));
+
+const longAudit = renderAudit({ ...CLIENT_AUDIT_WITH_COVER, subject: 'The Brooklyn Midnight Collective' });
+ok('audit: a long name is set smaller', longAudit.includes('cv__title--long'));
+is('audit: a short one is not', auditCover.includes('cv__title--long"'), false);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

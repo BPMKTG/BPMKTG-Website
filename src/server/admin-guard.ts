@@ -30,13 +30,19 @@ export interface AdminEnv {
   PORTAL_SECRET?: string;
 }
 
-export interface AdminContext {
+/** Everything an admin action needs that is not the document it acts
+ *  on. Some actions are about the client rather than one row: the
+ *  cover photo is one Drive folder per client, not one per month. */
+export interface AdminClientContext {
   slug: string;
   viewer: Viewer;
   record: ClientRecord;
+  origin: string;
+}
+
+export interface AdminContext extends AdminClientContext {
   /** The Notion page id from the route, already validated. */
   id: string;
-  origin: string;
 }
 
 export interface AdminGuardOptions {
@@ -46,13 +52,13 @@ export interface AdminGuardOptions {
   write?: boolean;
 }
 
-export async function beginAdmin(
+/** Admin, on this client's portal. The whole check, minus a document. */
+export async function beginAdminClient(
   request: Request,
   env: AdminEnv,
   rawSlug: unknown,
-  rawId: unknown,
   opts: AdminGuardOptions = {},
-): Promise<{ ok: true; ctx: AdminContext } | { ok: false; response: Response }> {
+): Promise<{ ok: true; ctx: AdminClientContext } | { ok: false; response: Response }> {
   const fail = { ok: false as const, response: portalNotFound() };
 
   if (!env.NOTION_TOKEN) {
@@ -63,7 +69,6 @@ export async function beginAdmin(
 
   const slug = normaliseSlug(rawSlug as string);
   if (!isValidSlug(slug)) return fail;
-  if (typeof rawId !== 'string' || !isNotionId(rawId)) return fail;
 
   const viewer = await readViewer(request, sessionSecret(env), slug);
   if (!viewer || viewer.role !== 'admin') return fail;
@@ -71,10 +76,26 @@ export async function beginAdmin(
   const record = await findClientBySlug(env.NOTION_TOKEN, slug);
   if (!record) return fail;
 
-  return {
-    ok: true,
-    ctx: { slug, viewer, record, id: rawId, origin: new URL(request.url).origin },
-  };
+  return { ok: true, ctx: { slug, viewer, record, origin: new URL(request.url).origin } };
+}
+
+/** The same, for an action on one Notion row. The id is validated here
+ *  so there is one answer to what a page id looks like. */
+export async function beginAdmin(
+  request: Request,
+  env: AdminEnv,
+  rawSlug: unknown,
+  rawId: unknown,
+  opts: AdminGuardOptions = {},
+): Promise<{ ok: true; ctx: AdminContext } | { ok: false; response: Response }> {
+  if (typeof rawId !== 'string' || !isNotionId(rawId)) {
+    return { ok: false, response: portalNotFound() };
+  }
+
+  const gate = await beginAdminClient(request, env, rawSlug, opts);
+  if (!gate.ok) return gate;
+
+  return { ok: true, ctx: { ...gate.ctx, id: rawId } };
 }
 
 /**

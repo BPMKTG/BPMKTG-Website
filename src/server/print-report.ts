@@ -22,6 +22,7 @@ import {
   bySource,
   byBucket,
   clientTodos,
+  coverPosition,
   dayLabel,
   filmList,
   focusCards,
@@ -119,8 +120,13 @@ function cover(input: ReportInput, month: string, doc: string): string {
   // The grid band is the fallback the canvas calls for. The photo sits
   // in the rounded frame on top of it, so a cover with no photo is a
   // deliberate-looking cover rather than a gap.
+  //
+  // The frame is a 1.7:1 letterbox and the photo almost never is, so
+  // object-fit crops it. Cover Focus on the Clients row decides which
+  // end survives; see coverPosition in data/print.ts.
   const hero = input.heroImage
-    ? `<div class="cv__hero"><img src="${esc(input.heroImage)}" alt=""></div>`
+    ? `<div class="cv__hero"><img src="${esc(input.heroImage)}" alt=""`
+      + ` style="object-position:${coverPosition(input.coverFocus)}"></div>`
     : '';
 
   return `<div class="pg">

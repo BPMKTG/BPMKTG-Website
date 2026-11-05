@@ -4919,6 +4919,14 @@ const NAV = [
     return { ok: res.ok && json?.ok === true, status: res.status, json };
   }
 
+  async function adminGet(path: string) {
+    const res = await fetch(`${adminBase()}/${path}`, { credentials: 'same-origin' });
+    const text = await res.text();
+    let json: Record<string, unknown> | null = null;
+    try { json = JSON.parse(text) as Record<string, unknown>; } catch { json = null; }
+    return { ok: res.ok && json?.ok === true, status: res.status, json };
+  }
+
   /** What the server said went wrong, or a fallback. These endpoints
    *  are admin-only, so the real cause belongs on the button rather
    *  than in a log Mason has to go and open. */
@@ -4987,6 +4995,110 @@ const NAV = [
     return el('span', `pt-admin-pill pt-admin-pill-${tone}`, text);
   }
 
+  /* ── the cover photo ──────────────────────────────────────────
+     One row, not one per month. A client has a single "Report Covers"
+     folder in Drive and every document they get reads the newest
+     image in it, so a thumbnail on each of twelve snapshot rows would
+     be the same photo twelve times.
+
+     It is painted from /admin/cover, which is read-only, and repainted
+     after a Publish or a Regenerate because those are the two actions
+     that go and look at Drive.
+     ─────────────────────────────────────────────────────────────── */
+
+  interface CoverStatus {
+    source: string;
+    label: string;
+    filename: string | null;
+    focus: string;
+    image: string | null;
+    note: string | null;
+  }
+
+  let coverRowEl: HTMLElement | null = null;
+
+  const coverTitles: Record<string, string> = {
+    covers: 'Report Covers',
+    hero: 'Hero Photo',
+    grid: 'Blue grid',
+  };
+
+  /** Mirrors coverPosition in src/data/print.ts. Two short maps rather
+   *  than a shared module, because this one runs in a browser and that
+   *  one runs in a Worker, and a test pins them to the same answers. */
+  const coverPositions: Record<string, string> = {
+    top: '50% 0%',
+    center: '50% 50%',
+    bottom: '50% 100%',
+  };
+
+  const titleCase = (word: string): string =>
+    word ? word[0].toUpperCase() + word.slice(1) : word;
+
+  function paintCover(status: CoverStatus | null, waiting: string | null = null): void {
+    const row = coverRowEl;
+    if (!row) return;
+    row.textContent = '';
+
+    // While it is loading the swatch stays plain. Drawing the grid
+    // would say "this report will use the grid" a second before we
+    // know whether it will.
+    const thumb = el('div', status?.image || waiting
+      ? 'pt-cover-thumb'
+      : 'pt-cover-thumb pt-cover-thumb-none');
+    if (status?.image) {
+      const img = el('img');
+      img.src = status.image;
+      img.alt = '';
+      // The same crop the template applies, so the panel is a preview
+      // of the cover rather than a different photograph of it.
+      img.style.objectPosition = coverPositions[status.focus] ?? '50% 50%';
+      // A thumbnail that fails to load must not leave a broken-image
+      // glyph in the panel: the swatch is the honest fallback.
+      img.addEventListener('error', () => {
+        thumb.textContent = '';
+        thumb.className = 'pt-cover-thumb pt-cover-thumb-none';
+      });
+      thumb.appendChild(img);
+    }
+    row.appendChild(thumb);
+
+    const text = el('div', 'pt-doc-text');
+    text.appendChild(el('div', 'pt-doc-title',
+      waiting ?? status?.filename ?? coverTitles[status?.source ?? ''] ?? 'Cover photo'));
+
+    if (!waiting && status) {
+      const bits = [`Source: ${status.label}`];
+      if (status.image) bits.push(`Crop: ${titleCase(status.focus)}`);
+      text.appendChild(el('div', 'pt-doc-sub', bits.join(' · ')));
+      if (status.note) text.appendChild(el('div', 'pt-doc-sub', status.note));
+    }
+    row.appendChild(text);
+  }
+
+  /** Repaint from the server. Silent on failure: a cover line that
+   *  could not load is not a reason to put an error in front of
+   *  someone who came here to publish a report. */
+  async function loadCover(): Promise<void> {
+    const res = await adminGet('cover').catch(() => null);
+    const cover = res?.ok ? (res.json?.cover as CoverStatus | undefined) : undefined;
+    paintCover(cover ?? null, cover ? null : 'Cover photo');
+  }
+
+  /** What an action came back with, which saves a round trip. */
+  function coverFrom(res: { json: Record<string, unknown> | null }): void {
+    const cover = res.json?.cover;
+    if (cover && typeof cover === 'object') paintCover(cover as CoverStatus);
+  }
+
+  function coverShelf(): HTMLElement {
+    const row = el('li', 'pt-admin-row pt-cover-row');
+    coverRowEl = row;
+    paintCover(null, 'Checking the cover photo…');
+    void loadCover();
+    return row;
+  }
+
   function adminSnapshotRow(r: PortalAdminSnapshot): HTMLElement {
     const row = el('li', 'pt-admin-row');
     const text = el('div', 'pt-doc-text');
@@ -5002,11 +5114,13 @@ const NAV = [
     acts.appendChild(previewLink('report', r.id));
     acts.appendChild(adminButton('Regenerate PDF', async () => {
       const res = await adminPost(`report/${encodeURIComponent(r.id)}/pdf`);
+      coverFrom(res);
       return res.ok ? 'PDF regenerated.' : bad(why(res, 'The PDF did not generate.'));
     }));
     if (!r.published) {
       acts.appendChild(adminButton('Publish', async () => {
         const res = await adminPost(`report/${encodeURIComponent(r.id)}/publish`);
+        coverFrom(res);
         if (!res.ok) return bad(why(res, 'Publishing did not go through.'));
         const mail = String(res.json?.mail ?? '');
         if (mail === 'sent') return 'Published, and the email is on its way.';
@@ -5032,6 +5146,7 @@ const NAV = [
     acts.appendChild(previewLink('audit', r.id));
     acts.appendChild(adminButton('Generate PDF', async () => {
       const res = await adminPost(`audit/${encodeURIComponent(r.id)}/pdf`);
+      coverFrom(res);
       if (!res.ok) return bad(why(res, 'The PDF did not generate.'));
       const missing = Array.isArray(res.json?.missing) ? res.json?.missing as string[] : [];
       return missing.length
@@ -5092,8 +5207,16 @@ const NAV = [
     const body = el('div', 'pt-card-body');
     body.appendChild(el('p', 'pt-sect-blurb',
       'Preview opens the printable document. Publish generates the PDF, '
-      + 'switches the month on in this portal and emails the client once.'));
+      + 'switches the month on in this portal and emails the client once. '
+      + 'The cover photo is the newest image in the client\u2019s Report Covers '
+      + 'folder in Drive, read again on every Publish and Regenerate.'));
 
+    {
+      body.appendChild(el('h3', 'pt-admin-head', 'Cover photo'));
+      const list = el('ul', 'pt-admin-list');
+      list.appendChild(coverShelf());
+      body.appendChild(list);
+    }
     if (snapshots.length) {
       body.appendChild(el('h3', 'pt-admin-head', 'Monthly reports'));
       const list = el('ul', 'pt-admin-list');
