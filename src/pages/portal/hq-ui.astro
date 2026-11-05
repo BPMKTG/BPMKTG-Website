@@ -1,0 +1,278 @@
+---
+// Blueprint HQ: the shell.
+//
+// Served ONLY by functions/portal/hq/index.ts, which checks the admin
+// cookie against ADMIN_EMAILS and fetches this page through the
+// ASSETS binding. The asset path itself is guarded by
+// functions/portal/hq-ui/index.ts, which 404s everybody: ASSETS goes
+// straight to the asset store and does not come back through a
+// Function, so the only way in is the gate.
+//
+// Nothing here is data. Everything real arrives from /portal/hq/data,
+// which runs the same gate again.
+import PortalLayout from '../../layouts/PortalLayout.astro';
+
+const NAV = [
+  { id: 'today',    label: 'Today',    icon: 'check' },
+  { id: 'clients',  label: 'Clients',  icon: 'home' },
+  { id: 'pipeline', label: 'Pipeline', icon: 'grip' },
+  { id: 'reports',  label: 'Reports',  icon: 'chart' },
+];
+---
+
+<PortalLayout title="Blueprint HQ">
+  {/* The same sprite the portal uses, trimmed to what HQ draws. */}
+  <svg class="pt-visually-hidden" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="pt-i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M9.5 20v-6h5v6"/>
+      </symbol>
+      <symbol id="pt-i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>
+      </symbol>
+      <symbol id="pt-i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
+      </symbol>
+      <symbol id="pt-i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.3a1.5 1.5 0 0 1 1.1.5l1.3 1.5h7.3A1.5 1.5 0 0 1 20 9.5v8A1.5 1.5 0 0 1 18.5 19h-14A1.5 1.5 0 0 1 3 17.5z"/>
+      </symbol>
+      <symbol id="pt-i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M8 5v14M16 5v14M3 12h18"/>
+      </symbol>
+      <symbol id="pt-i-grip" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/>
+      </symbol>
+      <symbol id="pt-i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <path d="M12 5v14M5 12h14"/>
+      </symbol>
+      <symbol id="pt-i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m4.5 12.5 5 5 10-11"/>
+      </symbol>
+      <symbol id="pt-i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m9 5 7 7-7 7"/>
+      </symbol>
+      <symbol id="pt-i-chev-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 5-7 7 7 7"/>
+      </symbol>
+      <symbol id="pt-i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M6 6l12 12M18 6 6 18"/>
+      </symbol>
+      <symbol id="pt-i-ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>
+      </symbol>
+      <symbol id="pt-i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>
+      </symbol>
+      <symbol id="pt-i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>
+      </symbol>
+      <symbol id="pt-i-ticket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h13A1.5 1.5 0 0 1 20 8.5v2a2 2 0 0 0 0 3.9v2A1.5 1.5 0 0 1 18.5 18h-13A1.5 1.5 0 0 1 4 16.5v-2a2 2 0 0 0 0-3.9z"/>
+      </symbol>
+      <symbol id="pt-i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 4v11"/><path d="m7.5 11 4.5 4.5 4.5-4.5"/><path d="M5 19h14"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <div class="pt-shell hq">
+    <header class="pt-top hq-top">
+      <a class="pt-logo" href="/portal/hq" aria-label="Blueprint HQ">
+        <span class="hq-word">blueprint</span><span class="hq-mark">HQ</span>
+      </a>
+
+      <div class="hq-search" data-search>
+        <label class="pt-visually-hidden" for="hq-q">Search clients, moments and content</label>
+        <svg class="hq-search-icon" aria-hidden="true" focusable="false"><use href="#pt-i-search"/></svg>
+        <input id="hq-q" type="search" placeholder="Search clients, moments, content" autocomplete="off" data-q />
+        <div class="hq-results" data-results hidden></div>
+      </div>
+
+      <div class="hq-who" data-who></div>
+    </header>
+
+    <div class="pt-body">
+      <nav class="pt-nav" aria-label="Blueprint HQ">
+        <ul>
+          {NAV.map((n) => (
+            <li>
+              <a class="pt-navlink" href={`#/${n.id}`} data-nav={n.id}>
+                <svg aria-hidden="true" focusable="false"><use href={`#pt-i-${n.icon}`}/></svg>
+                <span>{n.label}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <div class="hq-foot">
+          <a class="pt-navlink" href="/portal" data-leave>
+            <svg aria-hidden="true" focusable="false"><use href="#pt-i-ext"/></svg>
+            <span>Client portals</span>
+          </a>
+          <div class="hq-timing" data-timing></div>
+        </div>
+      </nav>
+
+      <main class="pt-main hq-main">
+        <div data-state="loading" class="pt-empty">
+          <div class="pt-empty-icon"><svg aria-hidden="true" focusable="false"><use href="#pt-i-chart"/></svg></div>
+          <h3>Loading HQ</h3>
+          <p>Reading every client out of Notion.</p>
+        </div>
+
+        <div data-state="locked" class="pt-empty" hidden>
+          <div class="pt-empty-icon"><svg aria-hidden="true" focusable="false"><use href="#pt-i-info"/></svg></div>
+          <h3>Not available</h3>
+          <p>This page is for Blueprint. <a href="/portal">Go to the portals</a>.</p>
+        </div>
+
+        <div data-app hidden>
+          <section class="pt-view" data-view="today" hidden></section>
+          <section class="pt-view" data-view="clients" hidden></section>
+          <section class="pt-view" data-view="pipeline" hidden></section>
+          <section class="pt-view" data-view="reports" hidden></section>
+        </div>
+      </main>
+    </div>
+
+    <div class="pt-toast" data-toast hidden></div>
+  </div>
+</PortalLayout>
+
+<script>
+  /* ──────────────────────────────────────────────────────────────
+     Blueprint HQ.
+
+     Same rules as the client portal's script: every node is built
+     with createElement and textContent. There is no innerHTML in
+     this file, because everything on screen came out of Notion and a
+     client's own text must never be able to run as markup here.
+     ────────────────────────────────────────────────────────────── */
+
+  const el = <K extends keyof HTMLElementTagNameMap>(
+    tag: K, cls?: string, text?: string,
+  ): HTMLElementTagNameMap[K] => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  };
+  const q = <T extends HTMLElement>(sel: string, root: ParentNode = document) =>
+    root.querySelector<T>(sel);
+  const qq = <T extends HTMLElement>(sel: string, root: ParentNode = document) =>
+    Array.from(root.querySelectorAll<T>(sel));
+  const show = (n: Element | null, on: boolean) => { if (n) (n as HTMLElement).hidden = !on; };
+  const clear = (n: Element | null) => { while (n && n.firstChild) n.removeChild(n.firstChild); };
+  const icon = (name: string, cls?: string): SVGSVGElement => {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('aria-hidden', 'true');
+    s.setAttribute('focusable', 'false');
+    if (cls) s.setAttribute('class', cls);
+    const u = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    u.setAttribute('href', `#pt-i-${name}`);
+    s.appendChild(u);
+    return s;
+  };
+
+  const VIEWS = ['today', 'clients', 'pipeline', 'reports'] as const;
+  type View = typeof VIEWS[number];
+
+  let HQ: any = null;
+
+  /* ── toast ───────────────────────────────────────────────────── */
+
+  let toastTimer = 0;
+  function toast(text: string, bad = false) {
+    const t = q('[data-toast]');
+    if (!t) return;
+    t.textContent = text;
+    t.classList.toggle('pt-toast-bad', bad);
+    show(t, true);
+    window.clearTimeout(toastTimer);
+    // An error stays long enough to read and copy. A confirmation
+    // does not need to.
+    toastTimer = window.setTimeout(() => show(t, false), bad ? 9000 : 2600);
+  }
+
+  /* ── routing ─────────────────────────────────────────────────── */
+
+  function currentView(): View {
+    const raw = (location.hash || '').replace(/^#\/?/, '').split('/')[0];
+    return (VIEWS as readonly string[]).includes(raw) ? raw as View : 'today';
+  }
+
+  function route() {
+    const view = currentView();
+    for (const v of VIEWS) show(q(`[data-view="${v}"]`), v === view);
+    for (const a of qq('[data-nav]')) {
+      a.classList.toggle('is-on', a.dataset.nav === view);
+    }
+    draw(view);
+  }
+
+  function draw(view: View) {
+    if (!HQ) return;
+    const root = q(`[data-view="${view}"]`);
+    if (!root) return;
+    clear(root);
+    if (view === 'today') drawToday(root);
+    if (view === 'clients') drawClients(root);
+    if (view === 'pipeline') drawPipeline(root);
+    if (view === 'reports') drawReports(root);
+  }
+
+  /* Placeholders until each tab lands. They are deliberately plain:
+     a half-drawn tab should look unfinished rather than broken. */
+  function soon(root: HTMLElement, what: string) {
+    const e = el('div', 'pt-empty');
+    const ic = el('div', 'pt-empty-icon');
+    ic.appendChild(icon('info'));
+    e.append(ic, el('h3', undefined, what), el('p', undefined, 'Not built yet.'));
+    root.appendChild(e);
+  }
+  function drawToday(root: HTMLElement) { soon(root, 'Today'); }
+  function drawClients(root: HTMLElement) { soon(root, 'Clients'); }
+  function drawPipeline(root: HTMLElement) { soon(root, 'Pipeline'); }
+  function drawReports(root: HTMLElement) { soon(root, 'Reports'); }
+
+  /* ── boot ────────────────────────────────────────────────────── */
+
+  async function boot() {
+    const started = performance.now();
+    let res: Response;
+    try {
+      res = await fetch('/portal/hq/data', { credentials: 'same-origin' });
+    } catch {
+      show(q('[data-state="loading"]'), false);
+      show(q('[data-state="locked"]'), true);
+      return;
+    }
+
+    if (!res.ok) {
+      show(q('[data-state="loading"]'), false);
+      show(q('[data-state="locked"]'), true);
+      return;
+    }
+
+    HQ = await res.json();
+    const ms = Math.round(performance.now() - started);
+
+    const who = q('[data-who]');
+    if (who) who.textContent = String(HQ?.viewer?.who ?? '');
+
+    // The spec asks for page load timing, so it is on the page rather
+    // than in a console nobody has open: server time as the endpoint
+    // measured it, and the round trip as the browser saw it.
+    const timing = q('[data-timing]');
+    if (timing) {
+      const server = Number(HQ?.timing?.totalMs ?? 0);
+      timing.textContent = `${ms}ms · server ${server}ms${HQ?.timing?.cached ? ' · cached' : ''}`;
+    }
+
+    show(q('[data-state="loading"]'), false);
+    show(q('[data-app]'), true);
+    window.addEventListener('hashchange', route);
+    route();
+  }
+
+  void boot();
+</script>
