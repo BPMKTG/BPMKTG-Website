@@ -2939,6 +2939,7 @@ const NAV = [
     clear(t);
     t.appendChild(el('span', undefined, text));
     t.classList.toggle('pt-toast-bad', bad);
+    t.classList.remove('pt-toast-wide');
     show(t, true);
     requestAnimationFrame(() => { t.dataset.open = 'true'; });
     window.clearTimeout(TOAST_T);
@@ -2953,6 +2954,7 @@ const NAV = [
     if (!t) return;
     clear(t);
     t.classList.remove('pt-toast-bad');
+    t.classList.remove('pt-toast-wide');
     t.appendChild(el('span', undefined, text));
     const b = el('button', 'pt-toast-undo');
     b.type = 'button';
@@ -2963,6 +2965,44 @@ const NAV = [
     requestAnimationFrame(() => { t.dataset.open = 'true'; });
     window.clearTimeout(TOAST_T);
     TOAST_T = window.setTimeout(hideToast, 5000);
+  }
+
+  /**
+   * A failure you can actually read, and copy.
+   *
+   * The ordinary toast clears itself after a few seconds, which is
+   * right for "Saved" and useless for a Cloudflare error that names
+   * the one thing wrong with the setup. This one stays until it is
+   * dismissed, selects on click, and carries a Copy button, because
+   * the alternative is photographing the screen.
+   */
+  function errorToast(text: string) {
+    const t = q('[data-toast]');
+    if (!t) return;
+    clear(t);
+    t.classList.add('pt-toast-bad');
+    t.classList.add('pt-toast-wide');
+    t.appendChild(el('span', 'pt-toast-msg', text));
+
+    const copyBtn = el('button', 'pt-toast-undo');
+    copyBtn.type = 'button';
+    copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', async () => {
+      await copy(text);
+      copyBtn.textContent = 'Copied';
+    });
+    t.appendChild(copyBtn);
+
+    const close = el('button', 'pt-toast-undo');
+    close.type = 'button';
+    close.textContent = 'Dismiss';
+    close.addEventListener('click', hideToast);
+    t.appendChild(close);
+
+    show(t, true);
+    requestAnimationFrame(() => { t.dataset.open = 'true'; });
+    // No timer. It goes when it is dismissed and not before.
+    window.clearTimeout(TOAST_T);
   }
 
   function hideToast() {
@@ -4894,7 +4934,21 @@ const NAV = [
    * on the server, where the publish email is claimed in KV before it
    * is sent, because a disabled button does nothing about a second tab.
    */
-  function adminButton(label: string, run: () => Promise<string>): HTMLElement {
+  /**
+   * What an admin action came back with.
+   *
+   * A plain string is the ordinary case and clears itself. `bad` is
+   * anything Mason needs to read rather than glimpse: a render error
+   * naming the fault, a list of missing headings, a publish that went
+   * through but sent no email. Those get the toast that stays put.
+   *
+   * Sniffing the English for "did not" was the first version of this
+   * and it was one rewording away from silently clearing an error.
+   */
+  type AdminMsg = string | { text: string; bad: true };
+  const bad = (text: string): AdminMsg => ({ text, bad: true });
+
+  function adminButton(label: string, run: () => Promise<AdminMsg>): HTMLElement {
     const b = el('button', 'pt-btn pt-btn-sm');
     b.type = 'button';
     b.appendChild(el('span', undefined, label));
@@ -4906,9 +4960,10 @@ const NAV = [
       const span = q('span', b);
       if (span) span.textContent = 'Working…';
       try {
-        toast(await run());
-      } catch {
-        toast('That did not go through. Try again.', true);
+        const msg = await run();
+        if (typeof msg === 'string') toast(msg); else errorToast(msg.text);
+      } catch (err) {
+        errorToast(`That did not go through. ${err instanceof Error ? err.message : String(err)}`);
       } finally {
         btn.disabled = false;
         if (span) span.textContent = was;
@@ -4947,17 +5002,17 @@ const NAV = [
     acts.appendChild(previewLink('report', r.id));
     acts.appendChild(adminButton('Regenerate PDF', async () => {
       const res = await adminPost(`report/${encodeURIComponent(r.id)}/pdf`);
-      return res.ok ? 'PDF regenerated.' : why(res, 'The PDF did not generate.');
+      return res.ok ? 'PDF regenerated.' : bad(why(res, 'The PDF did not generate.'));
     }));
     if (!r.published) {
       acts.appendChild(adminButton('Publish', async () => {
         const res = await adminPost(`report/${encodeURIComponent(r.id)}/publish`);
-        if (!res.ok) return why(res, 'Publishing did not go through.');
+        if (!res.ok) return bad(why(res, 'Publishing did not go through.'));
         const mail = String(res.json?.mail ?? '');
         if (mail === 'sent') return 'Published, and the email is on its way.';
         if (mail === 'already') return 'Published. The email had already gone.';
-        if (mail === 'no-recipients') return 'Published. No portal emails on file, so nothing was sent.';
-        return 'Published. The email did not send, which is in the logs.';
+        if (mail === 'no-recipients') return bad('Published. No portal emails on file, so nothing was sent.');
+        return bad('Published. The email did not send, which is in the logs.');
       }));
     }
     if (r.reportPdf) acts.appendChild(pdfLink(r.reportPdf, 'PDF', 'pt-btn-sm'));
@@ -4977,17 +5032,17 @@ const NAV = [
     acts.appendChild(previewLink('audit', r.id));
     acts.appendChild(adminButton('Generate PDF', async () => {
       const res = await adminPost(`audit/${encodeURIComponent(r.id)}/pdf`);
-      if (!res.ok) return why(res, 'The PDF did not generate.');
+      if (!res.ok) return bad(why(res, 'The PDF did not generate.'));
       const missing = Array.isArray(res.json?.missing) ? res.json?.missing as string[] : [];
       return missing.length
-        ? `PDF ready. ${missing.length} heading${missing.length === 1 ? '' : 's'} missing: ${missing.join(', ')}`
+        ? bad(`PDF ready. ${missing.length} heading${missing.length === 1 ? '' : 's'} missing: ${missing.join(', ')}`)
         : 'PDF ready.';
     }));
     if (r.audience === 'Prospect') {
       acts.appendChild(adminButton(r.shareLink ? 'New share link' : 'Create share link', async () => {
         const res = await adminPost(`audit/${encodeURIComponent(r.id)}/share`, { days: 30 });
-        if (res.json?.error === 'no_pdf_yet') return 'Generate the PDF first.';
-        if (!res.ok) return 'The share link was not created.';
+        if (res.json?.error === 'no_pdf_yet') return bad('Generate the PDF first.');
+        if (!res.ok) return bad('The share link was not created.');
         const url = String(res.json?.url ?? '');
         if (url) await copy(url);
         return url ? 'Share link copied. It expires in 30 days.' : 'Share link created.';
@@ -4995,7 +5050,7 @@ const NAV = [
       if (r.shareLink) {
         acts.appendChild(adminButton('Revoke', async () => {
           const res = await adminPost(`audit/${encodeURIComponent(r.id)}/revoke`);
-          return res.ok ? 'That link no longer works.' : 'The link was not revoked.';
+          return res.ok ? 'That link no longer works.' : bad('The link was not revoked.');
         }));
       }
     }

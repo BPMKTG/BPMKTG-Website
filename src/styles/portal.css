@@ -1598,6 +1598,24 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
 .pt-toast[data-open='true'] { opacity: 1; transform: translate(-50%, 0); }
 .pt-toast-bad { background: var(--pt-bad); }
 
+/* A failure that has to be read and copied, not glimpsed. Wider, left
+   aligned, wrapping, selectable, and it does not take itself away. */
+.pt-toast-wide {
+  max-width: min(680px, calc(100vw - 32px));
+  border-radius: var(--pt-r);
+  text-align: left;
+  display: flex; align-items: flex-start; gap: var(--pt-3);
+  flex-wrap: wrap;
+}
+.pt-toast-msg {
+  flex: 1 1 260px;
+  font-weight: 500; line-height: 1.5;
+  /* Cloudflare's errors are one long JSON line. */
+  overflow-wrap: anywhere;
+  max-height: 40vh; overflow-y: auto;
+  user-select: text; -webkit-user-select: text;
+}
+
 /* NOTE: below the base rules it overrides, as every media query here
    must be. */
 @media (max-width: 900px) {
