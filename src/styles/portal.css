@@ -2396,14 +2396,25 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
    way faster than a grid of cards.
    ─────────────────────────────────────────────────────────────── */
 
+/* A narrower column for this tab alone.
+
+   Every row down here is a title on the left and a few controls on
+   the right, and at the portal's usual 1120 those two ends sit the
+   better part of a thousand pixels apart with nothing in between.
+   Capping the LIST instead was worse: the rows and their divider
+   lines stopped short of a card that kept its full width, which
+   reads as a rendering fault. So the card is what narrows, and
+   everything on the tab stays flush with everything else. */
+.pt-view[data-view='reports'] { max-width: 944px; }
+
+/* Every other block in that column sets its own top margin, so two
+   cards in a row have nothing between them and end up welded into
+   one taller card with a line across it. */
+.pt-docs, .pt-admin { margin-top: var(--pt-5); }
+
 .pt-doc-list,
 .pt-admin-list {
   list-style: none; margin: 0; padding: 0;
-  /* A row is a title on the left and a couple of controls on the
-     right. Let the card run to the full width of a desktop and those
-     two ends end up a thousand pixels apart with nothing in between,
-     which reads as a layout bug rather than a list. */
-  max-width: 880px;
 }
 
 .pt-doc {

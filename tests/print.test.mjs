@@ -658,6 +658,32 @@ ok('panel: and it still offers the publishing panel', emptyBranch.includes('appe
 is('panel: two call sites and one declaration',
    (PANEL.match(/appendAdmin\(/g) ?? []).length, 3);
 
+/* ── the Reports column ──────────────────────────────────────── */
+
+// A row down here is a title on the left and a few controls on the
+// right. Capping the LIST was the first attempt and it was worse: the
+// rows and their divider lines stopped short of a card that kept its
+// full width, which reads as a rendering fault. The CARD is what
+// narrows, so every edge on the tab lines up with every other.
+const CSS = readFileSync(new URL('../src/styles/portal.css', import.meta.url), 'utf8');
+ok('column: the Reports view is narrower than the rest',
+   /\.pt-view\[data-view='reports'\]\s*\{[^}]*max-width:\s*944px/.test(CSS));
+const lists = /\.pt-doc-list,\s*\n\.pt-admin-list\s*\{([^}]*)\}/.exec(CSS);
+ok('column: the lists themselves exist', Boolean(lists));
+is('column: and they are NOT capped, so rows stay flush with the card',
+   /max-width/.test(lists?.[1] ?? 'max-width'), false);
+// Every other block in that column sets its own top margin, so two
+// cards in a row would otherwise weld into one taller card.
+ok('column: stacked cards keep a gap',
+   /\.pt-docs,\s*\.pt-admin\s*\{[^}]*margin-top/.test(CSS));
+
+// The headline band drops its top margin when it opens the report.
+// "Opens the report" has to mean nothing is above it: keyed to the
+// note alone, it welded itself to the publishing card, which is above
+// it on every admin's screen.
+ok('column: the flush headline checks everything above it',
+   /headlineRow\(snap, cmp, !note && !docs && !panelled\)/.test(PANEL));
+
 /* ── which URL is a folder ────────────────────────────────────── */
 
 is('folder: an ordinary share link',

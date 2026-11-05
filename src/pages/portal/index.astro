@@ -4736,7 +4736,7 @@ const NAV = [
 
     const docs = documentsSection();
     if (docs) wrap.appendChild(docs);
-    appendAdmin(wrap);
+    const panelled = appendAdmin(wrap);
 
     // Printed, the page has no idea whose report it is or which month,
     // so it says so. On screen this is hidden.
@@ -4750,7 +4750,11 @@ const NAV = [
     const note = fromMason(snap);
     if (note) wrap.appendChild(note);
 
-    wrap.appendChild(headlineRow(snap, cmp, !note));
+    // "First" means nothing is above it, not merely that Mason left no
+    // note. The documents shelf and the publishing panel are above it
+    // far more often than not, and a heading welded to the card above
+    // is exactly what the flag exists to avoid.
+    wrap.appendChild(headlineRow(snap, cmp, !note && !docs && !panelled));
 
     /* growth score */
     if (typeof snap.growthScore === 'number') {
@@ -5201,9 +5205,13 @@ const NAV = [
   /** The publishing panel, if there is one to show. Called from both
    *  halves of the Reports tab, because the half that shows when
    *  nothing is published is the half that most needs it. */
-  function appendAdmin(root: HTMLElement): void {
+  /** Appends the publishing panel, and says whether there was one. The
+   *  answer matters to whatever comes next: a heading flush against a
+   *  card reads as that card's footer. */
+  function appendAdmin(root: HTMLElement): boolean {
     const panel = adminPanel();
     if (panel) root.appendChild(panel);
+    return Boolean(panel);
   }
 
   function adminPanel(): HTMLElement | null {
