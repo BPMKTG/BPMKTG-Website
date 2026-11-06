@@ -10,6 +10,11 @@
 //
 // Nothing here is data. Everything real arrives from /portal/hq/data,
 // which runs the same gate again.
+//
+// The layout classes are the portal's own (pt-topbar, pt-sidebar,
+// pt-nav-item, pt-card). HQ is the same design system seen from our
+// side, so it reuses them rather than restating them; only the HQ
+// classes at the foot of portal.css are new.
 import PortalLayout from '../../layouts/PortalLayout.astro';
 
 const NAV = [
@@ -48,6 +53,9 @@ const NAV = [
       <symbol id="pt-i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m4.5 12.5 5 5 10-11"/>
       </symbol>
+      <symbol id="pt-i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>
+      </symbol>
       <symbol id="pt-i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m9 5 7 7-7 7"/>
       </symbol>
@@ -75,9 +83,9 @@ const NAV = [
     </defs>
   </svg>
 
-  <div class="pt-shell hq">
-    <header class="pt-top hq-top">
-      <a class="pt-logo" href="/portal/hq" aria-label="Blueprint HQ">
+  <div class="pt-shell">
+    <header class="pt-topbar hq-top">
+      <a class="hq-logo" href="#/today" aria-label="Blueprint HQ">
         <span class="hq-word">blueprint</span><span class="hq-mark">HQ</span>
       </a>
 
@@ -88,31 +96,27 @@ const NAV = [
         <div class="hq-results" data-results hidden></div>
       </div>
 
+      <div class="pt-topbar-spacer"></div>
       <div class="hq-who" data-who></div>
     </header>
 
     <div class="pt-body">
-      <nav class="pt-nav" aria-label="Blueprint HQ">
-        <ul>
-          {NAV.map((n) => (
-            <li>
-              <a class="pt-navlink" href={`#/${n.id}`} data-nav={n.id}>
-                <svg aria-hidden="true" focusable="false"><use href={`#pt-i-${n.icon}`}/></svg>
-                <span>{n.label}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-        <div class="hq-foot">
-          <a class="pt-navlink" href="/portal" data-leave>
-            <svg aria-hidden="true" focusable="false"><use href="#pt-i-ext"/></svg>
-            <span>Client portals</span>
+      <nav class="pt-sidebar" aria-label="Blueprint HQ">
+        {NAV.map((n) => (
+          <a class="pt-nav-item" href={`#/${n.id}`} data-nav={n.id}>
+            <svg aria-hidden="true" focusable="false"><use href={`#pt-i-${n.icon}`}/></svg>
+            <span>{n.label}</span>
           </a>
-          <div class="hq-timing" data-timing></div>
-        </div>
+        ))}
+        <div class="pt-nav-spacer"></div>
+        <a class="pt-nav-item" href="/portal">
+          <svg aria-hidden="true" focusable="false"><use href="#pt-i-ext"/></svg>
+          <span>Client portals</span>
+        </a>
+        <div class="hq-timing" data-timing></div>
       </nav>
 
-      <main class="pt-main hq-main">
+      <main class="pt-main">
         <div data-state="loading" class="pt-empty">
           <div class="pt-empty-icon"><svg aria-hidden="true" focusable="false"><use href="#pt-i-chart"/></svg></div>
           <h3>Loading HQ</h3>
@@ -134,7 +138,20 @@ const NAV = [
       </main>
     </div>
 
-    <div class="pt-toast" data-toast hidden></div>
+    {/* The sidebar is display:none under 900px, so without this there
+        is no way off the Today tab on a phone. Same markup and the
+        same classes the client portal's tab bar uses. */}
+    <nav class="pt-tabbar" aria-label="Blueprint HQ">
+      {NAV.map((n) => (
+        <a class="pt-tab" href={`#/${n.id}`} data-nav={n.id}>
+          <svg aria-hidden="true" focusable="false"><use href={`#pt-i-${n.icon}`}/></svg>
+          <span>{n.label}</span>
+          <span class="pt-tab-dot"></span>
+        </a>
+      ))}
+    </nav>
+
+    <div class="pt-toast" data-toast></div>
   </div>
 </PortalLayout>
 
@@ -146,7 +163,17 @@ const NAV = [
      with createElement and textContent. There is no innerHTML in
      this file, because everything on screen came out of Notion and a
      client's own text must never be able to run as markup here.
+
+     What a row may do is never decided here. src/data/hq.ts asks the
+     same predicates the write endpoints ask, so a tick box HQ draws is
+     one the server will honour, and a row that cannot move draws no
+     button at all.
      ────────────────────────────────────────────────────────────── */
+
+  import {
+    buildToday, stripItems, snoozeTo, isoToday,
+    type HqFilter, type HqRow, type RowClient, type StripItem,
+  } from '../../data/hq';
 
   const el = <K extends keyof HTMLElementTagNameMap>(
     tag: K, cls?: string, text?: string,
@@ -177,6 +204,7 @@ const NAV = [
   type View = typeof VIEWS[number];
 
   let HQ: any = null;
+  let FILTER: HqFilter = 'all';
 
   /* ── toast ───────────────────────────────────────────────────── */
 
@@ -186,12 +214,61 @@ const NAV = [
     if (!t) return;
     t.textContent = text;
     t.classList.toggle('pt-toast-bad', bad);
-    show(t, true);
+    // The portal's toast is driven by data-open, not hidden: the
+    // transition needs an element that is already in the layout.
+    t.dataset.open = 'true';
     window.clearTimeout(toastTimer);
     // An error stays long enough to read and copy. A confirmation
     // does not need to.
-    toastTimer = window.setTimeout(() => show(t, false), bad ? 9000 : 2600);
+    toastTimer = window.setTimeout(() => { t.dataset.open = 'false'; }, bad ? 9000 : 2600);
   }
+
+  /* ── dates, as a person reads them ──────────────────────────── */
+
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  /** Read at UTC, like every date in this codebase, so a plain day
+   *  never slips to the one before it in a western timezone. */
+  function parts(day: string) {
+    const d = new Date(`${day}T00:00:00Z`);
+    return { dow: DAYS[d.getUTCDay()], d: d.getUTCDate(), m: MONTHS[d.getUTCMonth()] };
+  }
+
+  function shortDay(day: string): string {
+    const p = parts(day);
+    return `${p.dow} ${p.d} ${p.m}`;
+  }
+
+  function daysFromToday(day: string): number {
+    const a = Date.parse(`${isoToday()}T00:00:00Z`);
+    const b = Date.parse(`${day}T00:00:00Z`);
+    return Math.round((b - a) / 86400000);
+  }
+
+  /** "3 days late", "today", "Thu 12 Nov". The overdue case says how
+   *  late rather than when, because that is the thing to know. */
+  function whenLabel(day: string): { text: string; late: boolean } {
+    const n = daysFromToday(day);
+    if (n < 0) {
+      const late = Math.abs(n);
+      return { text: late === 1 ? '1 day late' : `${late} days late`, late: true };
+    }
+    if (n === 0) return { text: 'today', late: false };
+    if (n === 1) return { text: 'tomorrow', late: false };
+    return { text: shortDay(day), late: false };
+  }
+
+  function stripWhen(it: StripItem): string {
+    if (it.days === 0) return 'today';
+    if (it.days === 1) return 'tomorrow';
+    return `in ${it.days} days`;
+  }
+
+  /* ── reading the payload ─────────────────────────────────────── */
+
+  const clients = (): RowClient[] => (HQ?.clients ?? []);
 
   /* ── routing ─────────────────────────────────────────────────── */
 
@@ -204,7 +281,8 @@ const NAV = [
     const view = currentView();
     for (const v of VIEWS) show(q(`[data-view="${v}"]`), v === view);
     for (const a of qq('[data-nav]')) {
-      a.classList.toggle('is-on', a.dataset.nav === view);
+      if (a.dataset.nav === view) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
     }
     draw(view);
   }
@@ -229,10 +307,381 @@ const NAV = [
     e.append(ic, el('h3', undefined, what), el('p', undefined, 'Not built yet.'));
     root.appendChild(e);
   }
-  function drawToday(root: HTMLElement) { soon(root, 'Today'); }
   function drawClients(root: HTMLElement) { soon(root, 'Clients'); }
   function drawPipeline(root: HTMLElement) { soon(root, 'Pipeline'); }
   function drawReports(root: HTMLElement) { soon(root, 'Reports'); }
+
+  /* ══ TODAY ══════════════════════════════════════════════════ */
+
+  function drawToday(root: HTMLElement) {
+    root.appendChild(strip());
+    root.appendChild(todayBar());
+
+    const lists = buildToday(
+      { clients: clients(), steps: HQ?.calendar ?? [], content: HQ?.content ?? [] },
+      FILTER,
+    );
+
+    const total = lists.overdue.length + lists.today.length + lists.week.length;
+    if (!total) {
+      const e = el('div', 'pt-empty');
+      const ic = el('div', 'pt-empty-icon');
+      ic.appendChild(icon('check'));
+      e.append(ic, el('h3', undefined, 'Nothing outstanding'),
+        el('p', undefined, FILTER === 'all'
+          ? 'No step, post or next action is due in the next seven days.'
+          : 'Nothing here under this filter. Try All.'));
+      root.appendChild(e);
+      return;
+    }
+
+    if (lists.overdue.length) root.appendChild(section('Overdue', lists.overdue, true));
+    if (lists.today.length) root.appendChild(section('Due today', lists.today));
+    if (lists.week.length) root.appendChild(section('This week', lists.week));
+  }
+
+  /** Shows and releases across every client, next fortnight. */
+  function strip(): HTMLElement {
+    const byId = new Map(clients().map((c) => [c.pageId, c]));
+    const items = stripItems(HQ?.calendar ?? [], byId);
+
+    if (!items.length) {
+      return el('div', 'hq-strip-empty', 'No show or release in the next fortnight.');
+    }
+
+    const wrap = el('div', 'hq-strip');
+    wrap.setAttribute('aria-label', 'Shows and releases, next fortnight');
+    for (const it of items) {
+      const a = el('a', `hq-strip-item hq-strip-${it.momentType === 'Show' ? 'show' : 'release'}`);
+      a.href = `/portal/${it.clientSlug}#calendar`;
+      a.append(
+        el('div', 'hq-strip-when', stripWhen(it)),
+        el('div', 'hq-strip-title', it.title),
+        el('div', 'hq-strip-client',
+          it.venueCity ? `${it.clientName} · ${it.venueCity}` : it.clientName),
+      );
+      wrap.appendChild(a);
+    }
+    return wrap;
+  }
+
+  function todayBar(): HTMLElement {
+    const bar = el('div', 'hq-bar');
+    bar.appendChild(el('h1', undefined, 'Today'));
+
+    const seg = el('div', 'hq-seg');
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', 'Whose work to show');
+    const opts: Array<[HqFilter, string]> = [
+      ['mine', 'Mine'], ['clients', "Clients'"], ['all', 'All'],
+    ];
+    for (const [value, label] of opts) {
+      const b = el('button', undefined, label);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(FILTER === value));
+      b.addEventListener('click', () => {
+        FILTER = value;
+        draw('today');
+      });
+      seg.appendChild(b);
+    }
+    bar.appendChild(seg);
+    return bar;
+  }
+
+  function section(title: string, rows: HqRow[], overdue = false): HTMLElement {
+    const sec = el('section', `hq-sec${overdue ? ' hq-sec-overdue' : ''}`);
+    const head = el('div', 'hq-sec-head');
+    head.append(el('h2', undefined, title), el('span', 'hq-sec-count', String(rows.length)));
+    sec.appendChild(head);
+
+    const list = el('div', 'hq-list');
+    for (const r of rows) list.appendChild(rowNode(r));
+    sec.appendChild(list);
+    return sec;
+  }
+
+  function rowNode(r: HqRow): HTMLElement {
+    const row = el('div', 'hq-row');
+    row.dataset.key = r.key;
+
+    // The tick box, but only where the server would accept one.
+    if (r.tickTo) {
+      const tick = el('button', 'hq-tick');
+      tick.type = 'button';
+      tick.setAttribute('aria-pressed', 'false');
+      tick.setAttribute('aria-label', `Mark "${r.title}" done`);
+      tick.appendChild(icon('check'));
+      tick.addEventListener('click', () => void doTick(row, r));
+      row.appendChild(tick);
+    } else {
+      row.appendChild(el('div', 'hq-tick-none'));
+    }
+
+    const main = el('div', 'hq-row-main');
+    main.appendChild(el('div', 'hq-row-title', r.title));
+
+    const meta = el('div', 'hq-row-meta');
+    const chip = el('a', 'hq-client', r.clientName);
+    chip.href = `/portal/${r.clientSlug}`;
+    meta.appendChild(chip);
+    meta.appendChild(el('span', `hq-own hq-own-${r.owner}`,
+      r.owner === 'blueprint' ? 'Blueprint' : 'Client'));
+    if (r.type) meta.appendChild(el('span', 'hq-type', r.type));
+    const when = whenLabel(r.date);
+    meta.appendChild(el('span', `hq-when${when.late ? ' hq-when-late' : ''}`, when.text));
+    main.appendChild(meta);
+    row.appendChild(main);
+
+    const acts = el('div', 'hq-row-acts');
+    if (r.snoozable) addSnooze(acts, row, r);
+    row.appendChild(acts);
+
+    return row;
+  }
+
+  /* ── snooze ──────────────────────────────────────────────────── */
+
+  function closeMenus() {
+    for (const m of qq('.hq-menu')) m.hidden = true;
+  }
+
+  /** Appends the button and its menu straight onto the actions cell,
+   *  which is the positioned ancestor the menu hangs off. */
+  function addSnooze(acts: HTMLElement, row: HTMLElement, r: HqRow) {
+    const btn = el('button', 'pt-btn pt-btn-icon');
+    btn.type = 'button';
+    btn.title = 'Snooze';
+    btn.setAttribute('aria-label', `Snooze "${r.title}"`);
+    btn.appendChild(icon('clock'));
+
+    const menu = el('div', 'hq-menu');
+    menu.hidden = true;
+
+    const option = (label: string, days: number) => {
+      const b = el('button', undefined, label);
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        closeMenus();
+        void doSnooze(row, r, snoozeTo(r.date, days));
+      });
+      return b;
+    };
+    menu.append(option('Tomorrow', 1), option('Next week', 7));
+    menu.appendChild(el('div', 'hq-menu-sep'));
+
+    const pick = el('label', 'hq-menu-pick');
+    pick.appendChild(el('span', undefined, 'Pick a date'));
+    const input = el('input');
+    input.type = 'date';
+    input.value = r.date;
+    // Nothing on this calendar is in the past on purpose, and a
+    // snooze backwards is not a snooze.
+    input.min = isoToday();
+    input.addEventListener('change', () => {
+      const v = input.value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+      closeMenus();
+      void doSnooze(row, r, v);
+    });
+    pick.appendChild(input);
+    menu.appendChild(pick);
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wasOpen = !menu.hidden;
+      closeMenus();
+      menu.hidden = wasOpen;
+    });
+
+    acts.append(btn, menu);
+  }
+
+  /* ── the writes ──────────────────────────────────────────────── */
+
+  async function patch(url: string, body: unknown): Promise<boolean> {
+    try {
+      const res = await fetch(url, {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Where a tick goes, by kind. The portal's own endpoints for a step
+   *  and a content card; HQ's for a next action, which lives on the
+   *  Clients row and has no status to write. */
+  function tickRequest(r: HqRow): { url: string; body: unknown } {
+    if (r.kind === 'step') {
+      return { url: `/portal/${r.clientSlug}/step/${r.id}`, body: { status: 'Done' } };
+    }
+    if (r.kind === 'content') {
+      return { url: `/portal/${r.clientSlug}/content/${r.id}`, body: { status: 'Posted' } };
+    }
+    return { url: `/portal/hq/client/${r.id}`, body: { nextActionDate: null } };
+  }
+
+  function snoozeRequest(r: HqRow, to: string): { url: string; body: unknown } {
+    if (r.kind === 'step') {
+      return { url: `/portal/${r.clientSlug}/step/${r.id}`, body: { date: to } };
+    }
+    if (r.kind === 'content') {
+      return { url: `/portal/${r.clientSlug}/content/${r.id}`, body: { postDate: to } };
+    }
+    return { url: `/portal/hq/client/${r.id}`, body: { nextActionDate: to } };
+  }
+
+  async function doTick(row: HTMLElement, r: HqRow) {
+    row.dataset.busy = 'true';
+    const { url, body } = tickRequest(r);
+    const ok = await patch(url, body);
+    delete row.dataset.busy;
+
+    if (!ok) {
+      toast(`That did not save. ${r.clientName}'s row is unchanged.`, true);
+      return;
+    }
+
+    // The payload is edited in place rather than refetched. A refetch
+    // would be a full read of five Notion databases to learn one thing
+    // we already know, and the ninety-second cache would hand back the
+    // old answer anyway.
+    applyTick(r);
+    toast('Done.');
+    draw('today');
+  }
+
+  async function doSnooze(row: HTMLElement, r: HqRow, to: string) {
+    row.dataset.busy = 'true';
+    const { url, body } = snoozeRequest(r, to);
+    const ok = await patch(url, body);
+    delete row.dataset.busy;
+
+    if (!ok) {
+      toast(`That did not save. ${r.clientName}'s row is unchanged.`, true);
+      return;
+    }
+
+    applyDate(r, to);
+    toast(`Moved to ${shortDay(to)}.`);
+    draw('today');
+  }
+
+  function applyTick(r: HqRow) {
+    if (r.kind === 'step') {
+      const it = (HQ?.calendar ?? []).find((x: any) => x.id === r.id);
+      if (it) it.status = 'Done';
+      return;
+    }
+    if (r.kind === 'content') {
+      const it = (HQ?.content ?? []).find((x: any) => x.id === r.id);
+      if (it) it.status = 'Posted';
+      return;
+    }
+    const c = (HQ?.clients ?? []).find((x: any) => x.pageId === r.id);
+    if (c) c.nextActionDate = null;
+  }
+
+  function applyDate(r: HqRow, to: string) {
+    if (r.kind === 'step') {
+      const it = (HQ?.calendar ?? []).find((x: any) => x.id === r.id);
+      if (it) it.date = to;
+      return;
+    }
+    if (r.kind === 'content') {
+      const it = (HQ?.content ?? []).find((x: any) => x.id === r.id);
+      if (it) it.postDate = to;
+      return;
+    }
+    const c = (HQ?.clients ?? []).find((x: any) => x.pageId === r.id);
+    if (c) c.nextActionDate = to;
+  }
+
+  /* ══ SEARCH ═════════════════════════════════════════════════ */
+
+  const MAX_RESULTS = 12;
+
+  interface Hit { what: string; title: string; who: string; href: string; }
+
+  function searchAll(raw: string): Hit[] {
+    const term = raw.trim().toLowerCase();
+    if (term.length < 2) return [];
+    const hits: Hit[] = [];
+    const byId = new Map(clients().map((c) => [c.pageId, c]));
+
+    for (const c of clients()) {
+      if (c.artist.toLowerCase().includes(term)) {
+        hits.push({
+          what: 'Client', title: c.artist, who: c.stage ?? '',
+          href: `/portal/${c.slug}`,
+        });
+      }
+    }
+    for (const m of (HQ?.calendar ?? [])) {
+      if (!m.title || !m.title.toLowerCase().includes(term)) continue;
+      const c = m.clientId ? byId.get(m.clientId) : null;
+      if (!c) continue;
+      hits.push({
+        what: m.kind === 'Moment' ? 'Moment' : 'Step', title: m.title,
+        who: c.artist, href: `/portal/${c.slug}#calendar`,
+      });
+    }
+    for (const p of (HQ?.content ?? [])) {
+      if (!p.title || !p.title.toLowerCase().includes(term)) continue;
+      const c = p.clientId ? byId.get(p.clientId) : null;
+      if (!c) continue;
+      hits.push({
+        what: 'Content', title: p.title, who: c.artist,
+        href: `/portal/${c.slug}#content`,
+      });
+    }
+
+    return hits.slice(0, MAX_RESULTS);
+  }
+
+  function wireSearch() {
+    const input = q<HTMLInputElement>('[data-q]');
+    const panel = q('[data-results]');
+    if (!input || !panel) return;
+
+    const render = () => {
+      const hits = searchAll(input.value);
+      clear(panel);
+
+      if (input.value.trim().length < 2) { panel.hidden = true; return; }
+
+      if (!hits.length) {
+        panel.appendChild(el('div', 'hq-results-none', 'Nothing matches.'));
+        panel.hidden = false;
+        return;
+      }
+
+      for (const h of hits) {
+        const a = el('a', 'hq-result');
+        a.href = h.href;
+        a.append(
+          el('span', 'hq-result-what', h.what),
+          el('span', 'hq-result-title', h.title),
+          el('span', 'hq-result-who', h.who),
+        );
+        panel.appendChild(a);
+      }
+      panel.hidden = false;
+    };
+
+    input.addEventListener('input', render);
+    input.addEventListener('focus', render);
+    // Escape closes it and gives the box back, which is what a search
+    // field that covers the page has to do.
+    input.addEventListener('keydown', (e) => {
+      if ((e as KeyboardEvent).key === 'Escape') { panel.hidden = true; input.blur(); }
+    });
+  }
 
   /* ── boot ────────────────────────────────────────────────────── */
 
@@ -257,7 +706,7 @@ const NAV = [
     const ms = Math.round(performance.now() - started);
 
     const who = q('[data-who]');
-    if (who) who.textContent = String(HQ?.viewer?.who ?? '');
+    if (who) who.textContent = String(HQ?.viewer?.email ?? '');
 
     // The spec asks for page load timing, so it is on the page rather
     // than in a console nobody has open: server time as the endpoint
@@ -270,6 +719,18 @@ const NAV = [
 
     show(q('[data-state="loading"]'), false);
     show(q('[data-app]'), true);
+    wireSearch();
+
+    // One listener for every menu on the page, rather than one per
+    // row: a click anywhere else closes whatever is open.
+    document.addEventListener('click', (e) => {
+      const t = e.target as Element | null;
+      if (t && t.closest('.hq-menu')) return;
+      closeMenus();
+      const panel = q('[data-results]');
+      if (panel && t && !t.closest('[data-search]')) panel.hidden = true;
+    });
+
     window.addEventListener('hashchange', route);
     route();
   }

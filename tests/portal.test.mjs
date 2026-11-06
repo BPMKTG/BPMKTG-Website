@@ -6,7 +6,7 @@ import {
   isEngagementMetric,
   formatEngagement,
   isOpenClientTodo,
-  canClientSetStep,
+  canSetStepStatus,
   isStepClientStatus,
   isStepDone,
   STEP_CLIENT_STATUSES,
@@ -119,6 +119,29 @@ import {
   briefUrl,
   looksLikePdf,
   fileSize,
+  // Blueprint HQ
+  buildToday,
+  bucketFor,
+  stepRows,
+  contentRows,
+  nextActionRows,
+  matchesFilter,
+  sortRows,
+  stripItems,
+  snoozeTo,
+  isoToday,
+  addDays,
+  WEEK_DAYS,
+  STRIP_DAYS,
+  STEP_SETTLED,
+  CONTENT_SETTLED,
+  DEAD_STAGES,
+  buildHqClientProperties,
+  cleanNextAction,
+  isHqStage,
+  HQ_STAGES,
+  HQ_CLIENT_EDITABLE,
+  MAX_NEXT_ACTION,
 } from '../.tmp-portal-lib.mjs';
 import { readFileSync } from 'node:fs';
 
@@ -1234,20 +1257,51 @@ is('step: Moved is not', isStepClientStatus('Moved'), false);
 is('step: a made-up status is not', isStepClientStatus('Nearly'), false);
 is('step: a non-string is not', isStepClientStatus(1), false);
 
-is('step: ticking off your own not-started step', canClientSetStep(own('Not Started'), 'Done'), true);
-is('step: unticking your own done step', canClientSetStep(own('Done'), 'Not Started'), true);
-is('step: starting your own step', canClientSetStep(own('Not Started'), 'In Progress'), true);
+is('step: ticking off your own not-started step', canSetStepStatus(own('Not Started'), 'Done'), true);
+is('step: unticking your own done step', canSetStepStatus(own('Done'), 'Not Started'), true);
+is('step: starting your own step', canSetStepStatus(own('Not Started'), 'In Progress'), true);
 is('step: a step with no status yet reads as not started',
-   canClientSetStep(own(null), 'Done'), true);
+   canSetStepStatus(own(null), 'Done'), true);
 
-is('step: our step is not theirs to tick', canClientSetStep(ours('Not Started'), 'Done'), false);
-is('step: a step with no owner is not theirs', canClientSetStep({ owner: null, status: null }, 'Done'), false);
-is('step: a skipped step stays skipped', canClientSetStep(own('Skipped'), 'Done'), false);
-is('step: a moved step stays moved', canClientSetStep(own('Moved'), 'Done'), false);
-is('step: they cannot skip a step', canClientSetStep(own('Not Started'), 'Skipped'), false);
-is('step: they cannot move a step', canClientSetStep(own('Not Started'), 'Moved'), false);
-is('step: nonsense is refused', canClientSetStep(own('Not Started'), 'Done!'), false);
-is('step: an object is refused', canClientSetStep(own('Not Started'), { select: 'Done' }), false);
+is('step: our step is not theirs to tick', canSetStepStatus(ours('Not Started'), 'Done'), false);
+is('step: a step with no owner is not theirs', canSetStepStatus({ owner: null, status: null }, 'Done'), false);
+is('step: a skipped step stays skipped', canSetStepStatus(own('Skipped'), 'Done'), false);
+is('step: a moved step stays moved', canSetStepStatus(own('Moved'), 'Done'), false);
+is('step: they cannot skip a step', canSetStepStatus(own('Not Started'), 'Skipped'), false);
+is('step: they cannot move a step', canSetStepStatus(own('Not Started'), 'Moved'), false);
+is('step: nonsense is refused', canSetStepStatus(own('Not Started'), 'Done!'), false);
+is('step: an object is refused', canSetStepStatus(own('Not Started'), { select: 'Done' }), false);
+
+// The role is the pair to canSetStepDate's, and it has to be, because
+// HQ's Today list puts our steps and the client's in one list with one
+// tick box. Every case above is the client's; these are ours.
+is('step: a caller that does not say which role is held to the client rule',
+   canSetStepStatus(ours('Not Started'), 'Done'), false);
+is('step: one of us may tick our own step',
+   canSetStepStatus(ours('Not Started'), 'Done', 'admin'), true);
+is('step: one of us may tick a client step too',
+   canSetStepStatus(own('Not Started'), 'Done', 'admin'), true);
+is('step: one of us may tick an unowned step',
+   canSetStepStatus({ owner: null, status: null }, 'Done', 'admin'), true);
+is('step: one of us may untick',
+   canSetStepStatus(ours('Done'), 'Not Started', 'admin'), true);
+// The frozen statuses are frozen for everybody. Putting a step we
+// dropped back into the plan is an edit in Notion, not a stray tap.
+is('step: a skipped step stays skipped even for us',
+   canSetStepStatus(ours('Skipped'), 'Done', 'admin'), false);
+is('step: a moved step stays moved even for us',
+   canSetStepStatus(ours('Moved'), 'Done', 'admin'), false);
+is('step: we cannot reach Skipped from here either',
+   canSetStepStatus(ours('Not Started'), 'Skipped', 'admin'), false);
+is('step: nor Moved', canSetStepStatus(ours('Not Started'), 'Moved', 'admin'), false);
+is('step: nonsense is refused for us as well',
+   canSetStepStatus(ours('Not Started'), 'Done!', 'admin'), false);
+// A role that is not 'admin' is not a way in: anything unrecognised
+// falls to the client rule rather than through it.
+is('step: an unknown role is held to the client rule',
+   canSetStepStatus(ours('Not Started'), 'Done', 'blueprint'), false);
+is('step: an empty role is held to the client rule',
+   canSetStepStatus(ours('Not Started'), 'Done', ''), false);
 
 // The step write carries the same stamp a content write does, so a
 // to-do we ticked off on a client's behalf does not read as theirs.
@@ -1530,6 +1584,301 @@ ok('brief: and it still offers the upload panel',
 is('brief: kilobytes under a megabyte', fileSize(350 * 1024), '350 KB');
 is('brief: megabytes above it', fileSize(1_197_865), '1.1 MB');
 is('brief: bytes when it is tiny', fileSize(900), '900 B');
+
+/* ══ 13. Blueprint HQ ═══════════════════════════════════════════
+   The Today list, and the one Clients write.
+
+   Every date here is pinned to a fixed "now" rather than the real
+   clock: a test that passes in the morning and fails at 23:30 is worse
+   than no test. NOW is a Thursday. */
+
+section('Blueprint HQ · dates and sections');
+
+const NOW = new Date('2026-11-05T14:30:00Z');   // Thursday
+const TODAY = '2026-11-05';
+
+is('hq: today is read at UTC', isoToday(NOW), TODAY);
+is('hq: a late evening is still the same day',
+   isoToday(new Date('2026-11-05T23:59:59Z')), TODAY);
+is('hq: adding days crosses a month end', addDays('2026-11-28', 5), '2026-12-03');
+is('hq: and a leap day', addDays('2028-02-28', 1), '2028-02-29');
+is('hq: subtracting works too', addDays('2026-11-05', -5), '2026-10-31');
+
+is('hq: yesterday is overdue', bucketFor('2026-11-04', NOW), 'overdue');
+is('hq: long ago is overdue', bucketFor('2026-08-01', NOW), 'overdue');
+is('hq: today is today', bucketFor(TODAY, NOW), 'today');
+is('hq: tomorrow is this week', bucketFor('2026-11-06', NOW), 'week');
+is('hq: the seventh day is still this week',
+   bucketFor(addDays(TODAY, WEEK_DAYS), NOW), 'week');
+is('hq: the eighth day is off the list',
+   bucketFor(addDays(TODAY, WEEK_DAYS + 1), NOW), null);
+is('hq: an undated row is in no section', bucketFor(null, NOW), null);
+
+/* ── the row builders ──────────────────────────────────────────── */
+
+section('Blueprint HQ · what reaches the Today list');
+
+const SEAN = {
+  pageId: 'c-sean', slug: 'sean-comma', artist: 'Sean Comma',
+  stage: 'Active', nextAction: null, nextActionDate: null,
+};
+const LEAD = {
+  pageId: 'c-lead', slug: 'new-lead', artist: 'A Lead',
+  stage: 'Lead', nextAction: 'Send the proposal', nextActionDate: null,
+};
+const BY_ID = new Map([[SEAN.pageId, SEAN], [LEAD.pageId, LEAD]]);
+
+const hqStep = (over = {}) => ({
+  id: 's1', clientId: 'c-sean', title: 'Film the b-roll',
+  kind: 'Step', type: 'Content', owner: 'Blueprint',
+  status: 'Not Started', date: TODAY, ...over,
+});
+
+is('hq: our own step reaches the list', stepRows([hqStep()], BY_ID, NOW).length, 1);
+is('hq: and it reads as ours', stepRows([hqStep()], BY_ID, NOW)[0].owner, 'blueprint');
+is('hq: a client step reads as theirs',
+   stepRows([hqStep({ owner: 'Client' })], BY_ID, NOW)[0].owner, 'client');
+// The whole reason HQ exists: the portal hides our steps, this does not.
+is('hq: both owners are on one list',
+   stepRows([hqStep(), hqStep({ id: 's2', owner: 'Client' })], BY_ID, NOW).length, 2);
+
+// A moment is not a task. It has its own strip.
+is('hq: a moment is not a to-do',
+   stepRows([hqStep({ kind: 'Moment' })], BY_ID, NOW).length, 0);
+
+for (const st of STEP_SETTLED) {
+  is(`hq: a ${st} step is not outstanding`,
+     stepRows([hqStep({ status: st, date: '2026-01-01' })], BY_ID, NOW).length, 0);
+}
+is('hq: an undated step is in no section',
+   stepRows([hqStep({ date: null })], BY_ID, NOW).length, 0);
+is('hq: a step too far out is left off',
+   stepRows([hqStep({ date: addDays(TODAY, 30) })], BY_ID, NOW).length, 0);
+// A step whose Client relation points nowhere we know has no chip to
+// draw and no slug to write to, so it cannot be shown at all.
+is('hq: a step with an unknown client is dropped',
+   stepRows([hqStep({ clientId: 'c-ghost' })], BY_ID, NOW).length, 0);
+is('hq: and one with no client at all',
+   stepRows([hqStep({ clientId: null })], BY_ID, NOW).length, 0);
+
+// The tick and the snooze are asked for, not assumed. These two
+// mirror canSetStepStatus/canSetStepDate at admin.
+is('hq: our step can be ticked', stepRows([hqStep()], BY_ID, NOW)[0].tickTo, 'Done');
+is('hq: and moved', stepRows([hqStep()], BY_ID, NOW)[0].snoozable, true);
+
+const content = (over = {}) => ({
+  id: 'p1', clientId: 'c-sean', title: 'Studio teaser',
+  status: 'Scheduled', postDate: TODAY, format: 'Reel', ...over,
+});
+
+is('hq: a scheduled post reaches the list', contentRows([content()], BY_ID, NOW).length, 1);
+is('hq: content counts as ours', contentRows([content()], BY_ID, NOW)[0].owner, 'blueprint');
+is('hq: the format is the type chip', contentRows([content()], BY_ID, NOW)[0].type, 'Reel');
+for (const st of CONTENT_SETTLED) {
+  is(`hq: a ${st} post is not outstanding`,
+     contentRows([content({ status: st, date: '2026-01-01', postDate: '2026-01-01' })], BY_ID, NOW).length, 0);
+}
+// The tick writes Posted, so it is only drawn where the content rules
+// already allow that move. Editing cannot jump to Posted.
+is('hq: a scheduled post can be ticked',
+   contentRows([content()], BY_ID, NOW)[0].tickTo, 'Posted');
+is('hq: an approved post can be ticked',
+   contentRows([content({ status: 'Approved' })], BY_ID, NOW)[0].tickTo, 'Posted');
+is('hq: a post in Editing offers no tick',
+   contentRows([content({ status: 'Editing' })], BY_ID, NOW)[0].tickTo, null);
+is('hq: nor one still an Idea',
+   contentRows([content({ status: 'Idea' })], BY_ID, NOW)[0].tickTo, null);
+
+const withNext = (c, date, action = 'Send the proposal') =>
+  ({ ...c, nextAction: action, nextActionDate: date });
+
+is('hq: a next action due today is a row',
+   nextActionRows([withNext(LEAD, TODAY)], NOW).length, 1);
+is('hq: a next action is always ours',
+   nextActionRows([withNext(LEAD, TODAY)], NOW)[0].owner, 'blueprint');
+is('hq: its title is the action itself',
+   nextActionRows([withNext(LEAD, TODAY)], NOW)[0].title, 'Send the proposal');
+// The type slot holds a kind of work on every other row, so a stage
+// name among Reel and Access would read as a status.
+is('hq: its type says what it is, not what stage the client is in',
+   nextActionRows([withNext(LEAD, TODAY)], NOW)[0].type, 'Next action');
+is('hq: an empty action still reads as something',
+   nextActionRows([withNext(LEAD, TODAY, '   ')], NOW)[0].title, 'Next action');
+is('hq: ticking one clears the date rather than writing a status',
+   nextActionRows([withNext(LEAD, TODAY)], NOW)[0].tickTo, 'clear');
+is('hq: no date, no row', nextActionRows([LEAD], NOW).length, 0);
+for (const st of DEAD_STAGES) {
+  is(`hq: a ${st} client's next action is nobody's to-do`,
+     nextActionRows([withNext({ ...LEAD, stage: st }, TODAY)], NOW).length, 0);
+}
+// A lead and an active client sit in the same list. That is the point:
+// an overdue proposal is as real as an overdue step.
+is('hq: a lead and a client share the list',
+   nextActionRows([withNext(LEAD, TODAY), withNext(SEAN, TODAY)], NOW).length, 2);
+
+/* ── the whole list ────────────────────────────────────────────── */
+
+section('Blueprint HQ · filter and sections');
+
+const INPUT = {
+  clients: [withNext(SEAN, '2026-11-01'), LEAD],
+  steps: [
+    hqStep({ id: 'a', date: '2026-10-30', owner: 'Client', title: 'Send the photos' }),
+    hqStep({ id: 'b', date: TODAY, owner: 'Blueprint', title: 'Film the b-roll' }),
+    hqStep({ id: 'c', date: '2026-11-09', owner: 'Client', title: 'Approve the cut' }),
+    hqStep({ id: 'd', date: '2027-01-01', owner: 'Blueprint', title: 'Miles away' }),
+  ],
+  content: [content({ id: 'p', postDate: TODAY })],
+};
+
+const all = buildToday(INPUT, 'all', NOW);
+is('hq: overdue holds the client step and the next action', all.overdue.length, 2);
+is('hq: due today holds the step and the post', all.today.length, 2);
+is('hq: this week holds the approval', all.week.length, 1);
+is('hq: and the far-off step is nowhere',
+   [...all.overdue, ...all.today, ...all.week].some((r) => r.id === 'd'), false);
+
+// Overdue is sorted oldest first, which is the order you work it in.
+is('hq: the oldest overdue row is first', all.overdue[0].date, '2026-10-30');
+
+const hqMine = buildToday(INPUT, 'mine', NOW);
+is('hq: Mine drops the client steps',
+   hqMine.overdue.concat(hqMine.today, hqMine.week).every((r) => r.owner === 'blueprint'), true);
+is('hq: Mine keeps the next action', hqMine.overdue.length, 1);
+is('hq: Mine keeps our step and the post', hqMine.today.length, 2);
+
+const theirs = buildToday(INPUT, 'clients', NOW);
+is("hq: Clients' keeps only theirs",
+   theirs.overdue.concat(theirs.today, theirs.week).every((r) => r.owner === 'client'), true);
+is("hq: Clients' finds the overdue photos", theirs.overdue.length, 1);
+is("hq: and nothing of ours today", theirs.today.length, 0);
+
+is('hq: All matches everything',
+   matchesFilter({ owner: 'client' }, 'all') && matchesFilter({ owner: 'blueprint' }, 'all'), true);
+
+// Every row needs a key the DOM can hold, and two kinds must never
+// collide on one id.
+const keys = [...all.overdue, ...all.today, ...all.week].map((r) => r.key);
+is('hq: every row key is unique', new Set(keys).size, keys.length);
+ok('hq: keys are kind-prefixed', keys.every((k) => /^(step|content|next):/.test(k)));
+
+is('hq: sorting is stable on date then client then title',
+   sortRows([
+     { date: '2026-11-06', clientName: 'B', title: 'z' },
+     { date: '2026-11-05', clientName: 'B', title: 'a' },
+     { date: '2026-11-06', clientName: 'A', title: 'a' },
+   ]).map((r) => `${r.date}/${r.clientName}`),
+   ['2026-11-05/B', '2026-11-06/A', '2026-11-06/B']);
+
+/* ── the strip ─────────────────────────────────────────────────── */
+
+section('Blueprint HQ · the fortnight strip');
+
+const moment = (over = {}) => ({
+  id: 'm1', clientId: 'c-sean', title: 'The Echo, LA',
+  kind: 'Moment', momentType: 'Show', type: null, owner: 'Blueprint',
+  status: 'Confirmed', date: addDays(TODAY, 3), venueCity: 'Los Angeles', ...over,
+});
+
+is('hq: a show in three days is on the strip', stripItems([moment()], BY_ID, NOW).length, 1);
+is('hq: and it says how far off', stripItems([moment()], BY_ID, NOW)[0].days, 3);
+is('hq: today reads as zero days',
+   stripItems([moment({ date: TODAY })], BY_ID, NOW)[0].days, 0);
+is('hq: the last day of the fortnight is in',
+   stripItems([moment({ date: addDays(TODAY, STRIP_DAYS) })], BY_ID, NOW).length, 1);
+is('hq: the day after is out',
+   stripItems([moment({ date: addDays(TODAY, STRIP_DAYS + 1) })], BY_ID, NOW).length, 0);
+// The strip answers "what is coming", so a show last week is not on it
+// even though the calendar still holds the row.
+is('hq: a past show is not coming up',
+   stripItems([moment({ date: '2026-10-01' })], BY_ID, NOW).length, 0);
+is('hq: a step is not a moment',
+   stripItems([moment({ kind: 'Step' })], BY_ID, NOW).length, 0);
+is('hq: a moved moment is off the strip',
+   stripItems([moment({ status: 'Moved' })], BY_ID, NOW).length, 0);
+is('hq: a skipped one too',
+   stripItems([moment({ status: 'Skipped' })], BY_ID, NOW).length, 0);
+is('hq: the strip is sorted soonest first',
+   stripItems([
+     moment({ id: 'x', date: addDays(TODAY, 9) }),
+     moment({ id: 'y', date: addDays(TODAY, 2) }),
+   ], BY_ID, NOW).map((m) => m.id), ['y', 'x']);
+
+/* ── snooze ────────────────────────────────────────────────────── */
+
+section('Blueprint HQ · snooze');
+
+is('hq: snoozing today by a day lands tomorrow',
+   snoozeTo(TODAY, 1, NOW), '2026-11-06');
+is('hq: by a week lands next Thursday', snoozeTo(TODAY, 7, NOW), '2026-11-12');
+// The one that matters. +1 day on something three weeks late has to
+// mean tomorrow, not three weeks ago plus one.
+is('hq: snoozing an overdue row by a day lands tomorrow, not back in the past',
+   snoozeTo('2026-10-15', 1, NOW), '2026-11-06');
+is('hq: a future row snoozes from its own date',
+   snoozeTo('2026-11-20', 1, NOW), '2026-11-21');
+
+/* ── the Clients write whitelist ───────────────────────────────── */
+
+section('Blueprint HQ · the Clients write');
+
+is('hq: the pipeline columns are the seven stages',
+   HQ_STAGES.join('|'),
+   'Lead|Call Booked|Proposal Sent|Onboarding|Active|Paused|Ended');
+is('hq: Active is a stage', isHqStage('Active'), true);
+is('hq: a made-up stage is not', isHqStage('Nearly Signed'), false);
+is('hq: a non-string is not', isHqStage(3), false);
+// A name Notion does not know would be CREATED as a new select option
+// by the API rather than refused, which is why this list is closed.
+is('hq: a near-miss is refused', isHqStage('active'), false);
+
+const props = (body) => buildHqClientProperties(body);
+
+is('hq: only the three fields exist',
+   Object.keys(HQ_CLIENT_EDITABLE).join(','), 'stage,nextAction,nextActionDate');
+is('hq: a field nobody whitelisted is not written',
+   Object.keys(props({ monthlyRate: 9999, portalKey: 'x' }).properties).length, 0);
+is('hq: and Portal Key above all',
+   JSON.stringify(props({ portalKey: 'x', 'Portal Key': 'x' })).includes('Portal Key'), false);
+
+is('hq: a stage writes the Stage select',
+   props({ stage: 'Onboarding' }).properties.Stage, { select: { name: 'Onboarding' } });
+is('hq: a bad stage is rejected, not written',
+   props({ stage: 'Nope' }).rejected, ['stage']);
+ok('hq: and nothing is written with it',
+   Object.keys(props({ stage: 'Nope' }).properties).length === 0);
+
+is('hq: a next action writes rich text',
+   props({ nextAction: 'Call them' }).properties['Next Action'],
+   { rich_text: [{ text: { content: 'Call them' } }] });
+is('hq: clearing it writes an empty array',
+   props({ nextAction: null }).properties['Next Action'], { rich_text: [] });
+is('hq: an all-whitespace action clears it too',
+   props({ nextAction: '   ' }).properties['Next Action'], { rich_text: [] });
+is('hq: newlines are flattened out of a one-line column',
+   cleanNextAction('Call them\nthen email'), 'Call them then email');
+is('hq: it is capped', cleanNextAction('x'.repeat(500)).length, MAX_NEXT_ACTION);
+is('hq: a number is not a next action', props({ nextAction: 7 }).rejected, ['nextAction']);
+
+is('hq: a date writes the date',
+   props({ nextActionDate: '2026-12-01' }).properties['Next Action Date'],
+   { date: { start: '2026-12-01' } });
+is('hq: null clears the date, which is how a next action is ticked',
+   props({ nextActionDate: null }).properties['Next Action Date'], { date: null });
+is('hq: a day that never existed is refused',
+   props({ nextActionDate: '2026-02-31' }).rejected, ['nextActionDate']);
+is('hq: so is a datetime', props({ nextActionDate: '2026-12-01T10:00:00Z' }).rejected,
+   ['nextActionDate']);
+is('hq: so is nonsense', props({ nextActionDate: 'soon' }).rejected, ['nextActionDate']);
+
+// A patch naming one field leaves the others alone, so snoozing a next
+// action cannot wipe its text.
+is('hq: a date-only patch touches only the date',
+   Object.keys(props({ nextActionDate: '2026-12-01' }).properties), ['Next Action Date']);
+is('hq: a patch of all three writes all three',
+   Object.keys(props({
+     stage: 'Active', nextAction: 'Kick off', nextActionDate: '2026-12-01',
+   }).properties).length, 3);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

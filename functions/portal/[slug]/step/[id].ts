@@ -26,7 +26,7 @@
    Every failure returns the same 404 the rest of the portal uses.
    ────────────────────────────────────────────────────────────── */
 
-import { canClientSetStep, canSetStepDate, isIsoDay } from '../../../../src/data/portal';
+import { canSetStepStatus, canSetStepDate, isIsoDay } from '../../../../src/data/portal';
 import { portalNotFound } from '../../../../src/server/portal-auth';
 import { fetchOwnedStep, patchCalendarPage } from '../../../../src/server/portal-notion';
 import { stampEdit } from '../../../../src/server/portal-write';
@@ -63,8 +63,11 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
   if ('status' in ctx.body) {
     const wanted = ctx.body.status;
     // The status it is in NOW, read from Notion rather than from the
-    // request, is half of what decides whether this move is legal.
-    if (!canClientSetStep(step, wanted)) return portalNotFound();
+    // request, is half of what decides whether this move is legal. The
+    // role is the other half, the same way it is for the date below:
+    // a client may only tick their own steps, and one of us may tick
+    // any of them, because HQ's Today list holds both.
+    if (!canSetStepStatus(step, wanted, ctx.viewer.role)) return portalNotFound();
     status = wanted as string;
     props.Status = { select: { name: status } };
   }

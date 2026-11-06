@@ -18,3 +18,7 @@ export * from '../src/server/portal-write';
 export {
   BRIEF_FILE, MAX_BRIEF_BYTES, briefKey, briefUrl, looksLikePdf, fileSize,
 } from '../src/server/brief';
+// Blueprint HQ. The rules that decide what a Today row is and what may
+// be done to it, and the whitelist for the one Clients write.
+export * from '../src/data/hq';
+export * from '../src/server/hq-write';

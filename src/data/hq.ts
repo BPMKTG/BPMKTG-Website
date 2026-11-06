@@ -1,0 +1,389 @@
+/* ──────────────────────────────────────────────────────────────
+   The rules behind Blueprint HQ.
+
+   Pure functions and constants only: no Notion, no fetch, no DOM.
+   Everything here is reachable from the test entry, which is the point
+   of keeping it out of the page and out of the data layer.
+
+   Three things live here.
+
+     1. What counts as a to-do on the Today tab, and which of the three
+        sections it falls into.
+     2. Which of those rows a tick box or a snooze may act on. HQ never
+        decides that for itself: it asks the same predicates the portal's
+        own write endpoints ask, so a button HQ offers is a button the
+        server will honour.
+     3. Later, the client health rules, which the spec asks be kept in
+        one place.
+   ────────────────────────────────────────────────────────────── */
+
+import { canSetStepStatus, canSetStepDate } from './portal';
+import { canClientMove } from './portal-content';
+
+/* ── the window ───────────────────────────────────────────────── */
+
+/**
+ * How far "This week" reaches.
+ *
+ * Seven days rather than "until Sunday": on a Friday a week-boundary
+ * version of this list would be almost empty and would say nothing
+ * about the week that actually matters, which is the next seven days.
+ */
+export const WEEK_DAYS = 7;
+
+/** How far ahead the shows-and-releases strip looks. From the spec. */
+export const STRIP_DAYS = 14;
+
+/* ── what a row is ────────────────────────────────────────────── */
+
+export type HqOwner = 'blueprint' | 'client';
+
+/** Where a Today row came from. The tick and the snooze take a
+ *  different route for each, so the row has to carry it. */
+export type HqRowKind = 'step' | 'content' | 'next-action';
+
+export type HqBucket = 'overdue' | 'today' | 'week';
+
+export interface HqRow {
+  /** Unique within the list. Kind-prefixed because a client page id
+   *  and a calendar page id could in principle collide in the DOM. */
+  key: string;
+  kind: HqRowKind;
+  /** The Notion page the write goes to. For a next action that is the
+   *  client's own row, which is why it is not always a task id. */
+  id: string;
+  clientSlug: string;
+  clientName: string;
+  title: string;
+  owner: HqOwner;
+  /** The word shown in the row's type chip. */
+  type: string | null;
+  status: string | null;
+  date: string;
+  bucket: HqBucket;
+  /** Whether HQ may offer a tick box, and what it would write. */
+  tickTo: string | null;
+  /** Whether HQ may offer a snooze. */
+  snoozable: boolean;
+}
+
+/* ── statuses that are not to-dos ─────────────────────────────── */
+
+/**
+ * Calendar statuses that take a step off the Today list.
+ *
+ * Done is finished. Skipped and Moved are steps we took out of the
+ * plan. None of the three is work outstanding, so none of them is
+ * overdue, however old the date is.
+ */
+export const STEP_SETTLED = ['Done', 'Skipped', 'Moved'] as const;
+
+/** Content statuses that are not work outstanding. */
+export const CONTENT_SETTLED = ['Posted', 'Skipped'] as const;
+
+const settled = (list: readonly string[], status: string | null) =>
+  list.includes(status ?? '');
+
+/* ── days ─────────────────────────────────────────────────────── */
+
+/** Today as a plain ISO day, read at UTC like every other date in
+ *  this codebase so a late evening never counts as tomorrow. */
+export function isoToday(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+/** An ISO day, N days on from a plain ISO day. */
+export function addDays(day: string, n: number): string {
+  const t = Date.parse(`${day}T00:00:00Z`);
+  if (Number.isNaN(t)) return day;
+  return new Date(t + n * 86400000).toISOString().slice(0, 10);
+}
+
+/**
+ * Which section a dated row belongs in, or null for a row that is
+ * further out than this list goes.
+ */
+export function bucketFor(
+  date: string | null, now: Date = new Date(), weekDays = WEEK_DAYS,
+): HqBucket | null {
+  if (!date) return null;
+  const today = isoToday(now);
+  if (date < today) return 'overdue';
+  if (date === today) return 'today';
+  return date <= addDays(today, weekDays) ? 'week' : null;
+}
+
+/* ── building the rows ────────────────────────────────────────── */
+
+/** Only what this module reads, so the tests can hand it a literal. */
+export interface RowClient {
+  pageId: string;
+  slug: string;
+  artist: string;
+  stage: string | null;
+  nextAction: string | null;
+  nextActionDate: string | null;
+}
+
+export interface RowStep {
+  id: string;
+  clientId: string | null;
+  title: string;
+  kind: string | null;
+  type: string | null;
+  owner: string | null;
+  status: string | null;
+  date: string | null;
+}
+
+export interface RowContent {
+  id: string;
+  clientId: string | null;
+  title: string;
+  status: string | null;
+  postDate: string | null;
+  format: string | null;
+}
+
+/** Stages whose next action is nobody's to-do any more. */
+export const DEAD_STAGES = ['Ended'] as const;
+
+/**
+ * Every outstanding step, as Today rows.
+ *
+ * Moments are left out: a show is not a task, and the spec gives shows
+ * and releases their own strip above the list. Steps of every owner are
+ * in, which is the whole reason HQ exists.
+ */
+export function stepRows(
+  steps: RowStep[], byId: Map<string, RowClient>, now: Date = new Date(),
+): HqRow[] {
+  const out: HqRow[] = [];
+  for (const s of steps) {
+    if (s.kind === 'Moment') continue;
+    if (settled(STEP_SETTLED, s.status)) continue;
+    const bucket = bucketFor(s.date, now);
+    if (!bucket || !s.date) continue;
+    const client = s.clientId ? byId.get(s.clientId) : undefined;
+    if (!client) continue;
+
+    const owner: HqOwner = s.owner === 'Client' ? 'client' : 'blueprint';
+    // Asked, not assumed. These are the same two predicates the step
+    // endpoint runs, so a tick HQ draws is a tick the server accepts.
+    const row = { owner: s.owner, status: s.status };
+    out.push({
+      key: `step:${s.id}`,
+      kind: 'step',
+      id: s.id,
+      clientSlug: client.slug,
+      clientName: client.artist,
+      title: s.title || 'Untitled step',
+      owner,
+      type: s.type,
+      status: s.status,
+      date: s.date,
+      bucket,
+      tickTo: canSetStepStatus(row, 'Done', 'admin') ? 'Done' : null,
+      snoozable: canSetStepDate(row, 'admin'),
+    });
+  }
+  return out;
+}
+
+/**
+ * Content with a post date, as Today rows.
+ *
+ * Content has no Owner column, so it counts as ours. That is nearly
+ * always true in practice, and the filter says "Mine" rather than
+ * "assigned to me", so a card sitting in our edit queue belongs there.
+ *
+ * The tick is offered only where the content rules already allow
+ * Posted. A card in Editing cannot jump to Posted, and HQ must not
+ * draw a box that the server would refuse.
+ */
+export function contentRows(
+  items: RowContent[], byId: Map<string, RowClient>, now: Date = new Date(),
+): HqRow[] {
+  const out: HqRow[] = [];
+  for (const c of items) {
+    if (settled(CONTENT_SETTLED, c.status)) continue;
+    const bucket = bucketFor(c.postDate, now);
+    if (!bucket || !c.postDate) continue;
+    const client = c.clientId ? byId.get(c.clientId) : undefined;
+    if (!client) continue;
+
+    out.push({
+      key: `content:${c.id}`,
+      kind: 'content',
+      id: c.id,
+      clientSlug: client.slug,
+      clientName: client.artist,
+      title: c.title || 'Untitled post',
+      owner: 'blueprint',
+      type: c.format ?? 'Content',
+      status: c.status,
+      date: c.postDate,
+      bucket,
+      tickTo: canClientMove(c.status, 'Posted') ? 'Posted' : null,
+      snoozable: true,
+    });
+  }
+  return out;
+}
+
+/**
+ * A client's own Next Action, as a Today row.
+ *
+ * Always ours: it is the next thing WE do about that client, which is
+ * why a lead with an overdue next action shows up here next to a step
+ * on an active account.
+ */
+export function nextActionRows(
+  clients: RowClient[], now: Date = new Date(),
+): HqRow[] {
+  const out: HqRow[] = [];
+  for (const c of clients) {
+    if ((DEAD_STAGES as readonly string[]).includes(c.stage ?? '')) continue;
+    const bucket = bucketFor(c.nextActionDate, now);
+    if (!bucket || !c.nextActionDate) continue;
+
+    out.push({
+      key: `next:${c.pageId}`,
+      kind: 'next-action',
+      id: c.pageId,
+      clientSlug: c.slug,
+      clientName: c.artist,
+      title: c.nextAction?.trim() || 'Next action',
+      owner: 'blueprint',
+      // Not the Stage. Every other row puts a content or step type in
+      // this slot, and a stage name sitting among Reel and Access
+      // reads as a status rather than a kind of work. The Pipeline tab
+      // is where a stage belongs.
+      type: 'Next action',
+      status: null,
+      date: c.nextActionDate,
+      bucket,
+      // Ticking a next action clears the date rather than writing a
+      // status: the Clients row has no status to write.
+      tickTo: 'clear',
+      snoozable: true,
+    });
+  }
+  return out;
+}
+
+/* ── the list ─────────────────────────────────────────────────── */
+
+export type HqFilter = 'mine' | 'clients' | 'all';
+
+export function matchesFilter(row: HqRow, filter: HqFilter): boolean {
+  if (filter === 'all') return true;
+  return filter === 'mine' ? row.owner === 'blueprint' : row.owner === 'client';
+}
+
+/**
+ * Sorted the way the list reads: by day, then the client's name, then
+ * the title. Within a section every row is equally due, so the only
+ * useful second key is the one that groups a client's rows together.
+ */
+export function sortRows(rows: HqRow[]): HqRow[] {
+  return rows.slice().sort((a, b) =>
+    a.date.localeCompare(b.date)
+    || a.clientName.localeCompare(b.clientName)
+    || a.title.localeCompare(b.title));
+}
+
+export interface HqToday {
+  overdue: HqRow[];
+  today: HqRow[];
+  week: HqRow[];
+}
+
+/** Every outstanding row, filtered, sorted and split into sections. */
+export function buildToday(
+  input: { clients: RowClient[]; steps: RowStep[]; content: RowContent[] },
+  filter: HqFilter = 'all',
+  now: Date = new Date(),
+): HqToday {
+  const byId = new Map(input.clients.map((c) => [c.pageId, c]));
+  const all = [
+    ...stepRows(input.steps, byId, now),
+    ...contentRows(input.content, byId, now),
+    ...nextActionRows(input.clients, now),
+  ].filter((r) => matchesFilter(r, filter));
+
+  return {
+    overdue: sortRows(all.filter((r) => r.bucket === 'overdue')),
+    today: sortRows(all.filter((r) => r.bucket === 'today')),
+    week: sortRows(all.filter((r) => r.bucket === 'week')),
+  };
+}
+
+/* ── the strip ────────────────────────────────────────────────── */
+
+export interface StripItem {
+  id: string;
+  clientSlug: string;
+  clientName: string;
+  title: string;
+  momentType: string | null;
+  venueCity: string | null;
+  date: string;
+  days: number;
+}
+
+/**
+ * Shows and releases in the next fortnight, every client.
+ *
+ * Moments only, and only forward: this strip answers "what is coming",
+ * so a show last week does not belong in it even though the calendar
+ * still holds it.
+ */
+export function stripItems(
+  steps: Array<RowStep & { momentType?: string | null; venueCity?: string | null }>,
+  byId: Map<string, RowClient>,
+  now: Date = new Date(),
+  days = STRIP_DAYS,
+): StripItem[] {
+  const today = isoToday(now);
+  const until = addDays(today, days);
+  const out: StripItem[] = [];
+
+  for (const s of steps) {
+    if (s.kind !== 'Moment') continue;
+    if (!s.date || s.date < today || s.date > until) continue;
+    if (settled(['Skipped', 'Moved'], s.status)) continue;
+    const client = s.clientId ? byId.get(s.clientId) : undefined;
+    if (!client) continue;
+
+    out.push({
+      id: s.id,
+      clientSlug: client.slug,
+      clientName: client.artist,
+      title: s.title || 'Untitled',
+      momentType: s.momentType ?? null,
+      venueCity: s.venueCity ?? null,
+      date: s.date,
+      days: Math.max(0, Math.round(
+        (Date.parse(`${s.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000)),
+    });
+  }
+
+  return out.sort((a, b) =>
+    a.date.localeCompare(b.date) || a.clientName.localeCompare(b.clientName));
+}
+
+/* ── snooze ───────────────────────────────────────────────────── */
+
+/**
+ * Where a snooze lands.
+ *
+ * Measured from the later of today and the row's own date, so snoozing
+ * something three weeks overdue by a day puts it on tomorrow rather
+ * than back in the overdue pile, which is what "+1 day" means when you
+ * are looking at a list of things you are late on.
+ */
+export function snoozeTo(date: string, days: number, now: Date = new Date()): string {
+  const today = isoToday(now);
+  return addDays(date > today ? date : today, days);
+}

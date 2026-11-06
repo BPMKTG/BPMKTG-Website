@@ -231,7 +231,7 @@ const NAV = [
 
 <script>
   import {
-    canClientSetStep,
+    canSetStepStatus,
     canSetStepDate,
     daysBetween,
     daysUntil,
@@ -3895,7 +3895,7 @@ const NAV = [
   function canTick(it: PortalCalendarItem): boolean {
     if ((it as CalRow).content) return false;
     if (it.momentType || it.kind === 'Moment') return false;
-    return canClientSetStep(it, 'Done');
+    return canSetStepStatus(it, 'Done');
   }
 
   /** A box, drawn from the step's current status. `big` is the drawer's

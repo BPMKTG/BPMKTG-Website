@@ -312,16 +312,31 @@ export function isStepClientStatus(value: unknown): value is StepClientStatus {
 }
 
 /**
- * May the client set this step's status at all?
+ * May this viewer set this step's status?
  *
- * Both ends are checked. A step sitting in Skipped or Moved is one we
- * took out of the plan, and a tick box must not quietly put it back.
+ * The pair to canSetStepDate, and it draws the line in the same place.
+ * A client may tick their OWN steps and nothing else: ours are ours to
+ * finish. One of us may tick any of them, whoever owns it, because
+ * Blueprint HQ lists our steps and the client's side by side and the
+ * tick box there has to work on both.
+ *
+ * Both ends are checked either way. A step sitting in Skipped or Moved
+ * is one we took out of the plan, and a tick box must not quietly put
+ * it back; that holds for us as much as for them, so taking a step
+ * back into the plan stays a deliberate edit in Notion rather than
+ * something a stray tap can do. Nor does either of us get to reach
+ * Skipped or Moved from here, which is why the target is still checked
+ * against the three.
+ *
+ * The role defaults to 'client', so a caller that does not say is held
+ * to the stricter rule.
  */
-export function canClientSetStep(
+export function canSetStepStatus(
   row: { owner: string | null; status: string | null },
   to: unknown,
+  role: 'client' | 'admin' = 'client',
 ): boolean {
-  if (row.owner !== 'Client') return false;
+  if (role !== 'admin' && row.owner !== 'Client') return false;
   if (!isStepClientStatus(to)) return false;
   // A status Notion has not been given yet reads as Not Started, which
   // is where a step starts life anyway.

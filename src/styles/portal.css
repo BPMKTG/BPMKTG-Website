@@ -2517,3 +2517,287 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 @media print {
   .pt-docs, .pt-admin { display: none !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Blueprint HQ
+   ══════════════════════════════════════════════════════════════
+
+   Everything above is the client portal. This is our side of the same
+   design system: the same tokens, the same cards, the same sidebar.
+   Only what HQ draws and the portal does not is defined here.
+
+   Served solely at /portal/hq, behind the admin cookie. A client never
+   loads a page that uses any of it, but it rides in the same
+   stylesheet because it is the same system and a second file would
+   drift from the first.
+   ────────────────────────────────────────────────────────────── */
+
+/* ── the HQ word mark ─────────────────────────────────────────── */
+
+.hq-logo {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  font-family: var(--pt-display);
+  letter-spacing: .01em;
+}
+.hq-logo:hover { text-decoration: none; }
+.hq-word { font-size: .96rem; font-weight: 600; color: var(--pt-navy); }
+.hq-mark {
+  font-size: .7rem; font-weight: 700; letter-spacing: .12em;
+  padding: 2px 7px; border-radius: var(--pt-r-pill);
+  background: var(--pt-orange); color: #fff;
+}
+
+/* ── global search ────────────────────────────────────────────── */
+
+.hq-search { position: relative; flex: 1; max-width: 460px; }
+.hq-search-icon {
+  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 16px; color: var(--pt-muted); pointer-events: none;
+}
+.hq-search input {
+  width: 100%; height: 36px;
+  padding: 0 var(--pt-3) 0 34px;
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r-pill);
+  background: var(--pt-surface); color: var(--pt-ink);
+  font-family: inherit; font-size: .86rem;
+}
+.hq-search input::placeholder { color: var(--pt-muted); }
+.hq-search input:focus-visible {
+  outline: none; border-color: var(--pt-blue-mark);
+  box-shadow: 0 0 0 3px var(--pt-tint-blue);
+}
+/* A search box with nothing in it must not look like a broken one, so
+   the results panel is only ever in the layout when it has results. */
+.hq-results {
+  position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; right: 0;
+  max-height: min(60vh, 420px); overflow-y: auto;
+  padding: var(--pt-1);
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r);
+  background: var(--pt-surface); box-shadow: var(--pt-shadow-lg);
+}
+.hq-results[hidden] { display: none; }
+.hq-result {
+  display: flex; align-items: center; gap: var(--pt-3);
+  width: 100%; padding: 9px var(--pt-3);
+  border-radius: var(--pt-r-sm);
+  text-align: left; font-size: .86rem; color: var(--pt-ink);
+}
+.hq-result:hover, .hq-result:focus-visible { background: var(--pt-tint-soft); outline: none; }
+.hq-result-what {
+  flex: none; font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--pt-muted);
+  min-width: 56px;
+}
+.hq-result-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hq-result-who { flex: none; font-size: .78rem; color: var(--pt-muted); }
+.hq-results-none { padding: 10px var(--pt-3); font-size: .84rem; color: var(--pt-muted); }
+
+/* ── who, and how long it took ────────────────────────────────── */
+
+.hq-who {
+  flex: none; font-size: .74rem; font-weight: 600;
+  color: var(--pt-muted); font-variant-numeric: tabular-nums;
+}
+.hq-timing {
+  padding: var(--pt-3);
+  font-size: .7rem; color: var(--pt-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── the fortnight strip ──────────────────────────────────────── */
+
+.hq-strip {
+  display: flex; gap: var(--pt-2);
+  margin-bottom: var(--pt-5);
+  padding-bottom: var(--pt-2);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.hq-strip-item {
+  flex: none; width: 168px;
+  padding: var(--pt-3);
+  border: 1px solid var(--pt-line); border-left-width: 3px;
+  border-radius: var(--pt-r-sm);
+  background: var(--pt-surface);
+  text-align: left;
+}
+.hq-strip-item:hover { text-decoration: none; box-shadow: var(--pt-shadow); }
+.hq-strip-show    { border-left-color: var(--pt-orange); }
+.hq-strip-release { border-left-color: var(--pt-navy); }
+.hq-strip-when {
+  font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--pt-muted);
+}
+.hq-strip-title {
+  margin-top: 2px;
+  font-size: .84rem; font-weight: 600; color: var(--pt-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hq-strip-client {
+  font-size: .76rem; color: var(--pt-muted);
+  /* One line, or a card with a venue on it grows taller than its
+     neighbours and the strip stops reading as a row. */
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hq-strip-empty {
+  padding: var(--pt-3) var(--pt-4);
+  border: 1px dashed var(--pt-line); border-radius: var(--pt-r-sm);
+  font-size: .84rem; color: var(--pt-muted);
+}
+
+/* ── the filter ───────────────────────────────────────────────── */
+
+.hq-bar {
+  display: flex; align-items: center; gap: var(--pt-3);
+  margin-bottom: var(--pt-4); flex-wrap: wrap;
+}
+.hq-bar h1 {
+  flex: 1; min-width: 0;
+  font-family: var(--pt-display);
+  font-size: 1.12rem; font-weight: 600; color: var(--pt-ink);
+}
+.hq-seg {
+  display: inline-flex; padding: 2px;
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r-pill);
+  background: var(--pt-surface-2);
+}
+.hq-seg button {
+  padding: 5px var(--pt-3);
+  border-radius: var(--pt-r-pill);
+  font-size: .78rem; font-weight: 600; color: var(--pt-ink-2);
+  white-space: nowrap;
+}
+.hq-seg button:hover { color: var(--pt-ink); }
+.hq-seg button[aria-pressed='true'] {
+  background: var(--pt-navy); color: #fff;
+}
+
+/* ── a section of the Today list ──────────────────────────────── */
+
+.hq-sec { margin-top: var(--pt-5); }
+.hq-sec:first-of-type { margin-top: 0; }
+.hq-sec-head {
+  display: flex; align-items: center; gap: var(--pt-2);
+  margin-bottom: var(--pt-2);
+}
+.hq-sec-head h2 {
+  font-size: .76rem; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--pt-muted);
+}
+.hq-sec-count {
+  font-size: .7rem; font-weight: 700;
+  padding: 1px 7px; border-radius: var(--pt-r-pill);
+  background: var(--pt-tint-slate); color: var(--pt-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.hq-sec-overdue .hq-sec-head h2 { color: var(--pt-bad); }
+.hq-sec-overdue .hq-sec-count { background: var(--pt-bad-tint); color: var(--pt-bad); }
+
+.hq-list {
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r);
+  background: var(--pt-surface); overflow: hidden;
+}
+
+/* ── one row ──────────────────────────────────────────────────── */
+
+.hq-row {
+  display: flex; align-items: center; gap: var(--pt-3);
+  padding: 10px var(--pt-4);
+  border-top: 1px solid var(--pt-line-soft);
+}
+.hq-row:first-child { border-top: 0; }
+.hq-row:hover { background: var(--pt-surface-2); }
+/* A row mid-write reads as busy rather than broken, and cannot be
+   clicked twice. */
+.hq-row[data-busy='true'] { opacity: .5; pointer-events: none; }
+.hq-row[data-done='true'] { opacity: .45; }
+.hq-row[data-done='true'] .hq-row-title { text-decoration: line-through; }
+
+.hq-tick {
+  flex: none; width: 21px; height: 21px;
+  border: 1.5px solid var(--pt-line-strong); border-radius: 6px;
+  background: var(--pt-surface);
+  display: grid; place-items: center;
+  color: transparent;
+  transition: background var(--pt-t), border-color var(--pt-t), color var(--pt-t);
+}
+.hq-tick svg { width: 13px; height: 13px; }
+.hq-tick:hover { border-color: var(--pt-navy); color: var(--pt-dim); }
+.hq-tick[aria-pressed='true'] {
+  background: var(--pt-navy); border-color: var(--pt-navy); color: #fff;
+}
+/* Not every row can be ticked: content in Editing cannot jump to
+   Posted, and the server would refuse it. An empty square that does
+   nothing is worse than no square, so there is none. */
+.hq-tick-none { flex: none; width: 21px; }
+
+.hq-row-main { flex: 1; min-width: 0; }
+.hq-row-title {
+  font-size: .88rem; font-weight: 500; color: var(--pt-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hq-row-meta {
+  display: flex; align-items: center; gap: var(--pt-2);
+  margin-top: 1px; flex-wrap: wrap;
+}
+.hq-row-meta > * { font-size: .74rem; }
+
+.hq-client {
+  font-weight: 600; color: var(--pt-navy);
+  padding: 1px 7px; border-radius: var(--pt-r-pill);
+  background: var(--pt-tint-navy);
+}
+.hq-client:hover { text-decoration: none; filter: brightness(.97); }
+.hq-own {
+  font-weight: 600;
+  padding: 1px 7px; border-radius: var(--pt-r-pill);
+}
+.hq-own-blueprint { background: var(--pt-tint-orange); color: var(--pt-orange-ink); }
+.hq-own-client    { background: var(--pt-tint-blue);   color: var(--pt-navy); }
+.hq-type { color: var(--pt-muted); }
+.hq-when { color: var(--pt-muted); font-variant-numeric: tabular-nums; }
+.hq-when-late { color: var(--pt-bad); font-weight: 600; }
+
+.hq-row-acts { flex: none; display: flex; align-items: center; gap: var(--pt-1); position: relative; }
+
+/* ── the snooze menu ──────────────────────────────────────────── */
+
+.hq-menu {
+  position: absolute; z-index: 60; right: 0; top: calc(100% + 4px);
+  min-width: 170px; padding: var(--pt-1);
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r);
+  background: var(--pt-surface); box-shadow: var(--pt-shadow-lg);
+}
+.hq-menu[hidden] { display: none; }
+.hq-menu button, .hq-menu label {
+  display: flex; align-items: center; gap: var(--pt-2);
+  width: 100%; padding: 7px var(--pt-3);
+  border-radius: var(--pt-r-sm);
+  text-align: left; font-size: .82rem; color: var(--pt-ink);
+}
+.hq-menu button:hover { background: var(--pt-tint-soft); }
+.hq-menu input[type='date'] {
+  width: 100%; margin-top: 2px;
+  padding: 6px var(--pt-2);
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r-sm);
+  font-family: inherit; font-size: .82rem; color: var(--pt-ink);
+  background: var(--pt-surface);
+}
+.hq-menu-sep { height: 1px; margin: var(--pt-1) 0; background: var(--pt-line-soft); }
+.hq-menu-pick { padding: 7px var(--pt-3) var(--pt-2); }
+.hq-menu-pick span {
+  display: block; font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--pt-muted);
+}
+
+/* ── phone ────────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  /* The search box is the first thing to go: on a phone the nav and
+     the word mark have to keep their room. */
+  .hq-search { order: 3; flex-basis: 100%; max-width: none; }
+  .hq-top { height: auto; flex-wrap: wrap; padding: var(--pt-2) var(--pt-3); gap: var(--pt-2); }
+  .hq-row { align-items: flex-start; }
+  .hq-row-acts { align-self: center; }
+  .hq-strip-item { width: 148px; }
+}
