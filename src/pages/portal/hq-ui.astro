@@ -172,8 +172,11 @@ const NAV = [
 
   import {
     buildToday, stripItems, snoozeTo, isoToday,
+    clientFacts, clientHealth, stepUpSoon, daysUntilDay, CARD_STAGES,
     type HqFilter, type HqRow, type RowClient, type StripItem,
+    type CardClient, type HealthVerdict,
   } from '../../data/hq';
+  import { termProgress } from '../../data/portal';
 
   const el = <K extends keyof HTMLElementTagNameMap>(
     tag: K, cls?: string, text?: string,
@@ -307,7 +310,419 @@ const NAV = [
     e.append(ic, el('h3', undefined, what), el('p', undefined, 'Not built yet.'));
     root.appendChild(e);
   }
-  function drawClients(root: HTMLElement) { soon(root, 'Clients'); }
+  /* ══ CLIENTS ════════════════════════════════════════════════ */
+
+  /** The segment after the view, if there is one: #/clients/sean-comma. */
+  function currentParam(): string {
+    return (location.hash || '').replace(/^#\/?/, '').split('/')[1] ?? '';
+  }
+
+  const cards = (): CardClient[] => clients()
+    .filter((c) => (CARD_STAGES as readonly string[]).includes(c.stage ?? ''))
+    .sort((a, b) => a.artist.localeCompare(b.artist));
+
+  function factsFor(c: CardClient) {
+    return clientFacts(c, {
+      steps: HQ?.calendar ?? [],
+      content: HQ?.content ?? [],
+      snapshots: HQ?.snapshots ?? [],
+    });
+  }
+
+  /** The soonest show or release still ahead of this client. */
+  function nextMoment(c: CardClient) {
+    const today = isoToday();
+    return (HQ?.calendar ?? [])
+      .filter((m: any) => m.clientId === c.pageId && m.kind === 'Moment'
+        && m.date && m.date >= today
+        && m.status !== 'Skipped' && m.status !== 'Moved')
+      .sort((a: any, b: any) => a.date.localeCompare(b.date))[0] ?? null;
+  }
+
+  function drawClients(root: HTMLElement) {
+    const slug = currentParam();
+    if (slug) return drawClientDetail(root, slug);
+
+    const list = cards();
+    const bar = el('div', 'hq-bar');
+    bar.appendChild(el('h1', undefined, 'Clients'));
+    bar.appendChild(el('span', 'hq-sec-count', String(list.length)));
+    root.appendChild(bar);
+
+    if (!list.length) {
+      const e = el('div', 'pt-empty');
+      const ic = el('div', 'pt-empty-icon');
+      ic.appendChild(icon('home'));
+      e.append(ic, el('h3', undefined, 'No live clients'),
+        el('p', undefined, 'Nobody is at Onboarding or Active. The Pipeline tab has the rest.'));
+      root.appendChild(e);
+      return;
+    }
+
+    const grid = el('div', 'hq-cards');
+    for (const c of list) grid.appendChild(clientCard(c));
+    root.appendChild(grid);
+  }
+
+  /** The dot, and the sentence behind it. The reason is on the title
+   *  for the hover the spec asks for, and repeated for a screen
+   *  reader, which never gets a hover. */
+  function healthDot(v: HealthVerdict): HTMLElement {
+    const wrap = el('span', 'hq-health');
+    const dot = el('span', `hq-dot hq-dot-${v.level}`);
+    const why = v.reasons.length ? v.reasons.join('; ') : 'nothing outstanding';
+    dot.title = why;
+    wrap.appendChild(dot);
+    wrap.appendChild(el('span', 'pt-visually-hidden', `Health ${v.level}: ${why}`));
+    return wrap;
+  }
+
+  function stat(label: string, value: string, tone?: string): HTMLElement {
+    const s = el('div', 'hq-stat');
+    s.append(
+      el('div', `hq-stat-v${tone ? ` hq-stat-${tone}` : ''}`, value),
+      el('div', 'hq-stat-l', label),
+    );
+    return s;
+  }
+
+  function clientCard(c: CardClient): HTMLElement {
+    const f = factsFor(c);
+    const v = clientHealth(f);
+
+    const card = el('a', 'hq-card');
+    card.href = `#/clients/${c.slug}`;
+
+    const head = el('div', 'hq-card-head');
+    head.appendChild(healthDot(v));
+    const names = el('div', 'hq-card-names');
+    names.append(
+      el('div', 'hq-card-name', c.artist),
+      el('div', 'hq-card-tier', c.tier ?? c.stage ?? ''),
+    );
+    head.appendChild(names);
+    if (c.stage === 'Onboarding') head.appendChild(el('span', 'hq-tag', 'Onboarding'));
+    card.appendChild(head);
+
+    // Term progress.
+    const t = termProgress(c.termStart ?? null, c.termEnd ?? null);
+    if (t) {
+      const term = el('div', 'hq-term');
+      const label = el('div', 'hq-term-l');
+      label.append(
+        el('span', undefined, t.state === 'before'
+          ? `Starts in ${t.daysUntilStart} days`
+          : `Month ${t.month} of ${t.total}`),
+        el('span', undefined, t.state === 'after' ? 'Term ended' : ''),
+      );
+      const bar = el('div', 'hq-term-bar');
+      const fill = el('div', 'hq-term-fill');
+      fill.style.width = `${Math.round(t.fraction * 100)}%`;
+      bar.appendChild(fill);
+      term.append(label, bar);
+      card.appendChild(term);
+    }
+
+    const next = nextMoment(c);
+    const line = el('div', 'hq-card-next');
+    if (next) {
+      const n = daysUntilDay(next.date) ?? 0;
+      line.appendChild(icon(next.momentType === 'Show' ? 'ticket' : 'film'));
+      line.appendChild(el('span', undefined,
+        `${next.title} · ${n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`}`));
+    } else {
+      line.appendChild(el('span', 'hq-card-none', 'No show or release booked'));
+    }
+    card.appendChild(line);
+
+    const stats = el('div', 'hq-stats');
+    stats.append(
+      stat('ours overdue', String(f.overdueBlueprint), f.overdueBlueprint ? 'bad' : undefined),
+      stat('theirs overdue', String(f.overdueClient), f.overdueClient >= 3 ? 'bad' : undefined),
+      stat('posted / due', `${f.postedThisWeek} / ${f.scheduledThisWeek}`),
+      stat('last report', f.lastReport ? shortDay(f.lastReport) : 'none',
+        f.lastReport ? undefined : 'bad'),
+    );
+    card.appendChild(stats);
+
+    // The step-up is a date you must not miss, so it only appears
+    // when it is close enough to act on.
+    const up = stepUpSoon(c.rateStepUp ?? null);
+    if (up !== null) {
+      card.appendChild(el('div', 'hq-card-flag',
+        `Rate step-up ${up === 0 ? 'today' : `in ${up} days`}`));
+    }
+
+    if (v.reasons.length) {
+      card.appendChild(el('div', `hq-card-why hq-why-${v.level}`, v.reasons[0]));
+    }
+
+    return card;
+  }
+
+  /* ── one client ──────────────────────────────────────────────── */
+
+  function drawClientDetail(root: HTMLElement, slug: string) {
+    const c = clients().find((x) => x.slug === slug) as CardClient | undefined;
+    if (!c) {
+      const e = el('div', 'pt-empty');
+      const ic = el('div', 'pt-empty-icon');
+      ic.appendChild(icon('info'));
+      e.append(ic, el('h3', undefined, 'No such client'),
+        el('p', undefined, 'Nothing here matches that link.'));
+      const back = el('a', 'pt-btn', 'Back to clients');
+      back.href = '#/clients';
+      e.appendChild(back);
+      root.appendChild(e);
+      return;
+    }
+
+    const f = factsFor(c);
+    const v = clientHealth(f);
+
+    const back = el('a', 'hq-back');
+    back.href = '#/clients';
+    back.appendChild(icon('chev-left'));
+    back.appendChild(el('span', undefined, 'Clients'));
+    root.appendChild(back);
+
+    const bar = el('div', 'hq-bar');
+    const h = el('h1', undefined, c.artist);
+    bar.append(healthDot(v), h);
+
+    // The spec's "View as client". The portal already shows a band
+    // saying you are looking at it as Blueprint, so the warning the
+    // spec asks for is the one that is already there.
+    const asClient = el('a', 'pt-btn pt-btn-primary');
+    asClient.href = `/portal/${c.slug}`;
+    asClient.appendChild(icon('ext'));
+    asClient.appendChild(el('span', undefined, 'View as client'));
+    bar.appendChild(asClient);
+    root.appendChild(bar);
+
+    if (v.reasons.length) {
+      const why = el('div', `hq-why-band hq-why-${v.level}`);
+      why.appendChild(icon('info'));
+      why.appendChild(el('span', undefined, v.reasons.join(' · ')));
+      root.appendChild(why);
+    }
+
+    root.appendChild(detailFacts(c, f));
+    root.appendChild(linksCard(c));
+    root.appendChild(todosCard(c));
+    root.appendChild(calendarCard(c));
+    root.appendChild(contentCard(c));
+    root.appendChild(reportsCard(c));
+  }
+
+  function cardShell(title: string): { card: HTMLElement; body: HTMLElement } {
+    const card = el('section', 'pt-card hq-block');
+    const head = el('div', 'pt-card-head');
+    head.appendChild(el('h2', undefined, title));
+    const body = el('div', 'pt-card-body');
+    card.append(head, body);
+    return { card, body };
+  }
+
+  function detailFacts(c: CardClient, f: ReturnType<typeof factsFor>): HTMLElement {
+    const { card, body } = cardShell('Where they are');
+    const stats = el('div', 'hq-stats hq-stats-wide');
+    const t = termProgress(c.termStart ?? null, c.termEnd ?? null);
+    stats.append(
+      stat('stage', c.stage ?? 'none'),
+      stat('tier', (c.tier ?? 'none').replace(/^Tier \d+ · /, '')),
+      stat('monthly', c.monthlyRate ? `$${c.monthlyRate.toLocaleString('en-US')}` : 'none'),
+      stat('term', t ? `Month ${t.month} of ${t.total}` : 'none'),
+      stat('ours overdue', String(f.overdueBlueprint), f.overdueBlueprint ? 'bad' : undefined),
+      stat('theirs overdue', String(f.overdueClient), f.overdueClient >= 3 ? 'bad' : undefined),
+      stat('posted this week', String(f.postedThisWeek)),
+      stat('last report', f.lastReport ? shortDay(f.lastReport) : 'none'),
+    );
+    body.appendChild(stats);
+
+    const up = stepUpSoon(c.rateStepUp ?? null);
+    if (up !== null) {
+      body.appendChild(el('div', 'hq-card-flag',
+        `Rate step-up ${up === 0 ? 'today' : `in ${up} days`}${
+          c.fullRate ? `, to $${Number(c.fullRate).toLocaleString('en-US')}` : ''}`));
+    }
+    return card;
+  }
+
+  function linkRow(label: string, href: string | null | undefined): HTMLElement | null {
+    if (!href) return null;
+    const a = el('a', 'hq-link');
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.append(el('span', undefined, label), icon('ext'));
+    return a;
+  }
+
+  function linksCard(c: CardClient): HTMLElement {
+    const { card, body } = cardShell('Links');
+    const row = el('div', 'hq-links');
+    const any = [
+      linkRow('Client Folder', c.clientFolder),
+      linkRow('Content Vault', c.contentVault),
+      linkRow('Drive Folder', c.driveFolder),
+      linkRow('Brand Kit', c.brandKit),
+      linkRow('Instagram', c.instagram),
+      linkRow('TikTok', c.tiktok),
+    ].filter(Boolean) as HTMLElement[];
+
+    // The brand brief sits with the links rather than in its own
+    // card: it is one more thing you open, not a section.
+    const brief = c.brandBriefPdf ?? null;
+    if (brief) {
+      const b = linkRow('Brand Brief', brief);
+      if (b) { b.classList.add('hq-link-strong'); any.unshift(b); }
+    }
+
+    if (!any.length) {
+      body.appendChild(el('p', 'hq-none', 'No links on this client yet.'));
+      return card;
+    }
+    for (const a of any) row.appendChild(a);
+    body.appendChild(row);
+    if (!brief) {
+      body.appendChild(el('p', 'hq-none',
+        'No brand brief yet. Upload one from the client’s Files tab.'));
+    }
+    return card;
+  }
+
+  /** Their open to-dos, ours kept out: this card answers "what are we
+   *  waiting on them for". */
+  function todosCard(c: CardClient): HTMLElement {
+    const { card, body } = cardShell('What we are waiting on');
+    const today = isoToday();
+    const rows = (HQ?.calendar ?? [])
+      .filter((s: any) => s.clientId === c.pageId && s.kind !== 'Moment'
+        && s.owner === 'Client'
+        && !['Done', 'Skipped', 'Moved'].includes(s.status ?? ''))
+      .sort((a: any, b: any) => (a.date ?? '9999').localeCompare(b.date ?? '9999'));
+
+    if (!rows.length) {
+      body.appendChild(el('p', 'hq-none', 'Nothing outstanding on their side.'));
+      return card;
+    }
+    const list = el('div', 'hq-mini');
+    for (const s of rows.slice(0, 12)) {
+      const r = el('div', 'hq-mini-row');
+      r.appendChild(el('span', 'hq-mini-t', s.title || 'Untitled'));
+      const late = s.date && s.date < today;
+      r.appendChild(el('span', `hq-mini-d${late ? ' hq-when-late' : ''}`,
+        s.date ? (late ? whenLabel(s.date).text : shortDay(s.date)) : 'no date'));
+      list.appendChild(r);
+    }
+    body.appendChild(list);
+    return card;
+  }
+
+  function calendarCard(c: CardClient): HTMLElement {
+    const { card, body } = cardShell('Coming up');
+    const today = isoToday();
+    const rows = (HQ?.calendar ?? [])
+      .filter((m: any) => m.clientId === c.pageId && m.date && m.date >= today
+        && m.status !== 'Skipped' && m.status !== 'Moved')
+      .sort((a: any, b: any) => a.date.localeCompare(b.date));
+
+    if (!rows.length) {
+      body.appendChild(el('p', 'hq-none', 'Nothing on the calendar ahead.'));
+      return card;
+    }
+    const list = el('div', 'hq-mini');
+    for (const m of rows.slice(0, 14)) {
+      const r = el('div', 'hq-mini-row');
+      const t = el('span', 'hq-mini-t', m.title || 'Untitled');
+      if (m.kind === 'Moment') t.classList.add('hq-mini-strong');
+      r.appendChild(t);
+      r.appendChild(el('span', 'hq-mini-k', m.momentType ?? m.type ?? m.owner ?? ''));
+      r.appendChild(el('span', 'hq-mini-d', shortDay(m.date)));
+      list.appendChild(r);
+    }
+    body.appendChild(list);
+    return card;
+  }
+
+  function contentCard(c: CardClient): HTMLElement {
+    const { card, body } = cardShell('Content');
+    const rows = (HQ?.content ?? []).filter((p: any) => p.clientId === c.pageId);
+    if (!rows.length) {
+      body.appendChild(el('p', 'hq-none', 'No content in the window.'));
+      return card;
+    }
+
+    // Grouped by status, in the order the pipeline runs rather than
+    // alphabetically, so the board reads left to right.
+    const ORDER = ['Idea', 'Planned', 'Filmed', 'Footage In', 'Editing',
+                   'Ready for Review', 'Approved', 'Scheduled', 'Posted', 'Skipped'];
+    const groups = new Map<string, any[]>();
+    for (const p of rows) {
+      const k = p.status ?? 'No status';
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k)!.push(p);
+    }
+    const board = el('div', 'hq-board');
+    for (const name of [...groups.keys()].sort((a, b) =>
+      (ORDER.indexOf(a) + 1 || 99) - (ORDER.indexOf(b) + 1 || 99))) {
+      const col = el('div', 'hq-col');
+      const h = el('div', 'hq-col-head');
+      h.append(el('span', undefined, name),
+        el('span', 'hq-sec-count', String(groups.get(name)!.length)));
+      col.appendChild(h);
+      for (const p of groups.get(name)!) {
+        const t = el('div', 'hq-col-card');
+        t.append(el('div', 'hq-col-t', p.title || 'Untitled'),
+          el('div', 'hq-col-d', p.postDate ? shortDay(p.postDate) : 'no date'));
+        col.appendChild(t);
+      }
+      board.appendChild(col);
+    }
+    body.appendChild(board);
+    return card;
+  }
+
+  function reportsCard(c: CardClient): HTMLElement {
+    const { card, body } = cardShell('Reports');
+    const rows = (HQ?.snapshots ?? [])
+      .filter((s: any) => s.clientId === c.pageId)
+      .sort((a: any, b: any) => String(b.date ?? '').localeCompare(String(a.date ?? '')));
+
+    if (!rows.length) {
+      body.appendChild(el('p', 'hq-none', 'No snapshots yet.'));
+      return card;
+    }
+    const list = el('div', 'hq-mini');
+    for (const s of rows.slice(0, 12)) {
+      const r = el('div', 'hq-mini-row');
+      r.appendChild(el('span', 'hq-mini-t', s.date ? monthLabel(s.date) : 'Undated'));
+      r.appendChild(el('span', 'hq-mini-k', s.type ?? ''));
+      if (s.published) {
+        if (s.reportPdf) {
+          const a = el('a', 'hq-mini-d hq-link-strong');
+          a.href = s.reportPdf;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = s.publishedAt ? shortDay(String(s.publishedAt).slice(0, 10)) : 'published';
+          r.appendChild(a);
+        } else {
+          r.appendChild(el('span', 'hq-mini-d', 'published'));
+        }
+      } else {
+        r.appendChild(el('span', 'hq-mini-d hq-mini-draft', 'draft'));
+      }
+      list.appendChild(r);
+    }
+    body.appendChild(list);
+    return card;
+  }
+
+  function monthLabel(day: string): string {
+    const d = new Date(`${day}T00:00:00Z`);
+    return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  }
   function drawPipeline(root: HTMLElement) { soon(root, 'Pipeline'); }
   function drawReports(root: HTMLElement) { soon(root, 'Reports'); }
 

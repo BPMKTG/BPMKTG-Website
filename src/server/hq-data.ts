@@ -98,6 +98,10 @@ export interface HqClient {
 export interface HqCalItem {
   id: string;
   clientId: string | null;
+  /** The moment this step hangs off, if any. Already on every row we
+   *  fetch, so the Clients tab can ask whether a release still has
+   *  steps outstanding without a second query. */
+  momentId: string | null;
   title: string;
   kind: string | null;
   momentType: string | null;
@@ -222,6 +226,7 @@ async function readCalendar(token: string, now: Date): Promise<HqCalItem[]> {
     out.push({
       id: String(page.id),
       clientId: readRelation(p['Client'])[0] ?? null,
+      momentId: readRelation(p['Moment'])[0] ?? null,
       title,
       kind: readSelect(p['Kind']),
       momentType: readSelect(p['Moment Type']),

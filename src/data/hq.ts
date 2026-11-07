@@ -387,3 +387,266 @@ export function snoozeTo(date: string, days: number, now: Date = new Date()): st
   const today = isoToday(now);
   return addDays(date > today ? date : today, days);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   CLIENT HEALTH
+
+   The spec asks that these rules live in one config file. This is
+   that file, and HEALTH below is the whole of it: every threshold a
+   colour depends on is a named constant here, and every rule is one
+   entry in HEALTH_RULES with the sentence it shows on hover.
+
+   Nothing else in HQ decides a colour. The Clients tab reads the
+   verdict and draws it.
+   ══════════════════════════════════════════════════════════════ */
+
+export const HEALTH = {
+  /** This many of a client's own to-dos overdue is a yellow. One or
+   *  two is a normal week; three is a client who has stopped. */
+  CLIENT_OVERDUE_YELLOW: 3,
+  /** Silence this long is a yellow. A week with nothing posted is the
+   *  earliest a content account reads as stalled. */
+  QUIET_DAYS_YELLOW: 7,
+  /** Last month's report is due by this day of this month. Late on
+   *  the day after, not on the day itself. */
+  REPORT_DUE_DAY: 5,
+  /** A release this close with steps still open is a red. */
+  RELEASE_RED_DAYS: 14,
+  /** How far ahead a Rate Step-Up shows on the card. */
+  STEP_UP_NOTICE_DAYS: 30,
+  /** The window behind and ahead that "posts this week" counts. */
+  POST_WEEK_DAYS: 7,
+} as const;
+
+export type Health = 'green' | 'yellow' | 'red';
+
+/** Worst wins, and the order here is that ranking. */
+export const HEALTH_ORDER: Health[] = ['green', 'yellow', 'red'];
+
+/** Everything a rule is allowed to look at. Assembled once per client
+ *  by clientFacts() so the rules stay pure and testable. */
+export interface ClientFacts {
+  stage: string | null;
+  /** Our own steps, overdue. */
+  overdueBlueprint: number;
+  /** Theirs. */
+  overdueClient: number;
+  /** Days since the last thing actually went out, or null when
+   *  nothing has in the window we hold. */
+  daysSinceLastPost: number | null;
+  postedThisWeek: number;
+  scheduledThisWeek: number;
+  /** The day the most recent published report went out. */
+  lastReport: string | null;
+  /** Whether a report has been published inside this calendar month. */
+  reportThisMonth: boolean;
+  /** True once the client has a whole month behind them. A client who
+   *  signed this month has no previous month to report on, and must
+   *  not go red for not having reported it. */
+  monthToReport: boolean;
+  /** Days to the next release, and how many of its steps are open. */
+  releaseInDays: number | null;
+  releaseStepsOpen: number;
+  dayOfMonth: number;
+}
+
+export interface HealthRule {
+  id: string;
+  level: Health;
+  when: (f: ClientFacts) => boolean;
+  /** The sentence shown on hover. Written as a fact, not a telling
+   *  off: the card says what is true, and you decide what it means. */
+  reason: (f: ClientFacts) => string;
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+export const HEALTH_RULES: HealthRule[] = [
+  {
+    id: 'blueprint-overdue',
+    level: 'yellow',
+    when: (f) => f.overdueBlueprint > 0,
+    reason: (f) => `${plural(f.overdueBlueprint, 'task', 'tasks')} of ours overdue`,
+  },
+  {
+    id: 'client-overdue',
+    level: 'yellow',
+    when: (f) => f.overdueClient >= HEALTH.CLIENT_OVERDUE_YELLOW,
+    reason: (f) => `${f.overdueClient} client to-dos overdue`,
+  },
+  {
+    id: 'quiet',
+    level: 'yellow',
+    when: (f) => f.daysSinceLastPost === null
+      || f.daysSinceLastPost >= HEALTH.QUIET_DAYS_YELLOW,
+    reason: (f) => f.daysSinceLastPost === null
+      ? 'nothing posted in the last month'
+      : `nothing posted in ${plural(f.daysSinceLastPost, 'day', 'days')}`,
+  },
+  {
+    id: 'report-late',
+    level: 'red',
+    when: (f) => f.monthToReport
+      && f.dayOfMonth > HEALTH.REPORT_DUE_DAY
+      && !f.reportThisMonth,
+    reason: () => `no report published yet this month, and it was due by the ${HEALTH.REPORT_DUE_DAY}th`,
+  },
+  {
+    id: 'release-at-risk',
+    level: 'red',
+    when: (f) => f.releaseInDays !== null
+      && f.releaseInDays <= HEALTH.RELEASE_RED_DAYS
+      && f.releaseStepsOpen > 0,
+    reason: (f) => `a release in ${plural(f.releaseInDays ?? 0, 'day', 'days')} with ${plural(f.releaseStepsOpen, 'step', 'steps')} still open`,
+  },
+];
+
+export interface HealthVerdict {
+  level: Health;
+  /** Every rule that fired, worst first. Shown on hover. */
+  reasons: string[];
+}
+
+/** The colour, and why. Worst level wins; green has no reasons. */
+export function clientHealth(f: ClientFacts): HealthVerdict {
+  const fired = HEALTH_RULES.filter((r) => r.when(f));
+  if (!fired.length) return { level: 'green', reasons: [] };
+
+  const level = fired.reduce<Health>((worst, r) =>
+    HEALTH_ORDER.indexOf(r.level) > HEALTH_ORDER.indexOf(worst) ? r.level : worst, 'green');
+
+  // Worst first, so the hover opens with the thing that set the
+  // colour rather than making you read to the end for it.
+  const sorted = fired.slice().sort((a, b) =>
+    HEALTH_ORDER.indexOf(b.level) - HEALTH_ORDER.indexOf(a.level));
+
+  return { level, reasons: sorted.map((r) => r.reason(f)) };
+}
+
+/* ── assembling the facts ─────────────────────────────────────── */
+
+/** Which clients the Clients tab shows. From the spec. */
+export const CARD_STAGES = ['Onboarding', 'Active'] as const;
+
+/** A calendar row with its moment columns. Every row HQ fetches has
+ *  them; Today simply does not need them. */
+export interface FactStep extends RowStep {
+  momentId?: string | null;
+  momentType?: string | null;
+}
+
+/** A client as the Clients tab reads one: the Today fields plus the
+ *  commercial columns a card shows. */
+export interface CardClient extends RowClient {
+  tier?: string | null;
+  monthlyRate?: number | null;
+  fullRate?: number | null;
+  termStart?: string | null;
+  termEnd?: string | null;
+  rateStepUp?: string | null;
+  /* The links the detail page offers. Optional because the Today
+     tab's clients never carry them. */
+  clientFolder?: string | null;
+  contentVault?: string | null;
+  driveFolder?: string | null;
+  brandKit?: string | null;
+  instagram?: string | null;
+  tiktok?: string | null;
+  brandBriefPdf?: string | null;
+}
+
+export interface FactInput {
+  steps: FactStep[];
+  content: RowContent[];
+  /** Published snapshots carry the day they went out. */
+  snapshots: Array<{ clientId: string | null; published: boolean; date: string | null; publishedAt: string | null }>;
+}
+
+function dayOf(value: string | null): string | null {
+  return value ? String(value).slice(0, 10) : null;
+}
+
+export function clientFacts(
+  client: CardClient, input: FactInput, now: Date = new Date(),
+): ClientFacts {
+  const today = isoToday(now);
+  const mine = input.steps.filter((s) => s.clientId === client.pageId);
+  const theirContent = input.content.filter((c) => c.clientId === client.pageId);
+
+  const openStep = (s: FactStep) => s.kind !== 'Moment' && !settled(STEP_SETTLED, s.status);
+  const overdue = mine.filter((s) => openStep(s) && s.date !== null && s.date < today);
+
+  // The last thing that actually went out.
+  const posted = theirContent
+    .filter((c) => c.status === 'Posted' && c.postDate && c.postDate <= today)
+    .map((c) => c.postDate as string)
+    .sort();
+  const last = posted.length ? posted[posted.length - 1] : null;
+
+  const weekBack = addDays(today, -HEALTH.POST_WEEK_DAYS + 1);
+  const weekOn = addDays(today, HEALTH.POST_WEEK_DAYS - 1);
+
+  // Published reports, newest first.
+  const reports = input.snapshots
+    .filter((s) => s.clientId === client.pageId && s.published)
+    .map((s) => dayOf(s.publishedAt) ?? dayOf(s.date))
+    .filter((d): d is string => Boolean(d))
+    .sort();
+  const lastReport = reports.length ? reports[reports.length - 1] : null;
+  const month = today.slice(0, 7);
+
+  // The next release, and whether its plan is done.
+  const releases = mine
+    .filter((s) => s.kind === 'Moment'
+      && s.momentType === 'Release'
+      && s.date && s.date >= today
+      && !settled(['Skipped', 'Moved'], s.status))
+    .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
+  const release = releases[0] ?? null;
+  const releaseStepsOpen = release
+    ? mine.filter((s) => openStep(s) && s.momentId === release.id).length
+    : 0;
+
+  // A client with no term start, or one that began this month, has no
+  // previous month to have reported on.
+  const started = client.stage === 'Active' || client.stage === 'Onboarding';
+  const monthToReport = Boolean(
+    started && client.termStart && client.termStart.slice(0, 7) < month);
+
+  return {
+    stage: client.stage,
+    overdueBlueprint: overdue.filter((s) => s.owner !== 'Client').length,
+    overdueClient: overdue.filter((s) => s.owner === 'Client').length,
+    daysSinceLastPost: last
+      ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${last}T00:00:00Z`)) / 86400000)
+      : null,
+    postedThisWeek: theirContent.filter((c) =>
+      c.status === 'Posted' && c.postDate && c.postDate >= weekBack && c.postDate <= today).length,
+    scheduledThisWeek: theirContent.filter((c) =>
+      !settled(CONTENT_SETTLED, c.status) && c.postDate
+      && c.postDate >= today && c.postDate <= weekOn).length,
+    lastReport,
+    reportThisMonth: Boolean(lastReport && lastReport.slice(0, 7) === month),
+    monthToReport,
+    releaseInDays: release?.date
+      ? Math.round((Date.parse(`${release.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000)
+      : null,
+    releaseStepsOpen,
+    dayOfMonth: Number(today.slice(8, 10)),
+  };
+}
+
+/** Days until a date, or null. Negative once it has passed. */
+export function daysUntilDay(day: string | null, now: Date = new Date()): number | null {
+  if (!day) return null;
+  const t = Date.parse(`${day}T00:00:00Z`);
+  if (Number.isNaN(t)) return null;
+  return Math.round((t - Date.parse(`${isoToday(now)}T00:00:00Z`)) / 86400000);
+}
+
+/** Whether a Rate Step-Up is close enough to put on the card. */
+export function stepUpSoon(day: string | null, now: Date = new Date()): number | null {
+  const n = daysUntilDay(day, now);
+  if (n === null || n < 0 || n > HEALTH.STEP_UP_NOTICE_DAYS) return null;
+  return n;
+}

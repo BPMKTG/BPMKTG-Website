@@ -2790,6 +2790,186 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
   text-transform: uppercase; color: var(--pt-muted);
 }
 
+/* ── the Clients tab ──────────────────────────────────────────── */
+
+.hq-cards {
+  display: grid; gap: var(--pt-3);
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+.hq-card {
+  display: block; padding: var(--pt-4);
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r);
+  background: var(--pt-surface); color: inherit;
+  transition: box-shadow var(--pt-t), border-color var(--pt-t);
+}
+.hq-card:hover {
+  text-decoration: none; box-shadow: var(--pt-shadow-md);
+  border-color: var(--pt-line-strong);
+}
+.hq-card-head { display: flex; align-items: center; gap: var(--pt-2); }
+.hq-card-names { flex: 1; min-width: 0; }
+.hq-card-name {
+  font-size: .95rem; font-weight: 700; color: var(--pt-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hq-card-tier {
+  font-size: .74rem; color: var(--pt-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hq-tag {
+  flex: none; font-size: .68rem; font-weight: 700;
+  padding: 2px 8px; border-radius: var(--pt-r-pill);
+  background: var(--pt-tint-slate); color: var(--pt-ink-2);
+}
+
+/* The health dot. Colour is never the only carrier: the reason is on
+   the title for a hover, and in a visually hidden span for a reader
+   that never gets one. */
+.hq-health { flex: none; display: inline-flex; }
+.hq-dot {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 2px solid transparent;
+}
+.hq-dot-green  { background: var(--pt-good); }
+.hq-dot-yellow { background: #b45309; }
+.hq-dot-red    { background: var(--pt-bad); }
+
+.hq-term { margin-top: var(--pt-3); }
+.hq-term-l {
+  display: flex; justify-content: space-between;
+  font-size: .72rem; color: var(--pt-muted); margin-bottom: 3px;
+}
+.hq-term-bar {
+  height: 5px; border-radius: var(--pt-r-pill);
+  background: var(--pt-tint-slate); overflow: hidden;
+}
+.hq-term-fill { height: 100%; background: var(--pt-navy); border-radius: inherit; }
+
+.hq-card-next {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: var(--pt-3);
+  font-size: .8rem; color: var(--pt-ink-2);
+}
+.hq-card-next svg { width: 15px; height: 15px; flex: none; color: var(--pt-muted); }
+.hq-card-next span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hq-card-none { color: var(--pt-muted); }
+
+.hq-stats {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--pt-2); margin-top: var(--pt-3);
+  padding-top: var(--pt-3); border-top: 1px solid var(--pt-line-soft);
+}
+.hq-stats-wide { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+.hq-stat { min-width: 0; }
+.hq-stat-v {
+  font-size: .88rem; font-weight: 700; color: var(--pt-ink);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hq-stat-bad { color: var(--pt-bad); }
+.hq-stat-l {
+  font-size: .66rem; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--pt-muted);
+  /* Wraps rather than truncating. Four of these across a 300px card
+     leaves about nine characters, and "OURS OVERD..." tells you
+     nothing that "OURS / OVERDUE" over two lines does not. */
+  line-height: 1.25;
+}
+
+.hq-card-flag {
+  margin-top: var(--pt-3); padding: 6px var(--pt-3);
+  border-radius: var(--pt-r-sm);
+  background: var(--pt-tint-orange); color: var(--pt-orange-ink);
+  font-size: .76rem; font-weight: 600;
+}
+.hq-card-why {
+  margin-top: var(--pt-2);
+  font-size: .76rem; color: var(--pt-ink-2);
+}
+.hq-why-yellow { color: #8a4708; }
+.hq-why-red { color: var(--pt-bad); }
+
+/* ── one client ───────────────────────────────────────────────── */
+
+.hq-back {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-bottom: var(--pt-3);
+  font-size: .8rem; font-weight: 600; color: var(--pt-muted);
+}
+.hq-back:hover { color: var(--pt-navy); text-decoration: none; }
+.hq-back svg { width: 15px; height: 15px; }
+
+.hq-why-band {
+  display: flex; align-items: center; gap: var(--pt-2);
+  margin-bottom: var(--pt-4); padding: 9px var(--pt-4);
+  border-radius: var(--pt-r-sm);
+  font-size: .82rem; font-weight: 500;
+}
+.hq-why-band svg { width: 16px; height: 16px; flex: none; }
+.hq-why-band.hq-why-yellow { background: #fef3c7; color: #8a4708; }
+.hq-why-band.hq-why-red { background: var(--pt-bad-tint); color: var(--pt-bad); }
+
+.hq-block { margin-top: var(--pt-4); }
+.hq-none { font-size: .84rem; color: var(--pt-muted); }
+
+.hq-links { display: flex; flex-wrap: wrap; gap: var(--pt-2); }
+.hq-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px var(--pt-3);
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r-pill);
+  font-size: .8rem; font-weight: 500; color: var(--pt-ink-2);
+}
+.hq-link:hover { text-decoration: none; background: var(--pt-tint-soft); color: var(--pt-ink); }
+.hq-link svg { width: 13px; height: 13px; color: var(--pt-muted); }
+.hq-link-strong {
+  border-color: var(--pt-navy); color: var(--pt-navy); font-weight: 600;
+}
+.hq-link-strong svg { color: var(--pt-navy); }
+
+.hq-mini { display: flex; flex-direction: column; }
+.hq-mini-row {
+  display: flex; align-items: center; gap: var(--pt-3);
+  padding: 7px 0; border-top: 1px solid var(--pt-line-soft);
+  font-size: .84rem;
+}
+.hq-mini-row:first-child { border-top: 0; }
+.hq-mini-t {
+  flex: 1; min-width: 0; color: var(--pt-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hq-mini-strong { font-weight: 700; }
+.hq-mini-k { flex: none; font-size: .72rem; color: var(--pt-muted); }
+.hq-mini-d {
+  flex: none; font-size: .76rem; color: var(--pt-muted);
+  font-variant-numeric: tabular-nums;
+}
+.hq-mini-draft { color: var(--pt-orange-ink); font-weight: 600; }
+
+/* The content board. Scrolls sideways rather than squeezing ten
+   columns into the card. */
+.hq-board {
+  display: flex; gap: var(--pt-3);
+  overflow-x: auto; padding-bottom: var(--pt-2);
+  scrollbar-width: thin;
+}
+.hq-col { flex: none; width: 190px; }
+.hq-col-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--pt-2); margin-bottom: var(--pt-2);
+  font-size: .72rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--pt-muted);
+}
+.hq-col-card {
+  padding: 8px var(--pt-3); margin-bottom: 6px;
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r-sm);
+  background: var(--pt-surface-2);
+}
+.hq-col-t {
+  font-size: .8rem; color: var(--pt-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hq-col-d { font-size: .7rem; color: var(--pt-muted); }
+
 /* ── phone ────────────────────────────────────────────────────── */
 
 @media (max-width: 720px) {
@@ -2800,4 +2980,7 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
   .hq-row { align-items: flex-start; }
   .hq-row-acts { align-self: center; }
   .hq-strip-item { width: 148px; }
+  /* Four stats across a phone leaves each one two characters wide. */
+  .hq-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pt-3); }
+  .hq-cards { grid-template-columns: minmax(0, 1fr); }
 }

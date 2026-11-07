@@ -142,6 +142,12 @@ import {
   HQ_STAGES,
   HQ_CLIENT_EDITABLE,
   MAX_NEXT_ACTION,
+  clientHealth,
+  clientFacts,
+  stepUpSoon,
+  HEALTH,
+  HEALTH_RULES,
+  CARD_STAGES,
 } from '../.tmp-portal-lib.mjs';
 import { readFileSync } from 'node:fs';
 
@@ -1879,6 +1885,185 @@ is('hq: a patch of all three writes all three',
    Object.keys(props({
      stage: 'Active', nextAction: 'Kick off', nextActionDate: '2026-12-01',
    }).properties).length, 3);
+
+/* ══ 14. Blueprint HQ · client health ════════════════════════════
+   The colour on a client card, and the sentence behind it. Worth
+   pinning hard: a green card on a client who is actually in trouble
+   is the one bug on this page that costs money. */
+
+section('Blueprint HQ · health rules');
+
+// Facts with nothing wrong. Each test below breaks exactly one thing.
+const WELL = {
+  stage: 'Active',
+  overdueBlueprint: 0,
+  overdueClient: 0,
+  daysSinceLastPost: 1,
+  postedThisWeek: 3,
+  scheduledThisWeek: 2,
+  lastReport: '2026-11-03',
+  reportThisMonth: true,
+  monthToReport: true,
+  releaseInDays: null,
+  releaseStepsOpen: 0,
+  dayOfMonth: 5,
+};
+const H = (over = {}) => clientHealth({ ...WELL, ...over });
+
+is('health: a client with nothing wrong is green', H().level, 'green');
+is('health: and green says nothing', H().reasons, []);
+
+// Yellow: one of ours overdue.
+is('health: one task of ours overdue is yellow',
+   H({ overdueBlueprint: 1 }).level, 'yellow');
+is('health: and it says so in the singular',
+   H({ overdueBlueprint: 1 }).reasons[0], '1 task of ours overdue');
+is('health: two reads as plural',
+   H({ overdueBlueprint: 2 }).reasons[0], '2 tasks of ours overdue');
+
+// Yellow: three or more of theirs. Two is a normal week.
+is('health: two client to-dos overdue is still green',
+   H({ overdueClient: 2 }).level, 'green');
+is('health: three is yellow', H({ overdueClient: 3 }).level, 'yellow');
+is('health: and it counts them', H({ overdueClient: 4 }).reasons[0],
+   '4 client to-dos overdue');
+is('health: the threshold is the one in the config',
+   HEALTH.CLIENT_OVERDUE_YELLOW, 3);
+
+// Yellow: quiet.
+is('health: six quiet days is still green', H({ daysSinceLastPost: 6 }).level, 'green');
+is('health: seven is yellow', H({ daysSinceLastPost: 7 }).level, 'yellow');
+is('health: and says how long', H({ daysSinceLastPost: 9 }).reasons[0],
+   'nothing posted in 9 days');
+// Nothing at all in the window we hold is worse than seven days, not
+// better, so it must not read as green.
+is('health: no post at all in the window is yellow',
+   H({ daysSinceLastPost: null }).level, 'yellow');
+is('health: and says that plainly', H({ daysSinceLastPost: null }).reasons[0],
+   'nothing posted in the last month');
+
+// Red: the report.
+is('health: on the 5th the report is not yet late',
+   H({ dayOfMonth: 5, reportThisMonth: false }).level, 'green');
+is('health: on the 6th it is', H({ dayOfMonth: 6, reportThisMonth: false }).level, 'red');
+is('health: unless one went out this month',
+   H({ dayOfMonth: 20, reportThisMonth: true }).level, 'green');
+// A client who signed this month has no previous month to report on.
+is('health: a client with no month behind them is not late',
+   H({ dayOfMonth: 25, reportThisMonth: false, monthToReport: false }).level, 'green');
+
+// Red: a release with the plan unfinished.
+is('health: a release in ten days with everything done is green',
+   H({ releaseInDays: 10, releaseStepsOpen: 0 }).level, 'green');
+is('health: a release in ten days with steps open is red',
+   H({ releaseInDays: 10, releaseStepsOpen: 2 }).level, 'red');
+is('health: and it says both numbers',
+   H({ releaseInDays: 10, releaseStepsOpen: 2 }).reasons[0],
+   'a release in 10 days with 2 steps still open');
+is('health: a release further out than the window is not red yet',
+   H({ releaseInDays: HEALTH.RELEASE_RED_DAYS + 1, releaseStepsOpen: 5 }).level, 'green');
+is('health: the last day of the window still counts',
+   H({ releaseInDays: HEALTH.RELEASE_RED_DAYS, releaseStepsOpen: 1 }).level, 'red');
+
+// Worst wins, and the worst reason is read first.
+const both = H({ overdueBlueprint: 1, releaseInDays: 3, releaseStepsOpen: 1 });
+is('health: red beats yellow', both.level, 'red');
+ok('health: and the red reason is first', both.reasons[0].startsWith('a release in 3 days'));
+is('health: both reasons are kept', both.reasons.length, 2);
+
+/* ── the facts behind the rules ────────────────────────────────── */
+
+section('Blueprint HQ · reading the facts');
+
+const FC = {
+  pageId: 'c-sean', slug: 'sean-comma', artist: 'Sean Comma', stage: 'Active',
+  nextAction: null, nextActionDate: null,
+  termStart: '2026-08-01', termEnd: '2027-02-01',
+};
+const fstep = (over = {}) => ({
+  id: 'x', clientId: 'c-sean', title: 't', kind: 'Step', type: 'Content',
+  owner: 'Blueprint', status: 'Not Started', date: TODAY, momentId: null,
+  momentType: null, ...over,
+});
+const fpost = (over = {}) => ({
+  id: 'p', clientId: 'c-sean', title: 't', status: 'Posted',
+  postDate: TODAY, format: 'Reel', ...over,
+});
+const F = (input, client = FC) => clientFacts(client, {
+  steps: [], content: [], snapshots: [], ...input,
+}, NOW);
+
+is('facts: our overdue steps are counted as ours',
+   F({ steps: [fstep({ date: '2026-11-01' })] }).overdueBlueprint, 1);
+is('facts: theirs as theirs',
+   F({ steps: [fstep({ date: '2026-11-01', owner: 'Client' })] }).overdueClient, 1);
+is('facts: a done step is not overdue',
+   F({ steps: [fstep({ date: '2026-11-01', status: 'Done' })] }).overdueBlueprint, 0);
+is('facts: a moment is not a task',
+   F({ steps: [fstep({ date: '2026-11-01', kind: 'Moment' })] }).overdueBlueprint, 0);
+is('facts: another client’s step is not counted',
+   F({ steps: [fstep({ date: '2026-11-01', clientId: 'c-other' })] }).overdueBlueprint, 0);
+is('facts: a step due today is not yet overdue',
+   F({ steps: [fstep({ date: TODAY })] }).overdueBlueprint, 0);
+
+is('facts: the last post is the most recent one',
+   F({ content: [fpost({ postDate: '2026-10-20' }), fpost({ id: 'p2', postDate: '2026-11-02' })] })
+     .daysSinceLastPost, 3);
+is('facts: something merely scheduled has not gone out',
+   F({ content: [fpost({ status: 'Scheduled' })] }).daysSinceLastPost, null);
+is('facts: a post dated in the future has not gone out either',
+   F({ content: [fpost({ postDate: '2026-12-01' })] }).daysSinceLastPost, null);
+is('facts: posts this week are counted',
+   F({ content: [fpost({ postDate: '2026-11-01' }), fpost({ id: 'b', postDate: TODAY })] })
+     .postedThisWeek, 2);
+is('facts: and what is still due',
+   F({ content: [fpost({ id: 'c', status: 'Scheduled', postDate: '2026-11-08' })] })
+     .scheduledThisWeek, 1);
+
+const snap = (over = {}) => ({
+  clientId: 'c-sean', published: true, date: '2026-10-31',
+  publishedAt: '2026-11-03T09:00:00.000Z', ...over,
+});
+is('facts: a published report gives its day',
+   F({ snapshots: [snap()] }).lastReport, '2026-11-03');
+is('facts: and counts for this month', F({ snapshots: [snap()] }).reportThisMonth, true);
+is('facts: a draft is not a published report',
+   F({ snapshots: [snap({ published: false })] }).lastReport, null);
+is('facts: last month’s does not count for this one',
+   F({ snapshots: [snap({ publishedAt: '2026-10-03T09:00:00.000Z' })] }).reportThisMonth, false);
+is('facts: a client who started this month has no month to report',
+   F({}, { ...FC, termStart: '2026-11-01' }).monthToReport, false);
+is('facts: one who started before does', F({}).monthToReport, true);
+
+// The release rule needs steps joined to their moment, which is why
+// the payload carries momentId.
+const rel = fstep({ id: 'm9', kind: 'Moment', momentType: 'Release',
+                    date: '2026-11-12', status: 'Planned' });
+is('facts: the next release is found', F({ steps: [rel] }).releaseInDays, 7);
+is('facts: its open steps are counted by moment, not by date',
+   F({ steps: [rel, fstep({ id: 's1', momentId: 'm9' }), fstep({ id: 's2', momentId: 'other' })] })
+     .releaseStepsOpen, 1);
+is('facts: a done step of that release is not open',
+   F({ steps: [rel, fstep({ id: 's1', momentId: 'm9', status: 'Done' })] }).releaseStepsOpen, 0);
+is('facts: a show is not a release',
+   F({ steps: [fstep({ kind: 'Moment', momentType: 'Show', date: '2026-11-12' })] })
+     .releaseInDays, null);
+is('facts: a moved release is not coming',
+   F({ steps: [{ ...rel, status: 'Moved' }] }).releaseInDays, null);
+is('facts: a release in the past is not next',
+   F({ steps: [{ ...rel, date: '2026-10-01' }] }).releaseInDays, null);
+
+/* ── the step-up flag ──────────────────────────────────────────── */
+
+is('step-up: nothing without a date', stepUpSoon(null, NOW), null);
+is('step-up: a month out is the edge',
+   stepUpSoon(addDays(TODAY, HEALTH.STEP_UP_NOTICE_DAYS), NOW), HEALTH.STEP_UP_NOTICE_DAYS);
+is('step-up: further out is not shown yet',
+   stepUpSoon(addDays(TODAY, HEALTH.STEP_UP_NOTICE_DAYS + 1), NOW), null);
+is('step-up: today shows as nought', stepUpSoon(TODAY, NOW), 0);
+is('step-up: a date gone by is not a warning', stepUpSoon('2026-10-01', NOW), null);
+
+is('clients: only Onboarding and Active get a card', CARD_STAGES.join('|'), 'Onboarding|Active');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
