@@ -148,6 +148,11 @@ import {
   HEALTH,
   HEALTH_RULES,
   CARD_STAGES,
+  buildNewLead,
+  isLeadSource,
+  LEAD_SOURCES,
+  MAX_ARTIST,
+  NEW_LEAD_STAGE,
 } from '../.tmp-portal-lib.mjs';
 import { readFileSync } from 'node:fs';
 
@@ -2064,6 +2069,71 @@ is('step-up: today shows as nought', stepUpSoon(TODAY, NOW), 0);
 is('step-up: a date gone by is not a warning', stepUpSoon('2026-10-01', NOW), null);
 
 is('clients: only Onboarding and Active get a card', CARD_STAGES.join('|'), 'Onboarding|Active');
+
+
+/* ══ 15. Blueprint HQ · quick add ════════════════════════════════
+   The only route in this codebase that creates a Clients row. What
+   it must NOT be able to write matters more than what it can. */
+
+section('Blueprint HQ · a new lead');
+
+const lead = (body) => buildNewLead(body);
+
+is('lead: the five sources are the Notion select',
+   LEAD_SOURCES.join('|'), 'Referral|Outreach|Inbound|Show Media Client|Network');
+is('lead: Referral is a source', isLeadSource('Referral'), true);
+is('lead: a typo is not', isLeadSource('referral'), false);
+
+is('lead: a lead you cannot name is not a lead', lead({}).error, 'artist_required');
+is('lead: whitespace is not a name', lead({ artist: '   ' }).error, 'artist_required');
+is('lead: and nothing is built', lead({ artist: '' }).properties, null);
+
+const ok1 = lead({ artist: 'New Artist' });
+is('lead: a name is enough', ok1.error, null);
+is('lead: the title is written',
+   ok1.properties.Artist, { title: [{ text: { content: 'New Artist' } }] });
+is('lead: every lead starts at Lead', ok1.properties.Stage, { select: { name: 'Lead' } });
+is('lead: and the stage constant says so', NEW_LEAD_STAGE, 'Lead');
+is('lead: a bare lead sets nothing else', Object.keys(ok1.properties).sort(),
+   ['Artist', 'Stage']);
+
+is('lead: the name is capped', lead({ artist: 'x'.repeat(400) })
+   .properties.Artist.title[0].text.content.length, MAX_ARTIST);
+is('lead: newlines are flattened',
+   lead({ artist: 'Two\nNames' }).properties.Artist.title[0].text.content, 'Two Names');
+
+const ok2 = lead({
+  artist: 'New Artist', leadSource: 'Referral',
+  nextAction: 'Book the call', nextActionDate: '2026-12-01',
+});
+is('lead: a source is written', ok2.properties['Lead Source'], { select: { name: 'Referral' } });
+is('lead: a next action is written',
+   ok2.properties['Next Action'], { rich_text: [{ text: { content: 'Book the call' } }] });
+is('lead: and its date', ok2.properties['Next Action Date'], { date: { start: '2026-12-01' } });
+
+is('lead: an unknown source is refused rather than invented',
+   lead({ artist: 'A', leadSource: 'Facebook Ads' }).error, 'bad_lead_source');
+is('lead: an empty source is simply left off',
+   'Lead Source' in lead({ artist: 'A', leadSource: '' }).properties, false);
+is('lead: a bad date is refused',
+   lead({ artist: 'A', nextActionDate: '2026-02-31' }).error, 'bad_date');
+
+// The thing that matters most about this endpoint.
+const everything = lead({
+  artist: 'A', portalKey: 'secret', portalEmails: 'someone@example.com',
+  'Portal Enabled': true, portalEnabled: true, monthlyRate: 5000,
+  stage: 'Active', termStart: '2020-01-01',
+});
+is('lead: quick add cannot hand out portal access',
+   JSON.stringify(everything.properties).includes('Portal'), false);
+is('lead: nor set a rate',
+   JSON.stringify(everything.properties).includes('Monthly Rate'), false);
+is('lead: nor start somebody at Active',
+   everything.properties.Stage, { select: { name: 'Lead' } });
+is('lead: nor backdate a term',
+   JSON.stringify(everything.properties).includes('Term'), false);
+is('lead: only ever the four it knows', Object.keys(everything.properties).sort(),
+   ['Artist', 'Stage']);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

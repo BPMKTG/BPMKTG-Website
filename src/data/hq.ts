@@ -650,3 +650,67 @@ export function stepUpSoon(day: string | null, now: Date = new Date()): number |
   if (n === null || n < 0 || n > HEALTH.STEP_UP_NOTICE_DAYS) return null;
   return n;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   THE PIPELINE VOCABULARY
+
+   Shared by the Pipeline board in the browser and the write
+   endpoints on the server. Both have to mean exactly the same thing
+   by a stage name: Notion's API CREATES a select option it does not
+   recognise rather than refusing it, so a list that drifted would
+   quietly add a column to the board.
+   ══════════════════════════════════════════════════════════════ */
+
+/**
+ * The pipeline columns, in order.
+ *
+ * Also the only Stage values this endpoint will write. They have to
+ * match the Notion select exactly, because a name Notion does not know
+ * would be created as a new option by the API rather than refused.
+ */
+export const HQ_STAGES = [
+  'Lead', 'Call Booked', 'Proposal Sent', 'Onboarding', 'Active', 'Paused', 'Ended',
+] as const;
+
+export type HqStage = typeof HQ_STAGES[number];
+
+export function isHqStage(v: unknown): v is HqStage {
+  return typeof v === 'string' && (HQ_STAGES as readonly string[]).includes(v);
+}
+
+/** A next action is a line, not a document. */
+export const MAX_NEXT_ACTION = 200;
+
+/** Trimmed, length-capped, and empty becomes null so clearing works. */
+export function cleanNextAction(v: unknown): string | null | undefined {
+  if (v === null) return null;
+  if (typeof v !== 'string') return undefined;
+  // Newlines out: this lands in a one-line Notion text column and on
+  // one line of a pipeline card.
+  const s = v.replace(/\s+/g, ' ').trim().slice(0, MAX_NEXT_ACTION);
+  return s || null;
+}
+
+/**
+ * The lead sources, exactly as the Notion select holds them.
+ *
+ * Closed for the same reason the stages are: the API creates an
+ * option it does not recognise rather than refusing it, so a typo
+ * here would quietly add a sixth source to the board.
+ */
+export const LEAD_SOURCES = [
+  'Referral', 'Outreach', 'Inbound', 'Show Media Client', 'Network',
+] as const;
+
+export type LeadSource = typeof LEAD_SOURCES[number];
+
+export function isLeadSource(v: unknown): v is LeadSource {
+  return typeof v === 'string' && (LEAD_SOURCES as readonly string[]).includes(v);
+}
+
+/** An artist name is a title, not an essay. */
+export const MAX_ARTIST = 120;
+
+/** Every new lead starts here. Quick add is for the top of the
+ *  funnel; anything further along is a row you make in Notion. */
+export const NEW_LEAD_STAGE: HqStage = 'Lead';

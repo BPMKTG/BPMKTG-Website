@@ -14,6 +14,12 @@
    ────────────────────────────────────────────────────────────── */
 
 import { isIsoDay } from '../data/portal';
+// The vocabulary these builders write lives with the other HQ rules,
+// because the Pipeline board in the browser needs the same lists and
+// must not import anything out of src/server.
+import {
+  cleanNextAction, isHqStage, isLeadSource, MAX_ARTIST, NEW_LEAD_STAGE,
+} from '../data/hq';
 
 /** The Clients row fields HQ may set, and the Notion property each
  *  one writes. Nothing reads a property name off the request. */
@@ -24,36 +30,6 @@ export const HQ_CLIENT_EDITABLE = {
 } as const;
 
 export type HqClientField = keyof typeof HQ_CLIENT_EDITABLE;
-
-/**
- * The pipeline columns, in order.
- *
- * Also the only Stage values this endpoint will write. They have to
- * match the Notion select exactly, because a name Notion does not know
- * would be created as a new option by the API rather than refused.
- */
-export const HQ_STAGES = [
-  'Lead', 'Call Booked', 'Proposal Sent', 'Onboarding', 'Active', 'Paused', 'Ended',
-] as const;
-
-export type HqStage = typeof HQ_STAGES[number];
-
-export function isHqStage(v: unknown): v is HqStage {
-  return typeof v === 'string' && (HQ_STAGES as readonly string[]).includes(v);
-}
-
-/** A next action is a line, not a document. */
-export const MAX_NEXT_ACTION = 200;
-
-/** Trimmed, length-capped, and empty becomes null so clearing works. */
-export function cleanNextAction(v: unknown): string | null | undefined {
-  if (v === null) return null;
-  if (typeof v !== 'string') return undefined;
-  // Newlines out: this lands in a one-line Notion text column and on
-  // one line of a pipeline card.
-  const s = v.replace(/\s+/g, ' ').trim().slice(0, MAX_NEXT_ACTION);
-  return s || null;
-}
 
 export interface HqBuildResult {
   properties: Record<string, unknown>;
@@ -104,4 +80,54 @@ export function buildHqClientProperties(body: Record<string, unknown>): HqBuildR
   }
 
   return { properties, rejected };
+}
+
+/* ── a new lead ───────────────────────────────────────────────── */
+
+export interface NewLeadResult {
+  properties: Record<string, unknown> | null;
+  /** Why it was refused, for the one page that calls this. */
+  error: string | null;
+}
+
+/**
+ * Turn a quick-add body into a Clients row.
+ *
+ * Artist is the only required field: a lead you cannot name is not a
+ * lead. The rest are optional, because the point of quick add is to
+ * get the name down before you lose it.
+ *
+ * Deliberately NOT set here: Portal Key, Portal Emails, Portal
+ * Enabled, Monthly Rate, anything to do with the term. A lead has
+ * none of those yet, and a create path that could write them is a
+ * create path that could hand out portal access.
+ */
+export function buildNewLead(body: Record<string, unknown>): NewLeadResult {
+  const artist = typeof body.artist === 'string'
+    ? body.artist.replace(/\s+/g, ' ').trim().slice(0, MAX_ARTIST)
+    : '';
+  if (!artist) return { properties: null, error: 'artist_required' };
+
+  const properties: Record<string, unknown> = {
+    Artist: { title: [{ text: { content: artist } }] },
+    Stage: { select: { name: NEW_LEAD_STAGE } },
+  };
+
+  if ('leadSource' in body && body.leadSource !== null && body.leadSource !== '') {
+    if (!isLeadSource(body.leadSource)) return { properties: null, error: 'bad_lead_source' };
+    properties['Lead Source'] = { select: { name: body.leadSource } };
+  }
+
+  if ('nextAction' in body) {
+    const v = cleanNextAction(body.nextAction);
+    if (v === undefined) return { properties: null, error: 'bad_next_action' };
+    properties['Next Action'] = { rich_text: v ? [{ text: { content: v } }] : [] };
+  }
+
+  if ('nextActionDate' in body && body.nextActionDate !== null && body.nextActionDate !== '') {
+    if (!isIsoDay(body.nextActionDate)) return { properties: null, error: 'bad_date' };
+    properties['Next Action Date'] = { date: { start: body.nextActionDate } };
+  }
+
+  return { properties, error: null };
 }

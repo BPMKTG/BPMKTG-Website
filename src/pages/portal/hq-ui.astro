@@ -177,6 +177,7 @@ const NAV = [
     type CardClient, type HealthVerdict,
   } from '../../data/hq';
   import { termProgress } from '../../data/portal';
+  import { HQ_STAGES, LEAD_SOURCES } from '../../data/hq';
 
   const el = <K extends keyof HTMLElementTagNameMap>(
     tag: K, cls?: string, text?: string,
@@ -723,7 +724,436 @@ const NAV = [
     const d = new Date(`${day}T00:00:00Z`);
     return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
   }
-  function drawPipeline(root: HTMLElement) { soon(root, 'Pipeline'); }
+  /* ══ PIPELINE ═══════════════════════════════════════════════ */
+
+  /** The cap Blueprint runs to. Three active clients at a time is the
+   *  whole business model, so the header says where we are against it. */
+  const ACTIVE_CAP = 3;
+
+  /** Ended is collapsed by default: it is history, not pipeline. */
+  let endedOpen = false;
+  /** The card currently open for editing, by page id. */
+  let editing = '';
+  /** Whether the quick-add form is showing. */
+  let adding = false;
+
+  const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
+
+  function drawPipeline(root: HTMLElement) {
+    const all = clients() as CardClient[];
+
+    const bar = el('div', 'hq-bar');
+    bar.appendChild(el('h1', undefined, 'Pipeline'));
+
+    const activeRows = all.filter((c) => c.stage === 'Active');
+    const mrr = activeRows.reduce((t, c) => t + (c.monthlyRate ?? 0), 0);
+    const pipeline = all
+      .filter((c) => c.stage === 'Proposal Sent')
+      .reduce((t, c) => t + (c.monthlyRate ?? 0), 0);
+
+    const totals = el('div', 'hq-totals');
+    totals.append(
+      total('active MRR', money(mrr)),
+      total('in proposals', money(pipeline)),
+      total('active', `${activeRows.length} of ${ACTIVE_CAP}`,
+        activeRows.length >= ACTIVE_CAP ? 'full' : undefined),
+    );
+    bar.appendChild(totals);
+
+    const add = el('button', 'pt-btn pt-btn-primary');
+    add.type = 'button';
+    add.appendChild(icon('plus'));
+    add.appendChild(el('span', undefined, 'New lead'));
+    add.addEventListener('click', () => { adding = true; draw('pipeline'); });
+    bar.appendChild(add);
+    root.appendChild(bar);
+
+    const board = el('div', 'hq-pipe');
+    for (const stage of HQ_STAGES) {
+      board.appendChild(pipeColumn(stage, all.filter((c) => c.stage === stage)));
+    }
+    root.appendChild(board);
+  }
+
+  function total(label: string, value: string, tone?: string): HTMLElement {
+    const t = el('div', 'hq-total');
+    t.append(
+      el('div', `hq-total-v${tone ? ` hq-total-${tone}` : ''}`, value),
+      el('div', 'hq-total-l', label),
+    );
+    return t;
+  }
+
+  function pipeColumn(stage: string, rows: CardClient[]): HTMLElement {
+    const col = el('div', 'hq-pipe-col');
+    col.dataset.stage = stage;
+
+    const collapsed = stage === 'Ended' && !endedOpen;
+    if (collapsed) col.classList.add('is-collapsed');
+
+    const head = el('div', 'hq-pipe-head');
+    const title = el('span', undefined, stage);
+    head.append(title, el('span', 'hq-sec-count', String(rows.length)));
+    if (stage === 'Ended') {
+      const toggle = el('button', 'hq-pipe-toggle');
+      toggle.type = 'button';
+      toggle.setAttribute('aria-expanded', String(endedOpen));
+      toggle.setAttribute('aria-label', endedOpen ? 'Collapse Ended' : 'Expand Ended');
+      toggle.appendChild(icon(endedOpen ? 'chev' : 'chev-left'));
+      toggle.addEventListener('click', () => { endedOpen = !endedOpen; draw('pipeline'); });
+      head.appendChild(toggle);
+    }
+    col.appendChild(head);
+
+    if (collapsed) return col;
+
+    const body = el('div', 'hq-pipe-body');
+    body.dataset.drop = stage;
+
+    if (stage === 'Lead' && adding) body.appendChild(newLeadForm());
+
+    rows.sort((a, b) => {
+      // Soonest next action first, then by name. A column sorted by
+      // when you have to act on it is the only sort that helps.
+      const ad = a.nextActionDate ?? '9999';
+      const bd = b.nextActionDate ?? '9999';
+      return ad.localeCompare(bd) || a.artist.localeCompare(b.artist);
+    });
+    for (const c of rows) body.appendChild(pipeCard(c));
+
+    if (!rows.length && !(stage === 'Lead' && adding)) {
+      body.appendChild(el('div', 'hq-pipe-empty', 'Nothing here'));
+    }
+    col.appendChild(body);
+    return col;
+  }
+
+  function pipeCard(c: CardClient): HTMLElement {
+    const card = el('div', 'hq-pipe-card');
+    card.dataset.id = c.pageId;
+    card.dataset.stage = c.stage ?? '';
+
+    // `editing` is the empty string when nothing is open, so an
+    // empty pageId would match it and the card would render as an
+    // open form. A row Notion gave no id is still a row to look at.
+    if (editing && editing === c.pageId) {
+      card.appendChild(editForm(c));
+      card.classList.add('is-editing');
+      return card;
+    }
+
+    const top = el('div', 'hq-pipe-top');
+    top.appendChild(el('span', 'hq-pipe-name', c.artist));
+    if (c.monthlyRate) top.appendChild(el('span', 'hq-pipe-rate', money(c.monthlyRate)));
+    card.appendChild(top);
+
+    const meta: string[] = [];
+    if (c.tier) meta.push(c.tier.replace(/^Tier \d+ · /, ''));
+    if (c.leadSource) meta.push(c.leadSource);
+    if (meta.length) card.appendChild(el('div', 'hq-pipe-meta', meta.join(' · ')));
+
+    const act = el('div', 'hq-pipe-act');
+    if (c.nextAction || c.nextActionDate) {
+      act.appendChild(el('span', 'hq-pipe-what', c.nextAction || 'Next action'));
+      if (c.nextActionDate) {
+        const late = c.nextActionDate < isoToday();
+        act.appendChild(el('span', `hq-pipe-when${late ? ' hq-when-late' : ''}`,
+          late ? whenLabel(c.nextActionDate).text : shortDay(c.nextActionDate)));
+      }
+    } else {
+      act.appendChild(el('span', 'hq-pipe-what hq-pipe-none', 'No next action'));
+    }
+    card.appendChild(act);
+
+    const acts = el('div', 'hq-pipe-foot');
+    const edit = el('button', 'hq-pipe-link', 'Edit');
+    edit.type = 'button';
+    edit.addEventListener('click', (e) => {
+      e.stopPropagation();
+      editing = c.pageId;
+      draw('pipeline');
+    });
+    acts.appendChild(edit);
+    if (c.slug) {
+      const open = el('a', 'hq-pipe-link', 'Open');
+      open.href = `#/clients/${c.slug}`;
+      acts.appendChild(open);
+    }
+    card.appendChild(acts);
+
+    makeDraggable(card, c);
+    return card;
+  }
+
+  /* ── inline edit ─────────────────────────────────────────────── */
+
+  function field(label: string, node: HTMLElement): HTMLElement {
+    const w = el('label', 'hq-field');
+    w.append(el('span', undefined, label), node);
+    return w;
+  }
+
+  function editForm(c: CardClient): HTMLElement {
+    const form = el('form', 'hq-form');
+
+    const what = el('input');
+    what.type = 'text';
+    what.value = c.nextAction ?? '';
+    what.maxLength = 200;
+    what.placeholder = 'What happens next';
+
+    const when = el('input');
+    when.type = 'date';
+    when.value = c.nextActionDate ?? '';
+
+    const stage = el('select');
+    for (const s of HQ_STAGES) {
+      const o = el('option', undefined, s);
+      o.value = s;
+      if (s === c.stage) o.selected = true;
+      stage.appendChild(o);
+    }
+
+    form.append(
+      field('Next action', what),
+      field('Date', when),
+      // Drag is the quick way; this is the one that works from a
+      // keyboard, and the one that works when the board is scrolled.
+      field('Stage', stage),
+    );
+
+    const row = el('div', 'hq-form-acts');
+    const save = el('button', 'pt-btn pt-btn-primary', 'Save');
+    save.type = 'submit';
+    const cancel = el('button', 'pt-btn', 'Cancel');
+    cancel.type = 'button';
+    cancel.addEventListener('click', () => { editing = ''; draw('pipeline'); });
+    row.append(save, cancel);
+    form.appendChild(row);
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body: Record<string, unknown> = {};
+      const nextAction = what.value.trim();
+      if (nextAction !== (c.nextAction ?? '')) body.nextAction = nextAction || null;
+      const nextActionDate = when.value || null;
+      if (nextActionDate !== (c.nextActionDate ?? null)) body.nextActionDate = nextActionDate;
+      if (stage.value !== c.stage) body.stage = stage.value;
+
+      if (!Object.keys(body).length) { editing = ''; draw('pipeline'); return; }
+
+      form.classList.add('is-busy');
+      const ok = await patch(`/portal/hq/client/${c.pageId}`, body);
+      form.classList.remove('is-busy');
+      if (!ok) { toast('That did not save.', true); return; }
+
+      if ('nextAction' in body) c.nextAction = (body.nextAction as string | null);
+      if ('nextActionDate' in body) c.nextActionDate = (body.nextActionDate as string | null);
+      if ('stage' in body) c.stage = body.stage as string;
+      editing = '';
+      toast('Saved.');
+      draw('pipeline');
+    });
+
+    return form;
+  }
+
+  function newLeadForm(): HTMLElement {
+    const form = el('form', 'hq-form hq-form-new');
+
+    const artist = el('input');
+    artist.type = 'text';
+    artist.required = true;
+    artist.maxLength = 120;
+    artist.placeholder = 'Artist';
+
+    const source = el('select');
+    const none = el('option', undefined, 'No source yet');
+    none.value = '';
+    source.appendChild(none);
+    for (const s of LEAD_SOURCES) {
+      const o = el('option', undefined, s);
+      o.value = s;
+      source.appendChild(o);
+    }
+
+    const what = el('input');
+    what.type = 'text';
+    what.maxLength = 200;
+    what.placeholder = 'What happens next';
+
+    const when = el('input');
+    when.type = 'date';
+
+    form.append(
+      field('Artist', artist),
+      field('Lead source', source),
+      field('Next action', what),
+      field('Date', when),
+    );
+
+    const row = el('div', 'hq-form-acts');
+    const save = el('button', 'pt-btn pt-btn-primary', 'Add lead');
+    save.type = 'submit';
+    const cancel = el('button', 'pt-btn', 'Cancel');
+    cancel.type = 'button';
+    cancel.addEventListener('click', () => { adding = false; draw('pipeline'); });
+    row.append(save, cancel);
+    form.appendChild(row);
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = artist.value.trim();
+      if (!name) { artist.focus(); return; }
+
+      form.classList.add('is-busy');
+      let ok = false;
+      let id = '';
+      try {
+        const res = await fetch('/portal/hq/client', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            artist: name,
+            leadSource: source.value || null,
+            nextAction: what.value.trim() || null,
+            nextActionDate: when.value || null,
+          }),
+        });
+        ok = res.ok;
+        if (ok) id = String((await res.json())?.id ?? '');
+      } catch { ok = false; }
+      form.classList.remove('is-busy');
+
+      if (!ok) { toast('That lead did not save.', true); return; }
+
+      // Put it on the board without a refetch, same as every other
+      // write here. The id comes back from Notion so a later edit
+      // writes to the right row.
+      (HQ.clients ??= []).push({
+        pageId: id, slug: '', artist: name, stage: 'Lead',
+        tier: null, monthlyRate: null, leadSource: source.value || null,
+        nextAction: what.value.trim() || null,
+        nextActionDate: when.value || null,
+        termStart: null, termEnd: null, rateStepUp: null,
+      });
+      adding = false;
+      toast(`${name} added.`);
+      draw('pipeline');
+    });
+
+    window.setTimeout(() => artist.focus(), 0);
+    return form;
+  }
+
+  /* ── drag ────────────────────────────────────────────────────── */
+
+  /**
+   * Pointer events, not the HTML5 drag API.
+   *
+   * Safari's native drag-and-drop does not fire on touch at all and
+   * is awkward on a trackpad, so the board does it by hand. Three
+   * things make it work there specifically:
+   *
+   *   touch-action: none on the card, or Safari scrolls the board
+   *   instead of starting the drag;
+   *   setPointerCapture, so the moves keep arriving when the pointer
+   *   leaves the card, which it does immediately;
+   *   a ghost with pointer-events: none, so elementFromPoint under
+   *   the cursor finds the column rather than the thing being dragged.
+   *
+   * A drag only begins after a few pixels of movement, so a click on
+   * Edit is still a click.
+   */
+  const DRAG_START_PX = 5;
+
+  function makeDraggable(card: HTMLElement, c: CardClient) {
+    let startX = 0, startY = 0;
+    let ghost: HTMLElement | null = null;
+    let over: HTMLElement | null = null;
+    let live = false;
+    let id = -1;
+
+    const clearOver = () => {
+      if (over) over.classList.remove('is-over');
+      over = null;
+    };
+
+    const stop = () => {
+      if (ghost) { ghost.remove(); ghost = null; }
+      card.classList.remove('is-dragging');
+      clearOver();
+      live = false;
+      if (id !== -1 && card.hasPointerCapture?.(id)) card.releasePointerCapture(id);
+      id = -1;
+    };
+
+    card.addEventListener('pointerdown', (ev) => {
+      const e = ev as PointerEvent;
+      // Never start a drag from a control inside the card.
+      if ((e.target as Element)?.closest('button, a, input, select, form')) return;
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      startX = e.clientX; startY = e.clientY;
+      id = e.pointerId;
+      card.setPointerCapture(id);
+    });
+
+    card.addEventListener('pointermove', (ev) => {
+      const e = ev as PointerEvent;
+      if (id === -1 || e.pointerId !== id) return;
+
+      if (!live) {
+        if (Math.abs(e.clientX - startX) < DRAG_START_PX
+          && Math.abs(e.clientY - startY) < DRAG_START_PX) return;
+        live = true;
+        card.classList.add('is-dragging');
+        ghost = card.cloneNode(true) as HTMLElement;
+        ghost.className = 'hq-pipe-card hq-ghost';
+        ghost.style.width = `${card.offsetWidth}px`;
+        document.body.appendChild(ghost);
+      }
+      if (!ghost) return;
+
+      ghost.style.left = `${e.clientX - 20}px`;
+      ghost.style.top = `${e.clientY - 18}px`;
+
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const col = under?.closest('[data-drop]') as HTMLElement | null;
+      if (col !== over) {
+        clearOver();
+        over = col;
+        if (over) over.classList.add('is-over');
+      }
+    });
+
+    const finish = async (ev: Event) => {
+      const e = ev as PointerEvent;
+      if (id === -1 || e.pointerId !== id) return;
+      const target = over?.dataset.drop ?? '';
+      const moved = live;
+      stop();
+      if (!moved || !target || target === c.stage) return;
+
+      const from = c.stage;
+      // Optimistic: the card is already where you dropped it, and it
+      // goes back if Notion refuses.
+      c.stage = target;
+      draw('pipeline');
+
+      const ok = await patch(`/portal/hq/client/${c.pageId}`, { stage: target });
+      if (!ok) {
+        c.stage = from;
+        toast(`${c.artist} did not move. Still ${from}.`, true);
+        draw('pipeline');
+        return;
+      }
+      toast(`${c.artist} moved to ${target}.`);
+    };
+
+    card.addEventListener('pointerup', (e) => void finish(e));
+    card.addEventListener('pointercancel', () => stop());
+  }
   function drawReports(root: HTMLElement) { soon(root, 'Reports'); }
 
   /* ══ TODAY ══════════════════════════════════════════════════ */
