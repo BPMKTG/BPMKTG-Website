@@ -3104,6 +3104,82 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 .hq-form-acts { display: flex; gap: var(--pt-2); margin-top: var(--pt-1); }
 .hq-form-acts .pt-btn { flex: 1; justify-content: center; font-size: .78rem; padding: 6px; }
 
+/* ── Reports ──────────────────────────────────────────────────── */
+
+/* A document row is wider than a Today row and carries more than one
+   line, so it stacks its own content and keeps the buttons on the
+   right until there is no room for them. */
+.hq-docs {
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r);
+  background: var(--pt-surface); overflow: hidden;
+}
+.hq-docs > .hq-none { padding: var(--pt-4); }
+
+.hq-doc {
+  display: flex; align-items: flex-start; gap: var(--pt-3);
+  padding: var(--pt-3) var(--pt-4);
+  border-top: 1px solid var(--pt-line-soft);
+}
+.hq-doc:first-child { border-top: 0; }
+.hq-doc:hover { background: var(--pt-tint-soft); }
+
+.hq-doc-meta { flex: 1; min-width: 0; }
+.hq-doc-top { display: flex; align-items: center; gap: var(--pt-2); flex-wrap: wrap; }
+.hq-doc-h {
+  font-size: .9rem; font-weight: 600; color: var(--pt-ink);
+}
+.hq-doc-sub {
+  margin-top: 2px;
+  font-size: .78rem; color: var(--pt-muted);
+}
+
+/* Mason's own sentence, one line of it. The point is to recognise the
+   month, not to read it here. */
+.hq-doc-quote {
+  display: flex; gap: 6px; margin-top: 4px;
+  font-size: .8rem; color: var(--pt-ink-2);
+}
+.hq-doc-quote > span:last-child {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hq-doc-ql {
+  flex: none;
+  font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--pt-muted);
+  padding-top: 2px;
+}
+
+.hq-doc-gaps {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 6px; flex-wrap: wrap;
+}
+.hq-gap {
+  padding: 1px 7px; border-radius: var(--pt-r-pill);
+  font-size: .7rem; font-weight: 600;
+  background: var(--pt-tint-slate); color: var(--pt-ink-2);
+  cursor: help;
+}
+/* Red is reserved for a gap that makes the document wrong rather than
+   short: no date, no numbers, no biggest win. */
+.hq-gap-bad { background: var(--pt-bad-tint); color: var(--pt-bad); }
+
+.hq-pill {
+  flex: none;
+  padding: 1px 8px; border-radius: var(--pt-r-pill);
+  font-size: .68rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.hq-pill-good { background: var(--pt-good-tint); color: var(--pt-good); }
+.hq-pill-warn { background: var(--pt-tint-orange); color: var(--pt-orange-ink); }
+
+.hq-doc-acts {
+  flex: none; display: flex; align-items: center; gap: var(--pt-1);
+  flex-wrap: wrap; justify-content: flex-end;
+}
+.hq-doc-cant { font-size: .76rem; color: var(--pt-muted); font-style: italic; }
+
+.hq-doc-cover { align-items: center; }
+
 /* ── phone ────────────────────────────────────────────────────── */
 
 @media (max-width: 720px) {
@@ -3117,4 +3193,8 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
   /* Four stats across a phone leaves each one two characters wide. */
   .hq-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pt-3); }
   .hq-cards { grid-template-columns: minmax(0, 1fr); }
+  /* Five buttons will not share a line with a two-line heading on a
+     phone, so the row stacks and the buttons get the full width. */
+  .hq-doc { flex-direction: column; align-items: stretch; gap: var(--pt-2); }
+  .hq-doc-acts { justify-content: flex-start; }
 }

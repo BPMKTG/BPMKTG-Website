@@ -173,6 +173,7 @@ const NAV = [
   import {
     buildToday, stripItems, snoozeTo, isoToday,
     clientFacts, clientHealth, stepUpSoon, daysUntilDay, CARD_STAGES,
+    reportDrafts, reportPublished, reportGaps, sortAudits, docBase,
     type HqFilter, type HqRow, type RowClient, type StripItem,
     type CardClient, type HealthVerdict,
   } from '../../data/hq';
@@ -302,15 +303,6 @@ const NAV = [
     if (view === 'reports') drawReports(root);
   }
 
-  /* Placeholders until each tab lands. They are deliberately plain:
-     a half-drawn tab should look unfinished rather than broken. */
-  function soon(root: HTMLElement, what: string) {
-    const e = el('div', 'pt-empty');
-    const ic = el('div', 'pt-empty-icon');
-    ic.appendChild(icon('info'));
-    e.append(ic, el('h3', undefined, what), el('p', undefined, 'Not built yet.'));
-    root.appendChild(e);
-  }
   /* ══ CLIENTS ════════════════════════════════════════════════ */
 
   /** The segment after the view, if there is one: #/clients/sean-comma. */
@@ -1154,7 +1146,522 @@ const NAV = [
     card.addEventListener('pointerup', (e) => void finish(e));
     card.addEventListener('pointercancel', () => stop());
   }
-  function drawReports(root: HTMLElement) { soon(root, 'Reports'); }
+  /* ══ REPORTS ════════════════════════════════════════════════ */
+
+  /**
+   * The publishing desk.
+   *
+   * Every button here posts to an endpoint that already existed,
+   * because the publish pipeline is the one part of this codebase it
+   * would be actively wrong to have a second copy of: it renders a
+   * PDF, writes R2, flips a Notion row and emails a client, in that
+   * order, and the order is the correctness argument. See
+   * functions/portal/<slug>/admin/report/<id>/<action>.ts.
+   *
+   * The one exception is a prospect teardown, which has no client and
+   * therefore no portal and therefore no slug to put in that URL.
+   * Those go to /portal/hq/audit/<id>/<action>, which refuses
+   * anything that DOES have a client, so each document has exactly
+   * one path and the ownership check is never the thing that got
+   * skipped. docBase() in src/data/hq.ts decides which.
+   */
+
+  /** A client by page id, for the chip on every row. */
+  function clientOf(id: string | null): RowClient | null {
+    if (!id) return null;
+    return clients().find((c) => c.pageId === id) ?? null;
+  }
+
+  function drawReports(root: HTMLElement) {
+    const bar = el('div', 'hq-bar');
+    bar.appendChild(el('h1', undefined, 'Reports'));
+    root.appendChild(bar);
+
+    const snaps = (HQ?.snapshots ?? []) as any[];
+    const drafts = reportDrafts(snaps);
+    const live = reportPublished(snaps);
+    const audits = sortAudits((HQ?.audits ?? []) as any[]);
+
+    root.appendChild(docSection('Drafts', drafts.length, drafts.length
+      ? drafts.map(draftRow)
+      : [note('Nothing unpublished. Every month on file has gone out.')]));
+
+    root.appendChild(docSection('Published', live.length, live.length
+      ? live.slice(0, 24).map(publishedRow)
+      : [note('No month has been published yet.')]));
+
+    root.appendChild(docSection('Growth audits', audits.length, audits.length
+      ? audits.map(auditRow)
+      : [note('No audits on file.')]));
+
+    root.appendChild(coverSection());
+  }
+
+  function note(text: string): HTMLElement {
+    return el('p', 'hq-none', text);
+  }
+
+  function docSection(title: string, count: number, rows: HTMLElement[]): HTMLElement {
+    const sec = el('section', 'hq-sec');
+    const head = el('div', 'hq-sec-head');
+    head.append(el('h2', undefined, title), el('span', 'hq-sec-count', String(count)));
+    sec.appendChild(head);
+    const list = el('div', 'hq-docs');
+    for (const r of rows) list.appendChild(r);
+    sec.appendChild(list);
+    return sec;
+  }
+
+  /** The frame every row on this tab shares: who it is about, what it
+   *  is, a pill, a sub-line, and a row of buttons. */
+  function docRow(
+    heading: string, sub: string[], pill: [string, 'good' | 'warn'] | null,
+  ): { row: HTMLElement; meta: HTMLElement; acts: HTMLElement } {
+    const row = el('div', 'hq-doc');
+    const meta = el('div', 'hq-doc-meta');
+
+    const top = el('div', 'hq-doc-top');
+    top.appendChild(el('span', 'hq-doc-h', heading));
+    if (pill) top.appendChild(el('span', `hq-pill hq-pill-${pill[1]}`, pill[0]));
+    meta.appendChild(top);
+
+    const line = sub.filter(Boolean).join(' · ');
+    if (line) meta.appendChild(el('div', 'hq-doc-sub', line));
+
+    const acts = el('div', 'hq-doc-acts');
+    row.append(meta, acts);
+    return { row, meta, acts };
+  }
+
+  /* ── one draft ────────────────────────────────────────────────── */
+
+  function draftRow(s: any): HTMLElement {
+    const c = clientOf(s.clientId);
+    const base = docBase('report', s.id, c?.slug || null);
+
+    const { row, meta, acts } = docRow(
+      `${c?.artist ?? 'No client'} · ${s.date ? monthLabel(s.date) : 'Undated'}`,
+      [s.type && s.type !== 'Monthly' ? s.type : ''],
+      ['Draft', 'warn'],
+    );
+
+    const win = (s.win ?? '').trim();
+    const watch = (s.watch ?? '').trim();
+    if (win) meta.appendChild(quote('Win', win));
+    if (watch) meta.appendChild(quote('Watch', watch));
+
+    const gaps = reportGaps(s);
+    if (gaps.length) meta.appendChild(gapLine(gaps));
+
+    if (!base) {
+      // A snapshot whose client has no Intake Slug. There is no URL
+      // that reaches the publish route, so there is no button to draw
+      // and the honest thing is to say which row to go and fix.
+      acts.appendChild(el('span', 'hq-doc-cant', 'No portal slug on the client row.'));
+      return row;
+    }
+
+    acts.appendChild(previewLink(base));
+    acts.appendChild(actionButton('Regenerate PDF', async () => {
+      const res = await hqPost(`${base}/pdf`);
+      coverFrom(res, c?.slug ?? '');
+      if (!res.ok) return bad(whyFailed(res, 'The PDF did not generate.'));
+      draw('reports');
+      return 'PDF regenerated.';
+    }));
+    acts.appendChild(actionButton('Publish', async () => {
+      const res = await hqPost(`${base}/publish`);
+      coverFrom(res, c?.slug ?? '');
+      if (!res.ok) return bad(whyFailed(res, 'Publishing did not go through.'));
+      // The row is now published, so move it without a refetch: the
+      // payload is cached for ninety seconds and the write has
+      // already dropped that cache, but a redraw is instant and a
+      // round trip is not.
+      s.published = true;
+      s.publishedAt = new Date().toISOString();
+      s.reportPdf = String(res.json?.url ?? '') || s.reportPdf;
+      const mail = String(res.json?.mail ?? '');
+      s.mailedAt = mail === 'sent' ? s.publishedAt : s.mailedAt ?? null;
+      draw('reports');
+      if (mail === 'sent') return 'Published, and the email is on its way.';
+      if (mail === 'already') return 'Published. The email had already gone.';
+      if (mail === 'no-recipients') {
+        return bad('Published. No portal emails on file, so nothing was sent.');
+      }
+      return bad('Published. The email did not send, which is in the logs.');
+    }));
+    if (s.reportPdf) acts.appendChild(fileLink(s.reportPdf, 'PDF'));
+    return row;
+  }
+
+  /** A line of Mason's own words, clipped. The point is to recognise
+   *  the month, not to read it here. */
+  function quote(label: string, text: string): HTMLElement {
+    const p = el('div', 'hq-doc-quote');
+    p.append(el('span', 'hq-doc-ql', label), el('span', undefined, text));
+    return p;
+  }
+
+  /**
+   * What is not written yet.
+   *
+   * Blocking gaps are red and named first, because those are the ones
+   * that come out of the printer wrong rather than short. Publish
+   * stays enabled either way: the server will take it, sometimes a
+   * month genuinely is three numbers and a sentence, and a button
+   * that lies about what the server would accept is worse than a
+   * warning Mason can read.
+   */
+  function gapLine(gaps: ReturnType<typeof reportGaps>): HTMLElement {
+    const wrap = el('div', 'hq-doc-gaps');
+    wrap.appendChild(el('span', 'hq-doc-ql', 'Not written'));
+    const ordered = [...gaps].sort((a, b) => Number(b.blocking) - Number(a.blocking));
+    for (const g of ordered) {
+      const chip = el('span', `hq-gap${g.blocking ? ' hq-gap-bad' : ''}`, g.label);
+      chip.title = `Not written. It shows in ${g.where}.`;
+      wrap.appendChild(chip);
+    }
+    return wrap;
+  }
+
+  /* ── one published month ──────────────────────────────────────── */
+
+  function publishedRow(s: any): HTMLElement {
+    const c = clientOf(s.clientId);
+    const base = docBase('report', s.id, c?.slug || null);
+    const on = s.publishedAt ? String(s.publishedAt).slice(0, 10) : null;
+
+    const { row, acts } = docRow(
+      `${c?.artist ?? 'No client'} · ${s.date ? monthLabel(s.date) : 'Undated'}`,
+      [on ? `published ${shortDay(on)}` : 'published', mailLabel(s)],
+      ['Published', 'good'],
+    );
+
+    if (base) {
+      acts.appendChild(previewLink(base));
+      acts.appendChild(actionButton('Regenerate PDF', async () => {
+        const res = await hqPost(`${base}/pdf`);
+        coverFrom(res, c?.slug ?? '');
+        if (!res.ok) return bad(whyFailed(res, 'The PDF did not generate.'));
+        draw('reports');
+        return 'PDF regenerated.';
+      }));
+    }
+    if (s.reportPdf) acts.appendChild(fileLink(s.reportPdf, 'PDF'));
+    return row;
+  }
+
+  /**
+   * The email, in one phrase.
+   *
+   * `mailedAt` comes from the send claim in KV, which is the only
+   * record of a send anywhere. Beyond the twelve most recent
+   * published months it is not read at all, so the absent case says
+   * "no record" rather than "not sent": those are different things
+   * and only one of them is a problem.
+   */
+  function mailLabel(s: any): string {
+    if (s.mailedAt) return `emailed ${shortDay(String(s.mailedAt).slice(0, 10))}`;
+    return s.mailedAt === null ? 'no email on record' : '';
+  }
+
+  /* ── one audit ────────────────────────────────────────────────── */
+
+  function auditRow(a: any): HTMLElement {
+    const c = clientOf(a.clientId);
+    const who = c?.artist ?? a.prospectName ?? 'Unnamed';
+    const base = docBase('audit', a.id, c?.slug || null);
+
+    const { row, meta, acts } = docRow(
+      `${who} · ${a.title || 'Growth audit'}`,
+      [a.audience, a.status ?? 'no status',
+       a.auditDate ? shortDay(a.auditDate) : '', a.dataWindow ?? ''],
+      a.audience === 'Client'
+        ? (a.published ? ['In their portal', 'good'] : ['Not shown', 'warn'])
+        : (a.shareLink ? ['Link live', 'good'] : ['No link', 'warn']),
+    );
+
+    const short = (a.shortVersion ?? '').trim();
+    if (short) meta.appendChild(quote('Short version', short));
+
+    if (!base) {
+      acts.appendChild(el('span', 'hq-doc-cant', 'No portal slug on the client row.'));
+      return row;
+    }
+
+    acts.appendChild(previewLink(base));
+    acts.appendChild(actionButton('Generate PDF', async () => {
+      const res = await hqPost(`${base}/pdf`);
+      coverFrom(res, c?.slug ?? '');
+      if (!res.ok) return bad(whyFailed(res, 'The PDF did not generate.'));
+      const missing = Array.isArray(res.json?.missing) ? res.json?.missing as string[] : [];
+      return missing.length
+        ? bad(`PDF ready. ${missing.length} heading${missing.length === 1 ? '' : 's'} `
+          + `not written: ${missing.join(', ')}`)
+        : 'PDF ready.';
+    }));
+
+    // Share links are for prospects. A client audit reaches its
+    // client through their own portal, and a second, revocable,
+    // unauthenticated URL to the same document is a liability rather
+    // than a convenience.
+    if (a.audience === 'Prospect') {
+      acts.appendChild(actionButton(a.shareLink ? 'New share link' : 'Create share link',
+        async () => {
+          const res = await hqPost(`${base}/share`, { days: SHARE_DAYS });
+          if (res.json?.error === 'no_pdf_yet') return bad('Generate the PDF first.');
+          if (!res.ok) return bad(whyFailed(res, 'The share link was not created.'));
+          const url = String(res.json?.url ?? '');
+          a.shareLink = url || a.shareLink;
+          draw('reports');
+          if (!url) return 'Share link created.';
+          return (await copyText(url))
+            ? `Share link copied. It expires in ${SHARE_DAYS} days.`
+            : bad(`Share link created, but it did not copy: ${url}`);
+        }));
+      if (a.shareLink) {
+        acts.appendChild(actionButton('Copy link', async () =>
+          (await copyText(String(a.shareLink)))
+            ? 'Copied.'
+            : bad(`That did not copy: ${a.shareLink}`)));
+        acts.appendChild(actionButton('Revoke', async () => {
+          const res = await hqPost(`${base}/revoke`);
+          if (!res.ok) return bad(whyFailed(res, 'The link was not revoked.'));
+          a.shareLink = null;
+          draw('reports');
+          return 'That link no longer works.';
+        }));
+      }
+    }
+
+    if (a.auditPdf) acts.appendChild(fileLink(a.auditPdf, 'PDF'));
+    return row;
+  }
+
+  /** How long a prospect's link lives. Thirty days is long enough to
+   *  follow up twice and short enough that a teardown does not stay
+   *  readable for a year after they said no. */
+  const SHARE_DAYS = 30;
+
+  /* ── cover photos ─────────────────────────────────────────────── */
+
+  /**
+   * Which photo each client's next document will use.
+   *
+   * It is a property of the client, not of a month: one "Report
+   * Covers" folder in Drive, read again on every Publish and
+   * Regenerate. Shown here because it is the one thing about a report
+   * that cannot be seen from the row, and it is the difference
+   * between a cover photo and a blue grid.
+   *
+   * One GET per client, in parallel, and silent on failure: a cover
+   * line that would not load is not a reason to put an error in front
+   * of somebody who came here to publish a report.
+   */
+  /** What /admin/cover last said, by slug. A redraw after a Publish
+   *  must not send three more requests to Drive. */
+  const COVERS = new Map<string, CoverStatus>();
+
+  function coverSection(): HTMLElement {
+    const withPortals = cards().filter((c) => c.slug);
+    const sec = el('section', 'hq-sec');
+    const head = el('div', 'hq-sec-head');
+    head.append(el('h2', undefined, 'Cover photos'),
+      el('span', 'hq-sec-count', String(withPortals.length)));
+    sec.appendChild(head);
+
+    const list = el('div', 'hq-docs');
+    if (!withPortals.length) {
+      list.appendChild(note('No client has a portal yet.'));
+      sec.appendChild(list);
+      return sec;
+    }
+
+    for (const c of withPortals) {
+      const row = el('div', 'hq-doc hq-doc-cover');
+      const meta = el('div', 'hq-doc-meta');
+      meta.appendChild(el('div', 'hq-doc-h', c.artist));
+      const known = COVERS.get(c.slug);
+      const sub = el('div', 'hq-doc-sub', known ? coverLine(known) : 'Checking Drive…');
+      // A document that will print the blue grid is the one thing on
+      // this tab worth noticing before you publish.
+      if (known?.source === 'grid') sub.classList.add('hq-when-late');
+      meta.appendChild(sub);
+      row.appendChild(meta);
+      list.appendChild(row);
+
+      if (known) continue;
+      void (async () => {
+        const res = await hqGet(`/portal/${encodeURIComponent(c.slug)}/admin/cover`);
+        const cover = res.ok ? res.json?.cover as CoverStatus | undefined : undefined;
+        if (!cover) { sub.textContent = 'Could not read the cover.'; return; }
+        COVERS.set(c.slug, cover);
+        sub.textContent = coverLine(cover);
+        if (cover.source === 'grid') sub.classList.add('hq-when-late');
+      })();
+    }
+    sec.appendChild(list);
+    return sec;
+  }
+
+  /** What /admin/cover answers with. Mirrors coverStatus in
+   *  src/server/cover.ts; a test holds the two together. */
+  interface CoverStatus {
+    source: string;
+    label: string;
+    filename: string | null;
+    focus: string;
+    image: string | null;
+    note: string | null;
+  }
+
+  function coverLine(cover: CoverStatus): string {
+    const crop = cover.focus
+      ? cover.focus[0].toUpperCase() + cover.focus.slice(1)
+      : '';
+    return [
+      `Source: ${cover.label}`,
+      cover.filename ?? '',
+      cover.image && crop ? `Crop: ${crop}` : '',
+      cover.note ?? '',
+    ].filter(Boolean).join(' · ');
+  }
+
+  /** Publish and Regenerate are the two actions that go and look at
+   *  Drive, and both hand back what they found. Taking it from the
+   *  answer rather than asking again is one request saved and, more
+   *  to the point, one that cannot disagree with what was just used
+   *  to render the document. */
+  function coverFrom(res: Answer, slug: string): void {
+    const cover = res.json?.cover;
+    if (cover && typeof cover === 'object' && slug) {
+      COVERS.set(slug, cover as CoverStatus);
+    }
+  }
+
+  /* ── talking to the endpoints ─────────────────────────────────── */
+
+  interface Answer {
+    ok: boolean;
+    status: number;
+    json: Record<string, unknown> | null;
+  }
+
+  async function sendJson(url: string, method: 'GET' | 'POST', body?: unknown): Promise<Answer> {
+    try {
+      const res = await fetch(url, {
+        method,
+        credentials: 'same-origin',
+        headers: method === 'POST' ? { 'Content-Type': 'application/json' } : undefined,
+        body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
+      });
+      let json: Record<string, unknown> | null = null;
+      try { json = JSON.parse(await res.text()) as Record<string, unknown>; } catch { json = null; }
+      return { ok: res.ok && json?.ok === true, status: res.status, json };
+    } catch (err) {
+      return { ok: false, status: 0, json: { detail: String(err) } };
+    }
+  }
+
+  const hqPost = (url: string, body?: unknown) => sendJson(url, 'POST', body);
+  const hqGet = (url: string) => sendJson(url, 'GET');
+
+  /** What the server said went wrong, or a fallback. These endpoints
+   *  are admin-only and the renderer redacts its own signed token, so
+   *  the real cause belongs on the button rather than in a log Mason
+   *  has to go and open. */
+  function whyFailed(res: Answer, fallback: string): string {
+    const detail = String(res.json?.detail ?? '').trim();
+    return detail ? `${fallback} ${detail}` : fallback;
+  }
+
+  /**
+   * What an action came back with.
+   *
+   * A plain string clears itself. `bad` is anything Mason needs to
+   * read rather than glimpse: a render error naming the fault, a list
+   * of unwritten headings, a publish that went through but sent no
+   * email. Sniffing the English for "did not" was the first version
+   * of this and it was one rewording away from silently clearing an
+   * error.
+   */
+  type Said = string | { text: string; bad: true };
+  const bad = (text: string): Said => ({ text, bad: true });
+
+  /**
+   * One button: disables itself, runs, says what happened.
+   *
+   * Disabling is the double-click guard in the browser. The real one
+   * is on the server, where the publish email is claimed in KV before
+   * it is sent, because a disabled button does nothing about a second
+   * tab.
+   */
+  function actionButton(label: string, run: () => Promise<Said>): HTMLElement {
+    const b = el('button', 'pt-btn pt-btn-sm');
+    b.type = 'button';
+    const span = el('span', undefined, label);
+    b.appendChild(span);
+    b.addEventListener('click', async () => {
+      if (b.disabled) return;
+      b.disabled = true;
+      span.textContent = 'Working…';
+      try {
+        const said = await run();
+        if (typeof said === 'string') toast(said); else toast(said.text, true);
+      } catch (err) {
+        toast(`That did not go through. ${err instanceof Error ? err.message : String(err)}`,
+          true);
+      } finally {
+        // The redraw in a successful run replaces this node, so these
+        // two lines are for the failures that leave it on screen.
+        b.disabled = false;
+        span.textContent = label;
+      }
+    });
+    return b;
+  }
+
+  function previewLink(base: string): HTMLElement {
+    const a = el('a', 'pt-btn pt-btn-sm') as HTMLAnchorElement;
+    a.href = `${base}/preview`;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.appendChild(el('span', undefined, 'Preview'));
+    return a;
+  }
+
+  function fileLink(href: string, label: string): HTMLElement {
+    const a = el('a', 'pt-btn pt-btn-sm') as HTMLAnchorElement;
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.appendChild(el('span', undefined, label));
+    return a;
+  }
+
+  /** Clipboard, with the old-fashioned fallback and an honest answer.
+   *  A share link that is created but not copied is a link Mason has
+   *  to go and find, so the caller puts it in the toast instead. */
+  async function copyText(text: string): Promise<boolean> {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch { /* fall through */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
 
   /* ══ TODAY ══════════════════════════════════════════════════ */
 

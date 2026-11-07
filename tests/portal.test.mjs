@@ -7,6 +7,15 @@ import {
   formatEngagement,
   isOpenClientTodo,
   canSetStepStatus,
+  // Blueprint HQ · reports
+  REPORT_FIELDS,
+  reportGaps,
+  blocksPublish,
+  reportDrafts,
+  reportPublished,
+  sortAudits,
+  docBase,
+  mailSentAt,
   isStepClientStatus,
   isStepDone,
   STEP_CLIENT_STATUSES,
@@ -2134,6 +2143,137 @@ is('lead: nor backdate a term',
    JSON.stringify(everything.properties).includes('Term'), false);
 is('lead: only ever the four it knows', Object.keys(everything.properties).sort(),
    ['Artist', 'Stage']);
+
+/* ══ 16. Blueprint HQ · reports ══════════════════════════════════
+   The Reports tab draws buttons that publish a PDF and email a
+   client, so the two things worth pinning are which route each
+   document's buttons point at, and what the tab says is missing
+   before Mason presses one. */
+
+section('Blueprint HQ · report gaps');
+
+const repSnap = (over = {}) => ({
+  date: '2026-10-01',
+  metrics: { 'Instagram Followers': 1200 },
+  win: 'The Berlin show sold out.',
+  watch: 'Reels are flat.',
+  summary: 'A good month.',
+  focus: ['Ship the remix', null, null],
+  ...over,
+});
+
+is('gaps: a complete month has none', reportGaps(repSnap()).length, 0);
+is('gaps: nothing complete blocks a publish', blocksPublish(reportGaps(repSnap())), false);
+
+is('gaps: a missing win is named',
+   reportGaps(repSnap({ win: null })).map((g) => g.field), ['win']);
+is('gaps: and it blocks', blocksPublish(reportGaps(repSnap({ win: null }))), true);
+is('gaps: whitespace is not a win',
+   reportGaps(repSnap({ win: '   \n ' })).map((g) => g.field), ['win']);
+
+is('gaps: no metrics at all is a gap',
+   reportGaps(repSnap({ metrics: {} })).map((g) => g.field), ['metrics']);
+is('gaps: a single metric is enough',
+   reportGaps(repSnap({ metrics: { Shows: 0 } })).length, 0);
+
+is('gaps: one focus card of three is a deliberately short section',
+   reportGaps(repSnap({ focus: [null, 'Second thing', null] })).length, 0);
+is('gaps: three empty ones is a missing section',
+   reportGaps(repSnap({ focus: [null, null, null] })).map((g) => g.field), ['focus']);
+is('gaps: an empty focus array too',
+   reportGaps(repSnap({ focus: [] })).map((g) => g.field), ['focus']);
+
+is('gaps: watch and summary are thin, not wrong',
+   blocksPublish(reportGaps(repSnap({ watch: null, summary: null }))), false);
+is('gaps: and both are reported',
+   reportGaps(repSnap({ watch: null, summary: '' })).map((g) => g.field),
+   ['watch', 'summary']);
+
+is('gaps: a blank month names everything, in field order',
+   reportGaps({ date: null, metrics: {}, win: null, watch: null, summary: null, focus: [] })
+     .map((g) => g.field),
+   ['date', 'metrics', 'win', 'watch', 'summary', 'focus']);
+is('gaps: exactly three of them are blocking',
+   REPORT_FIELDS.filter((g) => g.blocking).map((g) => g.field),
+   ['date', 'metrics', 'win']);
+is('gaps: every field says where it shows up',
+   REPORT_FIELDS.every((g) => g.where && g.label), true);
+
+section('Blueprint HQ · which pile, and in what order');
+
+const repRows = [
+  { id: 'a', date: '2026-09-01', published: true },
+  { id: 'b', date: '2026-10-01', published: false },
+  { id: 'c', date: null, published: false },
+  { id: 'd', date: '2026-08-01', published: true },
+  { id: 'e', date: '2026-11-01', published: false },
+];
+
+is('piles: drafts are the unpublished ones, newest first',
+   reportDrafts(repRows).map((r) => r.id), ['e', 'b', 'c']);
+is('piles: published are the rest, newest first',
+   reportPublished(repRows).map((r) => r.id), ['a', 'd']);
+is('piles: an undated draft goes last rather than first',
+   reportDrafts(repRows).at(-1).id, 'c');
+is('piles: neither pile mutates the payload',
+   repRows.map((r) => r.id), ['a', 'b', 'c', 'd', 'e']);
+
+const auditRows = [
+  { id: 'p1', audience: 'Prospect', status: 'Sent', auditDate: '2026-11-01' },
+  { id: 'p2', audience: 'Prospect', status: 'Draft', auditDate: '2026-10-01' },
+  { id: 'c1', audience: 'Client', status: 'Ready', auditDate: '2026-11-02' },
+  { id: 'c2', audience: 'Client', status: null, auditDate: '2026-11-03' },
+  { id: 'p3', audience: 'Prospect', status: 'Draft', auditDate: '2026-11-04' },
+];
+
+is('audits: the ones with work left come first, newest inside each',
+   sortAudits(auditRows).map((a) => a.id), ['p3', 'p2', 'c1', 'p1', 'c2']);
+is('audits: a row with no status sorts after the three that have one',
+   sortAudits(auditRows).at(-1).id, 'c2');
+is('audits: the payload is left alone',
+   auditRows.map((a) => a.id), ['p1', 'p2', 'c1', 'c2', 'p3']);
+
+section('Blueprint HQ · where an action goes');
+
+is('route: a snapshot goes through its own client’s portal',
+   docBase('report', 'abc', 'sean-comma'), '/portal/sean-comma/admin/report/abc');
+is('route: so does a client audit',
+   docBase('audit', 'abc', 'sean-comma'), '/portal/sean-comma/admin/audit/abc');
+is('route: a prospect teardown has no portal, so it goes through HQ',
+   docBase('audit', 'abc', null), '/portal/hq/audit/abc');
+is('route: a snapshot with no slug has nowhere to go, and says so',
+   docBase('report', 'abc', null), null);
+is('route: an id is encoded rather than pasted in',
+   docBase('audit', 'a/b?c', null), '/portal/hq/audit/a%2Fb%3Fc');
+is('route: and so is a slug',
+   docBase('report', 'x', 'a b'), '/portal/a%20b/admin/report/x');
+
+section('Blueprint HQ · the email record');
+
+/* The claim in KV is the only record of a send anywhere: nothing
+   about it is written to Notion. So the three answers have to be
+   distinguishable, because "not sent" and "we did not look" are
+   different things to put in front of somebody. */
+const claimKv = (store) => ({
+  get: async (k) => (k in store ? store[k] : null),
+  put: async () => {},
+  delete: async () => {},
+});
+
+is('mail: a claim is the time it went',
+   await mailSentAt(claimKv({ 'report-mail:s1': '2026-11-02T09:00:00.000Z' }), 's1'),
+   '2026-11-02T09:00:00.000Z');
+is('mail: no claim is null', await mailSentAt(claimKv({}), 's1'), null);
+is('mail: and so is no KV at all', await mailSentAt(undefined, 's1'), null);
+is('mail: it reads the snapshot id it was given, not a neighbour',
+   await mailSentAt(claimKv({ 'report-mail:s2': 'x' }), 's1'), null);
+
+const thrower = {
+  get: async () => { throw new Error('KV is having a day'); },
+  put: async () => {}, delete: async () => {},
+};
+is('mail: an unreadable claim is a blank status line, not a thrown page',
+   await mailSentAt(thrower, 's1'), null);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

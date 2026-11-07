@@ -39,6 +39,31 @@ const CLAIM_TTL_SECONDS = 365 * 24 * 60 * 60;
 
 const claimKey = (snapshotId: string) => `report-mail:${snapshotId}`;
 
+/**
+ * When this month's email was claimed, or null.
+ *
+ * The claim is written immediately BEFORE the send and deleted again
+ * if the send fails, so a value here means the email went out and the
+ * value is when. That makes this the only record of a send anywhere:
+ * nothing about it is written to Notion, because a Notion field would
+ * be a second source of truth for something the claim already decides.
+ *
+ * Reads only. Nothing outside this file may write a claim.
+ */
+export async function mailSentAt(
+  store: MailStore | undefined, snapshotId: string,
+): Promise<string | null> {
+  if (!store) return null;
+  try {
+    const raw = await store.get(claimKey(snapshotId));
+    return raw ? String(raw) : null;
+  } catch (err) {
+    // An unreadable claim is a blank status line, not a broken page.
+    console.error('report: reading the mail claim threw', snapshotId, err);
+    return null;
+  }
+}
+
 /* ── copy ─────────────────────────────────────────────────────── */
 
 export function reportSubject(monthIso: string | null): string {

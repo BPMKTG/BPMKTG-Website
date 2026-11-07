@@ -22,3 +22,6 @@ export {
 // be done to it, and the whitelist for the one Clients write.
 export * from '../src/data/hq';
 export * from '../src/server/hq-write';
+// The one record of a publish email. Reads a claim out of a KV-shaped
+// object, so a stub covers it.
+export { mailSentAt } from '../src/server/report-mail';

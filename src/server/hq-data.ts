@@ -39,6 +39,7 @@ import {
 } from './portal-notion';
 import { AUDITS_DB, shapeAuditRow, type AuditRow } from './audit-data';
 import { shapeReportSnapshot } from './report-data';
+import { mailSentAt } from './report-mail';
 import type { ReportSnapshot } from '../data/print';
 import { cleanItemTitle, parseNotionDate } from '../data/portal';
 
@@ -50,7 +51,7 @@ export const HQ_TTL_SECONDS = 90;
 
 /** Bumped whenever the shape below changes, so a deploy cannot serve
  *  a cached payload the new UI does not understand. */
-export const HQ_CACHE_KEY = 'hq:v1';
+export const HQ_CACHE_KEY = 'hq:v2';
 
 /** How far back and forward the calendar is read. Today needs the
  *  overdue tail, the fourteen-day strip needs the near future, and a
@@ -128,7 +129,27 @@ export interface HqContentItem {
  *  properties again is the point: the Reports tab publishes through
  *  the same endpoints, so it has to agree with them about what a
  *  draft is and which fields are missing. */
-export type HqSnapshot = ReportSnapshot & { clientId: string | null };
+export type HqSnapshot = ReportSnapshot & {
+  clientId: string | null;
+  /**
+   * When the publish email went, or null.
+   *
+   * Read from the send claim in KV, which is the only record there
+   * is: nothing about a send is written to Notion. Null therefore
+   * means one of three things, and the Reports tab says so rather
+   * than claiming it was never sent: no email went, the claim has
+   * been read past the cap below, or KV is not bound.
+   */
+  mailedAt?: string | null;
+};
+
+/** How many published months get their email status looked up.
+ *
+ *  One KV get each, and they are subrequests inside the same Worker
+ *  invocation as five paginated Notion queries. Twelve is a year of
+ *  one client or four months of three, which is as far back as
+ *  "did that go out" is a question anybody asks. */
+export const MAIL_STATUS_ROWS = 12;
 
 export interface HqPayload {
   clients: HqClient[];
@@ -276,14 +297,22 @@ async function readContent(token: string, now: Date): Promise<HqContentItem[]> {
   });
 }
 
-async function readSnapshots(token: string): Promise<HqSnapshot[]> {
+async function readSnapshots(env: HqDataEnv, token: string): Promise<HqSnapshot[]> {
   const rows = await queryAll(token, SNAPSHOTS_DB, {
     sorts: [{ property: 'Date', direction: 'descending' }],
   });
-  return rows.map((page: any) => ({
+  const shaped: HqSnapshot[] = rows.map((page: any) => ({
     ...shapeReportSnapshot(page),
     clientId: readRelation(page?.properties?.Client)[0] ?? null,
   }));
+
+  // Already newest first, from the sort above, so the cap takes the
+  // recent end rather than an arbitrary twelve.
+  const recent = shaped.filter((s) => s.published).slice(0, MAIL_STATUS_ROWS);
+  const sent = await Promise.all(recent.map((s) => mailSentAt(env.PORTAL_KV, s.id)));
+  recent.forEach((s, i) => { s.mailedAt = sent[i]; });
+
+  return shaped;
 }
 
 async function readAudits(token: string): Promise<AuditRow[]> {
@@ -326,7 +355,7 @@ export async function hqBuild(env: HqDataEnv, now = new Date()): Promise<HqBuild
     timed('clients', () => readClients(token)),
     timed('calendar', () => readCalendar(token, now)),
     timed('content', () => readContent(token, now)),
-    timed('snapshots', () => readSnapshots(token)),
+    timed('snapshots', () => readSnapshots(env, token)),
     timed('audits', () => readAudits(token)),
   ]);
 

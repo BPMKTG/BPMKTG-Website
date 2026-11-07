@@ -714,3 +714,150 @@ export const MAX_ARTIST = 120;
 /** Every new lead starts here. Quick add is for the top of the
  *  funnel; anything further along is a row you make in Notion. */
 export const NEW_LEAD_STAGE: HqStage = 'Lead';
+
+/* ══════════════════════════════════════════════════════════════
+   4 · REPORTS
+
+   What the Reports tab needs that a snapshot row does not already
+   say: whether a draft is thin, and in what way.
+
+   Nothing in here decides whether a report MAY be published. The
+   server decides that, and it will publish a snapshot with every
+   field blank, because sometimes a month genuinely is a baseline
+   with three numbers in it. This is the list Mason reads before he
+   presses the button, not a gate in front of it.
+   ══════════════════════════════════════════════════════════════ */
+
+/** The part of a snapshot these rules look at. The payload hands over
+ *  the whole shaped row; naming the subset keeps a test honest about
+ *  what actually feeds a verdict. */
+export interface SnapshotFacts {
+  date: string | null;
+  metrics: Record<string, number>;
+  win: string | null;
+  watch: string | null;
+  summary: string | null;
+  focus: readonly (string | null)[];
+}
+
+export interface ReportGap {
+  /** The snapshot field, for a test and for a stable key. */
+  field: string;
+  /** What it is called in Notion. */
+  label: string;
+  /** Where its absence shows in the document the client opens. */
+  where: string;
+  /**
+   * True when the document comes out WRONG without it rather than
+   * merely thinner.
+   *
+   * The templates skip an absent section, so most of these produce a
+   * shorter report and nothing worse. The blocking three do not: a
+   * month with no date cannot be compared to the month before it, a
+   * month with no numbers has four empty tiles where the headline
+   * should be, and the biggest win is both the first line of the
+   * document and the line the email quotes.
+   */
+  blocking: boolean;
+}
+
+/** Every field the Reports tab checks, in the order it reads them. */
+export const REPORT_FIELDS: readonly ReportGap[] = [
+  { field: 'date', label: 'Date', where: 'the month on every page', blocking: true },
+  { field: 'metrics', label: 'Metrics', where: 'the four tiles', blocking: true },
+  { field: 'win', label: 'Biggest Win', where: 'the headline and the email', blocking: true },
+  { field: 'watch', label: 'Watch', where: 'the second card', blocking: false },
+  { field: 'summary', label: 'Summary', where: '"From Mason" in the portal', blocking: false },
+  { field: 'focus', label: 'Focus 1-3', where: "next month's cards", blocking: false },
+] as const;
+
+const filled = (v: string | null | undefined): boolean => Boolean(v && v.trim());
+
+/** Does this snapshot have that field? One place, so the tab and a
+ *  test cannot disagree about what counts as present. */
+function hasField(s: SnapshotFacts, field: string): boolean {
+  if (field === 'date') return filled(s.date);
+  if (field === 'metrics') return Object.keys(s.metrics ?? {}).length > 0;
+  if (field === 'win') return filled(s.win);
+  if (field === 'watch') return filled(s.watch);
+  if (field === 'summary') return filled(s.summary);
+  // Any one of the three is enough. Three empty focus cards is a
+  // missing section; two is a deliberately short one.
+  if (field === 'focus') return (s.focus ?? []).some(filled);
+  return true;
+}
+
+/** What is not written yet, in the order REPORT_FIELDS lists it. */
+export function reportGaps(s: SnapshotFacts): ReportGap[] {
+  return REPORT_FIELDS.filter((g) => !hasField(s, g.field));
+}
+
+/** Is a gap one that makes the document wrong? */
+export function blocksPublish(gaps: readonly ReportGap[]): boolean {
+  return gaps.some((g) => g.blocking);
+}
+
+/* ── which pile a row goes in ─────────────────────────────────── */
+
+interface DatedRow {
+  date: string | null;
+  published: boolean;
+}
+
+/** Undated last, then newest first. Both piles sort the same way so
+ *  a month does not jump when it is published. */
+function byDateDesc(a: DatedRow, b: DatedRow): number {
+  return String(b.date ?? '').localeCompare(String(a.date ?? ''));
+}
+
+export function reportDrafts<T extends DatedRow>(rows: readonly T[]): T[] {
+  return rows.filter((r) => !r.published).sort(byDateDesc);
+}
+
+export function reportPublished<T extends DatedRow>(rows: readonly T[]): T[] {
+  return rows.filter((r) => r.published).sort(byDateDesc);
+}
+
+/* ── audits ───────────────────────────────────────────────────── */
+
+interface AuditLike {
+  audience: string;
+  status: string | null;
+  auditDate: string | null;
+}
+
+/** Audit order: Draft first, then Ready, then Sent, and newest first
+ *  inside each. The ones with work left on them come to the top. */
+const AUDIT_STATUS_ORDER = ['Draft', 'Ready', 'Sent'] as const;
+
+export function sortAudits<T extends AuditLike>(rows: readonly T[]): T[] {
+  const rank = (s: string | null) => {
+    const i = (AUDIT_STATUS_ORDER as readonly string[]).indexOf(s ?? '');
+    return i === -1 ? AUDIT_STATUS_ORDER.length : i;
+  };
+  return [...rows].sort((a, b) =>
+    rank(a.status) - rank(b.status)
+    || String(b.auditDate ?? '').localeCompare(String(a.auditDate ?? '')));
+}
+
+/**
+ * Which route an action on this document goes through.
+ *
+ * A snapshot and a client audit belong to exactly one portal, and the
+ * portal's admin route is where the "does this row belong to this
+ * client" check lives, so they go through it. A prospect teardown
+ * belongs to no portal at all: HQ has its own route for those rather
+ * than borrowing some unrelated client's slug to satisfy the URL.
+ *
+ * Null means there is nowhere to send it. That is only ever a report
+ * whose client has no Intake Slug, which is a Notion row to fix
+ * rather than a button to draw: the portal route it would need is
+ * keyed by slug, so there is no URL that reaches it.
+ */
+export function docBase(
+  kind: 'report' | 'audit', id: string, slug: string | null,
+): string | null {
+  const safe = encodeURIComponent(id);
+  if (slug) return `/portal/${encodeURIComponent(slug)}/admin/${kind}/${safe}`;
+  return kind === 'audit' ? `/portal/hq/audit/${safe}` : null;
+}
