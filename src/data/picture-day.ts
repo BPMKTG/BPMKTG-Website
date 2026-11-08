@@ -123,6 +123,7 @@ export const packages: Package[] = [
       'Team photo included',
       '2 poses of your choosing',
       'Shot on the Rebelz backdrop',
+      'Props included (Signature only)',
     ],
     popular: true,
   },
