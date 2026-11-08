@@ -14,7 +14,7 @@ import PdPackages from '../components/picture-day/PdPackages.astro';
 import PdPoses from '../components/picture-day/PdPoses.astro';
 import PdHowTo from '../components/picture-day/PdHowTo.astro';
 import PdClose from '../components/picture-day/PdClose.astro';
-import { event, poses, OG_POSE_SLUG } from '../data/picture-day';
+import { event, photoGroups, OG_POSE_SLUG } from '../data/picture-day';
 
 // The link preview. This page gets passed around by text message more
 // than it gets visited from anywhere else, so the card that renders in
@@ -34,7 +34,7 @@ for (const [path, mod] of Object.entries(ogGlob)) {
 }
 const ogSource =
   ogBySlug[OG_POSE_SLUG]
-  ?? poses.map(p => ogBySlug[p.slug]).find(Boolean);
+  ?? photoGroups.flatMap(g => g.photos).map(p => ogBySlug[p.slug]).find(Boolean);
 
 const ogImage = ogSource
   ? new URL(

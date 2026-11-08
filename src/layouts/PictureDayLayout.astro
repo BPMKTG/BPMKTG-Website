@@ -61,12 +61,6 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).href;
 
     <title>{title}</title>
 
-    <!-- Marks the document as scripted before the first paint. The
-         package cards hide their back face by default, which is right
-         once the flip script runs and wrong if it never does; this is
-         what lets the no-JS fallback show the back face without a
-         flash of it while the script is still loading. -->
-    <script is:inline>document.documentElement.classList.add('pd-js');</script>
   </head>
   <body class="pt pd">
     <a class="pd-skip" href="#schedule">Skip to the team schedule</a>

@@ -120,6 +120,73 @@ body.pd {
 
 .pd-hero { padding-block: var(--pt-8) var(--pt-7); }
 
+/* Two columns once there is room. Below that the art follows the jump
+   link in DOM order, which keeps the buttons and "see your team's
+   time" above the fold on a phone, where they matter most. */
+@media (min-width: 900px) {
+  /* Exactly two grid children: the copy block and the art. Without
+     the wrapper every paragraph becomes its own cell and the headline
+     lands in the right-hand column. */
+  .pd-hero > .pd-wrap {
+    display: grid;
+    grid-template-columns: 1.02fr .98fr;
+    align-items: center;
+    gap: var(--pt-7);
+  }
+  .pd-hero-art { margin-top: 0; }
+}
+
+/* The team photo, shown the way it ends up: a print. White mount, soft
+   shadow, barely off-square, with a blue glow behind it so a dark
+   purple frame does not just float on white. */
+.pd-hero-art {
+  position: relative;
+  margin-top: var(--pt-6);
+  max-width: 540px;
+  margin-inline: auto;
+}
+.pd-hero-art::before {
+  content: '';
+  position: absolute;
+  /* The bleed is vertical only. Widening it sideways pushed the page
+     5px past the viewport at 375px: a pseudo-element counts toward
+     scrollWidth even though it has no layout box to catch. */
+  inset: -8% 0 -12%;
+  z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(98, 166, 219, .4), transparent 72%);
+  filter: blur(8px);
+}
+.pd-print {
+  position: relative;
+  z-index: 1;
+  padding: 10px 10px 34px;
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-radius: 6px;
+  box-shadow: var(--pt-shadow-lg);
+  transform: rotate(-1.4deg);
+  transition: transform 300ms cubic-bezier(.2, .8, .25, 1);
+}
+.pd-print:hover { transform: rotate(0deg); }
+/* height:auto matters here. portal.css sets max-width:100% on images
+   but leaves height alone, so without this the width shrinks to the
+   column while the height stays at the intrinsic attribute and the
+   photo renders stretched to about twice its proper height. */
+.pd-print img { width: 100%; height: auto; border-radius: 3px; }
+.pd-print figcaption {
+  position: absolute;
+  left: 0; right: 0; bottom: 10px;
+  text-align: center;
+  font-family: var(--pt-display);
+  font-size: .62rem; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--pt-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pd-print { transform: none; }
+}
+
 .pd-hero h1 {
   font-family: var(--pt-display);
   font-size: clamp(2rem, 9vw, 3.4rem);
@@ -163,10 +230,27 @@ body.pd {
   border-left: 4px solid var(--pt-blue);
   border-radius: var(--pt-r-sm);
   box-shadow: var(--pt-shadow);
+  transition: transform var(--pt-t), box-shadow var(--pt-t), border-color var(--pt-t);
 }
+/* Every other row sits a shade back, so nine near-identical rows are
+   easier to track across on a phone. */
+.pd-slot:nth-child(even) { background: var(--pt-surface-2); }
+.pd-slot:hover {
+  transform: translateX(2px);
+  box-shadow: var(--pt-shadow-md);
+  border-left-color: var(--pt-orange);
+}
+
+/* The time is what people are scanning for, so it is a chip rather
+   than a run of text beside a bolder team name. */
 .pd-slot-time {
-  color: var(--pt-navy);
-  font-weight: 700;
+  justify-self: start;
+  padding: 3px 10px;
+  background: var(--pt-tint-navy);
+  border: 1px solid var(--pt-tint);
+  border-radius: var(--pt-r-pill);
+  color: var(--pt-navy-deep);
+  font-size: .86rem; font-weight: 700;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
   white-space: nowrap;
@@ -226,106 +310,72 @@ body.pd {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--pt-5);
-  /* Shared 3D context for the entrance, same as the site's offer
-     cards: one perspective on the grid so the three cards swing in
-     from the same vanishing point rather than three of their own. */
+  /* One perspective on the grid, so the three cards swing in from the
+     same vanishing point rather than three of their own. Same as the
+     offer cards on the main site. */
   perspective: 1800px;
   perspective-origin: center 40%;
 }
 
 .pd-card {
   position: relative;
-  /* The card's own perspective, for the inner two-sided flip. The
-     grid's perspective applies to the card, not to its child. */
-  perspective: 1400px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pt-3);
+  padding: var(--pt-6) var(--pt-5) var(--pt-5);
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
   border-radius: var(--pt-r);
+  box-shadow: var(--pt-shadow);
+  overflow: hidden;   /* keeps the accent strip inside the radius */
 }
 
-/* Entrance: the one-time flip-IN the rest of the site uses. Note the
-   private --card-flip-delay rather than --reveal-delay: the global
-   reveal rules set that one, and it would be overwritten. */
+/* A brand strip across the top, so a white card on a white section
+   still has an edge to it. */
+.pd-card::before {
+  content: '';
+  position: absolute; inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--pt-navy), var(--pt-blue));
+}
+.pd-card-pop { border-color: var(--pt-blue); box-shadow: var(--pt-shadow-md); }
+.pd-card-pop::before {
+  background: linear-gradient(90deg, var(--pt-navy), var(--pt-orange));
+}
+
+/* Entrance: the one-time swing-in the rest of the site uses. The
+   private --card-flip-delay, not --reveal-delay: the global reveal
+   rules set that one and would overwrite the stagger. */
 .pd-card[data-reveal] {
   opacity: 0;
   transform: translateY(60px) translateZ(-180px) rotateX(6deg) rotateY(-55deg);
   transition:
     opacity 1.6s cubic-bezier(0.22, 1, 0.36, 1) var(--card-flip-delay, 0s),
-    transform 1.6s cubic-bezier(0.22, 1, 0.36, 1) var(--card-flip-delay, 0s);
+    transform 1.6s cubic-bezier(0.22, 1, 0.36, 1) var(--card-flip-delay, 0s),
+    box-shadow var(--pt-t), border-color var(--pt-t);
 }
-/* `transform: none`, not a reset to identity: it tears the transform
-   off entirely so no 3D context lingers around the inner flip. Safari
-   compounds the two otherwise and the back face arrives skewed. */
 .pd-card[data-reveal].is-in { opacity: 1; transform: none; }
+.pd-card:hover { box-shadow: var(--pt-shadow-md); border-color: var(--pt-blue); }
 
-.pd-card-inner {
-  display: grid;
-  height: 100%;
-  transform-style: preserve-3d;
-  transition: transform .62s cubic-bezier(.2, .8, .25, 1);
-}
-.pd-card.is-flipped .pd-card-inner { transform: rotateY(180deg); }
-
-.pd-face {
-  grid-area: 1 / 1;          /* both faces stacked, card takes the taller */
-  display: flex;
-  flex-direction: column;
-  gap: var(--pt-3);
-  padding: var(--pt-5);
-  background: var(--pt-surface);
-  border: 1px solid var(--pt-line);
-  border-radius: var(--pt-r);
-  box-shadow: var(--pt-shadow);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  /* The 0.31s delay is half of the 0.62s flip: the face swap lands at
-     the exact moment the card is edge-on, so it cannot be seen. */
-  transition:
-    box-shadow var(--pt-t),
-    border-color var(--pt-t),
-    visibility 0s linear .31s;
-}
-.pd-face-back {
-  transform: rotateY(180deg);
-  background: var(--pt-tint-soft);
-}
-
-/* WHY THE INACTIVE FACE IS `visibility: hidden` AND NOT JUST
-   `backface-visibility: hidden`.
-   WebKit ignores backface-visibility here. `transform-style:
-   preserve-3d` on a grid container is a long-standing weak spot, and
-   with the faces stacked in one grid cell Safari paints the back face
-   — rotated 180deg, so mirror-reversed — straight over the front. Hit
-   testing still finds the front, so it is purely a painting bug, and
-   purely a Safari one: Chromium renders it correctly. Caught in WebKit
-   with a screenshot, which is the only way it shows up.
-   Driving the swap from `visibility` instead makes the two faces
-   mutually exclusive by a rule every engine implements the same way.
-   backface-visibility stays as well: where it works it is free. */
-.pd-face-back { visibility: hidden; }
-.pd-card.is-flipped .pd-face-front { visibility: hidden; }
-.pd-card.is-flipped .pd-face-back  { visibility: visible; }
-.pd-card[data-flip-ready]:hover .pd-face {
-  box-shadow: var(--pt-shadow-md);
-  border-color: var(--pt-orange);
-}
-
-.pd-card-pop .pd-face { border-color: var(--pt-blue); }
-
+/* A bar across the top of the card, not a rotated corner ribbon. A
+   45deg banner has to be sized and offset to meet both edges exactly
+   or the text runs off the corner under overflow:hidden, which it
+   did, twice. A bar cannot be clipped and reads at a glance. */
 .pd-badge {
   position: absolute;
-  top: calc(var(--pt-3) * -1);
-  left: 50%;
-  transform: translateX(-50%);
+  inset: 0 0 auto;
   z-index: 3;
-  padding: 5px var(--pt-3);
+  padding: 6px 0;
   background: var(--pt-orange);
-  border-radius: var(--pt-r-pill);
   color: #fff;
+  text-align: center;
   font-family: var(--pt-display);
-  font-size: .64rem; font-weight: 700;
-  letter-spacing: .12em; text-transform: uppercase;
-  white-space: nowrap;
-  box-shadow: var(--pt-shadow);
+  font-size: .62rem; font-weight: 700;
+  letter-spacing: .16em; text-transform: uppercase;
 }
+/* The bar IS the accent strip on this card, so the gradient one goes. */
+.pd-card-pop { padding-top: calc(var(--pt-6) + 12px); }
+.pd-card-pop::before { display: none; }
 
 .pd-pkg-backdrop {
   font-family: var(--pt-display);
@@ -335,73 +385,48 @@ body.pd {
 }
 .pd-pkg-name {
   font-family: var(--pt-display);
-  font-size: 1.5rem; font-weight: 800; line-height: 1.1;
+  font-size: 1.55rem; font-weight: 800; line-height: 1.1;
   color: var(--pt-navy);
 }
+
+/* The number is the thing people are here to compare, so it is the
+   biggest type on the card by a long way. Orange as TYPE has to be
+   --pt-orange-ink: --pt-orange is 3.16:1 on white and fails for text. */
 .pd-price {
-  align-self: flex-start;
-  padding: 4px var(--pt-3);
-  background: var(--pt-tint-orange);
-  border: 1px solid var(--pt-orange);
-  border-radius: var(--pt-r-pill);
+  font-family: var(--pt-display);
+  font-size: clamp(2.6rem, 7vw, 3.2rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
   color: var(--pt-orange-ink);
-  font-size: 1.15rem; font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
-.pd-pkg-summary { color: var(--pt-ink-2); font-size: .95rem; }
+.pd-price::after {
+  content: '';
+  display: block;
+  width: 42px; height: 3px;
+  margin-top: var(--pt-3);
+  border-radius: 2px;
+  background: var(--pt-orange);
+}
 
-.pd-includes { display: grid; gap: var(--pt-2); }
+.pd-includes { display: grid; gap: var(--pt-2); margin-top: var(--pt-1); }
 .pd-includes li {
   display: grid;
   grid-template-columns: 18px 1fr;
   gap: var(--pt-2);
   align-items: start;
-  font-size: .94rem;
+  font-size: .95rem;
   color: var(--pt-ink-2);
 }
 .pd-includes svg {
-  width: 18px; height: 18px; margin-top: 2px;
+  width: 18px; height: 18px; margin-top: 3px;
   color: var(--pt-blue-mark);
 }
 
-/* Pushes the control to the bottom so all three cards line up. */
-.pd-face-foot { margin-top: auto; padding-top: var(--pt-2); }
-.pd-face-foot-back {
-  display: flex; flex-wrap: wrap; align-items: center;
-  gap: var(--pt-2) var(--pt-3);
-}
-.pd-face-foot-back .pd-flip { margin-left: 0; padding-inline: var(--pt-2); }
-
-.pd-flip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 10px var(--pt-3);
-  margin-left: calc(var(--pt-3) * -1);
-  color: var(--pt-navy);
-  font-size: .9rem; font-weight: 700;
-  border-radius: var(--pt-r-sm);
-  min-height: 44px;
-}
-.pd-flip:hover { color: var(--pt-orange-ink); }
-.pd-flip svg { width: 15px; height: 15px; }
-
-/* No JS, or reduced motion: no 3D at all. Both faces render stacked
-   and fully readable, the flip controls are removed, and nothing is
-   hidden behind a transform that will never run. */
-.pd-card:not([data-flip-ready]) .pd-card-inner { transform: none; }
-.pd-card:not([data-flip-ready]) .pd-face {
-  grid-area: auto;
-  backface-visibility: visible;
-  -webkit-backface-visibility: visible;
-  transform: none;
-}
-/* No JS: the attribute never arrives, so the fallback has to be keyed
-   on something JS cannot be late for. `pd-js` is set by an inline
-   script in <head>, before first paint, which is what keeps the back
-   face from flashing up mirrored on the way to being hidden. */
-html:not(.pd-js) .pd-card .pd-face-back { visibility: visible; }
-.pd-card:not([data-flip-ready]) .pd-face-front { border-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-.pd-card:not([data-flip-ready]) .pd-face-back  { border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
-.pd-card:not([data-flip-ready]) .pd-flip { display: none; }
+/* Pushes the button to the bottom so all three line up. */
+.pd-card-foot { margin-top: auto; padding-top: var(--pt-4); }
+.pd-card-foot .pt-btn { width: 100%; min-height: 46px; }
 
 /* ── add-ons ───────────────────────────────────────────────── */
 
@@ -430,42 +455,69 @@ html:not(.pd-js) .pd-card .pd-face-back { visibility: visible; }
 
 /* ── 4 · example poses ─────────────────────────────────────── */
 
-/* Three columns, and every tile is two rows tall. That makes a
-   one-column tile about 2:3 and a two-column tile about 3:2, which is
-   exactly what the portraits and the team photos are, so almost
-   nothing is cropped. Sixteen tiles with the two team photos at
-   positions 1 and 10 fill six bands with no ragged row: see the note
-   on `poses` in src/data/picture-day.ts before reordering them. */
+.pd-group { margin-top: var(--pt-6); }
+
+.pd-group-head {
+  display: flex; align-items: center; gap: var(--pt-3);
+  margin-bottom: var(--pt-4);
+  font-family: var(--pt-display);
+  font-size: .74rem; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--pt-navy);
+}
+.pd-group-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--pt-tint), transparent);
+}
+.pd-group-count {
+  flex: none;
+  padding: 2px 10px;
+  background: var(--pt-tint-navy);
+  border: 1px solid var(--pt-tint);
+  border-radius: var(--pt-r-pill);
+  color: var(--pt-navy-deep);
+  font-size: .68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Every frame in a group is the same shape, so the tile is set to
+   that shape and object-fit has nothing to crop. Portraits are 2:3,
+   team photos are 3:2. */
 .pd-collage {
-  margin-top: var(--pt-5);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-auto-rows: 15rem;
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--pt-3);
 }
+.pd-collage-wide { grid-template-columns: repeat(2, 1fr); }
+
 .pd-tile {
   position: relative;
   overflow: hidden;
   padding: 0;
+  aspect-ratio: 2 / 3;
   background: var(--pt-tint-soft);
   border: 1px solid var(--pt-line);
   border-radius: var(--pt-r-sm);
+  box-shadow: var(--pt-shadow);
+  transition: transform var(--pt-t), box-shadow var(--pt-t), border-color var(--pt-t);
 }
-.pd-tile-v { grid-row: span 2; }
-.pd-tile-w { grid-row: span 2; grid-column: span 2; }
+.pd-collage-wide .pd-tile { aspect-ratio: 3 / 2; }
+
 .pd-tile img {
   width: 100%; height: 100%;
   object-fit: cover;
-  /* Overridden per photo for the few frames where the athlete is on
-     the floor and sits low in the file. */
-  object-position: var(--pd-focus, center);
   transition: transform 420ms cubic-bezier(.2, .8, .25, 1);
 }
+button.pd-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--pt-shadow-md);
+  border-color: var(--pt-orange);
+}
 button.pd-tile:hover img { transform: scale(1.04); }
-button.pd-tile:hover { border-color: var(--pt-orange); }
 
-/* A tile with no file yet. It keeps the grid's shape so the collage
-   does not reflow when the photos land. */
+/* A tile with no file yet. It holds the grid's shape so the gallery
+   does not reflow when the photo lands. */
 .pd-tile-empty {
   display: grid; place-items: center;
   gap: 6px;
@@ -474,6 +526,7 @@ button.pd-tile:hover { border-color: var(--pt-orange); }
       var(--pt-tint-soft) 0 10px,
       var(--pt-surface-2) 10px 20px);
   color: var(--pt-muted);
+  box-shadow: none;
 }
 .pd-tile-empty svg { width: 26px; height: 26px; color: var(--pt-dim); }
 .pd-tile-empty span {
@@ -570,6 +623,17 @@ button.pd-tile:hover { border-color: var(--pt-orange); }
   background: linear-gradient(135deg, var(--pt-navy) 0%, var(--pt-navy-deep) 100%);
   color: #fff;
   text-align: center;
+  border-block: 0;
+}
+/* Beams from above, which is the look of the team photos' backdrop.
+   Three soft cones and a dot grid, all in white at low alpha. */
+.pd-close::before {
+  background-image:
+    radial-gradient(38% 68% at 18% -12%, rgba(255, 255, 255, .17), transparent 62%),
+    radial-gradient(32% 62% at 52% -16%, rgba(255, 255, 255, .13), transparent 62%),
+    radial-gradient(38% 68% at 84% -12%, rgba(255, 255, 255, .15), transparent 62%),
+    radial-gradient(circle, rgba(255, 255, 255, .06) 1px, transparent 1px);
+  background-size: auto, auto, auto, 24px 24px;
 }
 .pd-close h2 {
   font-family: var(--pt-display);
@@ -631,7 +695,66 @@ button.pd-tile:hover { border-color: var(--pt-orange); }
 }
 .pd [data-reveal]:not(.pd-card).is-in { opacity: 1; transform: none; }
 
+/* ── texture ───────────────────────────────────────────────────
+   The page is white, parent-facing and mostly type, which left it
+   reading flat. These are the only decorative rules in the file and
+   they are all gradients: no images, no extra requests, nothing that
+   can fail to load. Each one sits on a ::before behind the content,
+   so none of it is ever in front of a button.
+
+   Every value is drawn from the existing tokens. Where a token is
+   used at low alpha it is written out as an rgba of the same colour,
+   because colour-mix is still not safe everywhere.
+   ────────────────────────────────────────────────────────────── */
+
+.pd-section { position: relative; isolation: isolate; }
+.pd-section > .pd-wrap { position: relative; z-index: 1; }
+.pd-hero::before,
+.pd-band::before,
+.pd-close::before {
+  content: '';
+  position: absolute; inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Hero: a soft blue wash off the top right with a little warmth on the
+   left, over a fine dot grid. Reads as depth rather than decoration. */
+.pd-hero::before {
+  background-image:
+    radial-gradient(68% 56% at 82% -6%, rgba(98, 166, 219, .26), transparent 70%),
+    radial-gradient(52% 52% at -8% 22%, rgba(227, 112, 59, .09), transparent 70%),
+    radial-gradient(circle, rgba(38, 79, 160, .07) 1px, transparent 1px);
+  background-size: auto, auto, 22px 22px;
+}
+
+/* Tinted bands get a faint diagonal hatch and a lit top edge, so the
+   change of section is felt and not just a flat grey rectangle. */
+.pd-band::before {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, .85), transparent 220px),
+    repeating-linear-gradient(135deg,
+      transparent 0 14px,
+      rgba(38, 79, 160, .028) 14px 15px);
+}
+.pd-band { border-block: 1px solid var(--pt-line-soft); }
+
+/* A short orange bar under a section heading. The only orange on the
+   page that is not a price, the badge or the fee notice. */
+.pd-ruled::after {
+  content: '';
+  display: block;
+  width: 48px; height: 3px;
+  margin-top: var(--pt-3);
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--pt-orange), rgba(227, 112, 59, .25));
+}
+
 /* ── phone ─────────────────────────────────────────────────── */
+
+@media (max-width: 980px) {
+  .pd-collage { grid-template-columns: repeat(3, 1fr); }
+}
 
 @media (max-width: 760px) {
   .pd-section { padding-block: var(--pt-6); }
@@ -640,7 +763,7 @@ button.pd-tile:hover { border-color: var(--pt-orange); }
   .pd-cta-row { gap: var(--pt-2); }
   .pd-cta { width: 100%; }
 
-  .pd-slot { grid-template-columns: 6.4rem 1fr; padding: var(--pt-3); }
+  .pd-slot { grid-template-columns: 5.6rem 1fr; padding: var(--pt-2) var(--pt-3); }
   .pd-slot-team { font-size: 1.02rem; }
 
   /* The callout keeps its weight on a phone: a thicker top edge in
@@ -658,16 +781,9 @@ button.pd-tile:hover { border-color: var(--pt-orange); }
   .pd-steps { grid-template-columns: 1fr; }
   .pd-cards { max-width: 420px; margin-inline: auto; perspective: none; }
 
-  /* Both faces are stacked in one grid cell, so every card is as tall
-     as its own back. One card per row means nothing needs to line up
-     with a neighbour, so the front's content centres in that height
-     rather than leaving a dead gap above a bottom-pinned link. */
-  .pd-card[data-flip-ready] .pd-face-front { justify-content: center; }
-  .pd-card[data-flip-ready] .pd-face-front .pd-face-foot { margin-top: var(--pt-2); }
-
   /* No 55-degree swing on a phone: it reads as a glitch on a small
      screen and costs a repaint. Plain rise, same as every other
-     section. The two-sided tap flip is untouched. */
+     section. */
   .pd-card[data-reveal] {
     transform: translateY(26px);
     transition:
@@ -675,30 +791,31 @@ button.pd-tile:hover { border-color: var(--pt-orange); }
       transform .7s cubic-bezier(0.22, 1, 0.36, 1) var(--card-flip-delay, 0s);
   }
 
-  /* Two columns on a phone, so a team photo still spans the full
-     width and a portrait still lands near 2:3. */
-  .pd-collage { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 7.5rem; }
-
   .pd-addons { padding: var(--pt-4); }
 }
 
+@media (max-width: 620px) {
+  .pd-collage { grid-template-columns: repeat(2, 1fr); }
+  /* Two team photos side by side at phone width puts eleven athletes
+     in 165px. They stack instead, and stay readable. */
+  .pd-collage-wide { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 420px) {
-  .pd-slot { grid-template-columns: 5.9rem 1fr; gap: var(--pt-2); }
+  .pd-slot { grid-template-columns: 5rem 1fr; gap: var(--pt-2); }
+  .pd-slot-time { font-size: .82rem; padding-inline: 8px; }
 }
 
 /* Reduced motion: nothing moves and nothing is hidden waiting for a
    transition that will not fire. portal.css already clamps every
    transition under .pt; this makes the start state visible too. */
 @media (prefers-reduced-motion: reduce) {
-  /* The script leaves the cards unmarked under reduced motion, so both
-     faces render stacked and flat — and both have to be visible. */
-  .pd-card:not([data-flip-ready]) .pd-face-back { visibility: visible; }
-
   .pd [data-reveal],
   .pd [data-reveal].is-in,
   .pd .pd-card[data-reveal] {
     opacity: 1 !important;
     transform: none !important;
   }
-  .pd-tile img { transition: none; }
+  .pd-tile img,
+  button.pd-tile:hover img { transition: none; transform: none; }
 }

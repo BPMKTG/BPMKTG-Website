@@ -80,9 +80,7 @@ export interface Package {
   backdrop: string;
   name: string;
   price: string;
-  /** One line, on the front of the card. */
-  summary: string;
-  /** The full list, on the back. */
+  /** What you get, which is the whole card now that it has one side. */
   includes: string[];
   /** The orange "Most Popular" badge. Exactly one package has it. */
   popular: boolean;
@@ -94,7 +92,6 @@ export const packages: Package[] = [
     backdrop: 'White Backdrop',
     name: 'Classic',
     price: '$20',
-    summary: 'One individual photo, plus the team photo.',
     includes: [
       '1 individual photo',
       'Team photo included',
@@ -108,7 +105,6 @@ export const packages: Package[] = [
     backdrop: 'White Backdrop',
     name: 'Plus',
     price: '$30',
-    summary: 'Three individual photos, plus the team photo.',
     includes: [
       '3 individual photos',
       'Team photo included',
@@ -122,7 +118,6 @@ export const packages: Package[] = [
     backdrop: 'Rebelz Backdrop',
     name: 'Signature',
     price: '$45',
-    summary: 'Three individual photos on the Rebelz backdrop, plus the team photo.',
     includes: [
       '3 individual photos',
       'Team photo included',
@@ -167,52 +162,88 @@ export const venmoNote =
 
 /* ── example poses ────────────────────────────────────────────── */
 
-export interface Pose {
-  /** The filename, without extension, in
-   *  src/assets/images/picture-day/. A tile with no matching file
-   *  renders as a placeholder rather than disappearing, so the grid
-   *  keeps its shape before the photos land. */
+export interface Photo {
+  /** Filename without extension, in src/assets/images/picture-day/.
+   *  A slug with no file on disk renders a placeholder tile rather
+   *  than collapsing the grid. */
   slug: string;
   alt: string;
-  /** 'v' is one column, 'w' is two. Everything is two rows tall, so a
-   *  'v' lands on roughly 2:3 and a 'w' on roughly 3:2, which is what
-   *  the portraits and the team photos actually are. Barely any crop. */
-  orientation: 'v' | 'w';
-  /** object-position, for the few frames where the athlete sits low in
-   *  a tall file and a centred crop would cut their head off. */
-  focus?: string;
 }
 
 /**
- * The collage.
+ * The gallery, in the three groups a parent actually shops by: what
+ * the team photo looks like, what an individual looks like, and what a
+ * buddy shot looks like. Each group is its own uniform grid, so nothing
+ * is cropped: the team frames are 3:2 and every other frame is 2:3, and
+ * the tiles are set to match.
  *
- * ORDER MATTERS, and not for the reason it usually does. The grid is
- * three columns wide and every tile is two rows tall, so a 'w' takes
- * two of the three slots in its band. With the two team photos at
- * positions 1 and 10, the sixteen tiles fill six bands exactly and the
- * last row is not half empty. Moving a photo is fine; moving a team
- * photo means counting again.
+ * Add a photo by dropping the file in and adding a row to the right
+ * list. Order inside a list is the order on the page. Alt text is
+ * written per photo rather than generated, because "pose 14" tells a
+ * parent using a screen reader nothing at all.
  *
- * Alt text is written per photo rather than generated, because "pose 4"
- * tells a parent using a screen reader nothing at all.
+ * Not all of these are Rebelz. The individual and buddy lists also
+ * carry frames from recent soccer and college cheer shoots, which show
+ * poses a cheer athlete can copy and carry that club's branding in the
+ * corner. The section heading says so, so the other logos read as a
+ * portfolio rather than as a mistake.
  */
-export const poses: Pose[] = [
-  { slug: 'pose-01', orientation: 'w', alt: 'The Lady Legacy team photo, the squad lined up under purple stage lights' },
-  { slug: 'pose-02', orientation: 'v', alt: 'A cheerleader standing with one hand behind her head and the other on her hip' },
-  { slug: 'pose-03', orientation: 'v', alt: 'A cheerleader standing with her arms crossed, in the white and blue uniform' },
-  { slug: 'pose-04', orientation: 'v', alt: 'A cheerleader with her arms crossed, facing the camera straight on' },
-  { slug: 'pose-05', orientation: 'v', alt: 'A cheerleader holding a crown above her head with both hands' },
-  { slug: 'pose-06', orientation: 'v', alt: 'A cheerleader lifting a crown overhead, feet together and smiling' },
-  { slug: 'pose-07', orientation: 'v', alt: 'A cheerleader kneeling on one knee, turned to the side' },
-  { slug: 'pose-08', orientation: 'v', focus: 'center bottom', alt: 'A cheerleader seated on the floor with her legs extended, holding a crown above her head' },
-  { slug: 'pose-09', orientation: 'v', focus: 'center bottom', alt: 'A cheerleader lying on her front, chin in her hands, with a crown balanced on her shoe' },
-  { slug: 'pose-10', orientation: 'w', alt: 'The Rampage team photo, two rows of athletes under purple stage lights' },
-  { slug: 'pose-11', orientation: 'v', alt: 'Two teammates standing back to back, looking over their shoulders' },
-  { slug: 'pose-12', orientation: 'v', alt: 'Two teammates side by side with their inside hands joined overhead' },
-  { slug: 'pose-13', orientation: 'v', alt: 'One athlete sitting on a teammate\'s shoulders with both arms stretched wide' },
-  { slug: 'pose-14', orientation: 'v', alt: 'An athlete carrying a teammate on his shoulders while she holds a crown overhead' },
-  { slug: 'pose-15', orientation: 'v', alt: 'Two young teammates together, one kneeling and one standing' },
-  { slug: 'pose-16', orientation: 'v', focus: 'center bottom', alt: 'Two teammates lying on their fronts, smiling down at a crown between them' },
+
+export const teamShots: Photo[] = [
+  { slug: 'team-01', alt: 'The Lady Legacy team photo, the squad lined up under purple stage lights' },
+  { slug: 'team-02', alt: 'The Rampage team photo, two rows of athletes under purple stage lights' },
 ];
 
-export const OG_POSE_SLUG = 'pose-01';
+export const individualPoses: Photo[] = [
+  { slug: 'pose-02', alt: 'A cheerleader standing with one hand behind her head and the other on her hip' },
+  { slug: 'pose-03', alt: 'A cheerleader standing with her arms crossed, in the white and blue uniform' },
+  { slug: 'pose-04', alt: 'A cheerleader with her arms crossed, facing the camera straight on' },
+  { slug: 'pose-05', alt: 'A cheerleader holding a crown above her head with both hands' },
+  { slug: 'pose-06', alt: 'A cheerleader lifting a crown overhead, feet together and smiling' },
+  { slug: 'pose-07', alt: 'A cheerleader kneeling on one knee, turned to the side' },
+  { slug: 'pose-08', alt: 'A cheerleader seated on the floor with her legs extended, holding a crown above her head' },
+  { slug: 'pose-09', alt: 'A cheerleader lying on her front, chin in her hands, with a crown balanced on her shoe' },
+  { slug: 'pose-22', alt: 'A soccer player balancing the ball on her foot with her hands pressed together' },
+  { slug: 'pose-23', alt: 'A soccer player standing tall and pointing straight at the camera' },
+  { slug: 'pose-24', alt: 'A soccer player wrapped in a flag, looking back over her shoulder' },
+  { slug: 'pose-25', alt: 'A soccer player laughing with one knee lifted and both arms loose' },
+  { slug: 'pose-26', alt: 'A soccer player in a cowboy hat, arms folded, balancing the ball on her foot' },
+  { slug: 'pose-27', alt: 'A soccer player holding a flag spread wide behind her shoulders' },
+  { slug: 'pose-34', alt: 'A college cheerleader with one hand behind her head, a pom raised in the other' },
+  { slug: 'pose-35', alt: 'A college cheerleader holding up a painted team sign with both hands' },
+  { slug: 'pose-36', alt: 'A college cheerleader pointing at the camera, one hand on her hip' },
+  { slug: 'pose-37', alt: 'A college cheerleader in a jazz stand with one pom high and one low' },
+  { slug: 'pose-38', alt: 'A college cheerleader spinning a basketball on one finger' },
+];
+
+export const buddyPoses: Photo[] = [
+  { slug: 'buddy_pose-28', alt: 'Two teammates standing back to back, looking over their shoulders' },
+  { slug: 'buddy_pose-29', alt: 'Two teammates side by side with their inside hands joined overhead' },
+  { slug: 'buddy_pose-30', alt: 'One athlete sitting on a teammate\'s shoulders with both arms stretched wide' },
+  { slug: 'buddy_pose-31', alt: 'An athlete carrying a teammate on his shoulders while she holds a crown overhead' },
+  { slug: 'buddy_pose-32', alt: 'Two young teammates together, one kneeling and one standing' },
+  { slug: 'buddy_pose-33', alt: 'Two teammates lying on their fronts, smiling down at a crown between them' },
+  { slug: 'buddy_pose-34', alt: 'A soccer player lifting a teammate across her hip, both laughing' },
+  { slug: 'buddy_pose-35', alt: 'Two soccer teammates, one lying on the floor and one crouching behind her' },
+  { slug: 'buddy_pose-36', alt: 'Three soccer teammates stacked on the floor with their heads resting on each other' },
+  { slug: 'buddy_pose-37', alt: 'Two soccer teammates in sunglasses with the ball between their feet' },
+  { slug: 'buddy_pose-38', alt: 'Two soccer teammates in cowboy hats, back to back and pointing at the camera' },
+  { slug: 'buddy_pose-39', alt: 'Three college cheerleaders piled on one another, laughing' },
+  { slug: 'buddy_pose-40', alt: 'Two college cheerleaders with a painted sign and a raised pom' },
+  { slug: 'buddy_pose-41', alt: 'Two college cheerleaders standing with a sign each, held chest high' },
+  { slug: 'buddy_pose-42', alt: 'Two college cheerleaders kneeling, holding a sign each above their knees' },
+  { slug: 'buddy_pose-43', alt: 'One college cheerleader carrying a teammate across both arms' },
+  { slug: 'buddy_pose-44', alt: 'Two college cheerleaders, one lying on the floor and one seated behind her' },
+];
+
+/** The three groups in page order, each with the heading it gets. */
+export const photoGroups: Array<{ id: string; label: string; wide: boolean; photos: Photo[] }> = [
+  { id: 'team',       label: 'Example team shots', wide: true,  photos: teamShots },
+  { id: 'individual', label: 'Individual poses',   wide: false, photos: individualPoses },
+  { id: 'buddy',      label: 'Buddy poses',        wide: false, photos: buddyPoses },
+];
+
+/** The frame that fronts the link in a text message, cropped to
+ *  1200x630. A team photo, because it has to read at thumbnail size
+ *  in iMessage. */
+export const OG_POSE_SLUG = 'team-01';

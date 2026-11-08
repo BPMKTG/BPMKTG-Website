@@ -3,11 +3,23 @@
 // phone. The jump link is there because the single most common reason
 // this page gets opened is "what time is my kid's team" — that answer
 // should never be more than one tap away.
+import { Image } from 'astro:assets';
 import PdCtas from './PdCtas.astro';
 import { event } from '../../data/picture-day';
+
+// The team photo, shown as a print beside the headline. Looked up
+// through the glob rather than imported by name so that deleting the
+// file degrades to a one-column hero instead of failing the build —
+// same contract as every other photo on this page.
+const glob = import.meta.glob<{ default: ImageMetadata }>(
+  '../../assets/images/picture-day/team-01.{jpg,jpeg,png}',
+  { eager: true }
+);
+const heroShot = Object.values(glob)[0]?.default;
 ---
 <section class="pd-section pd-hero">
   <div class="pd-wrap">
+    <div class="pd-hero-copy">
     <p class="pd-when" data-reveal>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -36,5 +48,24 @@ import { event } from '../../data/picture-day';
         <path d="M12 5v14M6 13l6 6 6-6" />
       </svg>
     </a>
+    </div>
+
+    {heroShot && (
+      <div class="pd-hero-art" data-reveal style="--reveal-delay:.12s">
+        {/* Decorative: the same frame appears in the gallery below with
+            its own alt text, so a screen reader should not hear it twice. */}
+        <figure class="pd-print" aria-hidden="true">
+          <Image
+            src={heroShot}
+            alt=""
+            widths={[420, 840, 1260]}
+            sizes="(max-width: 900px) 92vw, 46vw"
+            loading="eager"
+            fetchpriority="high"
+          />
+          <figcaption>Every package includes the team photo</figcaption>
+        </figure>
+      </div>
+    )}
   </div>
 </section>

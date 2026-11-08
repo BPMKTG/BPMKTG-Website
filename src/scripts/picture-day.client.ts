@@ -8,9 +8,8 @@
 // that would query for elements this page does not have.
 //
 // Everything here degrades to nothing: with no JS the page is fully
-// readable, every link works, and the package cards render flat with
-// both faces showing (see .pd-card:not([data-flip-ready]) in
-// picture-day.css).
+// readable, every link works, every price and every pose photo is on
+// screen, and the only thing missing is the lightbox.
 
 const reduced =
   typeof matchMedia === 'function'
@@ -64,72 +63,6 @@ function initReveal(): void {
       continue;
     }
     (el.dataset.reveal === 'flip' ? late : soon).observe(el);
-  }
-}
-
-/* ── package cards ────────────────────────────────────────────── */
-
-/** Just past the 0.31s visibility delay in picture-day.css, which is
- *  half of the 0.62s turn. The two have to move together. */
-const SWAP_MS = 330;
-
-function initFlips(): void {
-  // Under reduced motion the cards are never marked ready, which is
-  // what makes the CSS render both faces flat and drop the controls.
-  if (reduced) return;
-
-  for (const card of document.querySelectorAll<HTMLElement>('[data-pd-card]')) {
-    const front = card.querySelector<HTMLElement>('[data-pd-face="front"]');
-    const back = card.querySelector<HTMLElement>('[data-pd-face="back"]');
-    const open = card.querySelector<HTMLButtonElement>('.pd-face-front .pd-flip');
-    const close = card.querySelector<HTMLButtonElement>('[data-pd-back]');
-    if (!front || !back || !open || !close) continue;
-
-    // Only now does the card claim to be flippable.
-    card.dataset.flipReady = '';
-    back.toggleAttribute('inert', true);
-
-    let pending: number | undefined;
-
-    const flip = (show: boolean) => {
-      card.classList.toggle('is-flipped', show);
-      open.setAttribute('aria-expanded', String(show));
-
-      // The handoff waits for the faces to actually swap.
-      //
-      // The arriving face is `visibility: hidden` until the card is
-      // edge-on, and an element inside a hidden subtree cannot take
-      // focus — calling .focus() before the swap is a silent no-op,
-      // and the next line marking the old face inert then drops focus
-      // to <body>. So: let the user keep the control they just used
-      // for the first half of the turn, and move focus once the new
-      // face is really there.
-      if (pending) clearTimeout(pending);
-      pending = window.setTimeout(() => {
-        const arriving = show ? back : front;
-        const leaving = show ? front : back;
-        // inert blurs what it contains, so the arriving face is opened
-        // up and focused before the leaving one is shut.
-        arriving.toggleAttribute('inert', false);
-        (show
-          ? arriving.querySelector<HTMLElement>('a, button')
-          : open
-        )?.focus();
-        leaving.toggleAttribute('inert', true);
-      }, SWAP_MS);
-    };
-
-    open.addEventListener('click', () => flip(true));
-    close.addEventListener('click', () => flip(false));
-
-    // Escape closes the card that is currently showing its back, which
-    // is what anyone who has used a flip card expects.
-    card.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && card.classList.contains('is-flipped')) {
-        event.stopPropagation();
-        flip(false);
-      }
-    });
   }
 }
 
@@ -193,7 +126,6 @@ function initLightbox(): void {
 
 const start = () => {
   initReveal();
-  initFlips();
   initLightbox();
 };
 

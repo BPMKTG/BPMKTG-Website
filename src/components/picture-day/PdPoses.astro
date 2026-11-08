@@ -1,18 +1,23 @@
 ---
-// 4 · Example poses.
+// 4 · Example poses, in the three groups a parent shops by.
 //
-// Same convention as the wedding gallery: drop
-// `src/assets/images/picture-day/<slug>.jpg` and that tile fills in.
-// Tile shape comes from `orientation` in the data file either way, so
-// the collage rhythm is already right before a single photo exists.
+// Team shots, individual poses, buddy poses. Each group is its own
+// uniform grid: the team frames are 3:2 and everything else is 2:3,
+// and the tiles are set to the matching aspect-ratio, so object-fit
+// has nothing to crop. That is also why there is no per-photo focus
+// value any more; there is no crop to steer.
 //
-// The whole section renders only once at least one real photo is on
-// disk. A wall of hatched placeholders is worse than no wall, and this
-// page goes out to parents by text, so it should never show them
-// scaffolding. Add the files and the section appears on the next build,
-// with no code change.
+// Same convention as the wedding gallery: drop a file in
+// src/assets/images/picture-day/ and add a row to the right list in
+// src/data/picture-day.ts. A row with no file renders a placeholder
+// rather than collapsing the grid, and the whole section hides itself
+// while no real photo exists at all.
+//
+// The lightbox is indexed across every group, so Next walks the team
+// shots into the individuals and on into the buddies, which is what
+// someone browsing expects.
 import { Image, getImage } from 'astro:assets';
-import { poses } from '../../data/picture-day';
+import { photoGroups } from '../../data/picture-day';
 
 const glob = import.meta.glob<{ default: ImageMetadata }>(
   '../../assets/images/picture-day/*.{jpg,jpeg,png}',
@@ -25,75 +30,91 @@ for (const [path, mod] of Object.entries(glob)) {
   bySlug[slug] = mod.default;
 }
 
-const tiles = await Promise.all(
-  poses.map(async pose => {
-    const src = bySlug[pose.slug];
-    return {
-      ...pose,
-      src,
-      full: src
-        ? (await getImage({ src, width: 1600, format: 'webp', quality: 86 })).src
-        : undefined,
-    };
-  })
+// One running index across all three groups, so the lightbox can walk
+// the whole gallery in page order.
+let n = 0;
+const groups = await Promise.all(
+  photoGroups.map(async group => ({
+    ...group,
+    tiles: await Promise.all(
+      group.photos.map(async photo => {
+        const src = bySlug[photo.slug];
+        return {
+          ...photo,
+          src,
+          index: src ? n++ : -1,
+          full: src
+            ? (await getImage({ src, width: 1600, format: 'webp', quality: 86 })).src
+            : undefined,
+        };
+      })
+    ),
+  }))
 );
 
-const hasAny = tiles.some(t => t.src);
+const live = groups.filter(g => g.tiles.some(t => t.src));
 ---
-{hasAny && (
+{live.length > 0 && (
   <section class="pd-section" id="poses">
     <div class="pd-wrap">
       <header class="pd-head">
         <p class="pd-eyebrow" data-reveal>Example poses</p>
-        <h2 class="pd-h2" data-reveal style="--reveal-delay:.05s">A few to choose from</h2>
+        <h2 class="pd-h2 pd-ruled" data-reveal style="--reveal-delay:.05s">Pick a look</h2>
         <p class="pd-lede" data-reveal style="--reveal-delay:.08s">
-          Pick your poses at the table, or come with one in mind. Tap any
-          photo to see it bigger.
+          Poses from recent Blueprint shoots, cheer and otherwise, so you
+          can see what reads well on camera. Come with one in mind or
+          choose at the table. Tap any photo to see it bigger.
         </p>
       </header>
 
-      <div class="pd-collage" data-reveal role="group" aria-label="Example poses">
-        {tiles.map((tile, i) => (
-          tile.src ? (
-            <button
-              type="button"
-              class:list={['pd-tile', `pd-tile-${tile.orientation}`]}
-              data-pd-photo
-              data-full={tile.full}
-              data-caption={tile.alt}
-              data-index={i}
-              aria-label={`See a larger view: ${tile.alt}`}
-              style={tile.focus ? `--pd-focus:${tile.focus}` : undefined}
-            >
-              <Image
-                src={tile.src}
-                alt={tile.alt}
-                widths={[340, 680, 1020]}
-                sizes="(max-width: 760px) 50vw, 33vw"
-                loading="lazy"
-                decoding="async"
-              />
-            </button>
-          ) : (
-            <div
-              class:list={['pd-tile', 'pd-tile-empty', `pd-tile-${tile.orientation}`]}
-              aria-hidden="true"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="5" width="18" height="14" rx="2" />
-                <circle cx="12" cy="12" r="3.2" />
-              </svg>
-              <span>Coming soon</span>
-            </div>
-          )
-        ))}
-      </div>
+      {live.map(group => (
+        <section class="pd-group" aria-labelledby={`grp-${group.id}`}>
+          <h3 class="pd-group-head" id={`grp-${group.id}`} data-reveal>
+            <span class="pd-group-name">{group.label}</span>
+            <span class="pd-group-rule" aria-hidden="true"></span>
+            <span class="pd-group-count">{group.tiles.filter(t => t.src).length}</span>
+          </h3>
+
+          <div class:list={['pd-collage', { 'pd-collage-wide': group.wide }]}>
+            {group.tiles.map(tile => (
+              tile.src ? (
+                <button
+                  type="button"
+                  class="pd-tile"
+                  data-pd-photo
+                  data-full={tile.full}
+                  data-caption={tile.alt}
+                  aria-label={`See a larger view: ${tile.alt}`}
+                >
+                  <Image
+                    src={tile.src}
+                    alt={tile.alt}
+                    widths={group.wide ? [460, 920, 1380] : [280, 560, 840]}
+                    sizes={group.wide
+                      ? '(max-width: 760px) 100vw, 50vw'
+                      : '(max-width: 520px) 50vw, (max-width: 980px) 33vw, 25vw'}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </button>
+              ) : (
+                <div class="pd-tile pd-tile-empty" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                       stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <circle cx="12" cy="12" r="3.2" />
+                  </svg>
+                  <span>Coming soon</span>
+                </div>
+              )
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
 
-    {/* Lightbox. Same shape as the wedding gallery's: a real <dialog>,
-        so Escape, the backdrop and focus trapping are the platform's
-        job rather than ours. */}
+    {/* Same shape as the wedding gallery's: a real <dialog>, so Escape,
+        the backdrop and focus trapping are the platform's job. */}
     <dialog class="pd-lb" data-pd-lb aria-label="Larger view of the photo">
       <img data-pd-lb-img src="" alt="" />
       <div class="pd-lb-bar">
