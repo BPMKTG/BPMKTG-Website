@@ -280,7 +280,12 @@ body.pd {
    full width, the biggest body type on the page, and the only solid
    orange edge. It is NOT allowed to become fine print on a phone. */
 
-.pd-fee {
+/* The page's one loud voice. The arrival fee uses it under the
+   schedule and the pose policy uses it under the gallery lede: both are
+   rules that cost a parent something if they miss them, so they get the
+   same box rather than two competing ones. */
+.pd-fee,
+.pd-alert {
   display: flex;
   align-items: flex-start;
   gap: var(--pt-4);
@@ -292,15 +297,19 @@ body.pd {
   border-radius: var(--pt-r);
   box-shadow: var(--pt-shadow-md);
 }
-.pd-fee-icon {
+.pd-fee-icon,
+.pd-alert-icon {
   flex: none;
   width: 34px; height: 34px;
   margin-top: 1px;
   color: var(--pt-orange-ink);
 }
-.pd-fee-icon svg { width: 100%; height: 100%; }
-.pd-fee-body { min-width: 0; }
-.pd-fee-label {
+.pd-fee-icon svg,
+.pd-alert-icon svg { width: 100%; height: 100%; }
+.pd-fee-body,
+.pd-alert-body { min-width: 0; }
+.pd-fee-label,
+.pd-alert-label {
   display: block;
   margin-bottom: 6px;
   font-family: var(--pt-display);
@@ -308,13 +317,20 @@ body.pd {
   letter-spacing: .14em; text-transform: uppercase;
   color: var(--pt-orange-ink);
 }
-.pd-fee-text {
-  font-size: clamp(1.05rem, 4.2vw, 1.3rem);
+.pd-fee-text,
+.pd-alert-text {
+  /* The floor is what matters: these are the two rules that cost a
+     parent something, and at 375px a 4.2vw line lands under 16px, which
+     is the fine print this is supposed not to be. */
+  font-size: clamp(1.15rem, 5vw, 1.4rem);
   font-weight: 700;
   line-height: 1.35;
   color: var(--pt-ink);
 }
-.pd-fee-text b { color: var(--pt-orange-ink); }
+.pd-fee-text b,
+.pd-alert-text b { color: var(--pt-orange-ink); }
+/* The gallery's alert has groups under it, not the end of a section. */
+.pd-alert { margin-bottom: var(--pt-6); }
 
 /* ── 3 · packages ──────────────────────────────────────────── */
 
@@ -813,14 +829,16 @@ button.pd-tile:hover img { transform: scale(1.04); }
 
   /* The callout keeps its weight on a phone: a thicker top edge in
      place of the side one, and the type does not drop below 1.05rem. */
-  .pd-fee {
+  .pd-fee,
+  .pd-alert {
     flex-direction: column;
     gap: var(--pt-3);
     padding: var(--pt-4);
     border-left-width: 1px;
     border-top: 6px solid var(--pt-orange);
   }
-  .pd-fee-icon { width: 30px; height: 30px; }
+  .pd-fee-icon,
+  .pd-alert-icon { width: 30px; height: 30px; }
 
   .pd-cards,
   .pd-steps { grid-template-columns: 1fr; }

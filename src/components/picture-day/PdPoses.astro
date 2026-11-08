@@ -20,7 +20,7 @@
 // on several. Alt text comes from the group and is numbered here, so a
 // screen reader gets "Example buddy pose 4 of 17" and nothing invented.
 import { Image, getImage } from 'astro:assets';
-import { photoGroups } from '../../data/picture-day';
+import { photoGroups, poseNotice } from '../../data/picture-day';
 
 const glob = import.meta.glob<{ default: ImageMetadata }>(
   '../../assets/images/picture-day/*.{jpg,jpeg,png}',
@@ -62,6 +62,12 @@ const groups = await Promise.all(
 );
 
 const live = groups.filter(g => g.tiles.some(t => t.src));
+
+// Same split as the fee callout: the sentence lives in the data file, so
+// the emphasis is found in it rather than stored as markup.
+const cut = poseNotice.text.indexOf(poseNotice.emphasis);
+const noteBefore = cut < 0 ? poseNotice.text : poseNotice.text.slice(0, cut);
+const noteAfter = cut < 0 ? '' : poseNotice.text.slice(cut + poseNotice.emphasis.length);
 ---
 {live.length > 0 && (
   <section class="pd-section" id="poses">
@@ -71,11 +77,26 @@ const live = groups.filter(g => g.tiles.some(t => t.src));
         <h2 class="pd-h2 pd-ruled" data-reveal style="--reveal-delay:.05s">Pick a look</h2>
         <p class="pd-lede" data-reveal style="--reveal-delay:.08s">
           Poses from recent Blueprint shoots, cheer and otherwise, so you
-          can see what reads well on camera. Poses must be chosen ahead of
-          time. Athletes who don't know what poses they want will be asked
-          to get in the back of the line. Tap any photo to see it bigger.
+          can see what reads well on camera. Tap any photo to see it bigger.
         </p>
       </header>
+
+      {/* The same <aside role="note"> as the arrival fee, for the same
+          reason: a screen reader should announce it as its own thing,
+          not run it on from the lede. */}
+      <aside class="pd-alert" role="note" aria-label="Pose selection policy" data-reveal>
+        <span class="pd-alert-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+            <path d="M12 9v4M12 17h.01" />
+          </svg>
+        </span>
+        <div class="pd-alert-body">
+          <span class="pd-alert-label">Before you come</span>
+          <p class="pd-alert-text">{noteBefore}<b>{poseNotice.emphasis}</b>{noteAfter}</p>
+        </div>
+      </aside>
 
       {live.map(group => (
         <section class="pd-group" aria-labelledby={`grp-${group.id}`}>

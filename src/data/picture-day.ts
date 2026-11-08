@@ -163,6 +163,22 @@ export const venmoNote =
 /* ── example poses ────────────────────────────────────────────── */
 
 /**
+ * The pose rule, as one sentence, in the same shape as `feeNotice`.
+ *
+ * It gets the loud box under the gallery lede rather than a clause
+ * inside it, because an athlete who turns up without a pose in mind
+ * holds up every team behind them. `emphasis` is the phrase set in
+ * orange; it has to appear in `text` or it is simply not highlighted.
+ */
+export const poseNotice = {
+  emphasis: 'chosen ahead of time',
+  text:
+    'Poses must be chosen ahead of time. Athletes who do not know what '
+    + 'poses they want will be asked to get in the back of the line.',
+} as const;
+
+
+/**
  * The gallery, in the three groups a parent actually shops by: what the
  * team photo looks like, what an individual looks like, and what a buddy
  * shot looks like. Each group is its own uniform grid, so nothing is
