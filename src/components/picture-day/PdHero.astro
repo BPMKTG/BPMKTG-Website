@@ -20,7 +20,16 @@ const heroShot = Object.values(glob)[0]?.default;
 <section class="pd-section pd-hero">
   <div class="pd-wrap">
     <div class="pd-hero-copy">
-    <p class="pd-when" data-reveal>
+    {/* The page has no header of its own, so the wordmark goes here:
+        a parent who got this link in a group text should be able to
+        see whose page it is without scrolling to the bottom. */}
+    <a class="pd-brand" href="https://blueprint-marketing.com"
+       target="_blank" rel="noopener" data-reveal>
+      <img src="/brand/logo-header-navy.svg" alt="Blueprint Marketing"
+           width="180" height="56" />
+    </a>
+
+    <p class="pd-when" data-reveal style="--reveal-delay:.04s">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="3" y="5" width="18" height="16" rx="2" />

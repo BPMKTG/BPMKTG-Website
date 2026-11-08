@@ -15,7 +15,10 @@
 //
 // The lightbox is indexed across every group, so Next walks the team
 // shots into the individuals and on into the buddies, which is what
-// someone browsing expects.
+// someone browsing expects. It carries no written caption: a sentence
+// describing a pose is noise next to the pose itself, and it was wrong
+// on several. Alt text comes from the group and is numbered here, so a
+// screen reader gets "Example buddy pose 4 of 17" and nothing invented.
 import { Image, getImage } from 'astro:assets';
 import { photoGroups } from '../../data/picture-day';
 
@@ -34,22 +37,28 @@ for (const [path, mod] of Object.entries(glob)) {
 // the whole gallery in page order.
 let n = 0;
 const groups = await Promise.all(
-  photoGroups.map(async group => ({
-    ...group,
-    tiles: await Promise.all(
-      group.photos.map(async photo => {
-        const src = bySlug[photo.slug];
-        return {
-          ...photo,
-          src,
-          index: src ? n++ : -1,
-          full: src
-            ? (await getImage({ src, width: 1600, format: 'webp', quality: 86 })).src
-            : undefined,
-        };
-      })
-    ),
-  }))
+  photoGroups.map(async group => {
+    const present = group.slugs.filter(slug => bySlug[slug]).length;
+    let seen = 0;
+    return {
+      ...group,
+      present,
+      tiles: await Promise.all(
+        group.slugs.map(async slug => {
+          const src = bySlug[slug];
+          return {
+            slug,
+            src,
+            index: src ? n++ : -1,
+            alt: src ? `${group.alt} ${++seen} of ${present}` : '',
+            full: src
+              ? (await getImage({ src, width: 1600, format: 'webp', quality: 86 })).src
+              : undefined,
+          };
+        })
+      ),
+    };
+  })
 );
 
 const live = groups.filter(g => g.tiles.some(t => t.src));
@@ -62,8 +71,9 @@ const live = groups.filter(g => g.tiles.some(t => t.src));
         <h2 class="pd-h2 pd-ruled" data-reveal style="--reveal-delay:.05s">Pick a look</h2>
         <p class="pd-lede" data-reveal style="--reveal-delay:.08s">
           Poses from recent Blueprint shoots, cheer and otherwise, so you
-          can see what reads well on camera. Come with one in mind or
-          choose at the table. Tap any photo to see it bigger.
+          can see what reads well on camera. Poses must be chosen ahead of
+          time. Athletes who don't know what poses they want will be asked
+          to get in the back of the line. Tap any photo to see it bigger.
         </p>
       </header>
 
@@ -83,8 +93,7 @@ const live = groups.filter(g => g.tiles.some(t => t.src));
                   class="pd-tile"
                   data-pd-photo
                   data-full={tile.full}
-                  data-caption={tile.alt}
-                  aria-label={`See a larger view: ${tile.alt}`}
+                  aria-label={`See a larger view of ${tile.alt}`}
                 >
                   <Image
                     src={tile.src}
@@ -118,7 +127,6 @@ const live = groups.filter(g => g.tiles.some(t => t.src));
     <dialog class="pd-lb" data-pd-lb aria-label="Larger view of the photo">
       <img data-pd-lb-img src="" alt="" />
       <div class="pd-lb-bar">
-        <p class="pd-lb-cap" data-pd-lb-cap></p>
         <div class="pd-lb-nav">
           <button type="button" class="pd-lb-btn" data-pd-lb-prev aria-label="Previous photo">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

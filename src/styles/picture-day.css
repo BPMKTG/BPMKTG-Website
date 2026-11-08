@@ -187,6 +187,19 @@ body.pd {
   .pd-print { transform: none; }
 }
 
+/* The wordmark, above the date. Sized by height so the SVG's own
+   437x135 viewBox decides the width, and the tap target is the link,
+   not the image. */
+.pd-brand {
+  display: inline-block;
+  margin-bottom: var(--pt-5);
+  border-radius: var(--pt-r-sm);
+  transition: opacity var(--pt-t);
+}
+.pd-brand img { display: block; width: auto; height: 34px; }
+.pd-brand:hover { opacity: .75; }
+.pd-brand:focus-visible { outline: 2px solid var(--pt-navy); outline-offset: 4px; }
+
 .pd-hero h1 {
   font-family: var(--pt-display);
   font-size: clamp(2rem, 9vw, 3.4rem);
@@ -339,9 +352,6 @@ body.pd {
   background: linear-gradient(90deg, var(--pt-navy), var(--pt-blue));
 }
 .pd-card-pop { border-color: var(--pt-blue); box-shadow: var(--pt-shadow-md); }
-.pd-card-pop::before {
-  background: linear-gradient(90deg, var(--pt-navy), var(--pt-orange));
-}
 
 /* Entrance: the one-time swing-in the rest of the site uses. The
    private --card-flip-delay, not --reveal-delay: the global reveal
@@ -366,7 +376,7 @@ body.pd {
   inset: 0 0 auto;
   z-index: 3;
   padding: 6px 0;
-  background: var(--pt-orange);
+  background: linear-gradient(90deg, var(--pt-navy), var(--pt-blue));
   color: #fff;
   text-align: center;
   font-family: var(--pt-display);
@@ -376,6 +386,40 @@ body.pd {
 /* The bar IS the accent strip on this card, so the gradient one goes. */
 .pd-card-pop { padding-top: calc(var(--pt-6) + 12px); }
 .pd-card-pop::before { display: none; }
+
+/* The moving outline from the featured offer card on the home page
+   (.tier.featured in global.css), ported onto the token set here. A
+   conic gradient spun by an @property angle, masked down to a ring so
+   only the border shows. It rides INSIDE the card's overflow:hidden,
+   which is why the inset is 0 rather than the home page's -1.5px.
+   Browsers without @property cannot animate the angle, so they get no
+   ring at all rather than a stationary smear. */
+@property --pd-trace { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+.pd-card-pop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from var(--pd-trace),
+    rgba(98, 166, 219, 0) 0%,
+    rgba(98, 166, 219, .95) 12%,
+    rgba(38, 79, 160, 1) 28%,
+    rgba(98, 166, 219, .95) 44%,
+    rgba(98, 166, 219, 0) 60%,
+    rgba(98, 166, 219, 0) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: pdTrace 5s linear infinite;
+  pointer-events: none;
+}
+@keyframes pdTrace { to { --pd-trace: 360deg; } }
+@supports not (background: conic-gradient(from 0deg, red, blue)) {
+  .pd-card-pop::after { display: none; }
+}
 
 .pd-pkg-backdrop {
   font-family: var(--pt-display);
@@ -551,11 +595,12 @@ button.pd-tile:hover img { transform: scale(1.04); }
   background: var(--pt-surface);
 }
 .pd-lb-bar {
-  display: flex; align-items: center; justify-content: space-between;
+  /* The caption that used to sit on the left is gone, so the controls
+     are all there is: they go to the right rather than drifting left. */
+  display: flex; align-items: center; justify-content: flex-end;
   gap: var(--pt-3);
   margin-top: var(--pt-3);
 }
-.pd-lb-cap { color: #fff; font-size: .9rem; }
 .pd-lb-btn {
   display: inline-grid; place-items: center;
   width: 44px; height: 44px;
@@ -818,4 +863,7 @@ button.pd-tile:hover img { transform: scale(1.04); }
   }
   .pd-tile img,
   button.pd-tile:hover img { transition: none; transform: none; }
+  /* The outline stops moving, but stays: it is how the popular card is
+     marked, so it should not vanish with the animation. */
+  .pd-card-pop::after { animation: none; --pd-trace: 300deg; }
 }

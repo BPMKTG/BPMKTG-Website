@@ -76,8 +76,7 @@ function initLightbox(): void {
   if (!dialog || !tiles.length || typeof dialog.showModal !== 'function') return;
 
   const img = dialog.querySelector<HTMLImageElement>('[data-pd-lb-img]');
-  const cap = dialog.querySelector<HTMLElement>('[data-pd-lb-cap]');
-  if (!img || !cap) return;
+  if (!img) return;
 
   let at = 0;
 
@@ -85,8 +84,9 @@ function initLightbox(): void {
     at = (index + tiles.length) % tiles.length;   // wraps both ways
     const tile = tiles[at];
     img.src = tile.dataset.full ?? '';
-    img.alt = tile.dataset.caption ?? '';
-    cap.textContent = tile.dataset.caption ?? '';
+    // The tile's own <img> carries the alt; no written caption is shown
+    // under the picture, so the alt is all there is to carry across.
+    img.alt = tile.querySelector('img')?.alt ?? '';
   };
 
   for (const [index, tile] of tiles.entries()) {

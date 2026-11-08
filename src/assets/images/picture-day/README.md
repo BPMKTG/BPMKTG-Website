@@ -28,15 +28,21 @@ a photo any more.
 
 1. Drop the file in here with the right prefix (`.jpg`, `.jpeg` and
    `.png` all work).
-2. Add a row to the matching list in `src/data/picture-day.ts`:
-   `teamShots`, `individualPoses` or `buddyPoses`. Write real alt text.
-   A slug with no file renders a placeholder tile rather than collapsing
-   the grid, and a file with no row is simply not shown.
+2. Add its slug to the matching list in `src/data/picture-day.ts`:
+   `teamShots`, `individualPoses` or `buddyPoses`. The list holds plain
+   filenames, nothing else. A slug with no file renders a placeholder
+   tile rather than collapsing the grid, and a file with no slug is
+   simply not shown.
 
 Order inside a list is the order on the page, and the group counts in
-the headings are computed, so nothing needs updating by hand. There is
-no `focus` field any more: every tile's `aspect-ratio` matches its
-photos, so `object-fit: cover` crops nothing.
+the headings are computed, so nothing needs updating by hand.
+
+There is no written description per photo, and nothing to write. Alt
+text comes from the group (`Example buddy pose 4 of 17`), which is short
+and always true; the first pass described each scene and was wrong often
+enough to be worse than nothing. There is no `focus` field either: every
+tile's `aspect-ratio` matches its photos, so `object-fit: cover` crops
+nothing and there is no crop to steer.
 
 ## Sizes
 
