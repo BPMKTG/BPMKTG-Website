@@ -1,0 +1,77 @@
+---
+// Shell for the unlisted /picture-day page.
+//
+// Deliberately NOT Layout.astro (dark, starfield canvas, EDM header that
+// links into the artist funnel) and deliberately NOT PortalLayout.astro
+// (which hard-codes no-store/no-referrer for signed-in clients and emits
+// no description or OG tags at all). This page is handed out as a link in
+// a team group text, so unlike the portal it NEEDS a title, a description
+// and an OG image, and unlike the marketing site it needs to stay out of
+// search. Same reasoning as WeddingLayout: a separate audience gets a
+// separate shell rather than a pile of flags on a shared one.
+//
+// It borrows the portal's design system wholesale — portal.css is already
+// the site's white-background, blue-and-orange, AA-contrast token set —
+// by putting `pt` on <body>, which is the class every rule in that file
+// scopes itself to. `pd` is this page's own namespace on top.
+import '../styles/portal.css';
+import '../styles/picture-day.css';
+
+interface Props {
+  title: string;
+  description: string;
+  /** Absolute URL. Omitted when no pose photo exists yet: a link preview
+   *  with a title and no picture beats one pointing at a missing file. */
+  ogImage?: string;
+  noindex?: boolean;
+}
+
+const { title, description, ogImage, noindex = true } = Astro.props;
+
+// Texts and iMessage need an absolute URL. Astro.site is set in
+// astro.config.mjs, so this resolves at build time.
+const pageUrl = new URL(Astro.url.pathname, Astro.site).href;
+---
+<!doctype html>
+<html lang="en" class="pt-html">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#ffffff" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+
+    <link rel="icon" type="image/svg+xml" href="/brand/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Roboto:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Link previews. The page gets passed around by text, so this is
+         the first thing most parents see of it. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={pageUrl} />
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    <title>{title}</title>
+
+    <!-- Marks the document as scripted before the first paint. The
+         package cards hide their back face by default, which is right
+         once the flip script runs and wrong if it never does; this is
+         what lets the no-JS fallback show the back face without a
+         flash of it while the script is still loading. -->
+    <script is:inline>document.documentElement.classList.add('pd-js');</script>
+  </head>
+  <body class="pt pd">
+    <a class="pd-skip" href="#schedule">Skip to the team schedule</a>
+    <main>
+      <slot />
+    </main>
+  </body>
+</html>

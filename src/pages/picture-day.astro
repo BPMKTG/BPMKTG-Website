@@ -1,0 +1,74 @@
+---
+// /picture-day — Rebelz Cheer Picture Day.
+//
+// Unlisted: noindex, not in any nav, handed out as a link. See
+// public/_headers for the matching X-Robots-Tag, which is what actually
+// binds for a crawler that never parses the HTML.
+//
+// Content, prices and times are all in src/data/picture-day.ts.
+import { getImage } from 'astro:assets';
+import PictureDayLayout from '../layouts/PictureDayLayout.astro';
+import PdHero from '../components/picture-day/PdHero.astro';
+import PdSchedule from '../components/picture-day/PdSchedule.astro';
+import PdPackages from '../components/picture-day/PdPackages.astro';
+import PdPoses from '../components/picture-day/PdPoses.astro';
+import PdHowTo from '../components/picture-day/PdHowTo.astro';
+import PdClose from '../components/picture-day/PdClose.astro';
+import { event, poses, OG_POSE_SLUG } from '../data/picture-day';
+
+// The link preview. This page gets passed around by text message more
+// than it gets visited from anywhere else, so the card that renders in
+// iMessage IS the landing page for most parents.
+//
+// The image comes from a pose photo once one exists on disk: the named
+// one if it is there, otherwise the first that is. While the folder is
+// empty no og:image is emitted at all, which gives a title-and-text
+// preview rather than a card pointing at a file that 404s.
+const ogGlob = import.meta.glob<{ default: ImageMetadata }>(
+  '../assets/images/picture-day/*.{jpg,jpeg,png}',
+  { eager: true }
+);
+const ogBySlug: Record<string, ImageMetadata> = {};
+for (const [path, mod] of Object.entries(ogGlob)) {
+  ogBySlug[path.split('/').pop()!.replace(/\.(jpg|jpeg|png)$/, '')] = mod.default;
+}
+const ogSource =
+  ogBySlug[OG_POSE_SLUG]
+  ?? poses.map(p => ogBySlug[p.slug]).find(Boolean);
+
+const ogImage = ogSource
+  ? new URL(
+      (await getImage({
+        src: ogSource,
+        width: 1200,
+        height: 630,
+        fit: 'cover',
+        format: 'jpeg',
+        quality: 82,
+      })).src,
+      Astro.site,
+    ).href
+  : undefined;
+
+const description =
+  `Picture day is ${event.dateLong} at ${event.venue}. Find your team's time, `
+  + 'pick a package from $20, and order online.';
+---
+<PictureDayLayout
+  title={`Rebelz Cheer Picture Day · ${event.dateShort.replace('Sunday, ', '')}`}
+  description={description}
+  ogImage={ogImage}
+>
+  <PdHero />
+  <PdSchedule />
+  <PdPackages />
+  <PdPoses />
+  <PdHowTo />
+  <PdClose />
+
+  <p class="pd-foot">Photography by Blueprint Marketing.</p>
+
+  <script>
+    import '../scripts/picture-day.client.ts';
+  </script>
+</PictureDayLayout>

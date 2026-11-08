@@ -1,0 +1,35 @@
+---
+// 5 · How to order. Three steps and the one instruction people get
+// wrong: an unlabelled Venmo payment is impossible to match to an
+// athlete, so it gets its own line rather than a clause inside step 2.
+import { steps, venmoNote } from '../../data/picture-day';
+---
+<section class="pd-section pd-band" id="how-to-order">
+  <div class="pd-wrap">
+    <header class="pd-head">
+      <p class="pd-eyebrow" data-reveal>How to order</p>
+      <h2 class="pd-h2" data-reveal style="--reveal-delay:.05s">Three steps</h2>
+    </header>
+
+    <ol class="pd-steps">
+      {steps.map((step, i) => (
+        <li class="pd-step" data-reveal style={`--reveal-delay:${i * 0.08}s`}>
+          <span class="pd-step-n" aria-hidden="true">{i + 1}</span>
+          <div>
+            <h3>{step.title}</h3>
+            <p>{step.detail}</p>
+          </div>
+        </li>
+      ))}
+    </ol>
+
+    <p class="pd-note" data-reveal>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 8h.01M11 12h1v4h1" />
+      </svg>
+      {venmoNote}
+    </p>
+  </div>
+</section>

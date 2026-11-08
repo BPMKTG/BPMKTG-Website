@@ -29,3 +29,13 @@
   X-Robots-Tag: noindex, nofollow, noarchive
   Cache-Control: no-store
   Referrer-Policy: no-referrer
+
+# Rebelz Cheer picture day. Unlisted but public: handed out as a link in
+# a team group text, so unlike /portal it SHOULD be cached and its link
+# preview should work. Only the indexing rule is shared.
+# Both spellings: the built page is /picture-day/index.html, so a
+# visitor can land on either and a rule for one does not cover the other.
+/picture-day
+  X-Robots-Tag: noindex, nofollow
+/picture-day/
+  X-Robots-Tag: noindex, nofollow

@@ -1,0 +1,693 @@
+/* ──────────────────────────────────────────────────────────────
+   /picture-day — Rebelz Cheer Picture Day.
+
+   GLOBAL and namespaced under .pd, for the same reason portal.css is
+   global: these rules are shared across the page's components, and an
+   Astro scoped <style> cannot reach markup in a sibling component.
+   Every selector here starts at .pd so nothing leaks.
+
+   This page imports portal.css first and puts `pt` on <body>, so the
+   whole --pt-* token set is already in scope. NO new hex values are
+   defined here. The contrast discipline from portal.css carries over
+   unchanged:
+     --pt-blue and --pt-orange are fills and edges, never type.
+     Orange type is --pt-orange-ink. Label type is --pt-muted.
+
+   Colour plan: blues carry the page (headings, times, buttons, the
+   closing band); orange appears four times only — price tags, the
+   "Most Popular" badge, the arrival-fee callout, and button hovers.
+   ────────────────────────────────────────────────────────────── */
+
+/* The portal's app background is #f6f9fc. This page is white, with
+   tinted bands doing the section separation instead. */
+body.pd {
+  background: var(--pt-surface);
+  font-size: 16px;   /* parents, phones, one hand on a toddler */
+}
+
+/* ── structure ─────────────────────────────────────────────── */
+
+.pd-wrap {
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-inline: var(--pt-4);
+}
+
+.pd-section { padding-block: var(--pt-7); }
+.pd-band    { background: var(--pt-tint-soft); }
+.pd-band-2  { background: var(--pt-surface-2); }
+
+.pd-skip {
+  position: absolute; left: 50%; top: 0;
+  transform: translate(-50%, -120%);
+  z-index: 80;
+  padding: 10px var(--pt-4);
+  background: var(--pt-navy); color: #fff;
+  border-bottom-left-radius: var(--pt-r-sm);
+  border-bottom-right-radius: var(--pt-r-sm);
+  font-size: .85rem; font-weight: 600;
+}
+.pd-skip:focus { transform: translate(-50%, 0); text-decoration: none; }
+
+/* ── headings ──────────────────────────────────────────────── */
+
+.pd-eyebrow {
+  font-family: var(--pt-display);
+  font-size: .7rem; font-weight: 700;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--pt-muted);
+}
+
+.pd-h2 {
+  font-family: var(--pt-display);
+  font-size: clamp(1.35rem, 5.2vw, 1.9rem);
+  font-weight: 800; line-height: 1.15;
+  letter-spacing: -0.005em;
+  color: var(--pt-navy);
+}
+
+.pd-lede {
+  margin-top: var(--pt-3);
+  max-width: 54ch;
+  color: var(--pt-ink-2);
+  font-size: 1rem;
+}
+
+.pd-head { margin-bottom: var(--pt-5); }
+.pd-head .pd-eyebrow { margin-bottom: var(--pt-2); }
+
+/* ── buttons ───────────────────────────────────────────────── */
+/* Built on .pt-btn from portal.css, sized up: these are the only two
+   things on the page a parent actually has to hit, often one-handed. */
+
+.pd-cta {
+  padding: 14px var(--pt-5);
+  border-radius: var(--pt-r-sm);
+  font-size: 1rem;
+  min-height: 52px;
+}
+.pd-cta-row {
+  display: flex; flex-wrap: wrap; gap: var(--pt-3);
+  margin-top: var(--pt-5);
+}
+/* Hover is where orange is allowed to show up on a blue control. */
+.pd .pt-btn-primary.pd-cta:hover {
+  background: var(--pt-navy-deep);
+  border-color: var(--pt-orange);
+  box-shadow: inset 0 -3px 0 var(--pt-orange);
+}
+.pd .pt-btn.pd-cta:not(.pt-btn-primary) {
+  border-color: var(--pt-navy);
+  color: var(--pt-navy);
+  background: var(--pt-surface);
+}
+.pd .pt-btn.pd-cta:not(.pt-btn-primary):hover {
+  background: var(--pt-tint-soft);
+  border-color: var(--pt-orange);
+  color: var(--pt-navy-deep);
+}
+
+.pd-jump {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: var(--pt-4);
+  color: var(--pt-navy);
+  font-size: .9rem; font-weight: 600;
+}
+.pd-jump:hover { color: var(--pt-orange-ink); }
+
+/* ── 1 · hero ──────────────────────────────────────────────── */
+
+.pd-hero { padding-block: var(--pt-8) var(--pt-7); }
+
+.pd-hero h1 {
+  font-family: var(--pt-display);
+  font-size: clamp(2rem, 9vw, 3.4rem);
+  font-weight: 800; line-height: 1.04;
+  letter-spacing: -0.015em;
+  color: var(--pt-navy);
+}
+
+.pd-when {
+  display: inline-flex; align-items: center; flex-wrap: wrap;
+  gap: var(--pt-2);
+  margin-bottom: var(--pt-4);
+  padding: 7px var(--pt-4);
+  background: var(--pt-tint-navy);
+  border: 1px solid var(--pt-tint);
+  border-radius: var(--pt-r-pill);
+  color: var(--pt-navy-deep);
+  font-size: .9rem; font-weight: 700;
+}
+.pd-when svg { width: 16px; height: 16px; color: var(--pt-navy); }
+.pd-when-sep { color: var(--pt-blue-mark); }
+
+.pd-hero .pd-lede { font-size: 1.05rem; max-width: 46ch; }
+
+/* ── 2 · schedule ──────────────────────────────────────────── */
+
+.pd-slots {
+  margin-top: var(--pt-5);
+  display: grid;
+  gap: var(--pt-2);
+}
+
+.pd-slot {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  align-items: center;
+  gap: var(--pt-3);
+  padding: var(--pt-3) var(--pt-4);
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-left: 4px solid var(--pt-blue);
+  border-radius: var(--pt-r-sm);
+  box-shadow: var(--pt-shadow);
+}
+.pd-slot-time {
+  color: var(--pt-navy);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  white-space: nowrap;
+}
+.pd-slot-team {
+  font-family: var(--pt-display);
+  font-size: 1.1rem; font-weight: 700;
+  letter-spacing: .01em;
+  color: var(--pt-ink);
+}
+
+/* ── the arrival fee ──────────────────────────────────────────
+   The one line on this page that costs money to miss. It gets the
+   full width, the biggest body type on the page, and the only solid
+   orange edge. It is NOT allowed to become fine print on a phone. */
+
+.pd-fee {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--pt-4);
+  margin-top: var(--pt-5);
+  padding: var(--pt-5);
+  background: var(--pt-tint-orange);
+  border: 1px solid var(--pt-orange);
+  border-left: 6px solid var(--pt-orange);
+  border-radius: var(--pt-r);
+  box-shadow: var(--pt-shadow-md);
+}
+.pd-fee-icon {
+  flex: none;
+  width: 34px; height: 34px;
+  margin-top: 1px;
+  color: var(--pt-orange-ink);
+}
+.pd-fee-icon svg { width: 100%; height: 100%; }
+.pd-fee-body { min-width: 0; }
+.pd-fee-label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--pt-display);
+  font-size: .72rem; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--pt-orange-ink);
+}
+.pd-fee-text {
+  font-size: clamp(1.05rem, 4.2vw, 1.3rem);
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--pt-ink);
+}
+.pd-fee-text b { color: var(--pt-orange-ink); }
+
+/* ── 3 · packages ──────────────────────────────────────────── */
+
+.pd-cards {
+  margin-top: var(--pt-5);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--pt-5);
+  /* Shared 3D context for the entrance, same as the site's offer
+     cards: one perspective on the grid so the three cards swing in
+     from the same vanishing point rather than three of their own. */
+  perspective: 1800px;
+  perspective-origin: center 40%;
+}
+
+.pd-card {
+  position: relative;
+  /* The card's own perspective, for the inner two-sided flip. The
+     grid's perspective applies to the card, not to its child. */
+  perspective: 1400px;
+  border-radius: var(--pt-r);
+}
+
+/* Entrance: the one-time flip-IN the rest of the site uses. Note the
+   private --card-flip-delay rather than --reveal-delay: the global
+   reveal rules set that one, and it would be overwritten. */
+.pd-card[data-reveal] {
+  opacity: 0;
+  transform: translateY(60px) translateZ(-180px) rotateX(6deg) rotateY(-55deg);
+  transition:
+    opacity 1.6s cubic-bezier(0.22, 1, 0.36, 1) var(--card-flip-delay, 0s),
+    transform 1.6s cubic-bezier(0.22, 1, 0.36, 1) var(--card-flip-delay, 0s);
+}
+/* `transform: none`, not a reset to identity: it tears the transform
+   off entirely so no 3D context lingers around the inner flip. Safari
+   compounds the two otherwise and the back face arrives skewed. */
+.pd-card[data-reveal].is-in { opacity: 1; transform: none; }
+
+.pd-card-inner {
+  display: grid;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform .62s cubic-bezier(.2, .8, .25, 1);
+}
+.pd-card.is-flipped .pd-card-inner { transform: rotateY(180deg); }
+
+.pd-face {
+  grid-area: 1 / 1;          /* both faces stacked, card takes the taller */
+  display: flex;
+  flex-direction: column;
+  gap: var(--pt-3);
+  padding: var(--pt-5);
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r);
+  box-shadow: var(--pt-shadow);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* The 0.31s delay is half of the 0.62s flip: the face swap lands at
+     the exact moment the card is edge-on, so it cannot be seen. */
+  transition:
+    box-shadow var(--pt-t),
+    border-color var(--pt-t),
+    visibility 0s linear .31s;
+}
+.pd-face-back {
+  transform: rotateY(180deg);
+  background: var(--pt-tint-soft);
+}
+
+/* WHY THE INACTIVE FACE IS `visibility: hidden` AND NOT JUST
+   `backface-visibility: hidden`.
+   WebKit ignores backface-visibility here. `transform-style:
+   preserve-3d` on a grid container is a long-standing weak spot, and
+   with the faces stacked in one grid cell Safari paints the back face
+   — rotated 180deg, so mirror-reversed — straight over the front. Hit
+   testing still finds the front, so it is purely a painting bug, and
+   purely a Safari one: Chromium renders it correctly. Caught in WebKit
+   with a screenshot, which is the only way it shows up.
+   Driving the swap from `visibility` instead makes the two faces
+   mutually exclusive by a rule every engine implements the same way.
+   backface-visibility stays as well: where it works it is free. */
+.pd-face-back { visibility: hidden; }
+.pd-card.is-flipped .pd-face-front { visibility: hidden; }
+.pd-card.is-flipped .pd-face-back  { visibility: visible; }
+.pd-card[data-flip-ready]:hover .pd-face {
+  box-shadow: var(--pt-shadow-md);
+  border-color: var(--pt-orange);
+}
+
+.pd-card-pop .pd-face { border-color: var(--pt-blue); }
+
+.pd-badge {
+  position: absolute;
+  top: calc(var(--pt-3) * -1);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 5px var(--pt-3);
+  background: var(--pt-orange);
+  border-radius: var(--pt-r-pill);
+  color: #fff;
+  font-family: var(--pt-display);
+  font-size: .64rem; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: var(--pt-shadow);
+}
+
+.pd-pkg-backdrop {
+  font-family: var(--pt-display);
+  font-size: .66rem; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--pt-muted);
+}
+.pd-pkg-name {
+  font-family: var(--pt-display);
+  font-size: 1.5rem; font-weight: 800; line-height: 1.1;
+  color: var(--pt-navy);
+}
+.pd-price {
+  align-self: flex-start;
+  padding: 4px var(--pt-3);
+  background: var(--pt-tint-orange);
+  border: 1px solid var(--pt-orange);
+  border-radius: var(--pt-r-pill);
+  color: var(--pt-orange-ink);
+  font-size: 1.15rem; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.pd-pkg-summary { color: var(--pt-ink-2); font-size: .95rem; }
+
+.pd-includes { display: grid; gap: var(--pt-2); }
+.pd-includes li {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: var(--pt-2);
+  align-items: start;
+  font-size: .94rem;
+  color: var(--pt-ink-2);
+}
+.pd-includes svg {
+  width: 18px; height: 18px; margin-top: 2px;
+  color: var(--pt-blue-mark);
+}
+
+/* Pushes the control to the bottom so all three cards line up. */
+.pd-face-foot { margin-top: auto; padding-top: var(--pt-2); }
+.pd-face-foot-back {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--pt-2) var(--pt-3);
+}
+.pd-face-foot-back .pd-flip { margin-left: 0; padding-inline: var(--pt-2); }
+
+.pd-flip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px var(--pt-3);
+  margin-left: calc(var(--pt-3) * -1);
+  color: var(--pt-navy);
+  font-size: .9rem; font-weight: 700;
+  border-radius: var(--pt-r-sm);
+  min-height: 44px;
+}
+.pd-flip:hover { color: var(--pt-orange-ink); }
+.pd-flip svg { width: 15px; height: 15px; }
+
+/* No JS, or reduced motion: no 3D at all. Both faces render stacked
+   and fully readable, the flip controls are removed, and nothing is
+   hidden behind a transform that will never run. */
+.pd-card:not([data-flip-ready]) .pd-card-inner { transform: none; }
+.pd-card:not([data-flip-ready]) .pd-face {
+  grid-area: auto;
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+  transform: none;
+}
+/* No JS: the attribute never arrives, so the fallback has to be keyed
+   on something JS cannot be late for. `pd-js` is set by an inline
+   script in <head>, before first paint, which is what keeps the back
+   face from flashing up mirrored on the way to being hidden. */
+html:not(.pd-js) .pd-card .pd-face-back { visibility: visible; }
+.pd-card:not([data-flip-ready]) .pd-face-front { border-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.pd-card:not([data-flip-ready]) .pd-face-back  { border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+.pd-card:not([data-flip-ready]) .pd-flip { display: none; }
+
+/* ── add-ons ───────────────────────────────────────────────── */
+
+.pd-addons {
+  margin-top: var(--pt-5);
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--pt-3) var(--pt-5);
+  padding: var(--pt-4) var(--pt-5);
+  background: var(--pt-surface);
+  border: 1px dashed var(--pt-line-strong);
+  border-radius: var(--pt-r);
+}
+.pd-addons-label {
+  font-family: var(--pt-display);
+  font-size: .7rem; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--pt-muted);
+}
+.pd-addon { display: inline-flex; align-items: baseline; gap: var(--pt-2); }
+.pd-addon-label { font-weight: 600; color: var(--pt-ink); }
+.pd-addon-price {
+  color: var(--pt-orange-ink);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 4 · example poses ─────────────────────────────────────── */
+
+.pd-collage {
+  margin-top: var(--pt-5);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 11rem;
+  gap: var(--pt-3);
+}
+.pd-tile {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  background: var(--pt-tint-soft);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r-sm);
+}
+.pd-tile-v { grid-row: span 2; }
+.pd-tile-w { grid-column: span 2; }
+.pd-tile img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 420ms cubic-bezier(.2, .8, .25, 1);
+}
+button.pd-tile:hover img { transform: scale(1.04); }
+button.pd-tile:hover { border-color: var(--pt-orange); }
+
+/* A tile with no file yet. It keeps the grid's shape so the collage
+   does not reflow when the photos land. */
+.pd-tile-empty {
+  display: grid; place-items: center;
+  gap: 6px;
+  background:
+    repeating-linear-gradient(135deg,
+      var(--pt-tint-soft) 0 10px,
+      var(--pt-surface-2) 10px 20px);
+  color: var(--pt-muted);
+}
+.pd-tile-empty svg { width: 26px; height: 26px; color: var(--pt-dim); }
+.pd-tile-empty span {
+  font-size: .68rem; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase;
+}
+
+/* lightbox — same shape as the wedding gallery's */
+.pd-lb {
+  width: min(94vw, 1100px);
+  max-width: none;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.pd-lb::backdrop { background: rgba(35, 42, 59, .82); }
+.pd-lb img {
+  width: 100%; height: auto;
+  max-height: 86vh;
+  object-fit: contain;
+  border-radius: var(--pt-r);
+  background: var(--pt-surface);
+}
+.pd-lb-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--pt-3);
+  margin-top: var(--pt-3);
+}
+.pd-lb-cap { color: #fff; font-size: .9rem; }
+.pd-lb-btn {
+  display: inline-grid; place-items: center;
+  width: 44px; height: 44px;
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: var(--pt-r-pill);
+  color: #fff;
+}
+.pd-lb-btn:hover { background: rgba(255,255,255,.26); }
+.pd-lb-btn svg { width: 20px; height: 20px; }
+.pd-lb-nav { display: flex; gap: var(--pt-2); }
+.pd .pd-lb :focus-visible { outline-color: #fff; }
+
+/* ── 5 · how to order ──────────────────────────────────────── */
+
+.pd-steps {
+  margin-top: var(--pt-5);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--pt-4);
+  counter-reset: pd-step;
+}
+.pd-step {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: var(--pt-3);
+  align-items: start;
+  padding: var(--pt-4);
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r);
+  box-shadow: var(--pt-shadow);
+}
+.pd-step-n {
+  display: grid; place-items: center;
+  width: 38px; height: 38px;
+  background: var(--pt-navy);
+  border-radius: var(--pt-r-pill);
+  color: #fff;
+  font-family: var(--pt-display);
+  font-size: 1rem; font-weight: 700;
+}
+.pd-step h3 {
+  font-size: 1rem; font-weight: 700;
+  color: var(--pt-ink);
+  margin-bottom: 3px;
+}
+.pd-step p { color: var(--pt-ink-2); font-size: .93rem; }
+
+.pd-note {
+  display: flex; align-items: center; gap: var(--pt-3);
+  margin-top: var(--pt-4);
+  padding: var(--pt-4);
+  background: var(--pt-tint-navy);
+  border: 1px solid var(--pt-tint);
+  border-radius: var(--pt-r);
+  color: var(--pt-navy-deep);
+  font-weight: 600;
+}
+.pd-note svg { flex: none; width: 20px; height: 20px; color: var(--pt-navy); }
+
+/* ── 6 · closing band ──────────────────────────────────────── */
+
+.pd-close {
+  background: linear-gradient(135deg, var(--pt-navy) 0%, var(--pt-navy-deep) 100%);
+  color: #fff;
+  text-align: center;
+}
+.pd-close h2 {
+  font-family: var(--pt-display);
+  font-size: clamp(1.4rem, 5.5vw, 2.1rem);
+  font-weight: 800; line-height: 1.12;
+  color: #fff;
+}
+.pd-close p { margin-top: var(--pt-3); color: rgba(255,255,255,.86); }
+.pd-close-when {
+  display: inline-flex; align-items: center; gap: var(--pt-2);
+  margin-bottom: var(--pt-4);
+  padding: 6px var(--pt-4);
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: var(--pt-r-pill);
+  font-size: .85rem; font-weight: 700;
+  letter-spacing: .04em;
+}
+.pd-close .pd-cta-row { justify-content: center; }
+.pd-close .pd .pt-btn, .pd-close .pt-btn { }
+.pd-close .pt-btn-primary.pd-cta {
+  background: var(--pt-orange);
+  border-color: var(--pt-orange);
+  color: #fff;
+}
+.pd-close .pt-btn-primary.pd-cta:hover {
+  background: #cf6132; border-color: #cf6132; box-shadow: none;
+}
+.pd-close .pt-btn.pd-cta:not(.pt-btn-primary) {
+  background: transparent;
+  border-color: rgba(255,255,255,.55);
+  color: #fff;
+}
+.pd-close .pt-btn.pd-cta:not(.pt-btn-primary):hover {
+  background: rgba(255,255,255,.14);
+  border-color: #fff;
+  color: #fff;
+}
+.pd-close :focus-visible { outline-color: #fff; }
+
+.pd-foot {
+  padding-block: var(--pt-5);
+  text-align: center;
+  color: var(--pt-muted);
+  font-size: .82rem;
+}
+
+/* ── reveal ────────────────────────────────────────────────── */
+/* Same contract as the rest of the site: [data-reveal] starts hidden,
+   the observer adds .is-in. The flip cards override the transform
+   above; everything else just rises. */
+
+.pd [data-reveal]:not(.pd-card) {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity .7s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s),
+    transform .7s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0s);
+}
+.pd [data-reveal]:not(.pd-card).is-in { opacity: 1; transform: none; }
+
+/* ── phone ─────────────────────────────────────────────────── */
+
+@media (max-width: 760px) {
+  .pd-section { padding-block: var(--pt-6); }
+  .pd-hero { padding-block: var(--pt-6) var(--pt-6); }
+
+  .pd-cta-row { gap: var(--pt-2); }
+  .pd-cta { width: 100%; }
+
+  .pd-slot { grid-template-columns: 6.4rem 1fr; padding: var(--pt-3); }
+  .pd-slot-team { font-size: 1.02rem; }
+
+  /* The callout keeps its weight on a phone: a thicker top edge in
+     place of the side one, and the type does not drop below 1.05rem. */
+  .pd-fee {
+    flex-direction: column;
+    gap: var(--pt-3);
+    padding: var(--pt-4);
+    border-left-width: 1px;
+    border-top: 6px solid var(--pt-orange);
+  }
+  .pd-fee-icon { width: 30px; height: 30px; }
+
+  .pd-cards,
+  .pd-steps { grid-template-columns: 1fr; }
+  .pd-cards { max-width: 420px; margin-inline: auto; perspective: none; }
+
+  /* Both faces are stacked in one grid cell, so every card is as tall
+     as its own back. One card per row means nothing needs to line up
+     with a neighbour, so the front's content centres in that height
+     rather than leaving a dead gap above a bottom-pinned link. */
+  .pd-card[data-flip-ready] .pd-face-front { justify-content: center; }
+  .pd-card[data-flip-ready] .pd-face-front .pd-face-foot { margin-top: var(--pt-2); }
+
+  /* No 55-degree swing on a phone: it reads as a glitch on a small
+     screen and costs a repaint. Plain rise, same as every other
+     section. The two-sided tap flip is untouched. */
+  .pd-card[data-reveal] {
+    transform: translateY(26px);
+    transition:
+      opacity .7s cubic-bezier(0.22, 1, 0.36, 1) var(--card-flip-delay, 0s),
+      transform .7s cubic-bezier(0.22, 1, 0.36, 1) var(--card-flip-delay, 0s);
+  }
+
+  .pd-collage { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 8.5rem; }
+
+  .pd-addons { padding: var(--pt-4); }
+}
+
+@media (max-width: 420px) {
+  .pd-slot { grid-template-columns: 5.9rem 1fr; gap: var(--pt-2); }
+}
+
+/* Reduced motion: nothing moves and nothing is hidden waiting for a
+   transition that will not fire. portal.css already clamps every
+   transition under .pt; this makes the start state visible too. */
+@media (prefers-reduced-motion: reduce) {
+  /* The script leaves the cards unmarked under reduced motion, so both
+     faces render stacked and flat — and both have to be visible. */
+  .pd-card:not([data-flip-ready]) .pd-face-back { visibility: visible; }
+
+  .pd [data-reveal],
+  .pd [data-reveal].is-in,
+  .pd .pd-card[data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .pd-tile img { transition: none; }
+}

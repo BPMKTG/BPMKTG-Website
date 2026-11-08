@@ -1,0 +1,111 @@
+---
+// 3 · Packages, as the site's spinning cards.
+//
+// Two separate motions, deliberately:
+//
+//   1. The ENTRANCE is the one the rest of the site already uses
+//      (OfferStack, WedPackages): a one-time 3D swing-in on scroll,
+//      staggered, driven by [data-reveal="flip"] and a private
+//      --card-flip-delay. Restyled for white here, same timing curve.
+//   2. The FLIP is new, because a package card has two sides: price on
+//      the front, what you actually get on the back.
+//
+// The entrance resets to `transform: none` rather than to an identity
+// transform, so by the time anyone can tap a card there is no outer 3D
+// context left for the inner flip to compound with. Safari is the one
+// that punishes getting this wrong.
+//
+// Accessibility: the flip is a real <button> with aria-expanded, the
+// hidden face is marked inert so its link never collects focus behind
+// the card, and if JS has not run (or the reader prefers reduced
+// motion) the card never gets data-flip-ready, which makes the CSS
+// render both faces stacked and flat with the flip controls removed.
+// Nothing on the back is ever unreachable.
+import { packages, ORDER_FORM_URL, addOns } from '../../data/picture-day';
+---
+<section class="pd-section" id="packages">
+  <div class="pd-wrap">
+    <header class="pd-head">
+      <p class="pd-eyebrow" data-reveal>Packages</p>
+      <h2 class="pd-h2" data-reveal style="--reveal-delay:.05s">Pick a package</h2>
+      <p class="pd-lede" data-reveal style="--reveal-delay:.08s">
+        Every package includes the team photo. Tap a card to see exactly
+        what comes with it.
+      </p>
+    </header>
+
+    <div class="pd-cards">
+      {packages.map((pkg, i) => (
+        <article
+          class:list={['pd-card', { 'pd-card-pop': pkg.popular }]}
+          data-reveal="flip"
+          data-pd-card
+          style={`--card-flip-delay:${i * 0.3}s`}
+        >
+          {pkg.popular && <span class="pd-badge">Most Popular</span>}
+
+          <div class="pd-card-inner">
+            <!-- front -->
+            <div class="pd-face pd-face-front" data-pd-face="front">
+              <p class="pd-pkg-backdrop">{pkg.backdrop}</p>
+              <h3 class="pd-pkg-name">{pkg.name}</h3>
+              <p class="pd-price">{pkg.price}</p>
+              <p class="pd-pkg-summary">{pkg.summary}</p>
+              <p class="pd-face-foot">
+                <button type="button" class="pd-flip" aria-expanded="false"
+                        id={`flip-${pkg.id}`} aria-controls={`back-${pkg.id}`}>
+                  What's included
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                </button>
+              </p>
+            </div>
+
+            <!-- back -->
+            <div class="pd-face pd-face-back" id={`back-${pkg.id}`} data-pd-face="back">
+              <p class="pd-pkg-backdrop">{pkg.backdrop} · {pkg.price}</p>
+              <h3 class="pd-pkg-name">{pkg.name}</h3>
+              <ul class="pd-includes">
+                {pkg.includes.map(line => (
+                  <li>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+              <div class="pd-face-foot pd-face-foot-back">
+                <a class="pt-btn pt-btn-primary" href={ORDER_FORM_URL}
+                   target="_blank" rel="noopener">
+                  Order this package
+                </a>
+                <button type="button" class="pd-flip" data-pd-back
+                        aria-expanded="true" aria-controls={`back-${pkg.id}`}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M15 6l-6 6 6 6" />
+                  </svg>
+                  Back
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+
+    <div class="pd-addons" data-reveal>
+      <span class="pd-addons-label">Add-ons</span>
+      {addOns.map(a => (
+        <span class="pd-addon">
+          <span class="pd-addon-label">{a.label}</span>
+          <span class="pd-addon-price">{a.price}</span>
+        </span>
+      ))}
+    </div>
+  </div>
+</section>

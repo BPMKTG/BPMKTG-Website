@@ -1,0 +1,51 @@
+---
+// 2 · The schedule, then the arrival fee.
+//
+// Both come straight out of src/data/picture-day.ts, in the order the
+// array is written. The fee callout is a <aside role="note"> rather
+// than a styled paragraph so a screen reader announces it as its own
+// thing instead of running it on from the last team in the list.
+import { schedule, feeNotice } from '../../data/picture-day';
+
+// The sentence lives in the data file, not here, so there is exactly one
+// copy of it to change. Split on the amount so the money can be bold
+// without storing markup in the data file.
+const cut = feeNotice.text.indexOf(feeNotice.amount);
+const feeBefore = cut < 0 ? feeNotice.text : feeNotice.text.slice(0, cut);
+const feeAfter = cut < 0 ? '' : feeNotice.text.slice(cut + feeNotice.amount.length);
+---
+<section class="pd-section pd-band" id="schedule">
+  <div class="pd-wrap">
+    <header class="pd-head">
+      <p class="pd-eyebrow" data-reveal>Team schedule</p>
+      <h2 class="pd-h2" data-reveal style="--reveal-delay:.05s">Find your team's time</h2>
+      <p class="pd-lede" data-reveal style="--reveal-delay:.08s">
+        Times run back to back. Arrive camera-ready a few minutes early so
+        your team starts on time.
+      </p>
+    </header>
+
+    <ol class="pd-slots">
+      {schedule.map((slot, i) => (
+        <li class="pd-slot" data-reveal style={`--reveal-delay:${Math.min(i * 0.04, 0.32)}s`}>
+          <span class="pd-slot-time">{slot.time}</span>
+          <span class="pd-slot-team">{slot.team}</span>
+        </li>
+      ))}
+    </ol>
+
+    <aside class="pd-fee" role="note" aria-label="Arrival time policy">
+      <span class="pd-fee-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3.5 2" />
+        </svg>
+      </span>
+      <div class="pd-fee-body">
+        <span class="pd-fee-label">Please read</span>
+        <p class="pd-fee-text">{feeBefore}<b>{feeNotice.amount}</b>{feeAfter}</p>
+      </div>
+    </aside>
+  </div>
+</section>

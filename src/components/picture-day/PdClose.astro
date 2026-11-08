@@ -1,0 +1,24 @@
+---
+// 6 · Closing band. Everything a parent needs if they scrolled the
+// whole page and read nothing: the date, and the two buttons again.
+import PdCtas from './PdCtas.astro';
+import { event } from '../../data/picture-day';
+---
+<section class="pd-section pd-close">
+  <div class="pd-wrap">
+    <p class="pd-close-when" data-reveal>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+           style="width:15px;height:15px">
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M8 3v4M16 3v4M3 11h18" />
+      </svg>
+      {event.dateShort} · {event.venue}
+    </p>
+    <h2 data-reveal style="--reveal-delay:.05s">Get your athlete on the wall</h2>
+    <p data-reveal style="--reveal-delay:.08s">
+      Send the form today so we have your package ready at the table.
+    </p>
+    <PdCtas delay=".12s" />
+  </div>
+</section>

@@ -1,0 +1,117 @@
+---
+// 4 · Example poses.
+//
+// Same convention as the wedding gallery: drop
+// `src/assets/images/picture-day/<slug>.jpg` and that tile fills in.
+// Tile shape comes from `orientation` in the data file either way, so
+// the collage rhythm is already right before a single photo exists.
+//
+// The whole section renders only once at least one real photo is on
+// disk. A wall of hatched placeholders is worse than no wall, and this
+// page goes out to parents by text, so it should never show them
+// scaffolding. Add the files and the section appears on the next build,
+// with no code change.
+import { Image, getImage } from 'astro:assets';
+import { poses } from '../../data/picture-day';
+
+const glob = import.meta.glob<{ default: ImageMetadata }>(
+  '../../assets/images/picture-day/*.{jpg,jpeg,png}',
+  { eager: true }
+);
+
+const bySlug: Record<string, ImageMetadata> = {};
+for (const [path, mod] of Object.entries(glob)) {
+  const slug = path.split('/').pop()!.replace(/\.(jpg|jpeg|png)$/, '');
+  bySlug[slug] = mod.default;
+}
+
+const tiles = await Promise.all(
+  poses.map(async pose => {
+    const src = bySlug[pose.slug];
+    return {
+      ...pose,
+      src,
+      full: src
+        ? (await getImage({ src, width: 1600, format: 'webp', quality: 86 })).src
+        : undefined,
+    };
+  })
+);
+
+const hasAny = tiles.some(t => t.src);
+---
+{hasAny && (
+  <section class="pd-section" id="poses">
+    <div class="pd-wrap">
+      <header class="pd-head">
+        <p class="pd-eyebrow" data-reveal>Example poses</p>
+        <h2 class="pd-h2" data-reveal style="--reveal-delay:.05s">A few to choose from</h2>
+        <p class="pd-lede" data-reveal style="--reveal-delay:.08s">
+          Pick your poses at the table, or come with one in mind. Tap any
+          photo to see it bigger.
+        </p>
+      </header>
+
+      <div class="pd-collage" data-reveal role="group" aria-label="Example poses">
+        {tiles.map((tile, i) => (
+          tile.src ? (
+            <button
+              type="button"
+              class:list={['pd-tile', `pd-tile-${tile.orientation}`]}
+              data-pd-photo
+              data-full={tile.full}
+              data-caption={tile.alt}
+              data-index={i}
+              aria-label={`See a larger view: ${tile.alt}`}
+            >
+              <Image
+                src={tile.src}
+                alt={tile.alt}
+                widths={[320, 640, 900]}
+                sizes="(max-width: 760px) 50vw, 25vw"
+                loading="lazy"
+                decoding="async"
+              />
+            </button>
+          ) : (
+            <div
+              class:list={['pd-tile', 'pd-tile-empty', `pd-tile-${tile.orientation}`]}
+              aria-hidden="true"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <circle cx="12" cy="12" r="3.2" />
+              </svg>
+              <span>Coming soon</span>
+            </div>
+          )
+        ))}
+      </div>
+    </div>
+
+    {/* Lightbox. Same shape as the wedding gallery's: a real <dialog>,
+        so Escape, the backdrop and focus trapping are the platform's
+        job rather than ours. */}
+    <dialog class="pd-lb" data-pd-lb aria-label="Larger view of the photo">
+      <img data-pd-lb-img src="" alt="" />
+      <div class="pd-lb-bar">
+        <p class="pd-lb-cap" data-pd-lb-cap></p>
+        <div class="pd-lb-nav">
+          <button type="button" class="pd-lb-btn" data-pd-lb-prev aria-label="Previous photo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+          </button>
+          <button type="button" class="pd-lb-btn" data-pd-lb-next aria-label="Next photo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+          </button>
+          <button type="button" class="pd-lb-btn" data-pd-lb-close aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+      </div>
+    </dialog>
+  </section>
+)}

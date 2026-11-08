@@ -1,0 +1,40 @@
+---
+// 1 · Hero. Date, place, and the two things to do, above the fold on a
+// phone. The jump link is there because the single most common reason
+// this page gets opened is "what time is my kid's team" — that answer
+// should never be more than one tap away.
+import PdCtas from './PdCtas.astro';
+import { event } from '../../data/picture-day';
+---
+<section class="pd-section pd-hero">
+  <div class="pd-wrap">
+    <p class="pd-when" data-reveal>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M8 3v4M16 3v4M3 11h18" />
+      </svg>
+      {event.dateLong}
+      <span class="pd-when-sep" aria-hidden="true">·</span>
+      {event.venue}
+    </p>
+
+    <h1 data-reveal style="--reveal-delay:.05s">Rebelz Cheer Picture Day</h1>
+
+    <p class="pd-lede" data-reveal style="--reveal-delay:.1s">
+      One afternoon, three packages, and a team photo for every athlete.
+      Pick a package, send the order form, and show up at your team's time.
+    </p>
+
+    <PdCtas delay=".15s" />
+
+    <a class="pd-jump" href="#schedule" data-reveal style="--reveal-delay:.2s">
+      See your team's time
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+           style="width:15px;height:15px">
+        <path d="M12 5v14M6 13l6 6 6-6" />
+      </svg>
+    </a>
+  </div>
+</section>
