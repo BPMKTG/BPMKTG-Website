@@ -174,32 +174,45 @@ export interface Pose {
    *  keeps its shape before the photos land. */
   slug: string;
   alt: string;
-  /** Tile shape: 'v' portrait, 'h' square-ish, 'w' wide. Drives the
-   *  collage rhythm, and does so whether or not the file exists. */
-  orientation: 'v' | 'h' | 'w';
+  /** 'v' is one column, 'w' is two. Everything is two rows tall, so a
+   *  'v' lands on roughly 2:3 and a 'w' on roughly 3:2, which is what
+   *  the portraits and the team photos actually are. Barely any crop. */
+  orientation: 'v' | 'w';
+  /** object-position, for the few frames where the athlete sits low in
+   *  a tall file and a centred crop would cut their head off. */
+  focus?: string;
 }
 
 /**
  * The collage.
  *
- * Add or remove rows freely: the grid is built from this list. Drop
- * `pose-01.jpg` (or .jpeg/.png) into src/assets/images/picture-day/
- * and that tile fills itself in on the next build. Alt text is
- * written here rather than generated, because "pose 1" tells a
- * parent using a screen reader nothing at all.
+ * ORDER MATTERS, and not for the reason it usually does. The grid is
+ * three columns wide and every tile is two rows tall, so a 'w' takes
+ * two of the three slots in its band. With the two team photos at
+ * positions 1 and 10, the sixteen tiles fill six bands exactly and the
+ * last row is not half empty. Moving a photo is fine; moving a team
+ * photo means counting again.
+ *
+ * Alt text is written per photo rather than generated, because "pose 4"
+ * tells a parent using a screen reader nothing at all.
  */
 export const poses: Pose[] = [
-  { slug: 'pose-01', alt: 'Cheerleader standing with pom poms on one hip', orientation: 'v' },
-  { slug: 'pose-02', alt: 'Cheerleader kneeling with both poms raised', orientation: 'h' },
-  { slug: 'pose-03', alt: 'Cheerleader in a high V with poms', orientation: 'v' },
-  { slug: 'pose-04', alt: 'Two teammates back to back, buddy shot', orientation: 'w' },
-  { slug: 'pose-05', alt: 'Cheerleader mid-jump against the backdrop', orientation: 'v' },
-  { slug: 'pose-06', alt: 'Close portrait, bow in frame', orientation: 'h' },
-  { slug: 'pose-07', alt: 'Cheerleader seated with poms crossed in her lap', orientation: 'h' },
-  { slug: 'pose-08', alt: 'Full team lined up for the team photo', orientation: 'w' },
+  { slug: 'pose-01', orientation: 'w', alt: 'The Lady Legacy team photo, the squad lined up under purple stage lights' },
+  { slug: 'pose-02', orientation: 'v', alt: 'A cheerleader standing with one hand behind her head and the other on her hip' },
+  { slug: 'pose-03', orientation: 'v', alt: 'A cheerleader standing with her arms crossed, in the white and blue uniform' },
+  { slug: 'pose-04', orientation: 'v', alt: 'A cheerleader with her arms crossed, facing the camera straight on' },
+  { slug: 'pose-05', orientation: 'v', alt: 'A cheerleader holding a crown above her head with both hands' },
+  { slug: 'pose-06', orientation: 'v', alt: 'A cheerleader lifting a crown overhead, feet together and smiling' },
+  { slug: 'pose-07', orientation: 'v', alt: 'A cheerleader kneeling on one knee, turned to the side' },
+  { slug: 'pose-08', orientation: 'v', focus: 'center bottom', alt: 'A cheerleader seated on the floor with her legs extended, holding a crown above her head' },
+  { slug: 'pose-09', orientation: 'v', focus: 'center bottom', alt: 'A cheerleader lying on her front, chin in her hands, with a crown balanced on her shoe' },
+  { slug: 'pose-10', orientation: 'w', alt: 'The Rampage team photo, two rows of athletes under purple stage lights' },
+  { slug: 'pose-11', orientation: 'v', alt: 'Two teammates standing back to back, looking over their shoulders' },
+  { slug: 'pose-12', orientation: 'v', alt: 'Two teammates side by side with their inside hands joined overhead' },
+  { slug: 'pose-13', orientation: 'v', alt: 'One athlete sitting on a teammate\'s shoulders with both arms stretched wide' },
+  { slug: 'pose-14', orientation: 'v', alt: 'An athlete carrying a teammate on his shoulders while she holds a crown overhead' },
+  { slug: 'pose-15', orientation: 'v', alt: 'Two young teammates together, one kneeling and one standing' },
+  { slug: 'pose-16', orientation: 'v', focus: 'center bottom', alt: 'Two teammates lying on their fronts, smiling down at a crown between them' },
 ];
 
-/** The frame that fronts the link in a text message. The first pose
- *  that actually exists on disk wins; the component falls back to the
- *  brand card when none of them do yet. */
 export const OG_POSE_SLUG = 'pose-01';

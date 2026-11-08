@@ -63,12 +63,13 @@ const hasAny = tiles.some(t => t.src);
               data-caption={tile.alt}
               data-index={i}
               aria-label={`See a larger view: ${tile.alt}`}
+              style={tile.focus ? `--pd-focus:${tile.focus}` : undefined}
             >
               <Image
                 src={tile.src}
                 alt={tile.alt}
-                widths={[320, 640, 900]}
-                sizes="(max-width: 760px) 50vw, 25vw"
+                widths={[340, 680, 1020]}
+                sizes="(max-width: 760px) 50vw, 33vw"
                 loading="lazy"
                 decoding="async"
               />

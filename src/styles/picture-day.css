@@ -430,11 +430,17 @@ html:not(.pd-js) .pd-card .pd-face-back { visibility: visible; }
 
 /* ── 4 · example poses ─────────────────────────────────────── */
 
+/* Three columns, and every tile is two rows tall. That makes a
+   one-column tile about 2:3 and a two-column tile about 3:2, which is
+   exactly what the portraits and the team photos are, so almost
+   nothing is cropped. Sixteen tiles with the two team photos at
+   positions 1 and 10 fill six bands with no ragged row: see the note
+   on `poses` in src/data/picture-day.ts before reordering them. */
 .pd-collage {
   margin-top: var(--pt-5);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: 11rem;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 15rem;
   gap: var(--pt-3);
 }
 .pd-tile {
@@ -446,10 +452,13 @@ html:not(.pd-js) .pd-card .pd-face-back { visibility: visible; }
   border-radius: var(--pt-r-sm);
 }
 .pd-tile-v { grid-row: span 2; }
-.pd-tile-w { grid-column: span 2; }
+.pd-tile-w { grid-row: span 2; grid-column: span 2; }
 .pd-tile img {
   width: 100%; height: 100%;
   object-fit: cover;
+  /* Overridden per photo for the few frames where the athlete is on
+     the floor and sits low in the file. */
+  object-position: var(--pd-focus, center);
   transition: transform 420ms cubic-bezier(.2, .8, .25, 1);
 }
 button.pd-tile:hover img { transform: scale(1.04); }
@@ -666,7 +675,9 @@ button.pd-tile:hover { border-color: var(--pt-orange); }
       transform .7s cubic-bezier(0.22, 1, 0.36, 1) var(--card-flip-delay, 0s);
   }
 
-  .pd-collage { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 8.5rem; }
+  /* Two columns on a phone, so a team photo still spans the full
+     width and a portrait still lands near 2:3. */
+  .pd-collage { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 7.5rem; }
 
   .pd-addons { padding: var(--pt-4); }
 }
