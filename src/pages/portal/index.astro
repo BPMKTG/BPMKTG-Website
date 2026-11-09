@@ -239,7 +239,6 @@ const NAV = [
     isFilmStep,
     isOpenClientTodo,
     isStepDone,
-    layersFor,
     showsOnCalendar,
     stepLayers,
     metricLabel,
@@ -253,6 +252,7 @@ const NAV = [
     weeklyPaceNeeded,
     termProgress,
     MAX_MOVE_DAYS,
+    PORTAL_LAYERS,
     SONG_STREAM_TARGET,
     type CalendarLayer,
     type PortalCalendarItem,
@@ -1137,6 +1137,10 @@ const NAV = [
    */
   type Layer = CalendarLayer;
 
+  /** What each layer is called. Every layer there is, including the one
+   *  this screen does not draw: DAY_ORDER and the "+N more" popover
+   *  rank and label by layer, and those have to stay total. The chips
+   *  come from myLayers() below, which is the shorter list. */
   const LAYER_LABEL = new Map<Layer, string>([
     ['moments',   'Shows & releases'],
     ['posts',     'Posts'],
@@ -1146,14 +1150,15 @@ const NAV = [
   ]);
 
   /**
-   * The layers this viewer is offered, in chip order.
+   * The layers this screen has, in chip order.
    *
-   * Blueprint tasks is our own internal column, so a client is not
-   * shown it and their Notion query does not fetch those rows either.
-   * Everything that reads "all the layers" reads this, or "Everything"
-   * would look like a filter to a client who had not filtered.
+   * PORTAL_LAYERS, not a list of our own: Blueprint tasks belongs to
+   * HQ and this page does not draw it for anyone, because the portal's
+   * Notion query never fetches the rows it would hold. Everything that
+   * reads "all the layers" reads this, or Everything would look like a
+   * filter to someone who had not filtered.
    */
-  const myLayers = (): Layer[] => layersFor(VIEWER.role);
+  const myLayers = (): Layer[] => [...PORTAL_LAYERS];
 
   const PHASES: Array<[ContentPhase, string]> = [
     ['planned', 'Planned'], ['progress', 'In progress'], ['posted', 'Posted'],
@@ -1297,11 +1302,10 @@ const NAV = [
     ['everything', 'Everything',   () => myLayers()],
     ['content',    'Content only', () => ['posts', 'films']],
     ['week',       'My week',      () => ['todos', 'films']],
-    // Campaigns means a moment and the work behind it. For a client
-    // that is the moment: the work behind it is ours and they are not
-    // shown the column it sits in.
-    ['campaigns',  'Campaigns',    () => myLayers().filter(
-      (l) => l === 'moments' || l === 'blueprint')],
+    // Campaigns means a moment and the work behind it. Here that is
+    // the moment: the work behind it is ours, and the layer it sits in
+    // is on our own screen rather than this one.
+    ['campaigns',  'Campaigns',    () => ['moments']],
   ];
 
   /** "My week" means the week grid, except at phone width where a
@@ -1357,9 +1361,9 @@ const NAV = [
       if (!raw) return false;
       const v = JSON.parse(raw) as { layers?: unknown; view?: unknown; tray?: unknown };
       if (Array.isArray(v.layers)) {
-        // A stored layer this viewer is not offered is dropped, so a
-        // session that was an admin's does not leave a client looking
-        // at a chip they cannot see or turn back on.
+        // A stored layer this screen no longer has is dropped, so a
+        // browser that remembers Blueprint tasks from before does not
+        // resurrect a chip that is not there.
         const mine = myLayers();
         const keep = v.layers.filter((l): l is Layer => mine.includes(l as Layer));
         // Every layer off is a blank calendar, which nobody meant to
@@ -1383,9 +1387,7 @@ const NAV = [
 
   function renderCalendar(items: PortalCalendarItem[]) {
     CAL_BASE = items;
-    // Every layer this viewer has, before prefs get a say: the payload
-    // has arrived by now, so VIEWER.role is known and a client is not
-    // handed our own Blueprint tasks column.
+    // Every layer this screen has, before prefs get a say.
     CAL.layers = new Set(myLayers());
     syncCalendarContent();
     const restored = loadCalPrefs();
@@ -2294,7 +2296,8 @@ const NAV = [
     for (let i = 0; i < DAY_ORDER.length; i++) {
       const inLayer = items.filter((it) => dayRank(it) === i);
       if (!inLayer.length) continue;
-      pop.appendChild(el('div', 'pt-popover-group', LAYER_LABEL.get(DAY_ORDER[i])!));
+      pop.appendChild(el('div', 'pt-popover-group',
+        LAYER_LABEL.get(DAY_ORDER[i]) ?? DAY_ORDER[i]));
       for (const it of inLayer) pop.appendChild(chip(it));
     }
     document.body.appendChild(pop);

@@ -21,10 +21,11 @@ import {
   STEP_CLIENT_STATUSES,
   // calendar layers
   isFilmStep,
-  layersFor,
   showsOnCalendar,
   stepLayers,
   FILM_MARK,
+  HQ_LAYERS,
+  PORTAL_LAYERS,
   STEP_OFF_CALENDAR,
   // moving things
   canSetStepDate,
@@ -1432,13 +1433,34 @@ is('layer: Done is frozen in a cascade yet still on the calendar',
    `${movesWithMoment({ status: 'Done' })}/${showsOnCalendar({ status: 'Done' })}`,
    'false/true');
 
-// Blueprint tasks is internal, so a client is not offered the chip.
-is('layer: a client is offered four layers',
-   layersFor('client').join('|'), 'moments|posts|films|todos');
-is('layer: one of us is offered five',
-   layersFor('admin').join('|'), 'moments|posts|films|todos|blueprint');
-is('layer: a client is never offered Blueprint tasks',
-   layersFor('client').includes('blueprint'), false);
+/* Blueprint tasks belongs to HQ. The client portal does not draw it for
+   anyone, client or admin, because the portal's Notion query never
+   fetches the rows it would hold and an empty layer is worse than no
+   layer. So the layer set is a property of the screen, not the viewer. */
+is('layer: the portal has four layers',
+   PORTAL_LAYERS.join('|'), 'moments|posts|films|todos');
+is('layer: HQ has those four and Blueprint tasks',
+   HQ_LAYERS.join('|'), 'moments|posts|films|todos|blueprint');
+is('layer: the portal never has Blueprint tasks',
+   PORTAL_LAYERS.includes('blueprint'), false);
+is('layer: HQ adds exactly one layer to the portal\u2019s',
+   HQ_LAYERS.length - PORTAL_LAYERS.length, 1);
+is('layer: and keeps the portal\u2019s chip order',
+   HQ_LAYERS.slice(0, 4).join('|'), PORTAL_LAYERS.join('|'));
+
+/* A Blueprint admin step classifies into a layer the portal does not
+   have. That is how it stays off a client's calendar: nothing it
+   belongs to is on the screen, so nothing is drawn. */
+is('layer: an admin step of ours matches no layer the portal has',
+   stepLayers(cal('Blueprint', 'Admin')).some((l) => PORTAL_LAYERS.includes(l)),
+   false);
+is('layer: and it does match one HQ has',
+   stepLayers(cal('Blueprint', 'Admin')).some((l) => HQ_LAYERS.includes(l)),
+   true);
+// A shoot of ours is still a shoot, so it is not lost with the rest.
+is('layer: a clapperboard admin step of ours is still a film day in the portal',
+   stepLayers(film('Blueprint', 'Admin')).filter((l) => PORTAL_LAYERS.includes(l)).join('|'),
+   'films');
 
 /* The live rows this was found against: Sean Comma, November 2026.
    Each of these is a real Item, and the four skipped ones were on his

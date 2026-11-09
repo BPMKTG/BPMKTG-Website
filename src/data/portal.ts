@@ -408,9 +408,9 @@ export function isFilmStep(row: { title: string | null }): boolean {
  * that goes out on a day, and which database it lives in is our
  * bookkeeping.
  *
- * Blueprint tasks is the internal column, which is why it is the one
- * layer a client never sees. The portal's own Notion query does not
- * even fetch those rows.
+ * Blueprint tasks is the internal column, which is why the client
+ * portal does not draw that layer for anyone, client or admin. See
+ * PORTAL_LAYERS below.
  *
  * An item in two layers is drawn once and shows if EITHER is on.
  */
@@ -428,12 +428,25 @@ export function stepLayers(row: {
   return out;
 }
 
-/** The layers this viewer is offered. Blueprint tasks is our own work,
- *  so it is ours to look at. */
-export function layersFor(role: 'client' | 'admin'): CalendarLayer[] {
-  const all: CalendarLayer[] = ['moments', 'posts', 'films', 'todos', 'blueprint'];
-  return role === 'admin' ? all : all.filter((l) => l !== 'blueprint');
-}
+/**
+ * The layers each surface has, in chip order.
+ *
+ * Blueprint tasks is a property of the SCREEN rather than of whoever
+ * is looking at it. The client portal does not have that layer at all,
+ * not even when one of us is standing in a client's portal: the
+ * portal's own Notion query never fetches an Owner=Blueprint,
+ * Type=Admin row, so the chip could only ever be an empty layer there,
+ * and an empty layer is worse than no layer. Our admin work is on our
+ * own screen, which is Blueprint HQ, and HQ's query does fetch them.
+ *
+ * A step can therefore be classified into a layer that the surface
+ * drawing it does not offer. That is deliberate and it is how those
+ * rows stay off a client's calendar: nothing matches an enabled layer,
+ * so nothing is drawn.
+ */
+export const PORTAL_LAYERS: readonly CalendarLayer[] = ['moments', 'posts', 'films', 'todos'];
+
+export const HQ_LAYERS: readonly CalendarLayer[] = [...PORTAL_LAYERS, 'blueprint'];
 
 /* ── Moving things on the calendar ────────────────────────────── */
 
