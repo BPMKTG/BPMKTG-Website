@@ -348,6 +348,93 @@ export function isStepDone(row: { status: string | null }): boolean {
   return row.status === 'Done';
 }
 
+/* ── Calendar layers ─────────────────────────────────
+   One calendar holds everything and the layers decide what you are
+   looking at. These rules live here, next to the status rules they
+   lean on, so the client portal and Blueprint HQ cannot drift into
+   showing a client's own calendar two different ways. */
+
+export type CalendarLayer = 'moments' | 'posts' | 'films' | 'todos' | 'blueprint';
+
+/**
+ * Statuses that take a step off the calendar altogether.
+ *
+ * Skipped and Moved are decisions about the campaign: the step is not
+ * late, it is not coming. A calendar is a list of what is going to
+ * happen, so a row nobody is going to do does not belong on it in any
+ * layer, on either side of the portal.
+ *
+ * Done is different and stays: a finished step is a thing that
+ * happened on that day, and the grid draws it ticked and stepped back.
+ */
+export const STEP_OFF_CALENDAR = ['Skipped', 'Moved'] as const;
+
+export function showsOnCalendar(row: { status: string | null }): boolean {
+  return !(STEP_OFF_CALENDAR as readonly string[]).includes(row.status ?? '');
+}
+
+/**
+ * The clapperboard that marks a step as a shoot.
+ *
+ * There is no Type for "film": Campaign Calendar's Type is Admin or
+ * Content and nothing else, so the one thing that distinguishes a
+ * shoot from the post it feeds is the emoji Notion's playbooks put at
+ * the front of the Item. That is load-bearing, which is why it is a
+ * named constant with a test rather than a literal in a view.
+ */
+export const FILM_MARK = '\u{1F3A5}';
+
+export function isFilmStep(row: { title: string | null }): boolean {
+  return (row.title ?? '').trimStart().startsWith(FILM_MARK);
+}
+
+/**
+ * Which layers a Campaign Calendar step belongs to. Some belong to two.
+ *
+ * Owner and Type are each two-valued, so every step lands somewhere:
+ *
+ *   Client   + Content  → posts, todos
+ *   Client   + Admin    → todos
+ *   Blueprint + Content → posts
+ *   Blueprint + Admin   → blueprint
+ *
+ * and a step marked with the clapperboard is a shoot instead of a
+ * post: it is the filming, not the thing that goes out, so it answers
+ * to Film days and keeps whatever its owner gives it.
+ *
+ * Posts is about what a row IS rather than who owns it, because from
+ * a client's side there is no difference between a campaign step that
+ * posts something and a card off the content board: both are a thing
+ * that goes out on a day, and which database it lives in is our
+ * bookkeeping.
+ *
+ * Blueprint tasks is the internal column, which is why it is the one
+ * layer a client never sees. The portal's own Notion query does not
+ * even fetch those rows.
+ *
+ * An item in two layers is drawn once and shows if EITHER is on.
+ */
+export function stepLayers(row: {
+  title: string | null;
+  owner: string | null;
+  type: string | null;
+}): CalendarLayer[] {
+  const out: CalendarLayer[] = [];
+  const film = isFilmStep(row);
+  if (film) out.push('films');
+  if (row.type === 'Content' && !film) out.push('posts');
+  if (row.owner === 'Client') out.push('todos');
+  if (row.owner === 'Blueprint' && row.type === 'Admin') out.push('blueprint');
+  return out;
+}
+
+/** The layers this viewer is offered. Blueprint tasks is our own work,
+ *  so it is ours to look at. */
+export function layersFor(role: 'client' | 'admin'): CalendarLayer[] {
+  const all: CalendarLayer[] = ['moments', 'posts', 'films', 'todos', 'blueprint'];
+  return role === 'admin' ? all : all.filter((l) => l !== 'blueprint');
+}
+
 /* ── Moving things on the calendar ────────────────────────────── */
 
 /**

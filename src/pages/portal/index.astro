@@ -236,8 +236,12 @@ const NAV = [
     daysBetween,
     daysUntil,
     goalProgress,
+    isFilmStep,
     isOpenClientTodo,
     isStepDone,
+    layersFor,
+    showsOnCalendar,
+    stepLayers,
     metricLabel,
     metricPlatform,
     movesWithMoment,
@@ -250,6 +254,7 @@ const NAV = [
     termProgress,
     MAX_MOVE_DAYS,
     SONG_STREAM_TARGET,
+    type CalendarLayer,
     type PortalCalendarItem,
     type PortalMoment,
     type PortalPayload,
@@ -1130,17 +1135,25 @@ const NAV = [
    * wanted their shoots AND their own to-dos, but not our task list,
    * could not say so with one <select>.
    */
-  type Layer = 'moments' | 'posts' | 'films' | 'todos' | 'blueprint';
+  type Layer = CalendarLayer;
 
-  const LAYERS: Array<[Layer, string]> = [
+  const LAYER_LABEL = new Map<Layer, string>([
     ['moments',   'Shows & releases'],
     ['posts',     'Posts'],
     ['films',     'Film days'],
     ['todos',     'Your to-dos'],
     ['blueprint', 'Blueprint tasks'],
-  ];
-  const ALL_LAYERS: Layer[] = LAYERS.map(([k]) => k);
-  const LAYER_LABEL = new Map<Layer, string>(LAYERS);
+  ]);
+
+  /**
+   * The layers this viewer is offered, in chip order.
+   *
+   * Blueprint tasks is our own internal column, so a client is not
+   * shown it and their Notion query does not fetch those rows either.
+   * Everything that reads "all the layers" reads this, or "Everything"
+   * would look like a filter to a client who had not filtered.
+   */
+  const myLayers = (): Layer[] => layersFor(VIEWER.role);
 
   const PHASES: Array<[ContentPhase, string]> = [
     ['planned', 'Planned'], ['progress', 'In progress'], ['posted', 'Posted'],
@@ -1149,8 +1162,10 @@ const NAV = [
   const CAL = {
     view: 'month' as CalView,
     cursor: todayStart(),
-    /** Every layer on is the default: the calendar is the whole plan. */
-    layers: new Set<Layer>(ALL_LAYERS),
+    /** Every layer this viewer has is the default: the calendar is
+     *  the whole plan. Filled in by renderCalendar, once the payload
+     *  has said who is looking. */
+    layers: new Set<Layer>(),
     /** Empty means every bucket, not none. */
     buckets: new Set<string>(),
     phase: '' as '' | ContentPhase,
@@ -1218,21 +1233,19 @@ const NAV = [
   function isCampaignPost(it: PortalCalendarItem): boolean {
     if ((it as CalRow).content) return false;
     if (it.momentType || it.kind === 'Moment') return false;
+    // A step marked with the clapperboard is the filming, not the
+    // post, so it does not wear the post pill either.
+    if (isFilmStep(it)) return false;
     return it.type === 'Content';
   }
 
   /**
    * Which layers an item belongs to. Some belong to two.
    *
-   * Posts is about what a row IS, not who owns it. A campaign step
-   * that posts something is a post: it goes out on a channel on a day,
-   * exactly like a card off the content board, and a client looking
-   * for "what goes out in November" wants both in front of them.
-   *
-   * Blueprint tasks is about who it is ON, and a post we put out is
-   * still work of ours. So a Blueprint-owned content step sits in
-   * both, and turning Posts off does not make it vanish from the
-   * column that is meant to list everything we are doing.
+   * A step's layers are stepLayers() in src/data/portal.ts, where the
+   * rule is tested and where HQ reads it from too. This function is
+   * the part that only the portal has: the content board's own rows,
+   * which are not steps and have no Owner or Type.
    *
    * An item in two layers is drawn once and shows if EITHER is on,
    * which is what passesFilter does with this list.
@@ -1247,14 +1260,9 @@ const NAV = [
     // are counting down to, not a task.
     if (it.momentType) return ['moments'];
 
-    const ls: Layer[] = [];
-    if (it.type === 'Content') ls.push('posts');
-    if (it.owner === 'Client') ls.push('todos');
-    if (it.owner === 'Blueprint') ls.push('blueprint');
-    // Nothing visible should land here: a row only reaches the client
-    // if it is a moment, is Content, or is theirs. A row that somehow
-    // does is better shown in our column than silently dropped.
-    return ls.length ? ls : ['blueprint'];
+    // Owner and Type are each two-valued, so every step lands in at
+    // least one layer and there is nothing to catch.
+    return stepLayers(it);
   }
 
   function passesFilter(it: PortalCalendarItem): boolean {
@@ -1276,7 +1284,7 @@ const NAV = [
 
   /** Whether the calendar is showing a slice rather than all of it. */
   function calFiltering(): boolean {
-    return CAL.layers.size !== ALL_LAYERS.length
+    return CAL.layers.size !== myLayers().length
       || CAL.buckets.size > 0 || !!CAL.phase || !!CAL.campaign;
   }
 
@@ -1285,11 +1293,15 @@ const NAV = [
      and four chip taps. */
   type Quick = 'everything' | 'content' | 'week' | 'campaigns';
 
-  const QUICK: Array<[Quick, string, Layer[]]> = [
-    ['everything', 'Everything',   ALL_LAYERS],
-    ['content',    'Content only', ['posts', 'films']],
-    ['week',       'My week',      ['todos', 'films']],
-    ['campaigns',  'Campaigns',    ['moments', 'blueprint']],
+  const QUICK: Array<[Quick, string, () => Layer[]]> = [
+    ['everything', 'Everything',   () => myLayers()],
+    ['content',    'Content only', () => ['posts', 'films']],
+    ['week',       'My week',      () => ['todos', 'films']],
+    // Campaigns means a moment and the work behind it. For a client
+    // that is the moment: the work behind it is ours and they are not
+    // shown the column it sits in.
+    ['campaigns',  'Campaigns',    () => myLayers().filter(
+      (l) => l === 'moments' || l === 'blueprint')],
   ];
 
   /** "My week" means the week grid, except at phone width where a
@@ -1301,9 +1313,10 @@ const NAV = [
   /** The tab to light up, worked out from the state rather than stored
    *  beside it, so toggling a chip by hand cannot leave a tab lying. */
   function activeQuick(): Quick | '' {
-    for (const [k, , layers] of QUICK) {
+    for (const [k, , layersOfQuick] of QUICK) {
       const want = quickWants(k);
       if (want && CAL.view !== want) continue;
+      const layers = layersOfQuick();
       if (layers.length !== CAL.layers.size) continue;
       if (layers.every((l) => CAL.layers.has(l))) return k;
     }
@@ -1312,7 +1325,7 @@ const NAV = [
 
   function applyQuick(k: Quick) {
     const entry = QUICK.find(([q]) => q === k)!;
-    CAL.layers = new Set(entry[2]);
+    CAL.layers = new Set(entry[2]());
     const want = quickWants(k);
     if (want) CAL.view = want;
     // The week grid belongs to My week. Left behind, "Campaigns" would
@@ -1344,7 +1357,11 @@ const NAV = [
       if (!raw) return false;
       const v = JSON.parse(raw) as { layers?: unknown; view?: unknown; tray?: unknown };
       if (Array.isArray(v.layers)) {
-        const keep = v.layers.filter((l): l is Layer => ALL_LAYERS.includes(l as Layer));
+        // A stored layer this viewer is not offered is dropped, so a
+        // session that was an admin's does not leave a client looking
+        // at a chip they cannot see or turn back on.
+        const mine = myLayers();
+        const keep = v.layers.filter((l): l is Layer => mine.includes(l as Layer));
         // Every layer off is a blank calendar, which nobody meant to
         // leave behind. An empty set falls back to all of it.
         if (keep.length) CAL.layers = new Set(keep);
@@ -1366,6 +1383,10 @@ const NAV = [
 
   function renderCalendar(items: PortalCalendarItem[]) {
     CAL_BASE = items;
+    // Every layer this viewer has, before prefs get a say: the payload
+    // has arrived by now, so VIEWER.role is known and a client is not
+    // handed our own Blueprint tasks column.
+    CAL.layers = new Set(myLayers());
     syncCalendarContent();
     const restored = loadCalPrefs();
     // On a phone a month grid of chips is unreadable, so Agenda leads
@@ -1618,7 +1639,8 @@ const NAV = [
     const row = el('div', 'pt-layers');
     row.setAttribute('role', 'group');
     row.setAttribute('aria-label', 'Calendar layers');
-    for (const [k, text] of LAYERS) {
+    for (const k of myLayers()) {
+      const text = LAYER_LABEL.get(k) ?? k;
       const on = CAL.layers.has(k);
       const b = el('button', `pt-layer pt-layer-${k}` + (on ? ' pt-layer-on' : ''));
       b.type = 'button';
@@ -1668,8 +1690,8 @@ const NAV = [
       'A post with \u21b3 under it belongs to that campaign. It counts as a '
       + 'post either way, so Posts shows it next to the ones off your board.'));
     panel.appendChild(el('p', undefined,
-      'A campaign post we put out sits in Posts and in Blueprint tasks at '
-      + 'once. Either filter will show it, and it is only drawn once.'));
+      'A step marked \u{1F3A5} is the filming rather than the post, so it '
+      + 'sits in Film days next to the shoots off your content board.'));
     panel.appendChild(el('p', undefined,
       'A post that has already gone out steps back and wears a tick.'));
     panel.appendChild(el('p', undefined,
@@ -1983,9 +2005,12 @@ const NAV = [
     // The fill says what KIND of work this is; the left edge says which
     // campaign it belongs to. Two campaigns in one week are otherwise a
     // wall of identical blue.
+    const asFilm = !(it as CalRow).content && isFilmStep(it);
     const cls = (asPost
       ? `pt-chip pt-chip-post pt-nc-${bucketColor(null)}`
-      : `pt-chip pt-chip-${k}`)
+      : asFilm
+        ? `pt-chip pt-chip-film pt-nc-${bucketColor(null)}`
+        : `pt-chip pt-chip-${k}`)
       + (it.tentative ? ' pt-chip-tentative' : '')
       + (m ? ` pt-edge-${momentKind(m)}` : '');
     const label = m
@@ -3802,7 +3827,12 @@ const NAV = [
   }
 
   function syncCalendarContent() {
-    CAL.items = (CAL_BASE as CalRow[]).concat(contentRows(CON.items));
+    // Skipped and Moved steps are dropped here rather than in
+    // passesFilter, so they are gone from every view, every count, the
+    // campaign picker and the "+N more" alike: a step nobody is going
+    // to do is not a thing the calendar has an opinion about.
+    const base = (CAL_BASE as CalRow[]).filter(showsOnCalendar);
+    CAL.items = base.concat(contentRows(CON.items));
   }
 
   /* ── content on Home ──────────────────────────────────────────── */

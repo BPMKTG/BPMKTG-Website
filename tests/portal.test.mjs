@@ -19,6 +19,13 @@ import {
   isStepClientStatus,
   isStepDone,
   STEP_CLIENT_STATUSES,
+  // calendar layers
+  isFilmStep,
+  layersFor,
+  showsOnCalendar,
+  stepLayers,
+  FILM_MARK,
+  STEP_OFF_CALENDAR,
   // moving things
   canSetStepDate,
   daysBetween,
@@ -1352,6 +1359,110 @@ is('step: a done step is off the to-do list', isOpenClientTodo(own('Done')), fal
 is('step: every status the client can set but Done stays on the list',
    STEP_CLIENT_STATUSES.filter((s) => isOpenClientTodo(own(s))).join('|'),
    'Not Started|In Progress');
+
+section('Calendar layers');
+
+/* The fixture is the cross product. Campaign Calendar's Owner is
+   Blueprint or Client and its Type is Admin or Content, so four rows
+   cover every step there can be, and the clapperboard doubles it. */
+const cal = (owner, type, status = 'Not Started', title = 'A step') =>
+  ({ owner, type, status, title });
+
+const layers = (row) => stepLayers(row).join('|');
+
+is('layer: a client content step is a post and a to-do',
+   layers(cal('Client', 'Content')), 'posts|todos');
+is('layer: a client admin step is only a to-do',
+   layers(cal('Client', 'Admin')), 'todos');
+is('layer: a content step of ours is a post and nothing else',
+   layers(cal('Blueprint', 'Content')), 'posts');
+is('layer: an admin step of ours is the only thing in Blueprint tasks',
+   layers(cal('Blueprint', 'Admin')), 'blueprint');
+
+// The bug this replaced: every Blueprint-owned row landed in Blueprint
+// tasks, so the column meant for our admin work listed our posts.
+is('layer: a content step of ours is NOT a Blueprint task',
+   stepLayers(cal('Blueprint', 'Content')).includes('blueprint'), false);
+
+// Every step lands somewhere, so nothing can go invisible.
+for (const owner of ['Blueprint', 'Client']) {
+  for (const type of ['Admin', 'Content']) {
+    is(`layer: ${owner} + ${type} is in at least one layer`,
+       stepLayers(cal(owner, type)).length > 0, true);
+  }
+}
+
+// A shoot is the filming, not the post.
+const film = (owner, type) => cal(owner, type, 'Not Started', `${FILM_MARK} Film: a thing`);
+
+is('layer: a clapperboard step is a film day',
+   layers(film('Client', 'Content')), 'films|todos');
+is('layer: and it is not also a post',
+   stepLayers(film('Client', 'Content')).includes('posts'), false);
+is('layer: a clapperboard admin step of ours is a film day and our task',
+   layers(film('Blueprint', 'Admin')), 'films|blueprint');
+is('layer: the mark is one clapperboard',
+   FILM_MARK.codePointAt(0).toString(16), '1f3a5');
+is('layer: leading space before the mark still counts',
+   isFilmStep({ title: `  ${FILM_MARK} Film: later` }), true);
+is('layer: the mark in the middle does not',
+   isFilmStep({ title: `Film ${FILM_MARK} later` }), false);
+is('layer: no title is not a film day', isFilmStep({ title: null }), false);
+
+// Status decides whether a step is on the calendar at all.
+is('layer: a not-started step is on the calendar',
+   showsOnCalendar(cal('Client', 'Admin', 'Not Started')), true);
+is('layer: an in-progress step is on the calendar',
+   showsOnCalendar(cal('Client', 'Admin', 'In Progress')), true);
+is('layer: a done step stays on the calendar, ticked',
+   showsOnCalendar(cal('Client', 'Admin', 'Done')), true);
+is('layer: a skipped step is off the calendar',
+   showsOnCalendar(cal('Blueprint', 'Content', 'Skipped')), false);
+is('layer: a moved step is off the calendar',
+   showsOnCalendar(cal('Blueprint', 'Content', 'Moved')), false);
+is('layer: a step with no status yet is on the calendar',
+   showsOnCalendar(cal('Client', 'Admin', null)), true);
+is('layer: the two statuses that take a step off the calendar',
+   STEP_OFF_CALENDAR.join('|'), 'Skipped|Moved');
+
+// Skipped and Moved are also the statuses a cascade leaves alone, but
+// Done is frozen and still drawn, so the two lists are not the same
+// list and must not be collapsed into one.
+is('layer: Done is frozen in a cascade yet still on the calendar',
+   `${movesWithMoment({ status: 'Done' })}/${showsOnCalendar({ status: 'Done' })}`,
+   'false/true');
+
+// Blueprint tasks is internal, so a client is not offered the chip.
+is('layer: a client is offered four layers',
+   layersFor('client').join('|'), 'moments|posts|films|todos');
+is('layer: one of us is offered five',
+   layersFor('admin').join('|'), 'moments|posts|films|todos|blueprint');
+is('layer: a client is never offered Blueprint tasks',
+   layersFor('client').includes('blueprint'), false);
+
+/* The live rows this was found against: Sean Comma, November 2026.
+   Each of these is a real Item, and the four skipped ones were on his
+   calendar when he reported it. */
+const seanSkipped = [
+  cal('Blueprint', 'Content', 'Skipped', "Set preview: snippet of a track he'll play"),
+  cal('Blueprint', 'Content', 'Skipped', 'Short-form: this drops in four weeks'),
+  cal('Blueprint', 'Content', 'Skipped', 'Cut three: different angle'),
+  cal('Blueprint', 'Content', 'Skipped', 'Crowd or POV clip'),
+];
+is('layer: none of the four steps Sean could see survive the status rule',
+   seanSkipped.filter(showsOnCalendar).length, 0);
+
+const seanAdmin = [
+  cal('Blueprint', 'Admin', 'Not Started', 'Book capture: send the Show Media Brief or quote Event Media'),
+  cal('Blueprint', 'Admin', 'Not Started', 'Put the ticket or RSVP link in bio and keep it there through show night'),
+  cal('Blueprint', 'Admin', 'Not Started', 'Decide the one hook the rollout is built on'),
+  cal('Blueprint', 'Admin', 'Not Started', 'Set up the free download gate (follow + email)'),
+  cal('Blueprint', 'Admin', 'Not Started', 'Submit editorial pitch'),
+];
+is('layer: all five of the steps expected in Blueprint tasks are in it',
+   seanAdmin.filter((r) => stepLayers(r).includes('blueprint')).length, 5);
+is('layer: and every one of them is on the calendar',
+   seanAdmin.filter(showsOnCalendar).length, 5);
 
 section('Moving a step to another day');
 
