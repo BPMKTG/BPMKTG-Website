@@ -2936,6 +2936,8 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 .hq-brief:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 .hq-brief-acts { display: flex; flex-wrap: wrap; gap: var(--pt-3); margin-top: 6px; }
 .hq-brief .hq-form { margin-top: 0; }
+.hq-brief-pick { display: inline-flex; }
+.hq-brief-pick button:disabled { opacity: .6; cursor: default; }
 
 .hq-mini { display: flex; flex-direction: column; }
 .hq-mini-row {

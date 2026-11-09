@@ -613,13 +613,18 @@ const NAV = [
 
     const said = el('p', 'hq-none');
     said.textContent = !brief
-      ? 'No brand brief yet. Upload a PDF from the client’s Files tab, or paste a link to one.'
+      ? 'No brand brief yet. Upload a PDF, or paste a link to one held elsewhere.'
       : ours
-        ? 'Brand brief: the PDF uploaded from their Files tab.'
+        ? 'Brand brief: a PDF we hold, on their Files tab.'
         : `Brand brief: a link to ${briefHostOf(brief) ?? 'another app'}.`;
     wrap.appendChild(said);
 
     const acts = el('div', 'hq-brief-acts');
+    // Upload first: a PDF we hold is the normal case, and a link is
+    // what you reach for when the brief lives somewhere else.
+    if (c.slug) {
+      acts.appendChild(briefUpload(c, ours ? 'Replace the PDF' : 'Upload a PDF'));
+    }
     const add = el('button', 'hq-pipe-link', brief ? 'Paste a different link' : 'Paste a link');
     add.type = 'button';
     add.addEventListener('click', () => { briefEdit = c.pageId; draw('clients'); });
@@ -645,6 +650,77 @@ const NAV = [
     }
 
     wrap.appendChild(acts);
+    return wrap;
+  }
+
+  /** Mirrors MAX_BRIEF_BYTES in src/server/brief.ts, which has the
+   *  final say. Checking here only saves uploading 40MB to be told no
+   *  at the other end. A test keeps the two in step. */
+  const MAX_BRIEF_MB = 25;
+  const briefMb = (bytes: number) =>
+    bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+  /**
+   * The file picker, as one button.
+   *
+   * Posts the bytes to the client's own admin endpoint rather than to
+   * an HQ one: that route already stores the PDF, points the Notion
+   * column at it and drops the client's cached payload, and a second
+   * copy of all that under /portal/hq would be two things to keep in
+   * step. The admin cookie is scoped to /portal, so it reaches both.
+   */
+  function briefUpload(c: CardClient, label: string): HTMLElement {
+    const wrap = el('span', 'hq-brief-pick');
+    const input = el('input') as HTMLInputElement;
+    input.type = 'file';
+    input.accept = 'application/pdf,.pdf';
+    input.hidden = true;
+
+    const btn = el('button', 'hq-pipe-link', label) as HTMLButtonElement;
+    btn.type = 'button';
+    btn.addEventListener('click', () => { if (!btn.disabled) input.click(); });
+
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      // Cleared straight away, so picking the same file twice after a
+      // failure still fires a change event.
+      input.value = '';
+      if (!file) return;
+
+      if (file.size > MAX_BRIEF_MB * 1024 * 1024) {
+        toast(`That file is ${briefMb(file.size)} and the limit is ${MAX_BRIEF_MB} MB.`, true);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Uploading…';
+      try {
+        const res = await fetch(`/portal/${encodeURIComponent(c.slug)}/admin/brief`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/pdf' },
+          body: file,
+        });
+        const json = await res.json().catch(() => null) as any;
+        if (!res.ok || !json?.ok) {
+          toast(json?.detail || 'That did not upload.', true);
+          return;
+        }
+        c.brandBriefPdf = json.brief?.url ?? c.brandBriefPdf;
+        // The PDF is stored either way; this says when Notion did not
+        // keep up, because that is the half nobody would notice.
+        toast(json.warning || 'Brand brief uploaded. The client can see it now.',
+          Boolean(json.warning));
+        draw('clients');
+      } catch (err) {
+        toast(`That did not go through. ${err instanceof Error ? err.message : String(err)}`, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    });
+
+    wrap.append(input, btn);
     return wrap;
   }
 

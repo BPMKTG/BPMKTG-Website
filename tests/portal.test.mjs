@@ -1586,6 +1586,17 @@ ok('brief: the panel has a cap of its own', Boolean(mb));
 is('brief: and it is the server\u2019s cap',
    Number(mb?.[1] ?? -1) * 1024 * 1024, MAX_BRIEF_BYTES);
 
+// HQ uploads too, and carries the same number for the same reason.
+const HQ_SRC = readFileSync(new URL('../src/pages/portal/hq-ui.astro', import.meta.url), 'utf8');
+const hqMb = /const MAX_BRIEF_MB = (\d+);/.exec(HQ_SRC);
+ok('brief: HQ has a cap of its own', Boolean(hqMb));
+is('brief: and it is the same cap',
+   Number(hqMb?.[1] ?? -1) * 1024 * 1024, MAX_BRIEF_BYTES);
+// HQ posts to the client's own admin route rather than a second one
+// of its own. If that path ever moves, this says so.
+ok('brief: HQ posts to the client\u2019s admin brief route',
+   /\/admin\/brief`/.test(HQ_SRC));
+
 /* The file endpoint is what actually hands the bytes over, and it
    only serves prefixes it has been told a client owns. Miss this and
    the brief is stored, listed, linked and then 404s. */
