@@ -138,6 +138,11 @@ import {
   fileSize,
   // Blueprint HQ
   buildToday,
+  groupByCampaign,
+  momentIndex,
+  oneLine,
+  NO_CAMPAIGN,
+  NOTE_SEP,
   bucketFor,
   stepRows,
   contentRows,
@@ -1887,6 +1892,178 @@ is('hq: a lead and a client share the list',
    nextActionRows([withNext(LEAD, TODAY), withNext(SEAN, TODAY)], NOW).length, 2);
 
 /* ── the whole list ────────────────────────────────────────────── */
+
+section('Blueprint HQ · campaigns on a row');
+
+/* A moment is a row in the same database as the steps that hang off it,
+   so the index is built out of the payload we already have. */
+const hqMoment = (over = {}) => ({
+  id: 'm-rave', clientId: 'c-sean', title: 'Faith Rave',
+  kind: 'Moment', momentType: 'Show', type: null, owner: null,
+  status: 'Not Started', date: addDays(TODAY, 6), notes: null, ...over,
+});
+
+const MI = (steps) => momentIndex(steps, BY_ID);
+
+is('camp: a moment is indexed by its page id',
+   MI([hqMoment()]).get('m-rave').title, 'Faith Rave');
+// Calendar titles are written for our board, so the artist prefix is
+// on the row and comes off here: the chip sits next to a row that
+// already names the client.
+is('camp: the artist prefix comes off the name',
+   MI([hqMoment({ title: 'Sean Comma \u00b7 Faith Rave' })]).get('m-rave').title,
+   'Faith Rave');
+is('camp: a name that was never prefixed is left alone',
+   MI([hqMoment({ title: 'Faith Rave' })]).get('m-rave').title, 'Faith Rave');
+is('camp: a nameless moment still says something',
+   MI([hqMoment({ title: '' })]).get('m-rave').title, 'Untitled moment');
+is('camp: with its own date, which is what campaign order means',
+   MI([hqMoment()]).get('m-rave').date, addDays(TODAY, 6));
+is('camp: and its type, for the chip colour',
+   MI([hqMoment()]).get('m-rave').type, 'Show');
+is('camp: and the slug the chip links to',
+   MI([hqMoment()]).get('m-rave').clientSlug, 'sean-comma');
+is('camp: a step is not a campaign', MI([hqStep()]).size, 0);
+// The chip is a link into a client's portal, so a moment with no client
+// has nowhere to go and is not indexed.
+is('camp: a moment with an unknown client is not indexed',
+   MI([hqMoment({ clientId: 'c-ghost' })]).size, 0);
+
+const withMoment = (over = {}) =>
+  stepRows([hqMoment(), hqStep({ momentId: 'm-rave', ...over })], BY_ID, NOW)[0];
+
+is('camp: a step carries the campaign it hangs off',
+   withMoment().moment.title, 'Faith Rave');
+is('camp: a step that hangs off nothing carries none',
+   stepRows([hqStep()], BY_ID, NOW)[0].moment, null);
+is('camp: a step pointing at a moment we do not have carries none',
+   stepRows([hqStep({ momentId: 'm-gone' })], BY_ID, NOW)[0].moment, null);
+// A next action is about the client, not about a campaign.
+is('camp: a next action carries no campaign',
+   nextActionRows([{ ...LEAD, nextActionDate: TODAY }], NOW)[0].moment, null);
+
+/* A content card holds its campaign as a relation of its own rather
+   than hanging off a moment, and both have to resolve to the same
+   chip or a post and the step promoting it would disagree. */
+const hqCard = (over = {}) => ({
+  id: 'p1', clientId: 'c-sean', campaignId: null, title: 'Drop clip',
+  status: 'Editing', postDate: TODAY, format: 'Reel', notes: null, ...over,
+});
+
+is('camp: a content card carries its campaign',
+   contentRows([hqCard({ campaignId: 'm-rave' })], BY_ID, NOW, MI([hqMoment()]))[0]
+     .moment.title, 'Faith Rave');
+is('camp: a card with no campaign carries none',
+   contentRows([hqCard()], BY_ID, NOW, MI([hqMoment()]))[0].moment, null);
+
+const sameCamp = buildToday({
+  clients: [SEAN],
+  steps: [hqMoment(), hqStep({ momentId: 'm-rave' })],
+  content: [hqCard({ campaignId: 'm-rave' })],
+}, 'all', NOW);
+is('camp: the step and the post agree about the campaign',
+   sameCamp.today.filter((r) => r.moment?.id === 'm-rave').length, 2);
+
+section('Blueprint HQ · notes as a subtitle');
+
+is('note: a plain note is itself', oneLine('Pushed a week, venue moved'),
+   'Pushed a week, venue moved');
+is('note: nothing is null', oneLine(null), null);
+is('note: empty is null', oneLine(''), null);
+is('note: whitespace is null', oneLine('   \n  \n'), null);
+is('note: lines join with a separator',
+   oneLine('Venue moved\nWaiting on the flyer'),
+   `Venue moved${NOTE_SEP}Waiting on the flyer`);
+is('note: blank lines in the middle are dropped',
+   oneLine('One\n\n\nTwo'), `One${NOTE_SEP}Two`);
+is('note: windows line endings too',
+   oneLine('One\r\nTwo'), `One${NOTE_SEP}Two`);
+is('note: each line is trimmed', oneLine('  One  \n  Two  '),
+   `One${NOTE_SEP}Two`);
+// No truncation here: the row cuts it with CSS, so a note with room to
+// spare must not arrive with an ellipsis already in it.
+is('note: a long note is not cut',
+   oneLine('x'.repeat(400)).length, 400);
+
+is('note: a step row carries its note',
+   stepRows([hqStep({ notes: 'Moved for the venue' })], BY_ID, NOW)[0].notes,
+   'Moved for the venue');
+is('note: a step with no note carries null',
+   stepRows([hqStep()], BY_ID, NOW)[0].notes, null);
+is('note: a content row carries its note',
+   contentRows([hqCard({ notes: 'Waiting on footage' })], BY_ID, NOW)[0].notes,
+   'Waiting on footage');
+
+section('Blueprint HQ · grouped by campaign');
+
+const gRow = (id, moment, date = TODAY) => ({
+  key: `step:${id}`, kind: 'step', id, clientSlug: 'sean-comma',
+  clientName: 'Sean Comma', title: id, owner: 'blueprint', type: 'Content',
+  status: 'Not Started', date, bucket: 'today', tickTo: 'Done',
+  snoozable: true, moment, notes: null,
+});
+const mRef = (id, date, title = id) =>
+  ({ id, title, date, type: 'Show', clientSlug: 'sean-comma' });
+
+const SOON = mRef('m-soon', addDays(TODAY, 2), 'Saturday show');
+const LATER = mRef('m-later', addDays(TODAY, 12), 'The fortnight one');
+
+/* Campaign order is the MOMENT's date, not the rows'. The point of this
+   view is to read a rollout as a rollout, so a campaign with an overdue
+   step does not jump ahead of one whose show is sooner. */
+const ordered = groupByCampaign([
+  gRow('a', LATER, addDays(TODAY, -3)),
+  gRow('b', SOON, addDays(TODAY, 5)),
+]);
+is('group: sections run in moment-date order',
+   ordered.map((g) => g.title).join('|'), 'Saturday show|The fortnight one');
+
+is('group: a section holds its own rows',
+   groupByCampaign([gRow('a', SOON), gRow('b', SOON), gRow('c', LATER)])
+     .map((g) => g.rows.length).join('|'), '2|1');
+is('group: and keeps the order it was given',
+   groupByCampaign([gRow('b', SOON), gRow('a', SOON)])[0]
+     .rows.map((r) => r.id).join('|'), 'b|a');
+
+const loose = groupByCampaign([gRow('a', SOON), gRow('x', null)]);
+is('group: rows with no campaign get their own section',
+   loose[loose.length - 1].title, NO_CAMPAIGN);
+is('group: which comes after every campaign', loose.length, 2);
+is('group: and is marked by carrying no moment',
+   loose[loose.length - 1].moment, null);
+is('group: no loose rows means no loose section',
+   groupByCampaign([gRow('a', SOON)]).length, 1);
+is('group: nothing in means nothing out', groupByCampaign([]).length, 0);
+
+// An undated moment has no place in the order, so it goes last among
+// the campaigns rather than first, which is where '' would sort it.
+const undated = groupByCampaign([
+  gRow('a', mRef('m-undated', null, 'No date yet')),
+  gRow('b', SOON),
+  gRow('x', null),
+]);
+is('group: an undated campaign sorts after the dated ones',
+   undated.map((g) => g.title).join('|'),
+   `Saturday show|No date yet|${NO_CAMPAIGN}`);
+
+// Every row is drawn exactly once, whichever grouping is on.
+const mixed = [gRow('a', SOON), gRow('b', LATER), gRow('c', SOON), gRow('x', null)];
+is('group: every row is placed, none twice',
+   groupByCampaign(mixed).reduce((n, g) => n + g.rows.length, 0), mixed.length);
+
+/* The same rule as the calendar: a step we took out of the plan is not
+   work outstanding, so it is in no count and no list. This is the
+   tripwire for that, named after the two statuses rather than relying
+   on STEP_SETTLED keeping them. */
+for (const st of ['Skipped', 'Moved']) {
+  const t = buildToday({
+    clients: [SEAN],
+    steps: [hqStep({ status: st, date: '2026-01-01' })],
+    content: [],
+  }, 'all', NOW);
+  is(`group: a ${st} step is in no Today section`,
+     t.overdue.length + t.today.length + t.week.length, 0);
+}
 
 section('Blueprint HQ · filter and sections');
 

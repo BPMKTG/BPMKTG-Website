@@ -112,16 +112,24 @@ export interface HqCalItem {
   date: string | null;
   venueCity: string | null;
   hidden: boolean;
+  /** Why a step moved, usually. This is where the rescheduling
+   *  reasons get written, so HQ puts it under the title. */
+  notes: string | null;
 }
 
 export interface HqContentItem {
   id: string;
   clientId: string | null;
+  /** The moment this card promotes, if any. A content row carries its
+   *  campaign as a relation of its own rather than hanging off a
+   *  moment the way a step does. */
+  campaignId: string | null;
   title: string;
   status: string | null;
   postDate: string | null;
   bucket: string | null;
   format: string | null;
+  notes: string | null;
 }
 
 /** A snapshot as the report pipeline already shapes it, plus the
@@ -257,6 +265,7 @@ async function readCalendar(token: string, now: Date): Promise<HqCalItem[]> {
       date,
       venueCity: readText(p['Venue / City']),
       hidden: readCheckbox(p['Hide from Client']),
+      notes: readText(p['Notes']),
     });
   }
   return out;
@@ -288,11 +297,13 @@ async function readContent(token: string, now: Date): Promise<HqContentItem[]> {
     return {
       id: String(page.id),
       clientId: readRelation(p['Client'])[0] ?? null,
+      campaignId: readRelation(p['Campaign'])[0] ?? null,
       title: readText(p['Content']) ?? '',
       status: readSelect(p['Status']),
       postDate: readDate(p['Post Date']),
       bucket: readSelect(p['Bucket']),
       format: readSelect(p['Format']),
+      notes: readText(p['Notes']),
     };
   });
 }

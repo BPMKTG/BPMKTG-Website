@@ -2758,7 +2758,53 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 .hq-when { color: var(--pt-muted); font-variant-numeric: tabular-nums; }
 .hq-when-late { color: var(--pt-bad); font-weight: 600; }
 
+/* Notes, as a subtitle. One line, cut by the box rather than by a
+   character count, so a short note is never given an ellipsis. */
+.hq-row-note {
+  font-size: .74rem; color: var(--pt-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-top: 1px;
+}
+
+/* The campaign a row belongs to. Coloured by Moment Type, the same two
+   colours the shows-and-releases strip uses, so one glance reads the
+   same thing in both places. */
+.hq-camp {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  max-width: 15rem;
+  padding: 1px 7px 1px 6px;
+  border-radius: var(--pt-r-pill);
+  border-left: 3px solid var(--pt-slate);
+  background: var(--pt-surface-2);
+  color: var(--pt-ink-2); font-weight: 600;
+}
+.hq-camp:hover { text-decoration: none; filter: brightness(.97); }
+.hq-camp-show    { border-left-color: var(--pt-orange); }
+.hq-camp-release { border-left-color: var(--pt-navy); }
+.hq-camp-n {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hq-camp-d {
+  flex: none; color: var(--pt-muted); font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A campaign section's head carries the chip rather than an <h2>, so
+   the name is the link and the row below it is not repeating it. */
+.hq-sec-head .hq-camp { font-size: .9rem; padding: 2px 9px 2px 7px; max-width: 22rem; }
+
+.hq-bar-label {
+  font-size: .74rem; font-weight: 600; color: var(--pt-muted);
+  margin-left: var(--pt-2);
+}
+
 .hq-row-acts { flex: none; display: flex; align-items: center; gap: var(--pt-1); position: relative; }
+
+/* A mini row with a note under its title: the title and the note stack,
+   the chip and the date stay on the baseline beside them. */
+.hq-mini-row-tall { align-items: flex-start; }
+.hq-mini-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hq-mini-row-tall .hq-camp { flex: none; max-width: 11rem; font-size: .72rem; }
 
 /* ── the snooze menu ──────────────────────────────────────────── */
 

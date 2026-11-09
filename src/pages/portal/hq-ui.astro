@@ -174,8 +174,9 @@ const NAV = [
     buildToday, stripItems, snoozeTo, isoToday,
     clientFacts, clientHealth, stepUpSoon, daysUntilDay, CARD_STAGES,
     reportDrafts, reportPublished, reportGaps, sortAudits, docBase,
-    type HqFilter, type HqRow, type RowClient, type StripItem,
-    type CardClient, type HealthVerdict,
+    groupByCampaign, momentIndex, oneLine,
+    type HqCampaignGroup, type HqFilter, type HqMomentRef, type HqRow,
+    type RowClient, type StripItem, type CardClient, type HealthVerdict,
   } from '../../data/hq';
   import { termProgress } from '../../data/portal';
   import { HQ_STAGES, LEAD_SOURCES } from '../../data/hq';
@@ -188,6 +189,37 @@ const NAV = [
 
   let HQ: any = null;
   let FILTER: HqFilter = 'all';
+
+  /* ── how Today is grouped ────────────────────────────────────────
+     By day, or by campaign. The choice is remembered because it is a
+     way of working rather than a thing you flick between: someone who
+     reads their week as rollouts wants it that way every morning. */
+
+  type GroupBy = 'date' | 'campaign';
+  const HQ_STORE = 'bp.hq.v1';
+  let GROUP: GroupBy = 'date';
+
+  function loadHqPrefs() {
+    try {
+      const raw = localStorage.getItem(HQ_STORE);
+      if (!raw) return;
+      const v = JSON.parse(raw) as { group?: unknown };
+      if (v.group === 'date' || v.group === 'campaign') GROUP = v.group;
+    } catch { /* a browser that will not remember is not an error */ }
+  }
+
+  function saveHqPrefs() {
+    try {
+      localStorage.setItem(HQ_STORE, JSON.stringify({ group: GROUP }));
+    } catch { /* same */ }
+  }
+
+  /** Every moment on the calendar, by id, for the rows that are drawn
+   *  outside buildToday: the Clients tab builds its own. */
+  function momentsNow(): Map<string, HqMomentRef> {
+    const byId = new Map(clients().map((c) => [c.pageId, c]));
+    return momentIndex((HQ?.calendar ?? []) as any[], byId);
+  }
 
   /* ── toast ───────────────────────────────────────────────────── */
 
@@ -770,9 +802,16 @@ const NAV = [
       return card;
     }
     const list = el('div', 'hq-mini');
+    const moments = momentsNow();
     for (const s of rows.slice(0, 12)) {
-      const r = el('div', 'hq-mini-row');
-      r.appendChild(el('span', 'hq-mini-t', s.title || 'Untitled'));
+      const r = el('div', 'hq-mini-row hq-mini-row-tall');
+      const main = el('div', 'hq-mini-main');
+      main.appendChild(el('span', 'hq-mini-t', s.title || 'Untitled'));
+      const note = oneLine(s.notes);
+      if (note) main.appendChild(el('span', 'hq-row-note', note));
+      r.appendChild(main);
+      const m = s.momentId ? moments.get(s.momentId) : undefined;
+      if (m) r.appendChild(campChip(m));
       const late = s.date && s.date < today;
       r.appendChild(el('span', `hq-mini-d${late ? ' hq-when-late' : ''}`,
         s.date ? (late ? whenLabel(s.date).text : shortDay(s.date)) : 'no date'));
@@ -1856,9 +1895,44 @@ const NAV = [
       return;
     }
 
+    if (GROUP === 'campaign') {
+      // One pass over all three buckets: a campaign does not stop at
+      // the end of the week, and splitting it by day here would be the
+      // view this toggle exists to get away from. Overdue rows keep
+      // their late date, which is how they still read as late.
+      const rows = [...lists.overdue, ...lists.today, ...lists.week];
+      for (const g of groupByCampaign(rows)) root.appendChild(campSection(g));
+      return;
+    }
+
     if (lists.overdue.length) root.appendChild(section('Overdue', lists.overdue, true));
     if (lists.today.length) root.appendChild(section('Due today', lists.today));
     if (lists.week.length) root.appendChild(section('This week', lists.week));
+  }
+
+  /** One campaign and the work under it. */
+  function campSection(g: HqCampaignGroup): HTMLElement {
+    const sec = el('section', 'hq-sec');
+    const head = el('div', 'hq-sec-head');
+
+    if (g.moment) {
+      head.appendChild(campChip(g.moment));
+      // The client's name is on every row in a by-day list; here the
+      // section carries it once, because a campaign belongs to one.
+      const who = el('a', 'hq-client', g.rows[0].clientName);
+      who.href = `/portal/${g.rows[0].clientSlug}`;
+      head.appendChild(who);
+    } else {
+      head.appendChild(el('h2', undefined, g.title));
+    }
+
+    head.appendChild(el('span', 'hq-sec-count', String(g.rows.length)));
+    sec.appendChild(head);
+
+    const list = el('div', 'hq-list');
+    for (const r of g.rows) list.appendChild(rowNode(r));
+    sec.appendChild(list);
+    return sec;
   }
 
   /** Shows and releases across every client, next fortnight. */
@@ -1907,6 +1981,22 @@ const NAV = [
       seg.appendChild(b);
     }
     bar.appendChild(seg);
+
+    const grp = el('div', 'hq-seg');
+    grp.setAttribute('role', 'group');
+    grp.setAttribute('aria-label', 'Group by');
+    for (const [value, label] of [['date', 'Date'], ['campaign', 'Campaign']] as Array<[GroupBy, string]>) {
+      const b = el('button', undefined, label);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(GROUP === value));
+      b.addEventListener('click', () => {
+        GROUP = value;
+        saveHqPrefs();
+        draw('today');
+      });
+      grp.appendChild(b);
+    }
+    bar.append(el('span', 'hq-bar-label', 'Group by'), grp);
     return bar;
   }
 
@@ -1920,6 +2010,25 @@ const NAV = [
     for (const r of rows) list.appendChild(rowNode(r));
     sec.appendChild(list);
     return sec;
+  }
+
+  /**
+   * The campaign a row belongs to: its name, its date, its colour.
+   *
+   * A link, into that client's own calendar with the campaign already
+   * filtered, which is the nearest thing to "open that moment" that
+   * exists: the moment and its whole rollout, in one view.
+   */
+  function campChip(m: HqMomentRef): HTMLElement {
+    const kind = (m.type ?? '').toLowerCase().includes('show') ? 'show'
+      : (m.type ?? '').toLowerCase().includes('release') ? 'release'
+      : 'other';
+    const a = el('a', `hq-camp hq-camp-${kind}`);
+    a.href = `/portal/${encodeURIComponent(m.clientSlug)}#/calendar/${encodeURIComponent(m.id)}`;
+    a.title = m.type ? `${m.type}: ${m.title}` : m.title;
+    a.appendChild(el('span', 'hq-camp-n', m.title));
+    if (m.date) a.appendChild(el('span', 'hq-camp-d', shortDay(m.date)));
+    return a;
   }
 
   function rowNode(r: HqRow): HTMLElement {
@@ -1941,6 +2050,11 @@ const NAV = [
 
     const main = el('div', 'hq-row-main');
     main.appendChild(el('div', 'hq-row-title', r.title));
+    // Notes, under the title, because that is where the reason a step
+    // moved is written and it is the thing you want without opening
+    // Notion. One line: CSS cuts it, so a note with room to spare is
+    // not given an ellipsis it did not need.
+    if (r.notes) main.appendChild(el('div', 'hq-row-note', r.notes));
 
     const meta = el('div', 'hq-row-meta');
     const chip = el('a', 'hq-client', r.clientName);
@@ -1949,6 +2063,10 @@ const NAV = [
     meta.appendChild(el('span', `hq-own hq-own-${r.owner}`,
       r.owner === 'blueprint' ? 'Blueprint' : 'Client'));
     if (r.type) meta.appendChild(el('span', 'hq-type', r.type));
+    // Grouping by campaign already says which one every row in the
+    // section belongs to, so the chip would be the same word repeated
+    // down the list.
+    if (r.moment && GROUP !== 'campaign') meta.appendChild(campChip(r.moment));
     const when = whenLabel(r.date);
     meta.appendChild(el('span', `hq-when${when.late ? ' hq-when-late' : ''}`, when.text));
     main.appendChild(meta);
@@ -2207,6 +2325,8 @@ const NAV = [
   /* ── boot ────────────────────────────────────────────────────── */
 
   async function boot() {
+    // Before the first draw, so Today opens the way it was left.
+    loadHqPrefs();
     const started = performance.now();
     let res: Response;
     try {

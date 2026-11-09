@@ -17,7 +17,7 @@
         one place.
    ────────────────────────────────────────────────────────────── */
 
-import { canSetStepStatus, canSetStepDate } from './portal';
+import { canSetStepStatus, canSetStepDate, cleanItemTitle } from './portal';
 import { canClientMove } from './portal-content';
 
 /* ── the window ───────────────────────────────────────────────── */
@@ -44,6 +44,25 @@ export type HqRowKind = 'step' | 'content' | 'next-action';
 
 export type HqBucket = 'overdue' | 'today' | 'week';
 
+/**
+ * The campaign a row belongs to, as a row needs to say it.
+ *
+ * Flattened onto the row rather than looked up at draw time: the
+ * Today list and the Clients cards both show it, grouping by campaign
+ * sorts by its date, and none of them should each be doing their own
+ * pass over the calendar to find a moment by id.
+ */
+export interface HqMomentRef {
+  id: string;
+  title: string;
+  /** The moment's own date, which is what campaign order means. Null
+   *  for a moment with no date yet, which sorts last. */
+  date: string | null;
+  /** Show, Release, Festival and so on, for the chip's colour. */
+  type: string | null;
+  clientSlug: string;
+}
+
 export interface HqRow {
   /** Unique within the list. Kind-prefixed because a client page id
    *  and a calendar page id could in principle collide in the DOM. */
@@ -65,6 +84,13 @@ export interface HqRow {
   tickTo: string | null;
   /** Whether HQ may offer a snooze. */
   snoozable: boolean;
+  /** The campaign this row is part of, or null for a row that is not
+   *  part of one: a next action, or a step with no moment. */
+  moment: HqMomentRef | null;
+  /** Notes, as a one-line subtitle. This is where the reason a step
+   *  moved gets written, which is the thing you want to read without
+   *  opening Notion. */
+  notes: string | null;
 }
 
 /* ── statuses that are not to-dos ─────────────────────────────── */
@@ -113,6 +139,64 @@ export function bucketFor(
   return date <= addDays(today, weekDays) ? 'week' : null;
 }
 
+/* ── notes ────────────────────────────────────────────────────── */
+
+/**
+ * A Notes field as one line.
+ *
+ * Notion text is multi-line and these notes run long. The row shows a
+ * subtitle, not a paragraph, so newlines collapse to a separator and
+ * the rest is left to CSS to cut: a hard character limit here would
+ * put an ellipsis in the middle of a line that had room to spare.
+ */
+export const NOTE_SEP = ' \u00b7 ';
+
+export function oneLine(text: string | null | undefined): string | null {
+  const t = (text ?? '').split(/\r?\n+/).map((l) => l.trim()).filter(Boolean);
+  return t.length ? t.join(NOTE_SEP) : null;
+}
+
+/* ── campaigns ────────────────────────────────────────────────── */
+
+/**
+ * Every moment on the calendar, by page id.
+ *
+ * A moment is a row in the same database as the steps that hang off
+ * it, so there is nothing to fetch: the Kind=Moment rows in the
+ * payload ARE the campaigns. Built once per draw and handed to the row
+ * builders, so a list of two hundred rows does not do two hundred
+ * scans of the calendar looking for its moment.
+ *
+ * A moment with no client is skipped: the chip links into a client's
+ * portal, and one with nowhere to go is not a link.
+ *
+ * The artist prefix comes off here. Calendar titles are written for
+ * our board ("Sean Comma · Faith Rave"), and HQ's data layer cannot
+ * strip it because it reads every client's rows in one query before it
+ * knows whose each row is. By this point the client is in hand, and a
+ * chip that said the artist's name next to a row that already carries
+ * it would be saying it twice.
+ */
+export function momentIndex(
+  steps: RowStep[], byId: Map<string, RowClient>,
+): Map<string, HqMomentRef> {
+  const out = new Map<string, HqMomentRef>();
+  for (const s of steps) {
+    if (s.kind !== 'Moment') continue;
+    const client = s.clientId ? byId.get(s.clientId) : undefined;
+    if (!client) continue;
+    const { title } = cleanItemTitle(s.title ?? '', client.artist);
+    out.set(s.id, {
+      id: s.id,
+      title: title || 'Untitled moment',
+      date: s.date,
+      type: s.momentType,
+      clientSlug: client.slug,
+    });
+  }
+  return out;
+}
+
 /* ── building the rows ────────────────────────────────────────── */
 
 /** Only what this module reads, so the tests can hand it a literal. */
@@ -128,21 +212,26 @@ export interface RowClient {
 export interface RowStep {
   id: string;
   clientId: string | null;
+  momentId: string | null;
   title: string;
   kind: string | null;
+  momentType: string | null;
   type: string | null;
   owner: string | null;
   status: string | null;
   date: string | null;
+  notes: string | null;
 }
 
 export interface RowContent {
   id: string;
   clientId: string | null;
+  campaignId: string | null;
   title: string;
   status: string | null;
   postDate: string | null;
   format: string | null;
+  notes: string | null;
 }
 
 /** Stages whose next action is nobody's to-do any more. */
@@ -156,7 +245,10 @@ export const DEAD_STAGES = ['Ended'] as const;
  * in, which is the whole reason HQ exists.
  */
 export function stepRows(
-  steps: RowStep[], byId: Map<string, RowClient>, now: Date = new Date(),
+  steps: RowStep[],
+  byId: Map<string, RowClient>,
+  now: Date = new Date(),
+  moments: Map<string, HqMomentRef> = momentIndex(steps, byId),
 ): HqRow[] {
   const out: HqRow[] = [];
   for (const s of steps) {
@@ -185,6 +277,8 @@ export function stepRows(
       bucket,
       tickTo: canSetStepStatus(row, 'Done', 'admin') ? 'Done' : null,
       snoozable: canSetStepDate(row, 'admin'),
+      moment: (s.momentId ? moments.get(s.momentId) : undefined) ?? null,
+      notes: oneLine(s.notes),
     });
   }
   return out;
@@ -202,7 +296,10 @@ export function stepRows(
  * draw a box that the server would refuse.
  */
 export function contentRows(
-  items: RowContent[], byId: Map<string, RowClient>, now: Date = new Date(),
+  items: RowContent[],
+  byId: Map<string, RowClient>,
+  now: Date = new Date(),
+  moments: Map<string, HqMomentRef> = new Map(),
 ): HqRow[] {
   const out: HqRow[] = [];
   for (const c of items) {
@@ -226,6 +323,8 @@ export function contentRows(
       bucket,
       tickTo: canClientMove(c.status, 'Posted') ? 'Posted' : null,
       snoozable: true,
+      moment: (c.campaignId ? moments.get(c.campaignId) : undefined) ?? null,
+      notes: oneLine(c.notes),
     });
   }
   return out;
@@ -267,6 +366,10 @@ export function nextActionRows(
       // status: the Clients row has no status to write.
       tickTo: 'clear',
       snoozable: true,
+      // A next action is about the client rather than about a campaign,
+      // and the Clients row has no notes field.
+      moment: null,
+      notes: null,
     });
   }
   return out;
@@ -306,9 +409,13 @@ export function buildToday(
   now: Date = new Date(),
 ): HqToday {
   const byId = new Map(input.clients.map((c) => [c.pageId, c]));
+  // Once, and handed to both builders: a step finds its moment here
+  // and a content card finds the same one, so the chip on a post and
+  // the chip on the step promoting it cannot disagree.
+  const moments = momentIndex(input.steps, byId);
   const all = [
-    ...stepRows(input.steps, byId, now),
-    ...contentRows(input.content, byId, now),
+    ...stepRows(input.steps, byId, now, moments),
+    ...contentRows(input.content, byId, now, moments),
     ...nextActionRows(input.clients, now),
   ].filter((r) => matchesFilter(r, filter));
 
@@ -317,6 +424,58 @@ export function buildToday(
     today: sortRows(all.filter((r) => r.bucket === 'today')),
     week: sortRows(all.filter((r) => r.bucket === 'week')),
   };
+}
+
+/* ── grouped by campaign ──────────────────────────────────────── */
+
+export interface HqCampaignGroup {
+  /** Null for the rows that belong to no campaign. */
+  moment: HqMomentRef | null;
+  /** What the section is called. */
+  title: string;
+  rows: HqRow[];
+}
+
+/** The section rows with no campaign are collected under. */
+export const NO_CAMPAIGN = 'No campaign';
+
+/**
+ * The same rows, one section per moment, in campaign order.
+ *
+ * Campaign order is the moment's own date, not the rows' dates: the
+ * point of this view is to read a rollout as a rollout, so the show
+ * that is a fortnight out comes after the one that is on Saturday even
+ * if it has an overdue step and the other does not. Within a section
+ * the rows keep the list's own order, which is by day.
+ *
+ * A moment with no date sorts last among the campaigns, and the rows
+ * that belong to no campaign come after all of them: a next action, or
+ * a step nobody hung off a moment, is not a campaign and should not be
+ * mistaken for the start of one.
+ */
+export function groupByCampaign(rows: HqRow[]): HqCampaignGroup[] {
+  const groups = new Map<string, HqCampaignGroup>();
+  const loose: HqRow[] = [];
+
+  for (const r of rows) {
+    if (!r.moment) { loose.push(r); continue; }
+    const g = groups.get(r.moment.id);
+    if (g) { g.rows.push(r); continue; }
+    groups.set(r.moment.id, {
+      moment: r.moment,
+      title: r.moment.title,
+      rows: [r],
+    });
+  }
+
+  const out = [...groups.values()].sort((a, b) =>
+    // An undated moment has no place in the order, so it goes last
+    // rather than first, which is where an empty string would sort it.
+    (a.moment!.date ?? '9999-99-99').localeCompare(b.moment!.date ?? '9999-99-99')
+    || a.title.localeCompare(b.title));
+
+  if (loose.length) out.push({ moment: null, title: NO_CAMPAIGN, rows: loose });
+  return out;
 }
 
 /* ── the strip ────────────────────────────────────────────────── */

@@ -587,6 +587,15 @@ const NAV = [
     }
     if (view === 'reports') showPlatform(detail);
     if (view === 'content') drawContent();
+    // #/calendar/<moment page id> opens the calendar with that campaign
+    // already filtered. Blueprint HQ's campaign chips link here, so a
+    // moment in a list over there is one click from the rollout it
+    // belongs to. An id that is not on this calendar is ignored rather
+    // than left as an empty filter.
+    if (view === 'calendar' && detail && detail !== CAL.campaign
+      && campaigns().some((m) => m.id === detail)) {
+      filterToCampaign(detail);
+    }
     closeDrawer();
     closeSheet();
     window.scrollTo({ top: 0, behavior: 'auto' });
