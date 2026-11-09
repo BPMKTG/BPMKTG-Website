@@ -179,31 +179,9 @@ const NAV = [
   } from '../../data/hq';
   import { termProgress } from '../../data/portal';
   import { HQ_STAGES, LEAD_SOURCES } from '../../data/hq';
-
-  const el = <K extends keyof HTMLElementTagNameMap>(
-    tag: K, cls?: string, text?: string,
-  ): HTMLElementTagNameMap[K] => {
-    const n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (text !== undefined) n.textContent = text;
-    return n;
-  };
-  const q = <T extends HTMLElement>(sel: string, root: ParentNode = document) =>
-    root.querySelector<T>(sel);
-  const qq = <T extends HTMLElement>(sel: string, root: ParentNode = document) =>
-    Array.from(root.querySelectorAll<T>(sel));
-  const show = (n: Element | null, on: boolean) => { if (n) (n as HTMLElement).hidden = !on; };
-  const clear = (n: Element | null) => { while (n && n.firstChild) n.removeChild(n.firstChild); };
-  const icon = (name: string, cls?: string): SVGSVGElement => {
-    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    s.setAttribute('aria-hidden', 'true');
-    s.setAttribute('focusable', 'false');
-    if (cls) s.setAttribute('class', cls);
-    const u = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-    u.setAttribute('href', `#pt-i-${name}`);
-    s.appendChild(u);
-    return s;
-  };
+  // The same pieces the client portal is built from, so there is one
+  // copy of them rather than one per screen.
+  import { clear, el, icon, q, qq, show } from '../../scripts/portal-dom';
 
   const VIEWS = ['today', 'clients', 'pipeline', 'reports'] as const;
   type View = typeof VIEWS[number];
