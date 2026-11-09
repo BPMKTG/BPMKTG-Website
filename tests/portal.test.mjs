@@ -162,6 +162,12 @@ import {
   LEAD_SOURCES,
   MAX_ARTIST,
   NEW_LEAD_STAGE,
+  cleanBriefUrl,
+  MAX_BRIEF_URL,
+  briefHost,
+  isOurBriefUrl,
+  isSafeBriefUrl,
+  readBrief,
 } from '../.tmp-portal-lib.mjs';
 import { readFileSync } from 'node:fs';
 
@@ -1854,8 +1860,9 @@ is('hq: a near-miss is refused', isHqStage('active'), false);
 
 const props = (body) => buildHqClientProperties(body);
 
-is('hq: only the three fields exist',
-   Object.keys(HQ_CLIENT_EDITABLE).join(','), 'stage,nextAction,nextActionDate');
+is('hq: only the four fields exist',
+   Object.keys(HQ_CLIENT_EDITABLE).join(','),
+   'stage,nextAction,nextActionDate,brandBriefUrl');
 is('hq: a field nobody whitelisted is not written',
    Object.keys(props({ monthlyRate: 9999, portalKey: 'x' }).properties).length, 0);
 is('hq: and Portal Key above all',
@@ -1891,6 +1898,96 @@ is('hq: so is a datetime', props({ nextActionDate: '2026-12-01T10:00:00Z' }).rej
    ['nextActionDate']);
 is('hq: so is nonsense', props({ nextActionDate: 'soon' }).rejected, ['nextActionDate']);
 
+/* The brand brief pointer. One Notion column holds both kinds, so
+   this cleaner is the only thing between a pasted string and an href
+   in a client's browser. */
+
+is('hq: a pasted link writes the url column',
+   props({ brandBriefUrl: 'https://figma.com/file/abc' }).properties['Brand Brief PDF'],
+   { url: 'https://figma.com/file/abc' });
+is('hq: null clears it, which is how a brief comes down',
+   props({ brandBriefUrl: null }).properties['Brand Brief PDF'], { url: null });
+is('hq: an empty string clears it too',
+   props({ brandBriefUrl: '   ' }).properties['Brand Brief PDF'], { url: null });
+is('hq: http is allowed, since not every client is on https yet',
+   cleanBriefUrl('http://example.com/brief.pdf'), 'http://example.com/brief.pdf');
+// This value becomes an href on a page a client is signed in to.
+is('hq: javascript: is not a brief', props({ brandBriefUrl: 'javascript:alert(1)' }).rejected,
+   ['brandBriefUrl']);
+is('hq: nor is data:',
+   props({ brandBriefUrl: 'data:text/html,<script>x</script>' }).rejected, ['brandBriefUrl']);
+is('hq: nor is ftp', props({ brandBriefUrl: 'ftp://host/brief.pdf' }).rejected,
+   ['brandBriefUrl']);
+is('hq: nor is a bare word', props({ brandBriefUrl: 'brief.pdf' }).rejected,
+   ['brandBriefUrl']);
+is('hq: nor a number', props({ brandBriefUrl: 7 }).rejected, ['brandBriefUrl']);
+is('hq: an absurd length is refused rather than truncated',
+   cleanBriefUrl(`https://e.com/${'x'.repeat(MAX_BRIEF_URL)}`), undefined);
+ok('hq: and nothing is written when it is refused',
+   Object.keys(props({ brandBriefUrl: 'javascript:alert(1)' }).properties).length === 0);
+
+/* Which kind a stored pointer is. */
+
+is('brief: our own URL is recognised',
+   isOurBriefUrl('/portal/sean-comma/files/briefs/sean-comma/brand-brief.pdf', 'sean-comma'),
+   true);
+is('brief: and so is the absolute form of it, which is what a paste gives',
+   isOurBriefUrl(
+     'https://blueprint-marketing.com/portal/sean-comma/files/briefs/sean-comma/brand-brief.pdf',
+     'sean-comma'),
+   true);
+is('brief: another client\u2019s brief is not ours to serve from this slug',
+   isOurBriefUrl('/portal/other/files/briefs/other/brand-brief.pdf', 'sean-comma'), false);
+is('brief: a link that merely mentions files is not ours',
+   isOurBriefUrl('https://evil.test/portal/sean-comma/files/briefs/x', 'sean-comma'), false);
+is('brief: the host is what a client is told they are opening',
+   briefHost('https://www.figma.com/file/abc'), 'figma.com');
+is('brief: https is safe', isSafeBriefUrl('https://x.test/a'), true);
+is('brief: javascript is not', isSafeBriefUrl('javascript:alert(1)'), false);
+
+/* readBrief: the pointer decides, and only a PDF of ours costs a HEAD. */
+
+const bucket = (head) => {
+  let heads = 0;
+  return {
+    bucket: { head: async () => { heads++; return head; } },
+    heads: () => heads,
+  };
+};
+const UPLOADED = { size: 2048, uploaded: new Date('2026-11-06T10:00:00Z') };
+
+const pdfCase = bucket(UPLOADED);
+is('brief: a pointer at our file reads the bytes behind it',
+   await readBrief({ REPORTS_BUCKET: pdfCase.bucket }, 'sean-comma',
+     briefUrl('sean-comma')),
+   { url: briefUrl('sean-comma'), kind: 'pdf', size: 2048,
+     uploaded: '2026-11-06T10:00:00.000Z', host: null });
+
+const linkCase = bucket(UPLOADED);
+is('brief: a pointer somewhere else is a link, with no size',
+   await readBrief({ REPORTS_BUCKET: linkCase.bucket }, 'sean-comma',
+     'https://www.notion.so/brief'),
+   { url: 'https://www.notion.so/brief', kind: 'link', size: null,
+     uploaded: null, host: 'notion.so' });
+is('brief: and the bucket is never touched for one',
+   linkCase.heads(), 0);
+
+const legacy = bucket(UPLOADED);
+ok('brief: a blank column still finds a brief uploaded before the column existed',
+   (await readBrief({ REPORTS_BUCKET: legacy.bucket }, 'sean-comma', null))?.kind === 'pdf');
+is('brief: a pointer at our file that is gone is no brief',
+   await readBrief({ REPORTS_BUCKET: bucket(null).bucket }, 'sean-comma',
+     briefUrl('sean-comma')),
+   null);
+is('brief: an unsafe pointer is refused rather than handed to the browser',
+   await readBrief({ REPORTS_BUCKET: bucket(UPLOADED).bucket }, 'sean-comma',
+     'javascript:alert(1)'),
+   null);
+is('brief: no bucket and no link is no brief',
+   await readBrief({}, 'sean-comma', null), null);
+is('brief: but a link needs no bucket at all',
+   (await readBrief({}, 'sean-comma', 'https://x.test/b'))?.kind, 'link');
+
 // A patch naming one field leaves the others alone, so snoozing a next
 // action cannot wipe its text.
 is('hq: a date-only patch touches only the date',
@@ -1899,6 +1996,9 @@ is('hq: a patch of all three writes all three',
    Object.keys(props({
      stage: 'Active', nextAction: 'Kick off', nextActionDate: '2026-12-01',
    }).properties).length, 3);
+is('hq: and a brief patch touches only the brief',
+   Object.keys(props({ brandBriefUrl: 'https://x.test/b' }).properties),
+   ['Brand Brief PDF']);
 
 /* ══ 14. Blueprint HQ · client health ════════════════════════════
    The colour on a client card, and the sentence behind it. Worth

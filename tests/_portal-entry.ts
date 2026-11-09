@@ -14,9 +14,11 @@ export * from '../src/server/portal-notion';
 export * from '../src/server/portal-write';
 // The brand brief. Everything in here that touches R2 takes the
 // bucket as an argument, so what is testable is what decides: the
-// key, the URL, the size cap and whether the bytes are a PDF.
+// key, the URL, the size cap, whether the bytes are a PDF, and which
+// of the two kinds a pointer resolves to.
 export {
   BRIEF_FILE, MAX_BRIEF_BYTES, briefKey, briefUrl, looksLikePdf, fileSize,
+  briefHost, isOurBriefUrl, isSafeBriefUrl, readBrief,
 } from '../src/server/brief';
 // Blueprint HQ. The rules that decide what a Today row is and what may
 // be done to it, and the whitelist for the one Clients write.

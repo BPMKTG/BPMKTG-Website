@@ -20,9 +20,22 @@
    /portal/<slug>/files/<key> with every other PDF, behind the same
    session check, which is why briefs/ had to be added to the prefixes
    that endpoint will hand to a client.
+
+   ── where the pointer lives ──────────────────────────────────
+   R2 holds the bytes; the Clients row's `Brand Brief PDF` property
+   holds the answer to "is there one, and where". An upload writes
+   both. That property is also how a brief that is NOT ours gets in:
+   paste the address of a Doc, a Figma file or a Canva link and the
+   client gets that instead, with no bytes on our side. One client,
+   one brief, either kind, one place to look.
+
+   Which is why `readBrief` takes the pointer rather than going
+   straight to the bucket: a HEAD can only ever find a PDF of ours,
+   and half the briefs are not.
    ────────────────────────────────────────────────────────────── */
 
 import { fileSlug } from './pdf';
+import type { PortalBrief } from '../data/portal';
 
 /** The only name a brief ever has. See the note above. */
 export const BRIEF_FILE = 'brand-brief.pdf';
@@ -65,35 +78,97 @@ export function looksLikePdf(bytes: Uint8Array): boolean {
 }
 
 /** What the portal says about a brief that exists. */
-export interface BriefInfo {
-  url: string;
-  /** Bytes, so the client can see what they are about to download. */
-  size: number;
-  /** When it was uploaded, ISO. Null if R2 did not say. */
-  uploaded: string | null;
-}
+export type BriefInfo = PortalBrief;
 
 export interface BriefEnv {
   REPORTS_BUCKET?: R2Bucket;
 }
 
+/** Is this URL the one we hand out for this client's own PDF?
+ *
+ *  Compared against what `briefUrl` builds rather than sniffed for
+ *  "/files/", so a link that merely looks like ours is treated as
+ *  somebody else's and opened as a link, not HEADed in our bucket. */
+export function isOurBriefUrl(url: string, slug: string): boolean {
+  const mine = briefUrl(slug);
+  try {
+    // Absolute or root-relative: an upload writes the root-relative
+    // form, but a human pasting from the address bar writes the whole
+    // thing, and both name the same object.
+    const path = new URL(url, 'https://blueprint-marketing.com').pathname;
+    return path === mine;
+  } catch {
+    return false;
+  }
+}
+
+/** "figma.com". The bare host, for a subtitle under a link. */
+export function briefHost(url: string): string | null {
+  try {
+    const h = new URL(url).hostname.replace(/^www\./, '');
+    return h || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Only these open from a client's browser. A brief is a document
+ *  somebody sent us the address of, so the two web schemes are the
+ *  whole list: `javascript:` and `data:` are not links. */
+export function isSafeBriefUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The brief for this client, or null.
+ *
+ * `pointer` is the Clients row's `Brand Brief PDF`, which is the
+ * single answer to "does this client have a brief, and where". Three
+ * cases, in this order:
+ *
+ *   - it points at our own file  → HEAD R2 for the size and the date
+ *   - it points anywhere else    → a link, with no bytes to measure
+ *   - it is empty                → HEAD R2 anyway, because a brief
+ *     uploaded before this property was written still exists and the
+ *     client should still see it. One HEAD, only when the column is
+ *     blank.
  *
  * A HEAD, not a GET: this runs on every portal load and the bytes are
  * only ever wanted by the browser that clicks the link. A bucket that
  * is not bound, or a throw from R2, reads as "no brief" rather than
  * taking the portal down over a decoration.
  */
-export async function readBrief(env: BriefEnv, slug: string): Promise<BriefInfo | null> {
+export async function readBrief(
+  env: BriefEnv, slug: string, pointer?: string | null,
+): Promise<BriefInfo | null> {
+  const url = (pointer ?? '').trim();
+
+  if (url && !isOurBriefUrl(url, slug)) {
+    // Somebody else's document. Refused rather than passed through if
+    // it is not a web link: this ends up as an href in the client's
+    // browser.
+    if (!isSafeBriefUrl(url)) {
+      console.error('portal: the brand brief link is not http(s)', slug);
+      return null;
+    }
+    return { url, kind: 'link', size: null, uploaded: null, host: briefHost(url) };
+  }
+
   if (!env.REPORTS_BUCKET) return null;
   try {
     const head = await env.REPORTS_BUCKET.head(briefKey(slug));
     if (!head) return null;
     return {
       url: briefUrl(slug),
+      kind: 'pdf',
       size: head.size,
       uploaded: head.uploaded ? head.uploaded.toISOString() : null,
+      host: null,
     };
   } catch (err) {
     console.error('portal: reading the brand brief threw', slug, err);
@@ -115,7 +190,13 @@ export async function putBrief(
       cacheControl: 'private, max-age=0, must-revalidate',
     },
   });
-  return { url: briefUrl(slug), size: body.byteLength, uploaded: new Date().toISOString() };
+  return {
+    url: briefUrl(slug),
+    kind: 'pdf',
+    size: body.byteLength,
+    uploaded: new Date().toISOString(),
+    host: null,
+  };
 }
 
 /** "1.1 MB". For a client deciding whether to tap it on a phone. */

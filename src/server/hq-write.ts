@@ -9,8 +9,8 @@
 
    The list is deliberately short. HQ edits a great deal more of a
    client than this, but it does the rest in Notion; what goes through
-   this endpoint is only what the Today and Pipeline tabs have buttons
-   for. A new field has to be added here on purpose.
+   this endpoint is only what HQ itself has a control for. A new field
+   has to be added here on purpose.
    ────────────────────────────────────────────────────────────── */
 
 import { isIsoDay } from '../data/portal';
@@ -18,7 +18,7 @@ import { isIsoDay } from '../data/portal';
 // because the Pipeline board in the browser needs the same lists and
 // must not import anything out of src/server.
 import {
-  cleanNextAction, isHqStage, isLeadSource, MAX_ARTIST, NEW_LEAD_STAGE,
+  cleanBriefUrl, cleanNextAction, isHqStage, isLeadSource, MAX_ARTIST, NEW_LEAD_STAGE,
 } from '../data/hq';
 
 /** The Clients row fields HQ may set, and the Notion property each
@@ -27,6 +27,10 @@ export const HQ_CLIENT_EDITABLE = {
   stage: 'Stage',
   nextAction: 'Next Action',
   nextActionDate: 'Next Action Date',
+  // Where the client's brand brief is. Set here when the brief lives
+  // in somebody else's app; set by the upload endpoint, to our own
+  // file URL, when it is a PDF we hold. One column, either way.
+  brandBriefUrl: 'Brand Brief PDF',
 } as const;
 
 export type HqClientField = keyof typeof HQ_CLIENT_EDITABLE;
@@ -76,6 +80,20 @@ export function buildHqClientProperties(body: Record<string, unknown>): HqBuildR
       properties[HQ_CLIENT_EDITABLE.nextActionDate] = { date: { start: v } };
     } else {
       rejected.push('nextActionDate');
+    }
+  }
+
+  if ('brandBriefUrl' in body) {
+    const v = cleanBriefUrl(body.brandBriefUrl);
+    if (v === undefined) {
+      rejected.push('brandBriefUrl');
+    } else {
+      // Null empties the column, which is how a brief is taken down.
+      // The PDF in R2, if there was one, is left where it is: it is
+      // unreachable with nothing pointing at it, and deleting a
+      // client's document because a link was cleared is not a thing
+      // a text box should do.
+      properties[HQ_CLIENT_EDITABLE.brandBriefUrl] = { url: v };
     }
   }
 

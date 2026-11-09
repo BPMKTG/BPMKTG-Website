@@ -5761,9 +5761,26 @@ const NAV = [
     appendBrief(root);
   }
 
+  /**
+   * What the footer of the brief card says.
+   *
+   * A PDF of ours can be measured and dated, so it says so: "PDF ·
+   * 1.1 MB · Updated Nov 6". A link cannot be either, so it names
+   * where it goes instead, which is the thing a client wants to know
+   * before a tap opens somebody else's app.
+   */
+  function briefMeta(brief: PortalBrief): string {
+    if (brief.kind === 'link') return brief.host ? `Link \u00b7 ${brief.host}` : 'Link';
+    const bits = ['PDF'];
+    if (typeof brief.size === 'number') bits.push(briefSize(brief.size));
+    if (brief.uploaded) bits.push(`Updated ${fmtDateShort(brief.uploaded)}`);
+    return bits.join(' \u00b7 ');
+  }
+
   /** The client's own card. First in the grid, because it is the only
    *  thing on this tab that is a document rather than a door. */
   function briefCard(brief: PortalBrief): HTMLElement {
+    const link = brief.kind === 'link';
     const a = el('a', 'pt-file');
     (a as HTMLAnchorElement).href = brief.url;
     // A new tab: the PDF opens in the browser's viewer and losing the
@@ -5771,11 +5788,11 @@ const NAV = [
     (a as HTMLAnchorElement).target = '_blank';
     (a as HTMLAnchorElement).rel = 'noopener noreferrer';
     const box = el('div', 'pt-file-icon');
-    box.appendChild(icon('download'));
+    box.appendChild(icon(link ? 'ext' : 'download'));
     a.append(box, el('h3', undefined, 'Brand brief'),
       el('p', undefined, 'How your name, type and colours are used, and the look everything we make for you follows.'));
     const open = el('span', 'pt-file-open');
-    open.append(el('span', undefined, `PDF \u00b7 ${briefSize(brief.size)}`), icon('download'));
+    open.append(el('span', undefined, briefMeta(brief)), icon(link ? 'ext' : 'download'));
     a.appendChild(open);
     return a;
   }
@@ -5798,23 +5815,34 @@ const NAV = [
     head.appendChild(el('span', 'pt-card-note', 'Blueprint only'));
     card.appendChild(head);
 
+    const linked = BRIEF?.kind === 'link';
+
     const body = el('div', 'pt-card-body');
     body.appendChild(el('p', 'pt-sect-blurb',
-      'One PDF per client, stored with their reports. Uploading again replaces '
-      + 'it, and the client sees the new one on their next load.'));
+      'One brief per client, stored with their reports. Uploading again replaces '
+      + 'it, and the client sees the new one on their next load. To point them at '
+      + 'a brief in another app instead, paste the link in Blueprint HQ.'));
 
     const list = el('ul', 'pt-admin-list');
     const row = el('li', 'pt-admin-row');
     const text = el('div', 'pt-doc-text');
     text.appendChild(el('div', 'pt-doc-title', 'Brand brief'));
     text.appendChild(el('div', 'pt-doc-sub', BRIEF
-      ? `PDF \u00b7 ${briefSize(BRIEF.size)}${BRIEF.uploaded ? ` \u00b7 ${fmtDate(BRIEF.uploaded.slice(0, 10))}` : ''}`
+      ? briefMeta(BRIEF)
       : 'Nothing uploaded yet'));
     row.append(text, adminPill(BRIEF ? 'In portal' : 'Not shown', BRIEF ? 'good' : 'warn'));
 
     const acts = el('div', 'pt-admin-acts');
-    acts.appendChild(briefUpload(BRIEF ? 'Replace PDF' : 'Upload PDF'));
-    if (BRIEF) acts.appendChild(pdfLink(BRIEF.url, 'PDF', 'pt-btn-sm'));
+    // An upload claims the column back off a pasted link, so the
+    // button says which of the two it is about to overwrite.
+    acts.appendChild(briefUpload(
+      linked ? 'Upload a PDF instead' : BRIEF ? 'Replace PDF' : 'Upload PDF',
+    ));
+    if (BRIEF) {
+      acts.appendChild(linked
+        ? pdfLink(BRIEF.url, 'Open link', 'pt-btn-sm')
+        : pdfLink(BRIEF.url, 'PDF', 'pt-btn-sm'));
+    }
     row.appendChild(acts);
 
     list.appendChild(row);

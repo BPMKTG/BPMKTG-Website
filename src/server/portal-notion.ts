@@ -215,6 +215,14 @@ export interface ClientRecord {
   /** Addresses allowed to sign in to this client's portal, lowercased.
    *  Never leaves the server. */
   portalEmails: string[];
+  /** The Clients row's `Brand Brief PDF`: our own file URL when a PDF
+   *  was uploaded, somebody else's when a link was pasted, null when
+   *  the client has no brief.
+   *
+   *  Deliberately NOT in CLIENT_FIELDS. It never ships raw; the data
+   *  route hands it to readBrief() and what reaches the browser is the
+   *  shaped `brief` object, which a link and a PDF both fit. */
+  brandBriefUrl: string | null;
   client: PortalClient;
 }
 
@@ -257,6 +265,7 @@ function shapeClient(page: any): ClientRecord {
     slug: normaliseSlug(readText(p['Intake Slug'])),
     portalEnabled: readCheckbox(p['Portal Enabled']),
     portalEmails: parseEmailList(readText(p['Portal Emails'])),
+    brandBriefUrl: readUrl(p['Brand Brief PDF']),
     // Built field by field from CLIENT_FIELDS. Nothing else on the page
     // is read, so nothing else can ship.
     client: {

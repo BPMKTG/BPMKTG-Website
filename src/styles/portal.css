@@ -2926,6 +2926,17 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 }
 .hq-link-strong svg { color: var(--pt-navy); }
 
+/* The brand brief line under the links: one sentence about where the
+   brief lives and the two buttons that change it. Separated by a rule
+   rather than a card, because it belongs to the links above it. */
+.hq-brief {
+  margin-top: var(--pt-3); padding-top: var(--pt-3);
+  border-top: 1px solid var(--pt-line);
+}
+.hq-brief:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.hq-brief-acts { display: flex; flex-wrap: wrap; gap: var(--pt-3); margin-top: 6px; }
+.hq-brief .hq-form { margin-top: 0; }
+
 .hq-mini { display: flex; flex-direction: column; }
 .hq-mini-row {
   display: flex; align-items: center; gap: var(--pt-3);

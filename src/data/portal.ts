@@ -569,14 +569,29 @@ export interface PortalViewer {
   clients?: Array<{ slug: string; artist: string }>;
 }
 
-/** The client's brand brief, stored as one PDF in R2 rather than as a
- *  Notion row. Absent on an older payload, and null when none has
- *  been uploaded. */
+/** A brief is either a PDF we hold or a link to one somebody else
+ *  holds. The client opens both the same way; only the subtitle and
+ *  the icon differ. */
+export type PortalBriefKind = 'pdf' | 'link';
+
+/** The client's brand brief. Absent on an older payload, and null
+ *  when the client has none.
+ *
+ *  The pointer is the Clients row's `Brand Brief PDF` property, for
+ *  both kinds. An upload sets it to our own file URL and puts the
+ *  bytes in R2; a pasted link sets it to somebody else's URL and
+ *  there are no bytes. See src/server/brief.ts. */
 export interface PortalBrief {
-  /** Root-relative, through the portal's own file endpoint. */
+  /** Root-relative for a PDF of ours, absolute for a link. */
   url: string;
-  size: number;
+  kind: PortalBriefKind;
+  /** Bytes. Null for a link: we do not fetch what we do not hold. */
+  size: number | null;
+  /** ISO. When the PDF landed in R2. Null for a link, and for a PDF
+   *  R2 gave no date for. */
   uploaded: string | null;
+  /** "figma.com", for a link. Null for a PDF, which is ours. */
+  host: string | null;
 }
 
 export interface PortalPayload {

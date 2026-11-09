@@ -691,6 +691,36 @@ export function cleanNextAction(v: unknown): string | null | undefined {
   return s || null;
 }
 
+/** A URL column in Notion, and an href in a client's browser. Long
+ *  enough for a signed Drive link, which is the longest address a
+ *  brief realistically arrives as. */
+export const MAX_BRIEF_URL = 1500;
+
+/**
+ * A pasted brand brief link, or null to clear it.
+ *
+ * `undefined` means "present but not usable", which the caller turns
+ * into a rejection rather than a silent drop. Only http and https:
+ * this value is handed to the client's browser as a link to click,
+ * and the two web schemes are the entire list of things a document
+ * can sensibly arrive as.
+ */
+export function cleanBriefUrl(v: unknown): string | null | undefined {
+  if (v === null) return null;
+  if (typeof v !== 'string') return undefined;
+  const s = v.trim();
+  if (!s) return null;
+  if (s.length > MAX_BRIEF_URL) return undefined;
+  let u: URL;
+  try {
+    u = new URL(s);
+  } catch {
+    return undefined;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return undefined;
+  return u.toString();
+}
+
 /**
  * The lead sources, exactly as the Notion select holds them.
  *

@@ -552,6 +552,16 @@ const NAV = [
     return a;
   }
 
+  /** A brief we hold is written as a root-relative URL by the upload
+   *  endpoint; anything pasted is absolute. So the first character
+   *  tells the two apart, with no slug arithmetic in the browser. */
+  const briefIsOurs = (url: string | null | undefined) => !!url && url.startsWith('/');
+
+  /** Which client's brief link is being typed, so a redraw does not
+   *  close the box under the cursor. Keyed by page id, like `editing`
+   *  on the pipeline board. */
+  let briefEdit = '';
+
   function linksCard(c: CardClient): HTMLElement {
     const { card, body } = cardShell('Links');
     const row = el('div', 'hq-links');
@@ -568,21 +578,126 @@ const NAV = [
     // card: it is one more thing you open, not a section.
     const brief = c.brandBriefPdf ?? null;
     if (brief) {
-      const b = linkRow('Brand Brief', brief);
+      const b = linkRow(briefIsOurs(brief) ? 'Brand Brief (PDF)' : 'Brand Brief', brief);
       if (b) { b.classList.add('hq-link-strong'); any.unshift(b); }
     }
 
     if (!any.length) {
       body.appendChild(el('p', 'hq-none', 'No links on this client yet.'));
-      return card;
+    } else {
+      for (const a of any) row.appendChild(a);
+      body.appendChild(row);
     }
-    for (const a of any) row.appendChild(a);
-    body.appendChild(row);
-    if (!brief) {
-      body.appendChild(el('p', 'hq-none',
-        'No brand brief yet. Upload one from the client’s Files tab.'));
-    }
+    body.appendChild(briefControl(c));
     return card;
+  }
+
+  /**
+   * The brand brief, as the one line under the links.
+   *
+   * Both halves of the same column: a PDF we hold, uploaded from the
+   * client's Files tab, or a link to a document somebody else holds.
+   * Pasting a link here is the whole point of the control, and it is
+   * also the only way to take a brief down, which is why Remove sits
+   * beside it rather than in Notion.
+   */
+  function briefControl(c: CardClient): HTMLElement {
+    const brief = c.brandBriefPdf ?? null;
+    const ours = briefIsOurs(brief);
+    const wrap = el('div', 'hq-brief');
+
+    if (briefEdit === c.pageId) {
+      wrap.appendChild(briefForm(c));
+      return wrap;
+    }
+
+    const said = el('p', 'hq-none');
+    said.textContent = !brief
+      ? 'No brand brief yet. Upload a PDF from the client’s Files tab, or paste a link to one.'
+      : ours
+        ? 'Brand brief: the PDF uploaded from their Files tab.'
+        : `Brand brief: a link to ${briefHostOf(brief) ?? 'another app'}.`;
+    wrap.appendChild(said);
+
+    const acts = el('div', 'hq-brief-acts');
+    const add = el('button', 'hq-pipe-link', brief ? 'Paste a different link' : 'Paste a link');
+    add.type = 'button';
+    add.addEventListener('click', () => { briefEdit = c.pageId; draw('clients'); });
+    acts.appendChild(add);
+
+    if (brief) {
+      const off = el('button', 'hq-pipe-link', 'Remove');
+      off.type = 'button';
+      off.addEventListener('click', async () => {
+        off.disabled = true;
+        const ok = await patch(`/portal/hq/client/${c.pageId}`, { brandBriefUrl: null });
+        off.disabled = false;
+        if (!ok) { toast('That did not save.', true); return; }
+        c.brandBriefPdf = null;
+        // Said plainly: the bytes outlive the pointer, and somebody
+        // will want to know that before they go looking for them.
+        toast(ours
+          ? 'Brand brief removed from the portal. The PDF is still in the bucket.'
+          : 'Brand brief removed from the portal.');
+        draw('clients');
+      });
+      acts.appendChild(off);
+    }
+
+    wrap.appendChild(acts);
+    return wrap;
+  }
+
+  /** "figma.com", for a sentence about where a brief lives. */
+  function briefHostOf(url: string): string | null {
+    try {
+      return new URL(url, location.origin).hostname.replace(/^www\./, '') || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function briefForm(c: CardClient): HTMLElement {
+    const form = el('form', 'hq-form');
+    const input = el('input');
+    input.type = 'url';
+    input.required = true;
+    input.maxLength = 1500;
+    input.placeholder = 'https://…';
+    // An uploaded PDF's URL is ours and not a thing to edit by hand,
+    // so the box starts empty in that case rather than inviting it.
+    input.value = briefIsOurs(c.brandBriefPdf) ? '' : (c.brandBriefPdf ?? '');
+
+    form.appendChild(field('Brand brief link', input));
+    if (briefIsOurs(c.brandBriefPdf)) {
+      form.appendChild(el('p', 'hq-none',
+        'This replaces the uploaded PDF as what the client opens. The PDF stays in the bucket.'));
+    }
+
+    const row = el('div', 'hq-form-acts');
+    const save = el('button', 'pt-btn pt-btn-primary', 'Save');
+    save.type = 'submit';
+    const cancel = el('button', 'pt-btn', 'Cancel');
+    cancel.type = 'button';
+    cancel.addEventListener('click', () => { briefEdit = ''; draw('clients'); });
+    row.append(save, cancel);
+    form.appendChild(row);
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = input.value.trim();
+      if (!url) return;
+      form.classList.add('is-busy');
+      const ok = await patch(`/portal/hq/client/${c.pageId}`, { brandBriefUrl: url });
+      form.classList.remove('is-busy');
+      if (!ok) { toast('That link did not save. It has to start with http.', true); return; }
+      c.brandBriefPdf = url;
+      briefEdit = '';
+      toast('Brand brief link saved. The client can open it now.');
+      draw('clients');
+    });
+
+    return form;
   }
 
   /** Their open to-dos, ours kept out: this card answers "what are we

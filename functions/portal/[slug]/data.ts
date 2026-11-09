@@ -109,10 +109,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
         console.error('portal: audits threw', err);
         return [];
       }),
-      // One HEAD against R2, and never a throw. The brief is the same
-      // for both roles, so unlike the admin block it belongs in the
-      // cached body: a client who sees it is meant to.
-      readBrief(env, record.slug),
+      // The pointer comes off the row we already have, so a pasted
+      // link costs nothing and only a PDF of ours costs a HEAD. Never
+      // a throw. The brief is the same for both roles, so unlike the
+      // admin block it belongs in the cached body: a client who sees
+      // it is meant to.
+      readBrief(env, record.slug, record.brandBriefUrl),
     ]);
 
     payload = { client: record.client, brief, calendar, snapshots, content, contentSchema, audits };
