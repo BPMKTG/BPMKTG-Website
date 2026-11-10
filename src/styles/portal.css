@@ -2332,6 +2332,12 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 /* The pill that follows the pointer. The browser's own drag image is a
    screenshot of the chip, which inside a cramped month cell comes out
    as a clipped sliver with the cell showing through it. */
+/* The chips and cards that move. The drag is done by hand on pointer
+   events, so touch-action has to come off or Safari scrolls the month
+   instead of starting the drag. */
+[data-drag="1"] { cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; }
+[data-drag="1"]:active { cursor: grabbing; }
+
 .pt-ghost {
   position: fixed; top: -1000px; left: -1000px;
   max-width: 220px; padding: 6px 10px;
@@ -2341,6 +2347,14 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   box-shadow: var(--pt-shadow-lg);
 }
+/* While it is following the pointer. pointer-events: none is the load
+   bearing line: elementFromPoint has to find the day under the cursor,
+   not the label riding on top of it. */
+.pt-ghost-live {
+  z-index: 80; pointer-events: none; cursor: grabbing;
+  transform: rotate(1.5deg);
+}
+
 /* A moment carries a campaign with it, so its ghost is not the same
    weight as a single row's. */
 .pt-ghost-moment { background: var(--pt-orange); color: #fff; }

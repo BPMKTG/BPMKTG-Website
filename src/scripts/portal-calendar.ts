@@ -776,43 +776,153 @@ export function createCalendar(H: CalendarHost) {
   /**
    * The pill that follows the pointer.
    *
-   * The browser's default drag image is a screenshot of the element,
-   * and inside a cramped month cell that is a clipped sliver of a chip
-   * with the cell's background showing through. This is a small opaque
-   * label that says what is moving.
+   * A small opaque label that says what is moving. The alternative is
+   * the browser's default drag image, a screenshot of the element,
+   * which inside a cramped month cell is a clipped sliver of a chip
+   * with the cell's background showing through.
+   *
+   * pointer-events: none matters: elementFromPoint has to find the day
+   * under the cursor, not the thing being dragged.
    */
   function dragGhost(text: string, cls: string): HTMLElement {
-    const g = el('div', `pt-ghost ${cls}`, text);
+    const g = el('div', `pt-ghost pt-ghost-live ${cls}`.trim(), text);
     document.body.appendChild(g);
     return g;
   }
 
-  function attachDrag(node: HTMLElement, label: string, ghostCls: string, make: () => Drag) {
-    node.draggable = true;
-    node.addEventListener('dragstart', (ev) => {
-      CALDRAG = make();
-      node.classList.add('pt-chip-dragging');
-      // Every day in the grid lights its edge, so it reads as a thing
-      // with places to be put rather than a page that went pale.
-      document.body.classList.add('pt-dragging');
-      ev.dataTransfer?.setData('text/plain', label);
-      if (ev.dataTransfer) {
-        ev.dataTransfer.effectAllowed = 'move';
-        const g = dragGhost(label, ghostCls);
-        ev.dataTransfer.setDragImage(g, 14, 16);
-        // The browser takes its snapshot during this event; the node
-        // only has to exist until it returns.
-        window.setTimeout(() => g.remove(), 0);
-      }
-    });
-    node.addEventListener('dragend', () => {
-      CALDRAG = null;
-      node.classList.remove('pt-chip-dragging');
+  /**
+   * Dragging, by hand, on pointer events.
+   *
+   * This used to be the HTML5 drag API, which never fired on touch in
+   * Safari: an iPhone client could see the chips and not move one. The
+   * HQ pipeline board already did it this way, and the three things
+   * that make it work there make it work here:
+   *
+   *   touch-action: none on the node, or Safari scrolls the month
+   *   instead of starting the drag;
+   *   setPointerCapture, so the moves keep arriving once the pointer
+   *   leaves the chip, which in a month cell it does at once;
+   *   a ghost with pointer-events: none, so the day under the cursor
+   *   is what elementFromPoint finds.
+   *
+   * A drag only begins after a few pixels of movement, so the tick box
+   * and the title button inside a chip are still buttons.
+   */
+  const DRAG_START_PX = 5;
+
+  function attachDrag(
+    node: HTMLElement,
+    label: string,
+    ghostCls: string,
+    make: () => Drag,
+    dragCls = 'pt-chip-dragging',
+  ) {
+    // Said on the element, not just in JavaScript: the grab cursor and
+    // the touch-action override are styled off it, and it is what a
+    // test can read to ask whether this row moves.
+    node.dataset.drag = '1';
+
+    let startX = 0, startY = 0;
+    let ghost: HTMLElement | null = null;
+    let over: HTMLElement | null = null;
+    let live = false;
+    let id = -1;
+    let swallowClick = false;
+
+    const clearOver = () => {
+      if (over) over.classList.remove('pt-cal-cell-drop');
+      over = null;
+    };
+
+    const stop = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onCancel);
+      if (ghost) { ghost.remove(); ghost = null; }
+      node.classList.remove(dragCls);
       document.body.classList.remove('pt-dragging');
-      for (const c of qq<HTMLElement>('.pt-cal-cell-drop')) {
-        c.classList.remove('pt-cal-cell-drop');
+      clearOver();
+      live = false;
+      CALDRAG = null;
+      if (id !== -1 && node.hasPointerCapture?.(id)) node.releasePointerCapture(id);
+      id = -1;
+    };
+
+    function onMove(ev: Event) {
+      const e = ev as PointerEvent;
+      if (id === -1 || e.pointerId !== id) return;
+
+      if (!live) {
+        if (Math.abs(e.clientX - startX) < DRAG_START_PX
+          && Math.abs(e.clientY - startY) < DRAG_START_PX) return;
+        live = true;
+        CALDRAG = make();
+        node.classList.add(dragCls);
+        // Every day in the grid lights its edge, so it reads as a thing
+        // with places to be put rather than a page that went pale.
+        document.body.classList.add('pt-dragging');
+        ghost = dragGhost(label, ghostCls);
+        // Capture is taken HERE and not on pointerdown. Taking it early
+        // retargets the compatibility mouse events too, and a chip is
+        // made of buttons: the tick box would stop ticking.
+        try { node.setPointerCapture(id); } catch { /* nothing to hold */ }
       }
+      if (!ghost) return;
+      e.preventDefault();
+
+      ghost.style.left = `${e.clientX + 14}px`;
+      ghost.style.top = `${e.clientY + 16}px`;
+
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const cell = (under?.closest('[data-cal-day]') ?? null) as HTMLElement | null;
+      if (cell !== over) {
+        clearOver();
+        over = cell;
+        if (over) over.classList.add('pt-cal-cell-drop');
+      }
+    }
+
+    function onUp(ev: Event) {
+      const e = ev as PointerEvent;
+      if (id === -1 || e.pointerId !== id) return;
+      const iso = over?.dataset.calDay ?? '';
+      const d = live ? CALDRAG : null;
+      // A drag that ends back where it started would otherwise read as
+      // a click and open the drawer on top of the move.
+      swallowClick = live;
+      stop();
+      if (!d || !iso) return;
+      if (d.kind === 'card') void scheduleCard(d.card, iso);
+      else if (d.kind === 'step') void H.moveStep(d.item, iso);
+      else H.askMoveMoment(d.item, iso);
+    }
+
+    function onCancel(ev: Event) {
+      const e = ev as PointerEvent;
+      if (id === -1 || e.pointerId !== id) return;
+      stop();
+    }
+
+    node.addEventListener('pointerdown', (ev) => {
+      const e = ev as PointerEvent;
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      if (id !== -1) return;
+      startX = e.clientX; startY = e.clientY;
+      id = e.pointerId;
+      // On the document, because the pointer leaves a month cell at
+      // once and the node would stop hearing about it. The listeners
+      // come off again in stop().
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onCancel);
     });
+
+    node.addEventListener('click', (ev) => {
+      if (!swallowClick) return;
+      swallowClick = false;
+      ev.preventDefault();
+      ev.stopPropagation();
+    }, true);
   }
 
   /** The not-allowed cursor and the reason, on a row that will not
@@ -823,38 +933,16 @@ export function createCalendar(H: CalendarHost) {
     node.title = node.title ? `${node.title}\n${why}` : why;
   }
 
+  /**
+   * A day that something can be dropped on.
+   *
+   * There are no listeners on the cell: the drag reads the day off the
+   * attribute with elementFromPoint, so a cell is a target purely by
+   * being labelled one. That also means a cell redrawn mid-drag is
+   * still a target, which the old dragenter/dragleave pair was not.
+   */
   function dayDropTarget(cell: HTMLElement, day: Date) {
-    // Refusing the default in dragover is what makes a day a drop
-    // target. dragenter is refused as well, which no engine here
-    // needed, as insurance against one that gates dragover on it.
-    cell.addEventListener('dragenter', (ev) => {
-      if (!CALDRAG) return;
-      ev.preventDefault();
-    });
-    cell.addEventListener('dragover', (ev) => {
-      if (!CALDRAG) return;
-      ev.preventDefault();
-      if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move';
-      cell.classList.add('pt-cal-cell-drop');
-    });
-    cell.addEventListener('dragleave', (ev) => {
-      // Crossing onto a chip inside the cell fires dragleave on the
-      // cell. Without this the highlight strobes under the pointer.
-      if (cell.contains(ev.relatedTarget as Node)) return;
-      cell.classList.remove('pt-cal-cell-drop');
-    });
-    cell.addEventListener('drop', (ev) => {
-      ev.preventDefault();
-      cell.classList.remove('pt-cal-cell-drop');
-      const d = CALDRAG;
-      CALDRAG = null;
-      document.body.classList.remove('pt-dragging');
-      if (!d) return;
-      const iso = isoOf(day);
-      if (d.kind === 'card') void scheduleCard(d.card, iso);
-      else if (d.kind === 'step') void H.moveStep(d.item, iso);
-      else H.askMoveMoment(d.item, iso);
-    });
+    cell.dataset.calDay = isoOf(day);
   }
 
   async function scheduleCard(c: PortalContentItem, iso: string) {
@@ -1232,23 +1320,14 @@ export function createCalendar(H: CalendarHost) {
     card.appendChild(open);
 
     if (canSchedule(c)) {
-      card.draggable = true;
       const grip = el('span', 'pt-traycard-grip');
       grip.setAttribute('aria-hidden', 'true');
       grip.appendChild(icon('grip'));
       card.appendChild(grip);
-      card.addEventListener('dragstart', (ev) => {
-        CALDRAG = { kind: 'card', card: c };
-        card.classList.add('pt-traycard-dragging');
-        document.body.classList.add('pt-dragging');
-        ev.dataTransfer?.setData('text/plain', c.title);
-        if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
-      });
-      card.addEventListener('dragend', () => {
-        CALDRAG = null;
-        card.classList.remove('pt-traycard-dragging');
-        document.body.classList.remove('pt-dragging');
-      });
+      attachDrag(
+        card, c.title, `pt-nc-${H.bucketColor(c.bucket)}`,
+        () => ({ kind: 'card', card: c }), 'pt-traycard-dragging',
+      );
     } else {
       card.classList.add('pt-traycard-locked');
       card.title = 'We put this one out, so we schedule it.';
