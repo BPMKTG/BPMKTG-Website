@@ -28,6 +28,7 @@ import {
   CLIENTS_DB,
   CONTENT_DB,
   SNAPSHOTS_DB,
+  fetchContentSchema,
   queryAll,
   readCheckbox,
   readDate,
@@ -42,6 +43,7 @@ import { shapeReportSnapshot } from './report-data';
 import { mailSentAt } from './report-mail';
 import type { ReportSnapshot } from '../data/print';
 import { cleanItemTitle, parseNotionDate } from '../data/portal';
+import type { PortalContentSchema } from '../data/portal-content';
 
 /* ── how much, and for how long ───────────────────────────────── */
 
@@ -180,6 +182,10 @@ export interface HqPayload {
   clients: HqClient[];
   calendar: HqCalItem[];
   content: HqContentItem[];
+  /** The Content Pipeline option lists, read from Notion rather than
+   *  hardcoded. The calendar needs the bucket colours: a card on HQ's
+   *  grid has to be the same shade it is on the client's. */
+  contentSchema: PortalContentSchema;
   snapshots: HqSnapshot[];
   audits: AuditRow[];
   /** When this payload was assembled, ISO. */
@@ -377,11 +383,11 @@ export interface HqBuild {
 /**
  * The whole of HQ, from cache or from Notion.
  *
- * Five queries in parallel rather than in sequence: they do not
- * depend on each other, and Notion's rate limit is about requests per
- * second, not concurrent ones. One of them failing takes the page
- * down rather than drawing a half-empty HQ that looks like a client
- * has no work on.
+ * Six queries in parallel rather than in sequence: they do not depend
+ * on each other, and Notion's rate limit is about requests per second,
+ * not concurrent ones. One of them failing takes the page down rather
+ * than drawing a half-empty HQ that looks like a client has no work
+ * on.
  */
 export async function hqBuild(env: HqDataEnv, now = new Date()): Promise<HqBuild> {
   const started = Date.now();
@@ -398,16 +404,17 @@ export async function hqBuild(env: HqDataEnv, now = new Date()): Promise<HqBuild
     try { return await run(); } finally { marks[name] = Date.now() - t; }
   };
 
-  const [clients, calendar, content, snapshots, audits] = await Promise.all([
+  const [clients, calendar, content, contentSchema, snapshots, audits] = await Promise.all([
     timed('clients', () => readClients(token)),
     timed('calendar', () => readCalendar(token, now)),
     timed('content', () => readContent(token, now)),
+    timed('contentSchema', () => fetchContentSchema(token)),
     timed('snapshots', () => readSnapshots(env, token)),
     timed('audits', () => readAudits(token)),
   ]);
 
   const payload: HqPayload = {
-    clients, calendar, content, snapshots, audits,
+    clients, calendar, content, contentSchema, snapshots, audits,
     built: new Date().toISOString(),
   };
 

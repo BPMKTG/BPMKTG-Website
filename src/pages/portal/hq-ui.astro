@@ -20,6 +20,7 @@ import PortalLayout from '../../layouts/PortalLayout.astro';
 const NAV = [
   { id: 'today',    label: 'Today',    icon: 'check' },
   { id: 'clients',  label: 'Clients',  icon: 'home' },
+  { id: 'calendar', label: 'Calendar', icon: 'cal' },
   { id: 'pipeline', label: 'Pipeline', icon: 'grip' },
   { id: 'reports',  label: 'Reports',  icon: 'chart' },
 ];
@@ -132,6 +133,7 @@ const NAV = [
         <div data-app hidden>
           <section class="pt-view" data-view="today" hidden></section>
           <section class="pt-view" data-view="clients" hidden></section>
+          <section class="pt-view" data-view="calendar" hidden></section>
           <section class="pt-view" data-view="pipeline" hidden></section>
           <section class="pt-view" data-view="reports" hidden></section>
         </div>
@@ -150,6 +152,34 @@ const NAV = [
         </a>
       ))}
     </nav>
+
+    {/* ── the calendar's two dialogs ───────────────────────────
+        The drawer reads a row; the sheet asks one short question, which
+        for the calendar is "move the whole campaign?". Same markup and
+        the same classes the client portal uses, because the shared
+        calendar and the shared move flow look for these attributes. */}
+    <div class="pt-scrim" data-scrim hidden></div>
+    <aside class="pt-drawer" data-drawer role="dialog" aria-modal="true" aria-labelledby="hq-drawer-title" hidden>
+      <div class="pt-drawer-head">
+        <h2 id="hq-drawer-title" data-drawer-title></h2>
+        <button class="pt-announce-close" data-drawer-close aria-label="Close details">
+          <svg aria-hidden="true" focusable="false"><use href="#pt-i-close"/></svg>
+        </button>
+      </div>
+      <div class="pt-drawer-body" data-drawer-body></div>
+      <div class="pt-drawer-foot" data-drawer-foot hidden></div>
+    </aside>
+
+    <div class="pt-scrim" data-sheet-scrim hidden></div>
+    <div class="pt-sheet" data-sheet role="dialog" aria-modal="true" aria-labelledby="hq-sheet-title" hidden>
+      <div class="pt-sheet-head">
+        <h2 id="hq-sheet-title" data-sheet-title></h2>
+        <button class="pt-announce-close" data-sheet-close aria-label="Close">
+          <svg aria-hidden="true" focusable="false"><use href="#pt-i-close"/></svg>
+        </button>
+      </div>
+      <form class="pt-sheet-body" data-sheet-body></form>
+    </div>
 
     <div class="pt-toast" data-toast></div>
   </div>
@@ -174,17 +204,27 @@ const NAV = [
     buildToday, stripItems, snoozeTo, isoToday,
     clientFacts, clientHealth, stepUpSoon, daysUntilDay, CARD_STAGES,
     reportDrafts, reportPublished, reportGaps, sortAudits, docBase,
-    groupByCampaign, momentIndex, oneLine,
+    groupByCampaign, momentIndex, oneLine, NOTE_SEP,
+    clientColor, dayClash, onCalendar,
     type HqCampaignGroup, type HqFilter, type HqMomentRef, type HqRow,
     type RowClient, type StripItem, type CardClient, type HealthVerdict,
   } from '../../data/hq';
-  import { termProgress } from '../../data/portal';
+  import {
+    canSetStepStatus, cleanItemTitle, isStepDone, itemKind, momentKind,
+    termProgress, HQ_LAYERS, KIND_LABEL,
+    type PortalCalendarItem,
+  } from '../../data/portal';
+  import type { PortalContentItem } from '../../data/portal-content';
+  import type { HqCalItem, HqContentItem } from '../../server/hq-data';
+  import { createCalendar, type Calendar } from '../../scripts/portal-calendar';
+  import { createMover, type Mover } from '../../scripts/portal-move';
+  import { bindSheet } from '../../scripts/portal-sheet';
   import { HQ_STAGES, LEAD_SOURCES } from '../../data/hq';
   // The same pieces the client portal is built from, so there is one
   // copy of them rather than one per screen.
   import { clear, el, icon, q, qq, show } from '../../scripts/portal-dom';
 
-  const VIEWS = ['today', 'clients', 'pipeline', 'reports'] as const;
+  const VIEWS = ['today', 'clients', 'calendar', 'pipeline', 'reports'] as const;
   type View = typeof VIEWS[number];
 
   let HQ: any = null;
@@ -199,18 +239,28 @@ const NAV = [
   const HQ_STORE = 'bp.hq.v1';
   let GROUP: GroupBy = 'date';
 
+  /** Which clients the calendar is showing. Empty means all of them.
+   *  Declared up here because loadHqPrefs restores it before the
+   *  calendar block has run. */
+  let WHO = new Set<string>();
+
   function loadHqPrefs() {
     try {
       const raw = localStorage.getItem(HQ_STORE);
       if (!raw) return;
-      const v = JSON.parse(raw) as { group?: unknown };
+      const v = JSON.parse(raw) as { group?: unknown; who?: unknown };
       if (v.group === 'date' || v.group === 'campaign') GROUP = v.group;
+      // An empty list means every client, which is also what a browser
+      // that has never been here means, so the two agree.
+      if (Array.isArray(v.who)) WHO = new Set(v.who.filter((x): x is string => typeof x === 'string'));
     } catch { /* a browser that will not remember is not an error */ }
   }
 
   function saveHqPrefs() {
     try {
-      localStorage.setItem(HQ_STORE, JSON.stringify({ group: GROUP }));
+      localStorage.setItem(HQ_STORE, JSON.stringify({
+        group: GROUP, who: Array.from(WHO),
+      }));
     } catch { /* same */ }
   }
 
@@ -309,6 +359,7 @@ const NAV = [
     clear(root);
     if (view === 'today') drawToday(root);
     if (view === 'clients') drawClients(root);
+    if (view === 'calendar') drawCalendarTab(root);
     if (view === 'pipeline') drawPipeline(root);
     if (view === 'reports') drawReports(root);
   }
@@ -924,6 +975,590 @@ const NAV = [
     const d = new Date(`${day}T00:00:00Z`);
     return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
   }
+  /* ══ CALENDAR ═══════════════════════════════════════════════════
+
+     The client portal's calendar, over every live client at once.
+
+     It is not a second calendar: src/scripts/portal-calendar.ts is the
+     one calendar, and what follows is HQ's half of its host. The month
+     grid, the week, the agenda, the layer chips, the quick views, the
+     Unscheduled tray, the "+N more" popover and the drag are all the
+     same code a client is looking at.
+
+     HQ adds the three things a single-client calendar never needs: a
+     colour per client, a filter over them, and a mark on a day two
+     clients are both busy. It takes nothing away: the drag goes to the
+     same /portal/<slug>/step/<id> the client's own drag uses, with
+     role admin, and the server decides.                              */
+
+  const HQ_CAL_STORE = 'bp.hq.cal.v1';
+
+  let CAL_DREW = false;
+  let HQCAL: Calendar | null = null;
+  let MOVER: Mover | null = null;
+
+  /** The clients the calendar covers, in the order the filter shows
+   *  them. Onboarding and Active only: a prospect has no plan yet and
+   *  an ended client's plan is history. */
+  const calClients = (): RowClient[] => clients()
+    .filter(onCalendar)
+    .sort((a, b) => a.artist.localeCompare(b.artist));
+
+  const calClientById = (): Map<string, RowClient> =>
+    new Map(calClients().map((c) => [c.pageId, c]));
+
+  const calClientBySlug = (): Map<string, RowClient> =>
+    new Map(calClients().map((c) => [c.slug, c]));
+
+  function showingClient(slug: string): boolean {
+    return WHO.size === 0 || WHO.has(slug);
+  }
+
+  /* ── the rows, as the calendar wants them ─────────────────────
+     HQ reads flatter rows than the portal does: it fetches every
+     client's calendar before it knows whose each row is, so the
+     moment a step hangs off is an id rather than a resolved object,
+     and the artist prefix is still on the title. Both are put right
+     here, where the client IS in hand. */
+
+  /** Rows for the clients on screen, with their moment resolved and
+   *  their title cleaned, ready for the shared calendar. */
+  function calRows(): PortalCalendarItem[] {
+    const byId = calClientById();
+    const moments = momentsNow();
+    const out: PortalCalendarItem[] = [];
+    for (const r of (HQ?.calendar ?? []) as HqCalItem[]) {
+      const client = r.clientId ? byId.get(r.clientId) : undefined;
+      if (!client || !showingClient(client.slug)) continue;
+      const { title } = cleanItemTitle(r.title ?? '', client.artist);
+      const m = r.momentId ? moments.get(r.momentId) : undefined;
+      out.push({
+        id: r.id,
+        title: title || 'Untitled',
+        tentative: r.tentative,
+        kind: r.kind,
+        momentType: r.momentType,
+        date: r.date,
+        status: r.status,
+        type: r.type,
+        owner: r.owner,
+        flow: r.flow,
+        notes: r.notes,
+        playbook: null,
+        phase: null,
+        where: null,
+        whyItMatters: null,
+        venueCity: r.venueCity,
+        ticketLink: null,
+        streamsToDate: null,
+        ticketsSold: null,
+        capacity: null,
+        moment: m
+          ? { id: m.id, title: m.title, momentType: m.type, date: m.date }
+          : null,
+        clientSlug: client.slug,
+        clientName: client.artist,
+      } as PortalCalendarItem & { clientSlug: string; clientName: string });
+    }
+    return out;
+  }
+
+  /** Content Pipeline cards for the clients on screen. */
+  function calCards(): PortalContentItem[] {
+    const byId = calClientById();
+    const out: PortalContentItem[] = [];
+    for (const c of (HQ?.content ?? []) as HqContentItem[]) {
+      const client = c.clientId ? byId.get(c.clientId) : undefined;
+      if (!client || !showingClient(client.slug)) continue;
+      out.push({
+        id: c.id,
+        title: c.title || 'Untitled',
+        status: c.status,
+        bucket: c.bucket,
+        format: c.format ? [c.format] : [],
+        source: null,
+        filmBy: c.filmBy,
+        postDate: c.postDate,
+        postedBy: c.postedBy,
+        platforms: [],
+        campaign: c.campaignId ? [c.campaignId] : [],
+        shootCode: null,
+        onScreenText: null,
+        caption: null,
+        notes: c.notes,
+        feedback: null,
+        footageLink: null,
+        editLink: null,
+        postLink: null,
+        clientSlug: client.slug,
+        clientName: client.artist,
+      } as PortalContentItem & { clientSlug: string; clientName: string });
+    }
+    return out;
+  }
+
+  /**
+   * A card, as calendar rows.
+   *
+   * The same shape the portal builds: a card with a post date is a row
+   * on that day, and a card with a shoot date is a second row earlier
+   * in the month. One piece of content, two things to be ready for.
+   */
+  function calCardRows(): PortalCalendarItem[] {
+    const moments = momentsNow();
+    const out: PortalCalendarItem[] = [];
+    for (const c of calCards()) {
+      if (c.status === 'Skipped') continue;
+      const m = c.campaign.map((id) => moments.get(id)).find((x) => !!x);
+      const base = {
+        kind: 'Content',
+        momentType: null,
+        status: c.status,
+        type: 'Content',
+        owner: c.postedBy === 'Client' ? 'Client' : 'Blueprint',
+        flow: null,
+        notes: c.notes,
+        tentative: false,
+        playbook: null, phase: null, where: null, whyItMatters: null,
+        venueCity: null, ticketLink: null,
+        streamsToDate: null, ticketsSold: null, capacity: null,
+        moment: m ? { id: m.id, title: m.title, momentType: m.type, date: m.date } : null,
+        content: c,
+        clientSlug: (c as any).clientSlug,
+        clientName: (c as any).clientName,
+      };
+      if (c.postDate) {
+        out.push({ ...base, id: `${c.id}:post`, title: c.title, date: c.postDate,
+                   contentRole: 'post' } as any);
+      }
+      // A shoot is only worth its own row while it is still ahead of
+      // the edit. Once the footage is in, the film date is history.
+      if (c.filmBy && c.status !== 'Posted' && c.status !== 'Footage In'
+        && c.status !== 'Editing' && c.status !== 'Ready for Review'
+        && c.status !== 'Approved' && c.status !== 'Scheduled') {
+        out.push({ ...base, id: `${c.id}:film`, title: c.title, date: c.filmBy,
+                   contentRole: 'film' } as any);
+      }
+    }
+    return out;
+  }
+
+  const rowClientSlug = (it: any): string | null => it?.clientSlug ?? null;
+
+  /* ── the host ─────────────────────────────────────────────────── */
+
+  function hqCal(): Calendar {
+    if (HQCAL) return HQCAL;
+    HQCAL = createCalendar({
+      root: () => q('[data-calroot]'),
+      // The same checks the client's drag goes through, with a
+      // different answer to "who is asking". Not a looser rule: a step
+      // we have taken out of the plan still does not move.
+      role: () => 'admin',
+      store: HQ_CAL_STORE,
+      layers: () => [...HQ_LAYERS],
+      content: () => calCards(),
+      schema: () => ({ bucket: (HQ?.contentSchema?.bucket ?? []) as any }),
+      extraRows: () => calCardRows(),
+      showCalendar: () => {
+        if (currentView() !== 'calendar') location.hash = '#/calendar';
+      },
+      clientOf: (it) => {
+        const slug = rowClientSlug(it);
+        if (!slug) return null;
+        const c = calClientBySlug().get(slug);
+        return c ? { slug: c.slug, name: c.artist, color: clientColor(c.slug) } : null;
+      },
+      dayFlag: (items) => dayClash(items.map((it: any) => ({
+        momentType: it.momentType ?? null,
+        kind: it.kind ?? null,
+        title: it.title ?? null,
+        flow: it.flow ?? null,
+        clientSlug: rowClientSlug(it),
+        contentRole: it.contentRole,
+      }))),
+      kindOf: hqKind,
+      kindLabel: (k) => HQ_KIND_LABEL[k] ?? k,
+      momentKind,
+      // "Your to-dos" is right in front of the client whose they are.
+      // Across a roster they are somebody else's.
+      layerLabel: (l) => (l === 'todos' ? 'Client to-dos' : null),
+      bucketColor: calBucketColor,
+      canTick: calCanTick,
+      tickBox: calTickBox,
+      itemRow: calItemRow,
+      openItem: openCalDrawer,
+      openCard: (c) => openCalDrawer(cardAsRow(c)),
+      toast,
+      moveStep: (it, iso) => hqMover().moveStep(it, iso),
+      askMoveMoment: (it, iso) => hqMover().askMoveMoment(it, iso),
+      saveCard: saveCalCard,
+    });
+    return HQCAL;
+  }
+
+  function hqMover(): Mover {
+    if (MOVER) return MOVER;
+    MOVER = createMover({
+      slugOf: (it) => rowClientSlug(it),
+      rows: () => hqCal().rows(),
+      canMoveStep: (it) => hqCal().canDragStep(it),
+      redraw: () => { if (currentView() === 'calendar') hqCal().draw(); },
+      reload: refreshCalendar,
+      toast,
+      undoToast: hqUndoToast,
+    });
+    return MOVER;
+  }
+
+  /**
+   * What a row IS, HQ's wording.
+   *
+   * itemKind is the shared rule and this does not disagree with it: it
+   * puts a word to the one case the client portal never has to, which
+   * is a Blueprint task. That layer does not exist over there, so the
+   * shared fallback of "moment" was never wrong in front of a client
+   * and is plainly wrong on a roster, where a step is not a show.
+   */
+  function hqKind(it: PortalCalendarItem): string {
+    const k = itemKind(it);
+    if (k === 'moment' && it.kind !== 'Moment') return 'task';
+    return k;
+  }
+
+  const HQ_KIND_LABEL: Record<string, string> = {
+    ...KIND_LABEL, todo: 'Client to-do', task: 'Task',
+  };
+
+  function calBucketColor(name: string | null): string {
+    if (!name) return 'default';
+    const opts = (HQ?.contentSchema?.bucket ?? []) as Array<{ name: string; color: string }>;
+    return opts.find((o) => o.name === name)?.color ?? 'default';
+  }
+
+  /** A step one of us may tick. The same predicate the endpoint asks,
+   *  with admin as the asker, so a box HQ draws is one the server will
+   *  honour. */
+  function calCanTick(it: PortalCalendarItem): boolean {
+    if ((it as any).content) return false;
+    if (it.momentType || it.kind === 'Moment') return false;
+    return canSetStepStatus(it, 'Done', 'admin');
+  }
+
+  function calTickBox(it: PortalCalendarItem, big = false): HTMLElement {
+    const done = isStepDone(it);
+    const b = el('button', 'pt-check' + (big ? ' pt-check-big' : '') + (done ? ' pt-check-on' : ''));
+    b.type = 'button';
+    b.setAttribute('role', 'checkbox');
+    b.setAttribute('aria-checked', String(done));
+    b.setAttribute('aria-label', `Mark "${it.title}" ${done ? 'not started' : 'done'}`);
+    b.dataset.stepBox = '';
+    b.dataset.stepId = it.id;
+    // The tick inside its own span: .pt-check-mark is what sizes it.
+    // Without the wrapper the svg has nothing to size against and
+    // stretches the chip to the height of the whole day cell.
+    const mark = el('span', 'pt-check-mark');
+    mark.appendChild(icon('check'));
+    b.appendChild(mark);
+    b.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      void setCalStep(it, done ? 'Not Started' : 'Done');
+    });
+    return b;
+  }
+
+  async function setCalStep(it: PortalCalendarItem, status: string) {
+    const slug = rowClientSlug(it);
+    if (!slug) return;
+    const before = it.status;
+    it.status = status;
+    hqCal().sync();
+    if (currentView() === 'calendar') hqCal().draw();
+    const ok = await patch(`/portal/${encodeURIComponent(slug)}/step/${encodeURIComponent(it.id)}`,
+                           { status });
+    if (!ok) {
+      it.status = before;
+      hqCal().sync();
+      if (currentView() === 'calendar') hqCal().draw();
+      toast('That did not save. Check your connection and try again.', true);
+      return;
+    }
+    toast(status === 'Done' ? 'Ticked off' : 'Back on the list');
+    void refreshCalendar();
+  }
+
+  /** One row of the agenda, or of a selected day on a phone. The
+   *  client's name leads, because across a roster that is the first
+   *  thing to know. */
+  function calItemRow(it: PortalCalendarItem, pad = false): HTMLLIElement {
+    const li = el('li') as HTMLLIElement;
+    const row = el('div', 'pt-row' + (pad ? ' pt-row-pad' : ''));
+    if (calCanTick(it)) row.appendChild(calTickBox(it));
+
+    const open = el('button', 'hq-calrow');
+    open.type = 'button';
+    const top = el('div', 'hq-calrow-top');
+    const who = calClientBySlug().get(rowClientSlug(it) ?? '');
+    if (who) {
+      const dot = el('span', `pt-chip-who pt-cc-${clientColor(who.slug)}`);
+      dot.setAttribute('aria-hidden', 'true');
+      top.append(dot, el('span', 'hq-calrow-who', who.artist));
+    }
+    top.appendChild(el('span', 'hq-calrow-title', it.title));
+    open.appendChild(top);
+
+    const bits: string[] = [];
+    const k = hqKind(it);
+    bits.push(HQ_KIND_LABEL[k] ?? k);
+    if ((it as any).flow) bits.push(String((it as any).flow));
+    if (it.moment) bits.push(`↳ ${it.moment.title}`);
+    const note = oneLine((it as any).notes);
+    if (note) bits.push(note);
+    if (bits.length) open.appendChild(el('span', 'hq-calrow-meta', bits.join(NOTE_SEP)));
+
+    open.addEventListener('click', () => openCalDrawer(it));
+    row.appendChild(open);
+    li.appendChild(row);
+    return li;
+  }
+
+  /** A content card as the calendar row the drawer reads. */
+  function cardAsRow(c: PortalContentItem): PortalCalendarItem {
+    return calCardRows().find((r: any) => r.content?.id === c.id)
+      ?? ({
+        id: c.id, title: c.title, date: c.postDate ?? c.filmBy,
+        status: c.status, type: 'Content', owner: c.postedBy,
+        kind: 'Content', momentType: null, moment: null, tentative: false,
+        content: c, clientSlug: (c as any).clientSlug,
+        clientName: (c as any).clientName,
+      } as any);
+  }
+
+  async function saveCalCard(
+    id: string,
+    patchBody: Record<string, unknown>,
+    local: Partial<PortalContentItem>,
+  ): Promise<boolean> {
+    const rows = (HQ?.content ?? []) as HqContentItem[];
+    const row = rows.find((c) => c.id === id);
+    const slug = row?.clientId
+      ? calClientById().get(row.clientId)?.slug ?? null
+      : null;
+    if (!row || !slug) return false;
+    const before = { ...row };
+    // On screen first, back if Notion refuses: the same bargain the
+    // client's board makes.
+    Object.assign(row, {
+      postDate: local.postDate !== undefined ? local.postDate : row.postDate,
+      filmBy: local.filmBy !== undefined ? local.filmBy : row.filmBy,
+      status: local.status !== undefined ? local.status : row.status,
+    });
+    hqCal().sync();
+    if (currentView() === 'calendar') hqCal().draw();
+
+    const ok = await patch(
+      `/portal/${encodeURIComponent(slug)}/content/${encodeURIComponent(id)}`, patchBody);
+    if (!ok) {
+      Object.assign(row, before);
+      hqCal().sync();
+      if (currentView() === 'calendar') hqCal().draw();
+      toast('That did not save. Check your connection and try again.', true);
+      return false;
+    }
+    void refreshCalendar();
+    return true;
+  }
+
+  /* ── the drawer ───────────────────────────────────────────────── */
+
+  function openCalDrawer(it: PortalCalendarItem) {
+    const drawer = q('[data-drawer]');
+    const scrim = q('[data-scrim]');
+    const head = q('[data-drawer-title]');
+    const body = q('[data-drawer-body]');
+    const foot = q('[data-drawer-foot]');
+    if (!drawer || !scrim || !head || !body || !foot) return;
+
+    head.textContent = it.title;
+    clear(body);
+    clear(foot);
+
+    const who = calClientBySlug().get(rowClientSlug(it) ?? '');
+    const k = hqKind(it);
+    const facts: Array<[string, string]> = [];
+    if (who) facts.push(['Client', who.artist]);
+    facts.push(['What', HQ_KIND_LABEL[k] ?? k]);
+    if (it.date) facts.push(['When', shortDay(it.date)]);
+    if (it.status) facts.push(['Status', it.status]);
+    if ((it as any).flow) facts.push(['Flow', String((it as any).flow)]);
+    if (it.moment) {
+      facts.push(['Campaign', it.moment.date
+        ? `${it.moment.title} · ${shortDay(it.moment.date)}`
+        : it.moment.title]);
+    }
+    if (it.venueCity) facts.push(['Where', it.venueCity]);
+
+    const list = el('dl', 'hq-facts');
+    for (const [k2, v] of facts) {
+      list.append(el('dt', undefined, k2), el('dd', undefined, v));
+    }
+    body.appendChild(list);
+
+    const note = oneLine((it as any).notes);
+    if (note) {
+      const box = el('div', 'hq-drawer-note');
+      box.append(el('h3', undefined, 'Notes'), el('p', undefined, note));
+      body.appendChild(box);
+    }
+
+    if (who) {
+      const links = el('div', 'pt-drawer-links');
+      const detail = el('a', 'pt-btn', `Open ${who.artist} in HQ`) as HTMLAnchorElement;
+      detail.href = `#/clients/${encodeURIComponent(who.slug)}`;
+      detail.addEventListener('click', closeCalDrawer);
+      const portal = el('a', 'pt-btn', 'Their portal') as HTMLAnchorElement;
+      portal.href = `/portal/${encodeURIComponent(who.slug)}`;
+      links.append(detail, portal);
+      foot.appendChild(links);
+      show(foot, true);
+    }
+
+    show(scrim, true);
+    show(drawer, true);
+    requestAnimationFrame(() => {
+      scrim.dataset.open = 'true';
+      drawer.dataset.open = 'true';
+      q<HTMLElement>('[data-drawer-close]')?.focus();
+    });
+    document.addEventListener('keydown', onCalDrawerKey);
+  }
+
+  function closeCalDrawer() {
+    const drawer = q('[data-drawer]');
+    const scrim = q('[data-scrim]');
+    if (!drawer || !scrim || drawer.hidden) return;
+    drawer.dataset.open = 'false';
+    scrim.dataset.open = 'false';
+    document.removeEventListener('keydown', onCalDrawerKey);
+    window.setTimeout(() => { show(drawer, false); show(scrim, false); }, 200);
+  }
+
+  function onCalDrawerKey(ev: KeyboardEvent) {
+    if (ev.key === 'Escape') { ev.preventDefault(); closeCalDrawer(); }
+  }
+
+  /* ── an undo that lasts as long as the server's does ──────────── */
+
+  function hqUndoToast(text: string, undo: () => void) {
+    const t = q('[data-toast]');
+    if (!t) return;
+    clear(t);
+    t.classList.remove('pt-toast-bad');
+    t.appendChild(el('span', undefined, text));
+    const b = el('button', 'pt-toast-undo');
+    b.type = 'button';
+    b.textContent = 'Undo';
+    b.addEventListener('click', () => {
+      t.dataset.open = 'false';
+      undo();
+    });
+    t.appendChild(b);
+    t.dataset.open = 'true';
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => { t.dataset.open = 'false'; }, 8000);
+  }
+
+  /* ── refreshing after a write ─────────────────────────────────── */
+
+  /**
+   * Read HQ again and put the calendar back on screen.
+   *
+   * The client writes already drop HQ's cached payload, so this comes
+   * back with what just happened rather than what was true a minute
+   * ago. The month, the layers and the open day are left where they
+   * were: a reload that threw those away would be its own small bug.
+   */
+  async function refreshCalendar(): Promise<boolean> {
+    try {
+      const res = await fetch('/portal/hq/data', { credentials: 'same-origin' });
+      if (!res.ok) return false;
+      const next = await res.json();
+      if (!next?.clients) return false;
+      HQ = next;
+      if (HQCAL) {
+        HQCAL.setRows(calRows());
+        HQCAL.sync();
+        if (currentView() === 'calendar') HQCAL.draw();
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /* ── the tab ──────────────────────────────────────────────────── */
+
+  function drawCalendarTab(root: HTMLElement) {
+    root.appendChild(whoBar());
+    const mount = el('div');
+    mount.dataset.calroot = '1';
+    root.appendChild(mount);
+
+    const cal = hqCal();
+    if (!CAL_DREW) {
+      CAL_DREW = true;
+      cal.render(calRows());
+    } else {
+      // Coming back to the tab, not arriving: the month and the layers
+      // stay where they were left.
+      cal.setRows(calRows());
+      cal.sync();
+      cal.draw();
+    }
+  }
+
+  /** All clients, or any set of them. The colour beside each name is
+   *  the colour its chips wear on the grid, so the two can be read
+   *  against each other without a legend. */
+  function whoBar(): HTMLElement {
+    const bar = el('div', 'pt-whobar');
+    bar.setAttribute('role', 'group');
+    bar.setAttribute('aria-label', 'Which clients');
+    bar.appendChild(el('span', 'pt-whobar-label', 'Clients'));
+
+    const all = el('button', 'pt-who' + (WHO.size === 0 ? ' pt-who-on' : ''));
+    all.type = 'button';
+    all.textContent = 'All';
+    all.setAttribute('aria-pressed', String(WHO.size === 0));
+    all.addEventListener('click', () => { WHO = new Set(); afterWho(); });
+    bar.appendChild(all);
+
+    for (const c of calClients()) {
+      const on = WHO.has(c.slug);
+      const b = el('button', 'pt-who' + (on ? ' pt-who-on' : ''));
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(on));
+      const dot = el('span', `pt-chip-who pt-cc-${clientColor(c.slug)}`);
+      dot.setAttribute('aria-hidden', 'true');
+      b.append(dot, el('span', undefined, c.artist));
+      b.addEventListener('click', () => {
+        if (WHO.has(c.slug)) WHO.delete(c.slug);
+        else WHO.add(c.slug);
+        afterWho();
+      });
+      bar.appendChild(b);
+    }
+    return bar;
+  }
+
+  function afterWho() {
+    saveHqPrefs();
+    const cal = hqCal();
+    cal.setRows(calRows());
+    cal.sync();
+    draw('calendar');
+  }
+
   /* ══ PIPELINE ═══════════════════════════════════════════════ */
 
   /** The cap Blueprint runs to. Three active clients at a time is the
@@ -2361,6 +2996,9 @@ const NAV = [
     show(q('[data-state="loading"]'), false);
     show(q('[data-app]'), true);
     wireSearch();
+    bindSheet();
+    q('[data-drawer-close]')?.addEventListener('click', closeCalDrawer);
+    q('[data-scrim]')?.addEventListener('click', closeCalDrawer);
 
     // One listener for every menu on the page, rather than one per
     // row: a click anywhere else closes whatever is open.

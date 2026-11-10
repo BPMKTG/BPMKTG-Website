@@ -237,6 +237,8 @@ const NAV = [
     goalProgress,
     isOpenClientTodo,
     isStepDone,
+    itemKind,
+    momentKind,
     metricLabel,
     metricPlatform,
     movesWithMoment,
@@ -247,9 +249,11 @@ const NAV = [
     songsAtTarget,
     weeklyPaceNeeded,
     termProgress,
+    KIND_LABEL,
     MAX_MOVE_DAYS,
     PORTAL_LAYERS,
     SONG_STREAM_TARGET,
+    type ItemKind,
     type PortalCalendarItem,
     type PortalMoment,
     type PortalPayload,
@@ -323,30 +327,11 @@ const NAV = [
   const fmtMetricFull = (name: string, v: number) => formatMetricValue(name, v);
 
   /* ── item classification ───────────────────────────────────────
-     One function decides what colour and what words an item gets, so
-     the calendar, the Home rows and the drawer can never disagree. */
-  type Kind = 'show' | 'release' | 'content' | 'moment' | 'todo';
-
-  function kindOf(it: PortalCalendarItem): Kind {
-    if (isOpenClientTodo(it)) return 'todo';
-    const mt = (it.momentType ?? '').toLowerCase();
-    if (mt.includes('show')) return 'show';
-    if (mt.includes('release') || mt.includes('drop') || mt.includes('single')) return 'release';
-    if (it.type === 'Content') return 'content';
-    return 'moment';
-  }
-  const KIND_LABEL: Record<Kind, string> = {
-    show: 'Show', release: 'Release', content: 'Content', moment: 'Moment', todo: 'Your to-do',
-  };
-
-  /** The same colour rule as kindOf, applied to a moment on its own.
-   *  A step's left edge wears this, so the two can never disagree. */
-  function momentKind(m: PortalMoment): 'show' | 'release' | 'moment' {
-    const mt = (m.momentType ?? '').toLowerCase();
-    if (mt.includes('show')) return 'show';
-    if (mt.includes('release') || mt.includes('drop') || mt.includes('single')) return 'release';
-    return 'moment';
-  }
+     In src/data/portal.ts, because Blueprint HQ draws the same items
+     and the two screens must not disagree about whether something is
+     a show or a to-do. */
+  type Kind = ItemKind;
+  const kindOf = itemKind;
 
   /* ── state ─────────────────────────────────────────────────── */
   let DATA: PortalPayload | null = null;

@@ -3298,9 +3298,12 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 .pt-cc-red    { --n-mark: #d96a6a; }
 
 /* A chip on a shared calendar gives up a little room at the front and
-   stops the dot being squashed by a long title. */
-.pt-chip-shared { gap: 5px; }
+   stops the dot being squashed by a long title. A month cell is narrow
+   and a ticked chip already holds a box, so the gaps tighten rather
+   than the title losing another few characters. */
+.pt-chip-shared { gap: 4px; padding-left: 5px; }
 .pt-chip-shared .pt-chip-title { min-width: 0; }
+.pt-chip-shared.pt-chip-tick-row { gap: 4px; }
 
 /* Two clients with a show the same night, or two shoots on one day.
    The mark carries its reason in a title and an aria-label, because a
@@ -3336,3 +3339,50 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
   border-color: var(--pt-navy); background: var(--pt-navy); color: #fff;
 }
 .pt-who-on .pt-chip-who { box-shadow: 0 0 0 1px rgb(0 0 0 / .25); }
+
+/* A Blueprint task on HQ's calendar. The client portal has no layer
+   for these, so it has no chip for them either: plain, quiet, and
+   clearly not a show. */
+.pt-chip-task {
+  background: var(--pt-surface-2); color: var(--pt-ink-2);
+  border: 1px solid var(--pt-line);
+}
+.pt-dot-task { background: var(--pt-ink-3); }
+
+/* One agenda row, across clients: who, then what, then the campaign,
+   the flow and the note underneath. */
+.hq-calrow {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+  padding: 0; border: 0; background: none; font: inherit;
+  text-align: left; cursor: pointer;
+}
+.hq-calrow-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.hq-calrow-who {
+  flex: 0 0 auto; font-size: .74rem; font-weight: 700; color: var(--pt-ink-3);
+}
+.hq-calrow-title {
+  min-width: 0; font-size: .88rem; font-weight: 600; color: var(--pt-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hq-calrow:hover .hq-calrow-title { color: var(--pt-navy); }
+.hq-calrow-meta {
+  font-size: .76rem; color: var(--pt-ink-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* The calendar drawer's facts, two columns that wrap on a phone. */
+.hq-facts {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: var(--pt-2) var(--pt-3); margin: 0;
+}
+.hq-facts dt {
+  font-size: .72rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--pt-ink-3);
+}
+.hq-facts dd { margin: 0; font-size: .9rem; color: var(--pt-ink); }
+.hq-drawer-note { margin-top: var(--pt-4); }
+.hq-drawer-note h3 {
+  margin: 0 0 var(--pt-1); font-size: .72rem; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--pt-ink-3);
+}
+.hq-drawer-note p { margin: 0; font-size: .9rem; color: var(--pt-ink-2); }

@@ -97,6 +97,12 @@ export interface CalendarHost {
    * paints it.
    */
   dayFlag?(items: PortalCalendarItem[]): string | null;
+  /**
+   * A different word for a layer. "Your to-dos" is right in front of
+   * the client whose to-dos they are, and wrong in HQ, where they are
+   * somebody else's.
+   */
+  layerLabel?(layer: CalendarLayer): string | null;
 
   /* how a row looks */
   kindOf(it: PortalCalendarItem): string;
@@ -153,6 +159,9 @@ export function createCalendar(H: CalendarHost) {
    *  this screen does not draw: DAY_ORDER and the "+N more" popover
    *  rank and label by layer, and those have to stay total. The chips
    *  come from H.layers() below, which is the shorter list. */
+  const labelOf = (l: Layer): string =>
+    H.layerLabel?.(l) ?? LAYER_LABEL.get(l) ?? l;
+
   const LAYER_LABEL = new Map<Layer, string>([
     ['moments',   'Shows & releases'],
     ['posts',     'Posts'],
@@ -640,7 +649,7 @@ export function createCalendar(H: CalendarHost) {
     row.setAttribute('role', 'group');
     row.setAttribute('aria-label', 'Calendar layers');
     for (const k of H.layers()) {
-      const text = LAYER_LABEL.get(k) ?? k;
+      const text = labelOf(k);
       const on = CAL.layers.has(k);
       const b = el('button', `pt-layer pt-layer-${k}` + (on ? ' pt-layer-on' : ''));
       b.type = 'button';
@@ -763,7 +772,13 @@ export function createCalendar(H: CalendarHost) {
   /** Whether the client may give this card a date at all. One we post,
    *  and one already posted, are theirs to read and not to move. */
   function canSchedule(c: PortalContentItem): boolean {
-    return c.status !== 'Posted' && c.postedBy !== 'Blueprint';
+    if (c.status === 'Posted') return false;
+    // A card WE post is one the client reads rather than schedules,
+    // and it is exactly the card HQ exists to put a date on, so the
+    // rule turns on who is looking rather than being a flat no. The
+    // server agrees: the content endpoint has never restricted a card
+    // by who posts it, only by the status move it asks for.
+    return H.role() === 'admin' || c.postedBy !== 'Blueprint';
   }
 
   const isMomentRow = (it: PortalCalendarItem) => !!it.momentType || it.kind === 'Moment';
@@ -1396,7 +1411,9 @@ export function createCalendar(H: CalendarHost) {
       );
     } else {
       card.classList.add('pt-traycard-locked');
-      card.title = 'We put this one out, so we schedule it.';
+      card.title = c.status === 'Posted'
+        ? 'This one is already out.'
+        : 'We put this one out, so we schedule it.';
     }
     return card;
   }
@@ -1417,7 +1434,7 @@ export function createCalendar(H: CalendarHost) {
       const inLayer = items.filter((it) => dayRank(it) === i);
       if (!inLayer.length) continue;
       pop.appendChild(el('div', 'pt-popover-group',
-        LAYER_LABEL.get(DAY_ORDER[i]) ?? DAY_ORDER[i]));
+        labelOf(DAY_ORDER[i])));
       for (const it of inLayer) pop.appendChild(chip(it));
     }
     document.body.appendChild(pop);

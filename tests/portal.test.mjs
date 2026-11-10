@@ -181,6 +181,14 @@ import {
   isOurBriefUrl,
   isSafeBriefUrl,
   readBrief,
+  // HQ's calendar, across clients
+  onCalendar,
+  clientColor,
+  CLIENT_COLORS,
+  dayClash,
+  itemKind,
+  momentKind,
+  KIND_LABEL,
 } from '../.tmp-portal-lib.mjs';
 import { readFileSync } from 'node:fs';
 
@@ -2695,6 +2703,122 @@ const thrower = {
 };
 is('mail: an unreadable claim is a blank status line, not a thrown page',
    await mailSentAt(thrower, 's1'), null);
+
+/* ══════════════════════════════════════════════════════════════════
+   HQ's calendar, across clients
+   ══════════════════════════════════════════════════════════════════ */
+
+section('Blueprint HQ · which clients the calendar covers');
+
+is('stage: an active client is on it', onCalendar({ stage: 'Active' }), true);
+is('stage: so is one onboarding', onCalendar({ stage: 'Onboarding' }), true);
+is('stage: a prospect has no plan yet', onCalendar({ stage: 'Prospect' }), false);
+is('stage: an ended client’s plan is history', onCalendar({ stage: 'Ended' }), false);
+is('stage: and no stage at all is not a yes', onCalendar({ stage: null }), false);
+
+section('Blueprint HQ · a colour per client');
+
+/* The colour is decided by the slug and nothing else, so taking on a
+   client cannot repaint everyone else's chips. */
+is('colour: the same slug always lands on the same colour',
+   clientColor('sean-comma'), clientColor('sean-comma'));
+is('colour: it is one of the ring', CLIENT_COLORS.includes(clientColor('sean-comma')), true);
+is('colour: and so is a slug nobody has yet',
+   CLIENT_COLORS.includes(clientColor('a-client-we-have-not-signed')), true);
+is('colour: an empty slug still gets one',
+   CLIENT_COLORS.includes(clientColor('')), true);
+/* Grey and default are deliberately not in the ring: a client has to
+   be distinguishable from an unbucketed card. */
+is('colour: no greys in the ring',
+   CLIENT_COLORS.filter((c) => c === 'gray' || c === 'default').length, 0);
+/* Not "their position in the list": that is the bug this avoids. */
+is('colour: a roster of eight uses eight different colours',
+   new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+     .map((x) => clientColor(`client-${x}`))).size >= 5, true);
+
+section('Blueprint HQ · two clients busy on one day');
+
+const clashShow = (slug, type = 'Show') =>
+  ({ momentType: type, kind: 'Moment', title: 'A night', clientSlug: slug });
+const clashFilm = (slug) =>
+  ({ momentType: null, kind: 'Step', title: 'A shoot',
+     flow: 'Client film session', clientSlug: slug });
+const clashShoot = (slug) =>
+  ({ momentType: null, kind: 'Content', title: 'A card',
+     contentRole: 'film', clientSlug: slug });
+
+is('clash: nothing on the day is nothing to say', dayClash([]), null);
+is('clash: one client with a show is their own business',
+   dayClash([clashShow('sean-comma')]), null);
+/* The whole point: one client's two shows in a night is their problem
+   and they already know. Two clients is ours, because one of us has
+   to be at both. */
+is('clash: one client with two shows is still not ours',
+   dayClash([clashShow('sean-comma'), clashShow('sean-comma')]), null);
+is('clash: two clients with a show the same night',
+   dayClash([clashShow('sean-comma'), clashShow('mara-vale')]),
+   '2 clients have a show or release on this day');
+is('clash: a release counts as a night out too',
+   dayClash([clashShow('sean-comma'), clashShow('mara-vale', 'Release')]),
+   '2 clients have a show or release on this day');
+is('clash: and so does a single drop, which is what Notion calls one',
+   dayClash([clashShow('sean-comma', 'Single Drop'), clashShow('mara-vale', 'Release')]),
+   '2 clients have a show or release on this day');
+is('clash: two clients filming',
+   dayClash([clashFilm('sean-comma'), clashFilm('mara-vale')]),
+   '2 clients are filming on this day');
+is('clash: a card’s shoot date is a camera too',
+   dayClash([clashShoot('sean-comma'), clashFilm('mara-vale')]),
+   '2 clients are filming on this day');
+is('clash: one client filming is just a shoot',
+   dayClash([clashFilm('sean-comma')]), null);
+is('clash: both at once says both',
+   dayClash([clashShow('a'), clashShow('b'), clashFilm('c'), clashFilm('d')]),
+   '2 clients have a show or release, and 2 clients are filming on this day');
+is('clash: three clients with a show says three',
+   dayClash([clashShow('a'), clashShow('b'), clashShow('c')]),
+   '3 clients have a show or release on this day');
+/* A film step is marked by the clapperboard as well as by Flow, and
+   both have to count or the Film days layer and the clash marker
+   would disagree about what a shoot is. */
+is('clash: a clapperboard title is a film session with no Flow set',
+   dayClash([
+     { momentType: null, kind: 'Step', title: '\u{1F3A5} Capture the set', clientSlug: 'a' },
+     { momentType: null, kind: 'Step', title: '\u{1F3A5} Studio day', clientSlug: 'b' },
+   ]),
+   '2 clients are filming on this day');
+is('clash: a show is not also counted as a shoot',
+   dayClash([clashShow('a'), clashFilm('a')]), null);
+
+section('Blueprint HQ · one classification, both screens');
+
+/* itemKind is the rule the portal and HQ both read, so neither can
+   decide on its own that a show is a to-do. */
+is('kind: an open client step is their to-do',
+   itemKind({ momentType: null, type: 'Admin', owner: 'Client', status: 'Not Started' }), 'todo');
+is('kind: a show is a show',
+   itemKind({ momentType: 'Show', type: null, owner: 'Blueprint', status: 'Not Started' }), 'show');
+is('kind: a single drop is a release',
+   itemKind({ momentType: 'Single Drop', type: null, owner: 'Blueprint', status: 'Not Started' }),
+   'release');
+is('kind: a content step is content',
+   itemKind({ momentType: null, type: 'Content', owner: 'Blueprint', status: 'Not Started' }),
+   'content');
+is('kind: a done client step is no longer an open to-do',
+   itemKind({ momentType: null, type: 'Admin', owner: 'Client', status: 'Done' }), 'moment');
+is('kindLabel: every kind has a word',
+   ['show', 'release', 'content', 'moment', 'todo'].every((k) => !!KIND_LABEL[k]), true);
+is('momentKind: a moment on its own reads the same way',
+   momentKind({ momentType: 'Show' }), 'show');
+is('momentKind: nothing in particular is a moment',
+   momentKind({ momentType: null }), 'moment');
+
+section('Blueprint HQ · the layers it draws');
+
+is('layers: HQ draws the portal’s layers and Blueprint tasks',
+   HQ_LAYERS.join('|'), 'moments|posts|films|todos|blueprint');
+is('layers: and the portal’s are a prefix of them, not a different list',
+   HQ_LAYERS.slice(0, PORTAL_LAYERS.length).join('|'), PORTAL_LAYERS.join('|'));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

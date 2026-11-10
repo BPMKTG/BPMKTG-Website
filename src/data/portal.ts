@@ -444,6 +444,47 @@ export function stepLayers(row: {
  * rows stay off a client's calendar: nothing matches an enabled layer,
  * so nothing is drawn.
  */
+/* ── what an item IS ───────────────────────────────────────────────
+   One function decides what colour and what words an item gets, so
+   the calendar, the Home rows, the drawer and Blueprint HQ can never
+   disagree about whether something is a show or a to-do. */
+
+export type ItemKind = 'show' | 'release' | 'content' | 'moment' | 'todo';
+
+export const KIND_LABEL: Record<ItemKind, string> = {
+  show: 'Show', release: 'Release', content: 'Content',
+  moment: 'Moment', todo: 'Your to-do',
+};
+
+/** Shows and releases read off a Moment Type, which is free text in
+ *  Notion: "Single Drop" and "Release" are the same thing to us. */
+export function momentKindOf(momentType: string | null): 'show' | 'release' | 'moment' {
+  const mt = (momentType ?? '').toLowerCase();
+  if (mt.includes('show')) return 'show';
+  if (mt.includes('release') || mt.includes('drop') || mt.includes('single')) return 'release';
+  return 'moment';
+}
+
+export function itemKind(it: {
+  momentType: string | null;
+  type: string | null;
+  owner?: string | null;
+  status?: string | null;
+  kind?: string | null;
+}): ItemKind {
+  if (isOpenClientTodo(it as Parameters<typeof isOpenClientTodo>[0])) return 'todo';
+  const m = momentKindOf(it.momentType);
+  if (m !== 'moment') return m;
+  if (it.type === 'Content') return 'content';
+  return 'moment';
+}
+
+/** The same rule applied to a moment on its own. A step's left edge
+ *  wears this, so the two can never disagree. */
+export function momentKind(m: { momentType: string | null }): 'show' | 'release' | 'moment' {
+  return momentKindOf(m.momentType);
+}
+
 export const PORTAL_LAYERS: readonly CalendarLayer[] = ['moments', 'posts', 'films', 'todos'];
 
 export const HQ_LAYERS: readonly CalendarLayer[] = [...PORTAL_LAYERS, 'blueprint'];
