@@ -17,7 +17,7 @@
         one place.
    ────────────────────────────────────────────────────────────── */
 
-import { canSetStepStatus, canSetStepDate, cleanItemTitle } from './portal';
+import { canSetStepStatus, canSetStepDate, cleanItemTitle, isFilmStep } from './portal';
 import { canClientMove } from './portal-content';
 
 /* ── the window ───────────────────────────────────────────────── */
@@ -1049,4 +1049,99 @@ export function docBase(
   const safe = encodeURIComponent(id);
   if (slug) return `/portal/${encodeURIComponent(slug)}/admin/${kind}/${safe}`;
   return kind === 'audit' ? `/portal/hq/audit/${safe}` : null;
+}
+
+/* ── the calendar, across clients ──────────────────────────────────
+   HQ draws the client portal's calendar over every live client at
+   once. Three things that calendar does not have to think about come
+   up the moment there is more than one client on it: whose row is
+   whose, which clients are on screen, and the fact that two shows on
+   one night is now a thing that can happen. These are those rules,
+   away from the DOM so they can be tested. */
+
+/** The stages HQ's calendar covers. A prospect has no plan yet and an
+ *  ended client's plan is history; either on the calendar is noise. */
+export const CAL_STAGES = ['Onboarding', 'Active'] as const;
+
+export function onCalendar(client: { stage: string | null }): boolean {
+  return (CAL_STAGES as readonly string[]).includes(client.stage ?? '');
+}
+
+/**
+ * The colour ring client chips are drawn from.
+ *
+ * These are the Notion palette names the portal already styles as
+ * `.pt-nc-*`, so a client's colour is a slot rather than a hex and the
+ * chip, the dot and the filter button cannot drift apart. Default and
+ * the two greys are left out: a client has to be distinguishable from
+ * an unbucketed card.
+ */
+export const CLIENT_COLORS = [
+  'blue', 'orange', 'green', 'purple', 'pink', 'red', 'yellow', 'brown',
+] as const;
+
+/**
+ * A client's colour, decided by their slug and nothing else.
+ *
+ * Deliberately not "their position in the list": assigning by order
+ * means taking on a client repaints everyone else's chips, and the
+ * colour is the thing we are asking someone to recognise at a glance.
+ * A hash is stable for the life of the slug. Two clients can collide,
+ * which is why the name is in every chip's tooltip and beside the
+ * colour in the filter bar: the colour is a shortcut, not the label.
+ */
+export function clientColor(slug: string): string {
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) % 100003;
+  return CLIENT_COLORS[h % CLIENT_COLORS.length];
+}
+
+/** Two of these on one day, across clients, is worth a second look. */
+export const CLASH_SHOW_TYPES = ['Show', 'Release'] as const;
+
+export interface ClashRow {
+  momentType: string | null;
+  kind: string | null;
+  title: string | null;
+  flow?: string | null;
+  clientSlug?: string | null;
+  contentRole?: 'post' | 'film';
+}
+
+/** A show or a release: something with an audience on a given night. */
+export function isShowOrRelease(row: ClashRow): boolean {
+  const mt = (row.momentType ?? '').toLowerCase();
+  if (!mt && row.kind !== 'Moment') return false;
+  return (CLASH_SHOW_TYPES as readonly string[]).some((t) => mt.includes(t.toLowerCase()))
+    || mt.includes('drop') || mt.includes('single');
+}
+
+/** A day with a camera on it: a client film session step, or a card
+ *  whose shoot date this is. */
+export function isFilmSession(row: ClashRow): boolean {
+  if (row.contentRole === 'film') return true;
+  if (row.flow === 'Client film session') return true;
+  return isFilmStep({ title: row.title ?? null });
+}
+
+/**
+ * Why a day is worth a second look, in words, or null.
+ *
+ * Only across clients: two of Sean's shows on one night is Sean's
+ * problem and he already knows. Two clients playing the same night, or
+ * two shoots on one day, is ours, because one of us has to be at both.
+ */
+export function dayClash(rows: ClashRow[]): string | null {
+  const shows = new Set<string>();
+  const films = new Set<string>();
+  for (const r of rows) {
+    const who = r.clientSlug ?? '';
+    if (isShowOrRelease(r)) shows.add(who);
+    else if (isFilmSession(r)) films.add(who);
+  }
+  const parts: string[] = [];
+  if (shows.size > 1) parts.push(`${shows.size} clients have a show or release`);
+  if (films.size > 1) parts.push(`${films.size} clients are filming`);
+  if (!parts.length) return null;
+  return `${parts.join(', and ')} on this day`;
 }

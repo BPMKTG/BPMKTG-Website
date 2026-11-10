@@ -12,6 +12,7 @@ import {
   sessionSecret,
   type Viewer,
 } from './portal-auth';
+import { dropHq, type HqDataEnv } from './hq-data';
 import { fetchCalendar, fetchContentSchema, findClientBySlug, type ClientRecord } from './portal-notion';
 import {
   WRITE_LIMIT,
@@ -25,6 +26,10 @@ import type { PortalContentSchema } from '../data/portal-content';
 export interface WriteEnv {
   NOTION_TOKEN: string;
   PORTAL_SECRET?: string;
+  /** Blueprint HQ's cached payload lives here. A client write has to
+   *  drop it too, or HQ shows what was true ninety seconds ago, and a
+   *  drag HQ just made gets put back by the next refresh. */
+  PORTAL_KV?: HqDataEnv['PORTAL_KV'];
 }
 
 export interface WriteContext {
@@ -148,10 +153,13 @@ const overWriteLimit = (slug: string) =>
 
 /** A write invalidates the 60s payload cache, or the client saves
  *  something and watches the page show them the old value. */
-export async function bustDataCache(slug: string): Promise<void> {
+export async function bustDataCache(slug: string, env?: WriteEnv): Promise<void> {
   try {
     await caches.default.delete(`https://portal-data.invalid/${slug}`);
   } catch { /* a stale cache is a worse bug than a failed delete */ }
+  // HQ reads the same rows from its own cache. Both screens are now
+  // writing through these endpoints, so both caches go.
+  if (env) await dropHq(env);
 }
 
 export function writeOk(body: unknown): Response {

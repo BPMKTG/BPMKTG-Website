@@ -98,7 +98,7 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
   const saved = await patchCalendarPage(env.NOTION_TOKEN, id, stampEdit(props, ctx.viewer.role));
   if (!saved) return portalNotFound();
 
-  await bustDataCache(ctx.slug);
+  await bustDataCache(ctx.slug, env);
   return writeOk({ ok: true, id, status: saved.status, date: saved.date, changed: true });
 };
 

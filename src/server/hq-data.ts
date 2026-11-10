@@ -112,6 +112,16 @@ export interface HqCalItem {
   date: string | null;
   venueCity: string | null;
   hidden: boolean;
+  /** Who does the work and how: Blueprint makes + posts, Client film
+   *  session, Blueprint task, and the rest. The calendar reads it,
+   *  and it is the one field that says "you film this" out loud. */
+  flow: string | null;
+  /** A date we are not holding anyone to yet. It is written into the
+   *  Item title as "(tentative)" rather than being a property of its
+   *  own, and cleanItemTitle pulls it back out. The calendar draws it
+   *  differently, because a tentative show is a plan and a confirmed
+   *  one is a commitment. */
+  tentative: boolean;
   /** Why a step moved, usually. This is where the rescheduling
    *  reasons get written, so HQ puts it under the title. */
   notes: string | null;
@@ -127,8 +137,15 @@ export interface HqContentItem {
   title: string;
   status: string | null;
   postDate: string | null;
+  /** The shoot date. The calendar's Film days layer is these plus the
+   *  campaign steps marked as a client film session. */
+  filmBy: string | null;
   bucket: string | null;
   format: string | null;
+  /** Whose job it is to put the post up. It decides whether a card can
+   *  be dragged to another day and it is what the deliverables count
+   *  counts, so HQ needs it, not just the portal. */
+  postedBy: string | null;
   notes: string | null;
 }
 
@@ -251,7 +268,7 @@ async function readCalendar(token: string, now: Date): Promise<HqCalItem[]> {
     if (date && (date < from || date > to)) continue;
 
     const artist = '';
-    const { title } = cleanItemTitle(readText(p['Item']) ?? '', artist);
+    const { title, tentative } = cleanItemTitle(readText(p['Item']) ?? '', artist);
     out.push({
       id: String(page.id),
       clientId: readRelation(p['Client'])[0] ?? null,
@@ -265,6 +282,8 @@ async function readCalendar(token: string, now: Date): Promise<HqCalItem[]> {
       date,
       venueCity: readText(p['Venue / City']),
       hidden: readCheckbox(p['Hide from Client']),
+      flow: readSelect(p['Flow']),
+      tentative,
       notes: readText(p['Notes']),
     });
   }
@@ -283,11 +302,26 @@ function readFormulaDay(p: any): string | null {
 }
 
 async function readContent(token: string, now: Date): Promise<HqContentItem[]> {
+  const from = dayOffset(-CONTENT_BACK_DAYS, now);
+  const to = dayOffset(CONTENT_FORWARD_DAYS, now);
+  // Three reasons a card belongs in the payload, not one. It posts in
+  // the window; or it is filmed in the window, which the Film days
+  // layer needs and which can be weeks before the post; or it has no
+  // post date at all, which is what the Unscheduled tray is for. The
+  // whole pipeline is a couple of hundred rows, so this is one extra
+  // page of results rather than a cost worth optimising.
   const rows = await queryAll(token, CONTENT_DB, {
     filter: {
-      and: [
-        { property: 'Post Date', date: { on_or_after: dayOffset(-CONTENT_BACK_DAYS, now) } },
-        { property: 'Post Date', date: { on_or_before: dayOffset(CONTENT_FORWARD_DAYS, now) } },
+      or: [
+        { and: [
+          { property: 'Post Date', date: { on_or_after: from } },
+          { property: 'Post Date', date: { on_or_before: to } },
+        ] },
+        { and: [
+          { property: 'Film By', date: { on_or_after: from } },
+          { property: 'Film By', date: { on_or_before: to } },
+        ] },
+        { property: 'Post Date', date: { is_empty: true } },
       ],
     },
   });
@@ -301,8 +335,10 @@ async function readContent(token: string, now: Date): Promise<HqContentItem[]> {
       title: readText(p['Content']) ?? '',
       status: readSelect(p['Status']),
       postDate: readDate(p['Post Date']),
+      filmBy: readDate(p['Film By']),
       bucket: readSelect(p['Bucket']),
       format: readSelect(p['Format']),
+      postedBy: readSelect(p['Posted By']),
       notes: readText(p['Notes']),
     };
   });

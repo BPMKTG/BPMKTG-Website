@@ -599,6 +599,7 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
 }
 .pt-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .pt-cal-cell {
+  position: relative;   /* the day-clash mark sits in the corner */
   min-height: 124px;
   padding: var(--pt-2);
   border-right: 1px solid var(--pt-line-soft);
@@ -3271,3 +3272,67 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
   .hq-doc { flex-direction: column; align-items: stretch; gap: var(--pt-2); }
   .hq-doc-acts { justify-content: flex-start; }
 }
+
+/* ── HQ: ONE CALENDAR, EVERY CLIENT ───────────────────────────────
+   The same calendar the client portal draws, over every live client at
+   once. Three things only HQ needs: whose row a chip is, which clients
+   are on screen, and a mark on a day two clients are both busy. */
+
+/* A client's colour, as a solid dot at the front of the chip. It reads
+   the same --n-mark the bucket colours are built on, so a client and a
+   bucket can never be two different shades of the same blue. */
+.pt-chip-who {
+  flex: 0 0 auto;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--n-mark, var(--pt-navy));
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .75);
+}
+.pt-cc-gray   { --n-mark: #6c727f; }
+.pt-cc-brown  { --n-mark: #8a6a4b; }
+.pt-cc-orange { --n-mark: #e3703b; }
+.pt-cc-yellow { --n-mark: #c99a1f; }
+.pt-cc-green  { --n-mark: #4f9a68; }
+.pt-cc-blue   { --n-mark: #62a6db; }
+.pt-cc-purple { --n-mark: #8a7bc8; }
+.pt-cc-pink   { --n-mark: #cf7aa4; }
+.pt-cc-red    { --n-mark: #d96a6a; }
+
+/* A chip on a shared calendar gives up a little room at the front and
+   stops the dot being squashed by a long title. */
+.pt-chip-shared { gap: 5px; }
+.pt-chip-shared .pt-chip-title { min-width: 0; }
+
+/* Two clients with a show the same night, or two shoots on one day.
+   The mark carries its reason in a title and an aria-label, because a
+   warning that is only a colour is not a warning. */
+.pt-cal-flag {
+  position: absolute; top: 6px; right: 6px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--pt-orange);
+  box-shadow: 0 0 0 2px var(--pt-paper, #fff);
+  cursor: help;
+}
+.pt-agenda-date .pt-cal-flag { position: static; margin-left: var(--pt-2); }
+
+/* The client filter. All, or any set of them; the colour sits beside
+   the name so the chips on the grid can be read without a legend. */
+.pt-whobar {
+  display: flex; flex-wrap: wrap; gap: var(--pt-2);
+  align-items: center; margin: 0 0 var(--pt-3);
+}
+.pt-whobar-label {
+  font-size: .72rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--pt-ink-3);
+}
+.pt-who {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--pt-line); background: var(--pt-paper, #fff);
+  font: inherit; font-size: .78rem; font-weight: 600; color: var(--pt-ink-2);
+  cursor: pointer;
+}
+.pt-who:hover { border-color: var(--pt-navy); color: var(--pt-ink); }
+.pt-who-on {
+  border-color: var(--pt-navy); background: var(--pt-navy); color: #fff;
+}
+.pt-who-on .pt-chip-who { box-shadow: 0 0 0 1px rgb(0 0 0 / .25); }

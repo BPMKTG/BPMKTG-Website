@@ -43,6 +43,15 @@ export type CalRow = PortalCalendarItem & {
   contentRole?: 'post' | 'film';
 };
 
+/** A client, when the calendar is showing more than one. The colour is
+ *  a palette slot, not a hex: it names a .pt-cc-* class so the chip and
+ *  the filter bar cannot drift apart. */
+export interface CalClient {
+  slug: string;
+  name: string;
+  color: string;
+}
+
 /** The bucket options the tray groups and colours by. */
 export interface CalendarSchema {
   bucket: Array<{ name: string; color: string }>;
@@ -74,6 +83,20 @@ export interface CalendarHost {
   extraRows(): PortalCalendarItem[];
   /** Put the screen on the calendar view, if it is not already. */
   showCalendar(): void;
+
+  /**
+   * Whose row this is, when the calendar spans more than one client.
+   * The portal leaves it out: everything on it belongs to the one
+   * client looking at it, and a chip saying so would be noise.
+   */
+  clientOf?(it: PortalCalendarItem): CalClient | null;
+  /**
+   * A warning to put on a day, or null. The rule belongs to the screen
+   * (two shows in a night only means something across clients) and the
+   * marker belongs here, so HQ says what counts and the calendar
+   * paints it.
+   */
+  dayFlag?(items: PortalCalendarItem[]): string | null;
 
   /* how a row looks */
   kindOf(it: PortalCalendarItem): string;
@@ -971,6 +994,17 @@ export function createCalendar(H: CalendarHost) {
     return m;
   }
 
+  /** The marker for a day the screen flagged. It is a real element with
+   *  a title rather than a class on the cell, so the reason is readable
+   *  on hover and to a screen reader instead of being a colour. */
+  function dayFlagMark(why: string): HTMLElement {
+    const f = el('span', 'pt-cal-flag');
+    f.title = why;
+    f.setAttribute('role', 'img');
+    f.setAttribute('aria-label', why);
+    return f;
+  }
+
   function monthView(items: PortalCalendarItem[]): HTMLElement {
     const wrap = el('div', 'pt-cal');
     const dow = el('div', 'pt-cal-dow');
@@ -996,6 +1030,7 @@ export function createCalendar(H: CalendarHost) {
       if (CAL.selected && sameDay(day, CAL.selected)) cell.classList.add('pt-cal-cell-selected');
 
       const dayItems = sortDay(map.get(keyOf(day)) ?? []);
+      const flag = dayItems.length ? H.dayFlag?.(dayItems) ?? null : null;
 
       if (isNarrow()) {
         const btn = el('button', 'pt-cal-date pt-num', String(day.getDate()));
@@ -1003,6 +1038,7 @@ export function createCalendar(H: CalendarHost) {
         btn.setAttribute('aria-label', `${fmtDayLong(day)}, ${dayItems.length} item${dayItems.length === 1 ? '' : 's'}`);
         btn.addEventListener('click', () => { CAL.selected = day; drawCalendar(); });
         cell.appendChild(btn);
+        if (flag) cell.appendChild(dayFlagMark(flag));
         if (dayItems.length) {
           const dots = el('div', 'pt-dots');
           for (const it of dayItems.slice(0, 4)) dots.appendChild(el('span', `pt-dot pt-dot-${H.kindOf(it)}`));
@@ -1010,6 +1046,7 @@ export function createCalendar(H: CalendarHost) {
         }
       } else {
         cell.appendChild(el('span', 'pt-cal-date pt-num', String(day.getDate())));
+        if (flag) cell.appendChild(dayFlagMark(flag));
         for (const it of dayItems.slice(0, 3)) cell.appendChild(chip(it));
         if (dayItems.length > 3) {
           const more = el('button', 'pt-chip-more', `+${dayItems.length - 3} more`);
@@ -1028,7 +1065,31 @@ export function createCalendar(H: CalendarHost) {
     return wrap;
   }
 
+  /**
+   * A chip, with the client's colour on it when the calendar is
+   * showing more than one.
+   *
+   * The dot goes first in the chip and the name goes into the title
+   * that is already there, so one client's work can be picked out of a
+   * shared month without a legend, and the tooltip says whose it is
+   * rather than making the colour carry it alone.
+   */
   function chip(it: PortalCalendarItem): HTMLElement {
+    const node = chipBody(it);
+    const who = H.clientOf?.(it) ?? null;
+    if (!who) return node;
+    node.classList.add('pt-chip-shared');
+    const dot = el('span', `pt-chip-who pt-cc-${who.color}`);
+    dot.setAttribute('aria-hidden', 'true');
+    node.insertBefore(dot, node.firstChild);
+    // The tick-row chip keeps its title on the inner button, because
+    // the row itself is a div holding a box and a button.
+    const titled = (node.querySelector('.pt-chip-open') ?? node) as HTMLElement;
+    titled.title = titled.title ? `${who.name} \u00b7 ${titled.title}` : who.name;
+    return node;
+  }
+
+  function chipBody(it: PortalCalendarItem): HTMLElement {
     const row = it as CalRow;
     // A content card wears its bucket's colour, because on the board it
     // already does. Film dates are the same colour, dashed: the same
@@ -1143,7 +1204,10 @@ export function createCalendar(H: CalendarHost) {
       const day = new Date(start); day.setDate(start.getDate() + i);
       const cell = el('div', 'pt-cal-cell');
       if (sameDay(day, today)) cell.classList.add('pt-cal-cell-today');
-      for (const it of sortDay(map.get(keyOf(day)) ?? [])) cell.appendChild(chip(it));
+      const dayItems = sortDay(map.get(keyOf(day)) ?? []);
+      const flag = dayItems.length ? H.dayFlag?.(dayItems) ?? null : null;
+      if (flag) cell.appendChild(dayFlagMark(flag));
+      for (const it of dayItems) cell.appendChild(chip(it));
       if (!isNarrow()) dayDropTarget(cell, day);
       grid.appendChild(cell);
     }
@@ -1190,9 +1254,11 @@ export function createCalendar(H: CalendarHost) {
       const head = el('h3', 'pt-agenda-date' + (sameDay(day, today) ? ' pt-agenda-date-today' : ''));
       head.appendChild(el('span', undefined, fmtDayLong(day)));
       if (sameDay(day, today)) head.appendChild(el('span', 'pt-tag', 'Today'));
+      const day_ = sortDay(map.get(k)!);
+      const flag = H.dayFlag?.(day_) ?? null;
+      if (flag) head.appendChild(dayFlagMark(flag));
       group.appendChild(head);
       const list = el('ul');
-      const day_ = sortDay(map.get(k)!);
       const pad = day_.some(H.canTick);
       for (const it of day_) list.appendChild(H.itemRow(it, pad));
       group.appendChild(list);

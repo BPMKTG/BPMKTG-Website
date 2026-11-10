@@ -58,7 +58,7 @@ export const onRequestPost: PagesFunction<WriteEnv> = async ({ request, env, par
   });
 
   if (!item) return portalNotFound();
-  await bustDataCache(ctx.slug);
+  await bustDataCache(ctx.slug, env);
   return writeOk({ ok: true, item });
 };
 

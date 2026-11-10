@@ -54,7 +54,7 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
   const item = await updateContentPage(env.NOTION_TOKEN, id, stampEdit(properties, ctx.viewer.role));
   if (!item) return portalNotFound();
 
-  await bustDataCache(ctx.slug);
+  await bustDataCache(ctx.slug, env);
   return writeOk({ ok: true, item, changed: true });
 };
 

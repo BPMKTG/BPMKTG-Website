@@ -167,7 +167,7 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
     const back = reverseWrites(undo.writes).filter((w) => allowed.has(w.id));
 
     const { done, failed } = await applyWrites(env.NOTION_TOKEN, back, role);
-    await bustDataCache(ctx.slug);
+    await bustDataCache(ctx.slug, env);
     return writeOk({
       ok: true,
       undone: true,
@@ -227,7 +227,7 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
   if (!head) return portalNotFound();
 
   const { done, failed } = await applyWrites(env.NOTION_TOKEN, plan.steps, role);
-  await bustDataCache(ctx.slug);
+  await bustDataCache(ctx.slug, env);
 
   // Everything that landed, the moment included, so Undo puts back
   // exactly what was changed and nothing that was not.
