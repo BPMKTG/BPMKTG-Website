@@ -17,7 +17,7 @@
         one place.
    ────────────────────────────────────────────────────────────── */
 
-import { canSetStepStatus, canSetStepDate, cleanItemTitle, isFilmStep } from './portal';
+import { canSetStepStatus, canSetStepDate, cleanItemTitle, flowOf, isFilmStep } from './portal';
 import { canClientMove } from './portal-content';
 
 /* ── the window ───────────────────────────────────────────────── */
@@ -91,6 +91,9 @@ export interface HqRow {
    *  moved gets written, which is the thing you want to read without
    *  opening Notion. */
   notes: string | null;
+  /** Who makes it and who posts it, as a chip. Derived where Notion
+   *  has not got round to setting Flow, which is most rows. */
+  flow: string | null;
 }
 
 /* ── statuses that are not to-dos ─────────────────────────────── */
@@ -221,11 +224,13 @@ export interface RowStep {
   status: string | null;
   date: string | null;
   notes: string | null;
+  flow?: string | null;
 }
 
 export interface RowContent {
   id: string;
   clientId: string | null;
+  postedBy?: string | null;
   campaignId: string | null;
   title: string;
   status: string | null;
@@ -236,6 +241,54 @@ export interface RowContent {
 
 /** Stages whose next action is nobody's to-do any more. */
 export const DEAD_STAGES = ['Ended'] as const;
+
+/* ── what we owe this month ────────────────────────────────────────
+   A tier is sold as a number of posts a month and the only way to
+   know whether we are delivering it is to count. Our posts, not
+   theirs: a client posting ten things themselves does not discharge
+   anything we promised. */
+
+export const DELIVERABLES_MIN = 15;
+export const DELIVERABLES_MAX = 25;
+
+export interface Deliverables {
+  /** "Nov", for the label. */
+  month: string;
+  /** Ours, dated inside the month. */
+  total: number;
+  /** Of those, the ones that have gone out. */
+  posted: number;
+  /** Too few planned, or too many: either is a plan to fix now
+   *  rather than on the last day of the month. */
+  off: boolean;
+  label: string;
+}
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export function deliverables(
+  cards: Array<{ postedBy?: string | null; postDate: string | null; status: string | null }>,
+  now: Date = new Date(),
+): Deliverables {
+  const ym = isoToday(now).slice(0, 7);
+  const mine = cards.filter((c) =>
+    c.postedBy === 'Blueprint'
+    && !!c.postDate
+    && c.postDate.slice(0, 7) === ym
+    // A card we dropped was never a deliverable.
+    && c.status !== 'Skipped');
+  const total = mine.length;
+  const posted = mine.filter((c) => c.status === 'Posted').length;
+  const month = MONTH_SHORT[Number(ym.slice(5, 7)) - 1] ?? ym;
+  return {
+    month,
+    total,
+    posted,
+    off: total < DELIVERABLES_MIN || total > DELIVERABLES_MAX,
+    label: `${month}: ${posted} / ${total} posted`,
+  };
+}
 
 /**
  * Every outstanding step, as Today rows.
@@ -279,6 +332,7 @@ export function stepRows(
       snoozable: canSetStepDate(row, 'admin'),
       moment: (s.momentId ? moments.get(s.momentId) : undefined) ?? null,
       notes: oneLine(s.notes),
+      flow: flowOf(s),
     });
   }
   return out;

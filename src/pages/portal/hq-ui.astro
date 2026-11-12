@@ -205,7 +205,8 @@ const NAV = [
     clientFacts, clientHealth, stepUpSoon, daysUntilDay, CARD_STAGES,
     reportDrafts, reportPublished, reportGaps, sortAudits, docBase,
     groupByCampaign, momentIndex, oneLine, NOTE_SEP,
-    clientColor, dayClash, onCalendar,
+    clientColor, dayClash, deliverables, onCalendar,
+    DELIVERABLES_MIN, DELIVERABLES_MAX,
     type HqCampaignGroup, type HqFilter, type HqMomentRef, type HqRow,
     type RowClient, type StripItem, type CardClient, type HealthVerdict,
   } from '../../data/hq';
@@ -384,6 +385,12 @@ const NAV = [
     });
   }
 
+  /** What we owe this client this month. Counted off the content
+   *  board, which is where our posts live. */
+  function deliverablesFor(c: { pageId: string }) {
+    return deliverables((HQ?.content ?? []).filter((x: any) => x.clientId === c.pageId));
+  }
+
   /** The soonest show or release still ahead of this client. */
   function nextMoment(c: CardClient) {
     const today = isoToday();
@@ -491,10 +498,17 @@ const NAV = [
     card.appendChild(line);
 
     const stats = el('div', 'hq-stats');
+    const owed = deliverablesFor(c);
     stats.append(
       stat('ours overdue', String(f.overdueBlueprint), f.overdueBlueprint ? 'bad' : undefined),
       stat('theirs overdue', String(f.overdueClient), f.overdueClient >= 3 ? 'bad' : undefined),
       stat('posted / due', `${f.postedThisWeek} / ${f.scheduledThisWeek}`),
+      // What we owe them this month, and whether the month is even
+      // planned to the right size. Red for a month with too few or
+      // too many of ours in it, which is a thing to fix in the first
+      // week rather than on the last day.
+      stat(`${owed.month} deliverables`, `${owed.posted} / ${owed.total}`,
+        owed.off ? 'bad' : undefined),
       stat('last report', f.lastReport ? shortDay(f.lastReport) : 'none',
         f.lastReport ? undefined : 'bad'),
     );
@@ -2515,6 +2529,7 @@ const NAV = [
 
   function drawToday(root: HTMLElement) {
     root.appendChild(strip());
+    root.appendChild(owedBar());
     root.appendChild(todayBar());
 
     const lists = buildToday(
@@ -2573,6 +2588,36 @@ const NAV = [
     for (const r of g.rows) list.appendChild(rowNode(r));
     sec.appendChild(list);
     return sec;
+  }
+
+  /**
+   * What we owe each live client this month, on one line.
+   *
+   * The number that matters is not how many posts went out: it is
+   * whether the month was planned to the size it was sold at. A month
+   * with nine of our posts in it on the 3rd is a month to fix now,
+   * and the only place anyone would notice is here.
+   */
+  function owedBar(): HTMLElement {
+    const live = calClients();
+    const wrap = el('div', 'hq-owed');
+    wrap.setAttribute('aria-label', 'Deliverables this month');
+    if (!live.length) { show(wrap, false); return wrap; }
+    for (const c of live) {
+      const d = deliverablesFor(c);
+      const a = el('a', `hq-owed-item${d.off ? ' hq-owed-off' : ''}`);
+      a.href = `#/clients/${c.slug}`;
+      const dot = el('span', `pt-chip-who pt-cc-${clientColor(c.slug)}`);
+      dot.setAttribute('aria-hidden', 'true');
+      a.append(dot, el('span', 'hq-owed-who', c.artist),
+               el('span', 'hq-owed-n', d.label));
+      a.title = d.off
+        ? `${c.artist}: ${d.total} of our posts dated in ${d.month}. `
+          + `A month should hold between ${DELIVERABLES_MIN} and ${DELIVERABLES_MAX}.`
+        : `${c.artist}: ${d.posted} of ${d.total} out so far this month.`;
+      wrap.appendChild(a);
+    }
+    return wrap;
   }
 
   /** Shows and releases across every client, next fortnight. */
@@ -2703,6 +2748,9 @@ const NAV = [
     meta.appendChild(el('span', `hq-own hq-own-${r.owner}`,
       r.owner === 'blueprint' ? 'Blueprint' : 'Client'));
     if (r.type) meta.appendChild(el('span', 'hq-type', r.type));
+    // Owner says whose it is; Flow says what kind of job it is. The
+    // two together are the whole answer to "what am I looking at".
+    if (r.flow) meta.appendChild(el('span', 'hq-flow', r.flow));
     // Grouping by campaign already says which one every row in the
     // section belongs to, so the chip would be the same word repeated
     // down the list.

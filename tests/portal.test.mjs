@@ -184,7 +184,10 @@ import {
   // HQ's calendar, across clients
   onCalendar,
   clientColor,
+  deliverables,
   CLIENT_COLORS,
+  DELIVERABLES_MIN,
+  DELIVERABLES_MAX,
   dayClash,
   itemKind,
   momentKind,
@@ -1844,6 +1847,17 @@ const hqStep = (over = {}) => ({
 
 is('hq: our own step reaches the list', stepRows([hqStep()], BY_ID, NOW).length, 1);
 is('hq: and it reads as ours', stepRows([hqStep()], BY_ID, NOW)[0].owner, 'blueprint');
+// Today carries the flow too, so a row says what kind of job it is
+// and not only whose. Derived where Notion has not set it.
+is('hq: a Today row carries its flow',
+   stepRows([hqStep({ type: 'Admin' })], BY_ID, NOW)[0].flow, 'Blueprint task');
+is('hq: derived from Owner and Type where Notion is empty',
+   stepRows([hqStep({ owner: 'Client', type: 'Content' })], BY_ID, NOW)[0].flow,
+   'Client makes + posts');
+is('hq: and taken from Notion where it is set',
+   stepRows([hqStep({ owner: 'Blueprint', type: 'Content',
+                      flow: 'Client films \u2192 Blueprint edits + posts' })], BY_ID, NOW)[0].flow,
+   'Client films \u2192 Blueprint edits + posts');
 is('hq: a client step reads as theirs',
    stepRows([hqStep({ owner: 'Client' })], BY_ID, NOW)[0].owner, 'client');
 // The whole reason HQ exists: the portal hides our steps, this does not.
@@ -2732,6 +2746,43 @@ is('mail: an unreadable claim is a blank status line, not a thrown page',
 /* ══════════════════════════════════════════════════════════════════
    HQ's calendar, across clients
    ══════════════════════════════════════════════════════════════════ */
+
+section('Blueprint HQ · what we owe this month');
+
+/* A tier is sold as a number of posts a month. The only way to know
+   whether we are delivering it is to count ours, dated inside the
+   month, and say so where someone will see it on the 3rd rather than
+   on the 31st. */
+const NOV = new Date('2026-11-12T12:00:00Z');
+const owedCard = (over = {}) =>
+  ({ postedBy: 'Blueprint', postDate: '2026-11-10', status: 'Planned', ...over });
+
+const only = (cards) => deliverables(cards, NOV);
+is('owed: ours this month are counted', only([owedCard(), owedCard(), owedCard()]).total, 3);
+is('owed: and the ones that went out',
+   only([owedCard({ status: 'Posted' }), owedCard()]).posted, 1);
+is('owed: theirs are not ours to deliver',
+   only([owedCard(), owedCard({ postedBy: 'Client' })]).total, 1);
+is('owed: nor is a card with nobody on it',
+   only([owedCard({ postedBy: null })]).total, 0);
+is('owed: last month is last month',
+   only([owedCard({ postDate: '2026-10-31' }), owedCard({ postDate: '2026-12-01' })]).total, 0);
+is('owed: so is an undated card', only([owedCard({ postDate: null })]).total, 0);
+is('owed: a card we dropped was never a deliverable',
+   only([owedCard({ status: 'Skipped' }), owedCard()]).total, 1);
+is('owed: the month is named', only([]).month, 'Nov');
+is('owed: the label reads as a sentence',
+   only([owedCard({ status: 'Posted' }), owedCard(), owedCard()]).label, 'Nov: 1 / 3 posted');
+is('owed: an empty month is off', only([]).off, true);
+is('owed: too few is off',
+   only(Array.from({ length: DELIVERABLES_MIN - 1 }, () => owedCard())).off, true);
+is('owed: the floor itself is fine',
+   only(Array.from({ length: DELIVERABLES_MIN }, () => owedCard())).off, false);
+is('owed: the ceiling itself is fine',
+   only(Array.from({ length: DELIVERABLES_MAX }, () => owedCard())).off, false);
+is('owed: one over is off',
+   only(Array.from({ length: DELIVERABLES_MAX + 1 }, () => owedCard())).off, true);
+is('owed: the band we sell', `${DELIVERABLES_MIN}–${DELIVERABLES_MAX}`, '15–25');
 
 section('Blueprint HQ · which clients the calendar covers');
 

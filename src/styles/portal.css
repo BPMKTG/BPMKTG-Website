@@ -2795,6 +2795,31 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 .hq-own-blueprint { background: var(--pt-tint-orange); color: var(--pt-orange-ink); }
 .hq-own-client    { background: var(--pt-tint-blue);   color: var(--pt-navy); }
 .hq-type { color: var(--pt-muted); }
+/* What we owe this month, one client per pill, above Today. */
+.hq-owed {
+  display: flex; flex-wrap: wrap; gap: var(--pt-2);
+  margin-bottom: var(--pt-3);
+}
+.hq-owed-item {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; border-radius: var(--pt-r-pill);
+  border: 1px solid var(--pt-line); background: var(--pt-surface);
+  font-size: .78rem; text-decoration: none; color: var(--pt-ink-2);
+}
+.hq-owed-item:hover { border-color: var(--pt-line-strong); }
+.hq-owed-who { font-weight: 600; color: var(--pt-ink); }
+.hq-owed-n { font-variant-numeric: tabular-nums; color: var(--pt-muted); }
+.hq-owed-off { border-color: var(--pt-bad); background: var(--pt-bad-tint); }
+.hq-owed-off .hq-owed-n { color: var(--pt-bad); font-weight: 700; }
+
+/* What kind of job it is, beside whose it is. Outlined rather than
+   filled: a row already carries an Owner pill and a campaign chip,
+   and a third solid colour would be a row of badges. */
+.hq-flow {
+  padding: 1px 7px; border-radius: var(--pt-r-pill);
+  border: 1px solid var(--pt-line); color: var(--pt-ink-3);
+  font-size: .72rem; font-weight: 600; white-space: nowrap;
+}
 .hq-when { color: var(--pt-muted); font-variant-numeric: tabular-nums; }
 .hq-when-late { color: var(--pt-bad); font-weight: 600; }
 
