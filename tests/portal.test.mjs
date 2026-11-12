@@ -1251,8 +1251,19 @@ is('ideas: a date takes it out of the well',
 is('ideas: filmed is not an idea', isIdea(card({ status: 'Filmed' })), false);
 
 is('pipeline: planned with no film date', stageOf(card({ status: 'Planned' }), nowC), 'planned');
-is('pipeline: planned with a film date is To Film',
-   stageOf(card({ status: 'Planned', filmBy: '2026-11-01' }), nowC), 'toFilm');
+// Source decides the pre-camera column now, not Film By. A flyer we
+// are drawing has a Film By too, and it used to land in the client's
+// To film pile with a date they could do nothing about.
+is('pipeline: a film date alone is not To film',
+   stageOf(card({ status: 'Planned', filmBy: '2026-11-01' }), nowC), 'planned');
+is('pipeline: Client Films is To film',
+   stageOf(card({ status: 'Planned', filmBy: '2026-11-01', source: 'Client Films' }), nowC), 'toFilm');
+is('pipeline: Client Films is To film even with no film date',
+   stageOf(card({ status: 'Planned', source: 'Client Films' }), nowC), 'toFilm');
+is('pipeline: a flyer we draw goes to Up next, not To film',
+   stageOf(card({ status: 'Planned', filmBy: '2026-11-01', source: 'Flyer / Graphic' }), nowC), 'upNext');
+is('pipeline: show media goes to Up next',
+   stageOf(card({ status: 'Planned', source: 'Show Media' }), nowC), 'upNext');
 is('pipeline: filmed and footage in share a column',
    [stageOf(card({ status: 'Filmed' }), nowC), stageOf(card({ status: 'Footage In' }), nowC)],
    ['filmed', 'filmed']);
@@ -1263,10 +1274,13 @@ is('pipeline: skipped is hidden', stageOf(card({ status: 'Skipped' }), nowC), nu
 is('pipeline: an undated idea is not on the pipeline', stageOf(card({ status: 'Idea' }), nowC), null);
 is('pipeline: a dated idea lands in Planned',
    stageOf(card({ status: 'Idea', postDate: '2026-11-09' }), nowC), 'planned');
-is('pipeline: a dated idea with a shoot date lands in To film',
-   stageOf(card({ status: 'Idea', postDate: '2026-11-09', filmBy: '2026-11-05' }), nowC), 'toFilm');
-is('pipeline: an idea with only a shoot date lands in To film',
-   stageOf(card({ status: 'Idea', filmBy: '2026-11-05' }), nowC), 'toFilm');
+is('pipeline: a dated idea the client films lands in To film',
+   stageOf(card({ status: 'Idea', postDate: '2026-11-09', filmBy: '2026-11-05',
+                  source: 'Client Films' }), nowC), 'toFilm');
+is('pipeline: a dated idea with a shoot date but no source stays in Planned',
+   stageOf(card({ status: 'Idea', postDate: '2026-11-09', filmBy: '2026-11-05' }), nowC), 'planned');
+is('pipeline: an idea with only a shoot date is still on the board',
+   stageOf(card({ status: 'Idea', filmBy: '2026-11-05', source: 'Client Films' }), nowC), 'toFilm');
 is('ideas: a dated idea is off the Ideas board',
    isIdea({ status: 'Idea', postDate: '2026-11-09' }), false);
 is('pipeline: a recent post still shows',

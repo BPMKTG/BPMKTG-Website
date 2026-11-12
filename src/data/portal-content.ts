@@ -59,11 +59,17 @@ export type ContentStatus = typeof CONTENT_STATUSES[number];
 /**
  * Where a client may move a card, and nowhere else.
  *
- * Editing, Ready for Review and Scheduled are ours: they describe work
- * on our side, and a client moving a card into "Editing" would be
- * telling us something had happened that had not. Approved → Posted is
- * allowed because a client who posts it themselves is the only one who
- * knows.
+ * Editing and Scheduled are ours to reach on our own: they describe
+ * work on our side, and a client announcing "Editing" would be telling
+ * us something had happened that had not. The one exception is a card
+ * sitting in Your review, where "Request changes" hands it back to us,
+ * and that IS the client saying something happened. Approved → Posted
+ * is allowed because a client who posts it themselves is the only one
+ * who knows.
+ *
+ * Two further moves are conditional and so live in canClientMove
+ * rather than here: filmed-and-back, which only makes sense on a card
+ * the client films, and anything at all on a card the client posts.
  */
 export const CLIENT_STATUS_MOVES: Record<ContentStatus, ContentStatus[]> = {
   'Idea':             ['Planned', 'Skipped'],
@@ -71,12 +77,45 @@ export const CLIENT_STATUS_MOVES: Record<ContentStatus, ContentStatus[]> = {
   'Filmed':           ['Footage In', 'Skipped'],
   'Footage In':       ['Skipped'],
   'Editing':          ['Skipped'],
-  'Ready for Review': ['Approved', 'Skipped'],
+  'Ready for Review': ['Approved', 'Editing', 'Skipped'],
   'Approved':         ['Posted', 'Skipped'],
   'Scheduled':        ['Posted', 'Skipped'],
   'Posted':           ['Skipped'],
   'Skipped':          ['Idea'],
 };
+
+/* ── who makes it ─────────────────────────────────────────────── */
+
+export const CONTENT_SOURCES = ['Client Films', 'Show Media', 'Flyer / Graphic'] as const;
+export type ContentSource = typeof CONTENT_SOURCES[number];
+
+/** The client has to point a camera at themselves for this one. */
+export function clientFilms(source: string | null): boolean {
+  return source === 'Client Films';
+}
+
+/** We make it out of material we already hold. There is nothing for
+ *  the client to do, which is why these get a column of their own
+ *  rather than sitting in To film with a date they cannot act on. */
+export function weMake(source: string | null): boolean {
+  return source === 'Show Media' || source === 'Flyer / Graphic';
+}
+
+/** What a card says under its title: the only date on it that the
+ *  reader can act on. Film By belongs to the client and only appears
+ *  on a card they film; everything else is counting down to a post. */
+export interface CardDate { label: 'Film by' | 'Posts'; date: string }
+
+export function cardDate(
+  item: { source: string | null; filmBy: string | null; postDate: string | null },
+): CardDate | null {
+  if (clientFilms(item.source) && item.filmBy) return { label: 'Film by', date: item.filmBy };
+  if (item.postDate) return { label: 'Posts', date: item.postDate };
+  return null;
+}
+
+/** What the toast says when a client tries to drag one of ours. */
+export const DRAG_BLOCKED = 'Blueprint moves this one';
 
 /**
  * The three words a client uses for where something is, as opposed to
@@ -104,13 +143,33 @@ export function isContentStatus(v: unknown): v is ContentStatus {
   return typeof v === 'string' && (CONTENT_STATUSES as readonly string[]).includes(v);
 }
 
+/** The two things about a card, beyond the status it is in, that can
+ *  widen what a client may do with it. */
+export interface MoveWho {
+  /** Posted By. A client who posts it owns the whole row. */
+  postedBy?: string | null;
+  /** Source. Only a card the client films can come back out of Filmed. */
+  source?: string | null;
+}
+
 /** May a client move this card from `from` to `to`? Staying put is
- *  always fine, which is what a save that touches other fields does. */
-export function canClientMove(from: string | null, to: string): boolean {
+ *  always fine, which is what a save that touches other fields does.
+ *
+ *  `who` is optional so that a caller asking the plain question still
+ *  gets the plain answer. Passed, it can only ever widen the result:
+ *  there is no card a client may do LESS with than the table says. */
+export function canClientMove(from: string | null, to: string, who: MoveWho = {}): boolean {
   if (!isContentStatus(to)) return false;
   if (from === to) return true;
+  // A row the client posts is theirs from idea to posted, so they move
+  // it wherever they like. We are not in the loop on it at all.
+  if (who.postedBy === 'Client') return true;
   if (!isContentStatus(from)) return to === 'Idea' || to === 'Planned';
-  return CLIENT_STATUS_MOVES[from].includes(to);
+  if (CLIENT_STATUS_MOVES[from].includes(to)) return true;
+  // Dragged into Filmed by mistake, dragged back out. Only on a card
+  // they film: on ours, Filmed is a fact we recorded.
+  if (from === 'Filmed' && to === 'Planned' && clientFilms(who.source)) return true;
+  return false;
 }
 
 /* ── write whitelist ──────────────────────────────────────────── */
@@ -284,11 +343,14 @@ export interface PortalContentSchema {
 
 /* ── pipeline stages ──────────────────────────────────────────── */
 
-export type Stage = 'planned' | 'toFilm' | 'filmed' | 'editing' | 'review' | 'ready' | 'posted';
+export type Stage = 'upNext' | 'planned' | 'toFilm' | 'filmed' | 'editing'
+  | 'review' | 'ready' | 'posted';
 
-export const STAGE_ORDER: Stage[] = ['planned', 'toFilm', 'filmed', 'editing', 'review', 'ready', 'posted'];
+export const STAGE_ORDER: Stage[] = ['upNext', 'planned', 'toFilm', 'filmed',
+  'editing', 'review', 'ready', 'posted'];
 
 export const STAGE_TITLE: Record<Stage, string> = {
+  upNext:  'Up next',
   planned: 'Planned',
   toFilm:  'To film',
   filmed:  'Filmed',
@@ -296,6 +358,19 @@ export const STAGE_TITLE: Record<Stage, string> = {
   review:  'Your review',
   ready:   'Ready to post',
   posted:  'Posted',
+};
+
+/** Said under each column heading, so a client reading the board knows
+ *  whose move it is without being told. */
+export const STAGE_NOTE: Record<Stage, string | null> = {
+  upNext:  'We are making these',
+  planned: null,
+  toFilm:  'Yours to film',
+  filmed:  null,
+  editing: null,
+  review:  'Yours to approve',
+  ready:   null,
+  posted:  null,
 };
 
 /** Days of Posted history the pipeline keeps. Older posts live in the
@@ -308,7 +383,10 @@ export const POSTED_WINDOW_DAYS = 30;
  * post older than the window).
  */
 export function stageOf(
-  item: { status: string | null; filmBy: string | null; postDate: string | null },
+  item: {
+    status: string | null; filmBy: string | null; postDate: string | null;
+    source?: string | null;
+  },
   now: Date = new Date(),
 ): Stage | null {
   switch (item.status) {
@@ -318,8 +396,8 @@ export function stageOf(
     // at all, which is worse than being in the wrong column.
     case 'Idea':
       if (!item.postDate && !item.filmBy) return null;
-      return item.filmBy ? 'toFilm' : 'planned';
-    case 'Planned':          return item.filmBy ? 'toFilm' : 'planned';
+      return beforeCamera(item);
+    case 'Planned':          return beforeCamera(item);
     case 'Filmed':
     case 'Footage In':       return 'filmed';
     case 'Editing':          return 'editing';
@@ -335,6 +413,78 @@ export function stageOf(
     default: return null;   // Skipped, anything unrecognised
   }
 }
+
+/**
+ * Which of the three pre-camera columns a card starts in.
+ *
+ * All three are the same Notion status, Planned. What separates them is
+ * Source, that is, whose move it is: the client films one, we make
+ * another, and a card with no Source yet is nobody's until someone
+ * says. A Film By date does NOT put a card in To film any more. It
+ * used to, which is how a flyer we were drawing ended up in the
+ * client's "to film" pile with a date they could do nothing about.
+ */
+function beforeCamera(item: { source?: string | null }): Stage {
+  if (clientFilms(item.source ?? null)) return 'toFilm';
+  if (weMake(item.source ?? null)) return 'upNext';
+  return 'planned';
+}
+
+/**
+ * The status a drop into this column means, or null when this card
+ * cannot go in this column at all.
+ *
+ * stageOf is many statuses to one column; this is the one status a
+ * drop sets. The three pre-camera columns need the guard: they share
+ * the status Planned and differ only by Source, so a drop into the
+ * wrong one of them would write Planned and then watch the card
+ * reappear exactly where it was. Refusing up front is honest, where a
+ * silent bounce looks like a bug.
+ */
+export function dropStatus(item: { source: string | null }, stage: Stage): ContentStatus | null {
+  switch (stage) {
+    case 'toFilm':  return clientFilms(item.source) ? 'Planned' : null;
+    case 'upNext':  return weMake(item.source) ? 'Planned' : null;
+    case 'planned': return clientFilms(item.source) || weMake(item.source) ? null : 'Planned';
+    case 'filmed':  return 'Filmed';
+    case 'editing': return 'Editing';
+    case 'review':  return 'Ready for Review';
+    case 'ready':   return 'Approved';
+    case 'posted':  return 'Posted';
+  }
+}
+
+/**
+ * May this viewer drop this card in this column?
+ *
+ * One function for both surfaces. An admin may move any card to any
+ * column it can hold, which is the whole point of the HQ board; a
+ * client is held to canClientMove. The portal UI asks this to decide
+ * what to dim, and the server asks the same question again before it
+ * writes, because a dimmed column is a courtesy and not a lock.
+ */
+export function canDrop(
+  item: { status: string | null; source: string | null; postedBy: string | null },
+  stage: Stage,
+  role: 'client' | 'admin',
+): boolean {
+  const to = dropStatus(item, stage);
+  if (!to) return false;
+  if (role === 'admin') return true;
+  return canClientMove(item.status, to, { postedBy: item.postedBy, source: item.source });
+}
+
+/** What the client's two review buttons mean. Kept here so the button
+ *  and the server agree on which status each one lands on. */
+export type ReviewAction = 'approve' | 'changes';
+export const REVIEW_TARGET: Record<ReviewAction, ContentStatus> = {
+  approve: 'Approved',
+  changes: 'Editing',
+};
+export const REVIEW_LABEL: Record<ReviewAction, string> = {
+  approve: 'Approve',
+  changes: 'Request changes',
+};
 
 /** The Ideas board: his Asana "idea well". Undated, not yet moving. */
 export function isIdea(item: { status: string | null; postDate: string | null }): boolean {
