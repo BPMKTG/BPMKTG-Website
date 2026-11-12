@@ -231,8 +231,12 @@ const NAV = [
 
 <script>
   import {
+    canSetStepDate,
     canSetStepStatus,
     cardFilmRow,
+    flowOf,
+    isBlueprintWork,
+    stepFlowChip,
     cardOnCalendar,
     cardRowTitle,
     daysBetween,
@@ -1044,6 +1048,13 @@ const NAV = [
     title.appendChild(el('span', undefined, it.title));
     if (it.tentative) title.appendChild(el('span', 'pt-tag pt-tag-tentative', 'Tentative'));
     if (kindOf(it) === 'todo') title.appendChild(el('span', 'pt-tag pt-tag-todo', 'To-do'));
+    // Who makes it and who posts it, in two words. The one question a
+    // client has about any row is whether it is theirs.
+    const flow = row.content ? null : stepFlowChip(it);
+    if (flow) {
+      title.appendChild(el('span',
+        `pt-tag pt-tag-flow${isBlueprintWork(it) ? ' pt-tag-theirs' : ''}`, flow));
+    }
     main.appendChild(title);
 
     const meta = el('span', 'pt-row-meta');
@@ -1121,10 +1132,12 @@ const NAV = [
     root: () => q('[data-view="calendar"]'),
     role: () => VIEWER.role,
     store: CAL_PREFS,
-    // PORTAL_LAYERS, not a list of our own: Blueprint tasks belongs to
-    // HQ and this page does not draw it for anyone, because the
-    // portal's Notion query never fetches the rows it would hold.
+    // PORTAL_LAYERS, not a list of our own. It now includes our own
+    // work, which the query does fetch: the client reads what we are
+    // doing for them and cannot touch any of it.
     layers: () => [...PORTAL_LAYERS],
+    // Said to the client, so it is ours rather than a column name.
+    layerLabel: (l) => (l === 'blueprint' ? 'Blueprint\u2019s work' : null),
     content: () => CON.items,
     schema: () => CON.schema,
     extraRows: () => contentRows(CON.items),
@@ -1189,7 +1202,17 @@ const NAV = [
     if (k === 'todo') kindTag.className = 'pt-tag pt-tag-todo';
     tags.appendChild(kindTag);
     if (it.tentative) tags.appendChild(el('span', 'pt-tag pt-tag-tentative', 'Tentative'));
+    const ours = isBlueprintWork(it) && !canSetStepDate(it, VIEWER.role);
+    const flowTag = stepFlowChip(it);
+    if (flowTag) {
+      tags.appendChild(el('span',
+        `pt-tag pt-tag-flow${ours ? ' pt-tag-theirs' : ''}`, flowTag));
+    }
     body.appendChild(tags);
+    if (ours) {
+      body.appendChild(el('p', 'pt-drawer-note',
+        'This one is ours. You can see where it stands; we move it and we tick it off.'));
+    }
 
     if (it.moment) {
       const m = it.moment;
@@ -1229,6 +1252,7 @@ const NAV = [
     add('Venue', it.venueCity);
     add('Playbook', it.playbook);
     add('Phase', it.phase);
+    add('Flow', flowOf(it));
     add('Owner', it.owner);
     if (typeof it.streamsToDate === 'number') add('Streams to date', fmtNumber(it.streamsToDate));
     if (typeof it.ticketsSold === 'number') {
@@ -2547,6 +2571,12 @@ const NAV = [
       if (it.id && it.momentType) {
         m.set(normaliseId(it.id), { id: it.id, title: it.title, momentType: it.momentType, date: it.date });
       }
+      // A card's Campaign relation names a STEP, not the moment: the
+      // flyer hangs off "Announce: flyer, date, ticket link", which
+      // hangs off the show. Following that one hop is what gives a
+      // card its campaign line; without it every card read as though
+      // it belonged to nothing.
+      if (it.id && !it.momentType && it.moment) m.set(normaliseId(it.id), it.moment);
     }
     return m;
   }

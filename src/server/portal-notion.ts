@@ -309,6 +309,10 @@ export async function fetchCalendar(
             { property: 'Kind', select: { equals: 'Moment' } },
             { property: 'Type', select: { equals: 'Content' } },
             { property: 'Owner', select: { equals: 'Client' } },
+            // Our own work, which the client reads and cannot change.
+            // Hide from Client above still applies to it: a row we have
+            // marked as ours alone stays ours alone.
+            { property: 'Owner', select: { equals: 'Blueprint' } },
           ],
         },
       ],
@@ -362,6 +366,7 @@ export async function fetchCalendar(
         streamsToDate: readNumber(p[CALENDAR_FIELDS[14]]),
         ticketsSold: readNumber(p[CALENDAR_FIELDS[15]]),
         capacity: readNumber(p[CALENDAR_FIELDS[16]]),
+        flow: readSelect(p[CALENDAR_FIELDS[17]]),
       },
     });
   }

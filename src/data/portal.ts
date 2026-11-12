@@ -88,6 +88,7 @@ export const CALENDAR_FIELDS = [
   'Streams to Date',
   'Tickets Sold',
   'Capacity',
+  'Flow',
 ] as const;
 
 export const CALENDAR_NEVER_SEND = ['Notes', 'Offset (days)', 'Is Playbook', 'Hide from Client'] as const;
@@ -168,7 +169,15 @@ export interface VisibilityInput {
 export function isVisibleToClient(row: VisibilityInput): boolean {
   if (row.isPlaybook) return false;
   if (row.hideFromClient) return false;
-  return row.kind === 'Moment' || row.type === 'Content' || row.owner === 'Client';
+  return row.kind === 'Moment'
+    || row.type === 'Content'
+    || row.owner === 'Client'
+    // Our own work. The client reads it and cannot touch it, which is
+    // enforced where it has to be, on the server: canSetStepStatus and
+    // canSetStepDate both refuse a step the client does not own. Being
+    // able to SEE that we are pitching editorial on Thursday is the
+    // point of paying us.
+    || (row.owner === 'Blueprint' && row.type === 'Admin');
 }
 
 /* ── Title cleanup ────────────────────────────────────────────── */
@@ -388,19 +397,186 @@ export function isFilmStep(row: { title: string | null }): boolean {
   return (row.title ?? '').trimStart().startsWith(FILM_MARK);
 }
 
+/* ── Flow: who does what ───────────────────────────────────────────
+   Notion's Campaign Calendar has a Flow select that says, in one
+   phrase, who makes a thing and who puts it out. It is the sharpest
+   fact on a row and everything downstream reads it: which layer a
+   step lands in, what the chip says, and whether the client may
+   touch it. */
+
+export type StepFlow =
+  | 'Blueprint makes + posts'
+  | 'Blueprint task'
+  | 'Client task'
+  | 'Client makes + posts'
+  | 'Client films \u2192 Blueprint edits + posts'
+  | 'Client film session';
+
+export const STEP_FLOWS: readonly StepFlow[] = [
+  'Blueprint makes + posts',
+  'Blueprint task',
+  'Client task',
+  'Client makes + posts',
+  'Client films \u2192 Blueprint edits + posts',
+  'Client film session',
+];
+
+export function isStepFlow(v: unknown): v is StepFlow {
+  return typeof v === 'string' && (STEP_FLOWS as readonly string[]).includes(v);
+}
+
+/** Which side a flow belongs to. Every flow names its owner in its
+ *  own words, and this is that reading. */
+export function flowOwner(flow: StepFlow | null): 'Blueprint' | 'Client' | null {
+  switch (flow) {
+    case 'Blueprint makes + posts':
+    case 'Blueprint task':
+    // Ours: they hand us footage and we cut it and put it out. The
+    // filming has its own step, owned by them.
+    case 'Client films \u2192 Blueprint edits + posts':
+      return 'Blueprint';
+    case 'Client task':
+    case 'Client makes + posts':
+    case 'Client film session':
+      return 'Client';
+    default:
+      return null;
+  }
+}
+
+/**
+ * The Flow of a step: the one Notion holds, or the one Owner and Type
+ * imply when Notion has not been given it yet.
+ *
+ * The fallback is not a guess. Owner and Type have always carried the
+ * same fact in a coarser form, and on the live board every row that
+ * HAS a Flow agrees with what Owner and Type imply, so deriving the
+ * rest cannot contradict anything. The one distinction the fallback
+ * cannot make is between the two Blueprint-posts flows, and that is a
+ * distinction with no consequence: both mean we post it.
+ *
+ * This is what lets the layers key on Flow before the backfill has
+ * written it onto every row.
+ */
+export function flowOf(row: {
+  flow?: string | null;
+  owner: string | null;
+  type: string | null;
+  title: string | null;
+  kind?: string | null;
+  momentType?: string | null;
+}): StepFlow | null {
+  // A moment is a date the steps count down to, not a job: nobody is
+  // assigned to "the show". Asked first, because a moment carries an
+  // Owner like anything else and would otherwise read as our task.
+  if (row.kind === 'Moment' || row.momentType) return null;
+  // Notion's own answer, but only when it agrees with Owner. Owner is
+  // what the server enforces, so a row reading "Client task" while
+  // Owner says Blueprint would put a to-do in front of a client that
+  // they are then refused permission to tick. One mis-set select
+  // should not be able to do that, so where the two contradict each
+  // other the one with teeth wins and the flow is derived instead.
+  if (isStepFlow(row.flow) && flowOwner(row.flow) === row.owner) return row.flow;
+  if (row.owner === 'Blueprint') {
+    // Content is a post; anything else of ours is a task. Falling to
+    // "task" rather than to nothing matters: a row that classifies
+    // into no layer is drawn on no screen, and a step of ours going
+    // quietly invisible because someone left Type blank is the one
+    // failure this has to not have.
+    if (row.type === 'Content') return 'Blueprint makes + posts';
+    return 'Blueprint task';
+  }
+  if (row.owner === 'Client') {
+    if (row.type === 'Content') return 'Client makes + posts';
+    if (isFilmStep(row)) return 'Client film session';
+    return 'Client task';
+  }
+  return null;
+}
+
+/** Whether a flow is ours to carry out. A client reads these and
+ *  cannot change them; the server enforces it, this only draws it. */
+export function isBlueprintWork(row: {
+  flow?: string | null;
+  owner: string | null;
+  type: string | null;
+  title: string | null;
+  kind?: string | null;
+  momentType?: string | null;
+}): boolean {
+  return flowOf(row) === 'Blueprint task';
+}
+
+/** Who actually puts the thing out, for a flow that puts something
+ *  out at all. Null for a flow that posts nothing. */
+export function postsBy(flow: StepFlow | null): 'blueprint' | 'client' | null {
+  switch (flow) {
+    case 'Blueprint makes + posts':
+    case 'Client films \u2192 Blueprint edits + posts':
+      return 'blueprint';
+    case 'Client makes + posts':
+      return 'client';
+    default:
+      return null;
+  }
+}
+
+/** What a post is labelled with, said to the client. */
+export const POSTS_LABEL: Record<'blueprint' | 'client', string> = {
+  blueprint: 'Blueprint posts',
+  client: 'You post',
+};
+
+/**
+ * A flow as a short chip, said to the client.
+ *
+ * Said in the second person, because the whole question a client has
+ * when they look at a day is "is this mine?". A post says who posts
+ * it, which is the thing they actually have to know; a task of ours
+ * just says Blueprint. A plain to-do of theirs says nothing, because
+ * it already sits under Your to-dos wearing a box.
+ */
+export function flowChip(flow: StepFlow | null): string | null {
+  switch (flow) {
+    case 'Client film session': return 'You film';
+    case 'Client makes + posts': return POSTS_LABEL.client;
+    case 'Blueprint makes + posts':
+    case 'Client films \u2192 Blueprint edits + posts':
+      return POSTS_LABEL.blueprint;
+    case 'Blueprint task': return 'Blueprint';
+    default:
+      return null;
+  }
+}
+
+/** The same, for a row rather than a flow. */
+export function stepFlowChip(row: {
+  flow?: string | null;
+  owner: string | null;
+  type: string | null;
+  title: string | null;
+  kind?: string | null;
+  momentType?: string | null;
+}): string | null {
+  return flowChip(flowOf(row));
+}
+
 /**
  * Which layers a Campaign Calendar step belongs to. Some belong to two.
  *
- * Owner and Type are each two-valued, so every step lands somewhere:
+ * Flow decides, and every flow lands somewhere:
  *
- *   Client   + Content  → posts, todos
- *   Client   + Admin    → todos
- *   Blueprint + Content → posts
- *   Blueprint + Admin   → blueprint
+ *   Blueprint task                          → blueprint
+ *   Blueprint makes + posts                 → posts
+ *   Client films → Blueprint edits + posts  → posts
+ *   Client makes + posts                    → posts, todos
+ *   Client film session                     → films, todos
+ *   Client task                             → todos
  *
- * and a step marked with the clapperboard is a shoot instead of a
- * post: it is the filming, not the thing that goes out, so it answers
- * to Film days and keeps whatever its owner gives it.
+ * A Blueprint task is ours alone even when it is a shoot. A shoot we
+ * run is on the calendar as our work, not as a day the client has to
+ * hold a camera, and putting it under Film days would read to them as
+ * a job of theirs. Film days means THEIR film days, on both screens.
  *
  * Posts is about what a row IS rather than who owns it, because from
  * a client's side there is no difference between a campaign step that
@@ -408,24 +584,25 @@ export function isFilmStep(row: { title: string | null }): boolean {
  * that goes out on a day, and which database it lives in is our
  * bookkeeping.
  *
- * Blueprint tasks is the internal column, which is why the client
- * portal does not draw that layer for anyone, client or admin. See
- * PORTAL_LAYERS below.
- *
  * An item in two layers is drawn once and shows if EITHER is on.
  */
 export function stepLayers(row: {
   title: string | null;
   owner: string | null;
   type: string | null;
+  flow?: string | null;
+  kind?: string | null;
+  momentType?: string | null;
 }): CalendarLayer[] {
-  const out: CalendarLayer[] = [];
-  const film = isFilmStep(row);
-  if (film) out.push('films');
-  if (row.type === 'Content' && !film) out.push('posts');
-  if (row.owner === 'Client') out.push('todos');
-  if (row.owner === 'Blueprint' && row.type === 'Admin') out.push('blueprint');
-  return out;
+  switch (flowOf(row)) {
+    case 'Blueprint task': return ['blueprint'];
+    case 'Blueprint makes + posts': return ['posts'];
+    case 'Client films \u2192 Blueprint edits + posts': return ['posts'];
+    case 'Client makes + posts': return ['posts', 'todos'];
+    case 'Client film session': return ['films', 'todos'];
+    case 'Client task': return ['todos'];
+    default: return [];
+  }
 }
 
 /**
@@ -449,11 +626,11 @@ export function stepLayers(row: {
    the calendar, the Home rows, the drawer and Blueprint HQ can never
    disagree about whether something is a show or a to-do. */
 
-export type ItemKind = 'show' | 'release' | 'content' | 'moment' | 'todo';
+export type ItemKind = 'show' | 'release' | 'content' | 'moment' | 'todo' | 'task';
 
 export const KIND_LABEL: Record<ItemKind, string> = {
   show: 'Show', release: 'Release', content: 'Content',
-  moment: 'Moment', todo: 'Your to-do',
+  moment: 'Moment', todo: 'Your to-do', task: 'Task',
 };
 
 /** Shows and releases read off a Moment Type, which is free text in
@@ -476,7 +653,10 @@ export function itemKind(it: {
   const m = momentKindOf(it.momentType);
   if (m !== 'moment') return m;
   if (it.type === 'Content') return 'content';
-  return 'moment';
+  // Only a moment is a Moment. Everything left is a step, and calling
+  // one of those a moment put the word "Moment" at the top of the
+  // drawer of every task we do for a client.
+  return it.kind === 'Moment' || it.momentType ? 'moment' : 'task';
 }
 
 /** The same rule applied to a moment on its own. A step's left edge
@@ -508,6 +688,40 @@ export function cardOnCalendar(c: { status: string | null }): boolean {
   return c.status !== 'Skipped';
 }
 
+/**
+ * A card's Campaign relation points at a Campaign Calendar row, and
+ * on the live board it points at a STEP rather than at the moment:
+ * "Faith Rave flyer · IG story" hangs off "Announce: flyer, date,
+ * ticket link".
+ *
+ * Both were drawn, so the same thing appeared twice on one day. The
+ * card wins: it is the deliverable, it names the actual asset, and
+ * one step often has three of them ("· IG story", "· IG post",
+ * "· Eventbrite banner") where the step says only "Announce". Keeping
+ * the step instead would collapse three named assets into one line of
+ * instructions.
+ *
+ * Returns the step ids that a card has claimed, so the calendar can
+ * leave them out.
+ */
+/** Notion hands the same id back with and without dashes depending on
+ *  where it came from, so every comparison goes through this. The
+ *  server has its own copy under another name for its cache keys;
+ *  this is the one the browser code shares. */
+export const sameId = (id: unknown): string =>
+  String(id ?? '').replace(/-/g, '').toLowerCase();
+
+export function stepsCoveredByCards(
+  cards: Array<{ status: string | null; campaign: string[] }>,
+): Set<string> {
+  const out = new Set<string>();
+  for (const c of cards) {
+    if (!cardOnCalendar(c)) continue;
+    for (const id of c.campaign ?? []) out.add(sameId(id));
+  }
+  return out;
+}
+
 /** What the chip says. A film row names the job, not the post, so a
  *  shoot and the thing it feeds do not read identically two weeks
  *  apart. */
@@ -515,9 +729,14 @@ export function cardRowTitle(title: string, role: 'post' | 'film'): string {
   return role === 'film' ? `Film \u00b7 ${title}` : title;
 }
 
-export const PORTAL_LAYERS: readonly CalendarLayer[] = ['moments', 'posts', 'films', 'todos'];
+export const PORTAL_LAYERS: readonly CalendarLayer[] =
+  ['moments', 'posts', 'films', 'todos', 'blueprint'];
 
-export const HQ_LAYERS: readonly CalendarLayer[] = [...PORTAL_LAYERS, 'blueprint'];
+/** HQ draws the same five. They were different while the portal's
+ *  query did not fetch our own work; it does now, so a client can see
+ *  what we are doing for them and neither screen has a layer the
+ *  other lacks. */
+export const HQ_LAYERS: readonly CalendarLayer[] = [...PORTAL_LAYERS];
 
 /* ── Moving things on the calendar ────────────────────────────── */
 
@@ -650,6 +869,9 @@ export interface PortalCalendarItem {
   whyItMatters: string | null;
   venueCity: string | null;
   ticketLink: string | null;
+  /** Who makes it and who posts it, as Notion's Flow select says it.
+   *  Null on a moment, and on a step Notion has not been given one. */
+  flow?: string | null;
   /** The Notion page id, so steps can be grouped by their moment. */
   id: string;
   /** For a step: the moment it promotes. Null for a moment itself. */

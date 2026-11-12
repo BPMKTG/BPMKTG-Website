@@ -210,7 +210,7 @@ const NAV = [
     type RowClient, type StripItem, type CardClient, type HealthVerdict,
   } from '../../data/hq';
   import {
-    canSetStepStatus, cardFilmRow, cardOnCalendar, cardRowTitle,
+    canSetStepStatus, cardFilmRow, cardOnCalendar, cardRowTitle, flowOf,
     cleanItemTitle, isStepDone, itemKind, momentKind,
     termProgress, HQ_LAYERS, KIND_LABEL,
     type PortalCalendarItem,
@@ -1221,14 +1221,13 @@ const NAV = [
    * shared fallback of "moment" was never wrong in front of a client
    * and is plainly wrong on a roster, where a step is not a show.
    */
-  function hqKind(it: PortalCalendarItem): string {
-    const k = itemKind(it);
-    if (k === 'moment' && it.kind !== 'Moment') return 'task';
-    return k;
-  }
+  // itemKind answers this for both screens now, including the step
+  // that used to come back as "moment". All HQ changes is the wording
+  // of one of them: on our own screen a client's to-do is theirs.
+  const hqKind = (it: PortalCalendarItem): string => itemKind(it);
 
   const HQ_KIND_LABEL: Record<string, string> = {
-    ...KIND_LABEL, todo: 'Client to-do', task: 'Task',
+    ...KIND_LABEL, todo: 'Client to-do',
   };
 
   function calBucketColor(name: string | null): string {
@@ -1311,7 +1310,11 @@ const NAV = [
     const bits: string[] = [];
     const k = hqKind(it);
     bits.push(HQ_KIND_LABEL[k] ?? k);
-    if ((it as any).flow) bits.push(String((it as any).flow));
+    // flowOf, not the raw property: a step Notion has not been given
+    // a Flow yet still has one, implied by its Owner and Type, and HQ
+    // is the screen that most needs to see it.
+    const flow = it.kind === 'Step' ? flowOf(it as any) : null;
+    if (flow) bits.push(flow);
     if (it.moment) bits.push(`↳ ${it.moment.title}`);
     const note = oneLine((it as any).notes);
     if (note) bits.push(note);
@@ -1391,7 +1394,8 @@ const NAV = [
     facts.push(['What', HQ_KIND_LABEL[k] ?? k]);
     if (it.date) facts.push(['When', shortDay(it.date)]);
     if (it.status) facts.push(['Status', it.status]);
-    if ((it as any).flow) facts.push(['Flow', String((it as any).flow)]);
+    const drawerFlow = it.kind === 'Step' ? flowOf(it as any) : null;
+    if (drawerFlow) facts.push(['Flow', drawerFlow]);
     if (it.moment) {
       facts.push(['Campaign', it.moment.date
         ? `${it.moment.title} · ${shortDay(it.moment.date)}`

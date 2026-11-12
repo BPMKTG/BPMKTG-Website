@@ -191,7 +191,16 @@ import {
   cardFilmRow,
   cardOnCalendar,
   cardRowTitle,
+  flowChip,
+  flowOf,
+  flowOwner,
+  isBlueprintWork,
+  postsBy,
+  sameId,
+  stepsCoveredByCards,
   CARD_FILMED,
+  POSTS_LABEL,
+  STEP_FLOWS,
   KIND_LABEL,
 } from '../.tmp-portal-lib.mjs';
 import { readFileSync } from 'node:fs';
@@ -218,7 +227,11 @@ const vis = (over = {}) => isVisibleToClient({
 is('visible: a content step shows', vis(), true);
 is('visible: a moment shows', vis({ kind: 'Moment', type: null }), true);
 is('visible: a client-owned admin step shows', vis({ type: 'Admin', owner: 'Client' }), true);
-is('visible: a Blueprint admin step is hidden', vis({ type: 'Admin', owner: 'Blueprint' }), false);
+// Our own work reaches the client now. It is read-only there, and
+// the refusal is on the server: canSetStepStatus and canSetStepDate
+// both say no to a step the client does not own.
+is('visible: a Blueprint admin step shows, to be read',
+   vis({ type: 'Admin', owner: 'Blueprint' }), true);
 is('visible: a playbook template is hidden', vis({ isPlaybook: true }), false);
 is('visible: Hide from Client wins over everything',
    isVisibleToClient({ isPlaybook: false, hideFromClient: true, kind: 'Moment', type: 'Content', owner: 'Client' }),
@@ -226,8 +239,8 @@ is('visible: Hide from Client wins over everything',
 is('visible: Is Playbook wins even for a client-owned moment',
    isVisibleToClient({ isPlaybook: true, hideFromClient: false, kind: 'Moment', type: 'Content', owner: 'Client' }),
    false);
-is('visible: nothing matching any of the three is hidden',
-   vis({ kind: 'Step', type: 'Admin', owner: 'Blueprint' }), false);
+is('visible: a step whose Owner and Type are both unset is still hidden',
+   vis({ kind: 'Step', type: 'Admin', owner: null }), false);
 is('visible: nulls do not accidentally qualify',
    vis({ kind: null, type: null, owner: null }), false);
 
@@ -607,14 +620,15 @@ const calendarPages = [
     },
   },
   {
-    // Slipped past the Notion filter (renamed property, stale index).
-    // The second pass in fetchCalendar has to drop it anyway.
+    // Our own work: Owner Blueprint, Type Admin. It reaches the client
+    // now, read-only, and carries the Flow Notion holds.
     id: 'cal-2',
     properties: {
       'Item': { type: 'title', title: [{ plain_text: 'Sean Comma · Invoice chase' }] },
       'Kind': { type: 'select', select: { name: 'Step' } },
       'Type': { type: 'select', select: { name: 'Admin' } },
       'Owner': { type: 'select', select: { name: 'Blueprint' } },
+      'Flow': { type: 'select', select: { name: 'Blueprint task' } },
       'Date': { type: 'date', date: { start: '2026-11-02' } },
       'Is Playbook': { type: 'checkbox', checkbox: false },
       'Hide from Client': { type: 'checkbox', checkbox: false },
@@ -839,9 +853,10 @@ const byTitle = (t) => calendar.find(i => i.title === t);
 const teaser = byTitle('Teaser 1');
 const redRocks = byTitle('Red Rocks');
 
-is('calendar: hidden and admin rows are dropped',
+is('calendar: hidden rows are dropped and our own work is kept',
    calendar.map(i => i.title).sort(),
-   ['Announce the show', 'Orphan step', 'Red Rocks', 'Rooftop Revival', 'Teaser 1']);
+   ['Announce the show', 'Invoice chase', 'Orphan step', 'Red Rocks',
+    'Rooftop Revival', 'Teaser 1']);
 is('calendar: sorted by date',
    calendar.map(i => i.date),
    [...calendar.map(i => i.date)].sort());
@@ -1413,12 +1428,20 @@ for (const owner of ['Blueprint', 'Client']) {
 // A shoot is the filming, not the post.
 const film = (owner, type) => cal(owner, type, 'Not Started', `${FILM_MARK} Film: a thing`);
 
-is('layer: a clapperboard step is a film day',
-   layers(film('Client', 'Content')), 'films|todos');
+// A clapperboard only turns a step into a shoot where the flow is in
+// doubt. A client's Content step is a post they make, clapperboard or
+// not, because the flow says Client makes + posts; the shoot has its
+// own Admin step.
+is('layer: a clapperboard content step of theirs is still a post of theirs',
+   layers(film('Client', 'Content')), 'posts|todos');
+is('layer: a clapperboard admin step of theirs is their film day',
+   layers(film('Client', 'Admin')), 'films|todos');
 is('layer: and it is not also a post',
-   stepLayers(film('Client', 'Content')).includes('posts'), false);
-is('layer: a clapperboard admin step of ours is a film day and our task',
-   layers(film('Blueprint', 'Admin')), 'films|blueprint');
+   stepLayers(film('Client', 'Admin')).includes('posts'), false);
+// A shoot WE run is our work and nothing else. Putting it under Film
+// days would read to a client as a day they have to hold a camera.
+is('layer: a clapperboard admin step of ours is ours alone',
+   layers(film('Blueprint', 'Admin')), 'blueprint');
 is('layer: the mark is one clapperboard',
    FILM_MARK.codePointAt(0).toString(16), '1f3a5');
 is('layer: leading space before the mark still counts',
@@ -1450,34 +1473,32 @@ is('layer: Done is frozen in a cascade yet still on the calendar',
    `${movesWithMoment({ status: 'Done' })}/${showsOnCalendar({ status: 'Done' })}`,
    'false/true');
 
-/* Blueprint tasks belongs to HQ. The client portal does not draw it for
-   anyone, client or admin, because the portal's Notion query never
-   fetches the rows it would hold and an empty layer is worse than no
-   layer. So the layer set is a property of the screen, not the viewer. */
-is('layer: the portal has four layers',
-   PORTAL_LAYERS.join('|'), 'moments|posts|films|todos');
-is('layer: HQ has those four and Blueprint tasks',
-   HQ_LAYERS.join('|'), 'moments|posts|films|todos|blueprint');
-is('layer: the portal never has Blueprint tasks',
-   PORTAL_LAYERS.includes('blueprint'), false);
-is('layer: HQ adds exactly one layer to the portal\u2019s',
-   HQ_LAYERS.length - PORTAL_LAYERS.length, 1);
-is('layer: and keeps the portal\u2019s chip order',
-   HQ_LAYERS.slice(0, 4).join('|'), PORTAL_LAYERS.join('|'));
+/* Both screens now draw the same five. The portal's query fetches our
+   own work, so the layer is no longer an empty column there: it is
+   the one the client reads and cannot touch. */
+is('layer: the portal has five layers',
+   PORTAL_LAYERS.join('|'), 'moments|posts|films|todos|blueprint');
+is('layer: HQ has the same five',
+   HQ_LAYERS.join('|'), PORTAL_LAYERS.join('|'));
+is('layer: the portal does have Blueprint\u2019s work',
+   PORTAL_LAYERS.includes('blueprint'), true);
+is('layer: neither screen has a layer the other lacks',
+   HQ_LAYERS.length - PORTAL_LAYERS.length, 0);
 
-/* A Blueprint admin step classifies into a layer the portal does not
-   have. That is how it stays off a client's calendar: nothing it
-   belongs to is on the screen, so nothing is drawn. */
-is('layer: an admin step of ours matches no layer the portal has',
+/* Our own work lands in a layer both screens have. What keeps the
+   client from changing it is not the layer but the permission rule,
+   which is on the server. */
+is('layer: an admin step of ours is in a layer the portal has',
    stepLayers(cal('Blueprint', 'Admin')).some((l) => PORTAL_LAYERS.includes(l)),
-   false);
-is('layer: and it does match one HQ has',
-   stepLayers(cal('Blueprint', 'Admin')).some((l) => HQ_LAYERS.includes(l)),
    true);
-// A shoot of ours is still a shoot, so it is not lost with the rest.
-is('layer: a clapperboard admin step of ours is still a film day in the portal',
-   stepLayers(film('Blueprint', 'Admin')).filter((l) => PORTAL_LAYERS.includes(l)).join('|'),
-   'films');
+is('layer: a client may not move one',
+   canSetStepDate(cal('Blueprint', 'Admin'), 'client'), false);
+is('layer: or tick one',
+   canSetStepStatus(cal('Blueprint', 'Admin'), 'Done', 'client'), false);
+is('layer: and we may do both',
+   [canSetStepDate(cal('Blueprint', 'Admin'), 'admin'),
+    canSetStepStatus(cal('Blueprint', 'Admin'), 'Done', 'admin')].join('|'),
+   'true|true');
 
 /* The live rows this was found against: Sean Comma, November 2026.
    Each of these is a real Item, and the four skipped ones were on his
@@ -2809,13 +2830,184 @@ is('kind: a content step is content',
    itemKind({ momentType: null, type: 'Content', owner: 'Blueprint', status: 'Not Started' }),
    'content');
 is('kind: a done client step is no longer an open to-do',
-   itemKind({ momentType: null, type: 'Admin', owner: 'Client', status: 'Done' }), 'moment');
+   itemKind({ momentType: null, type: 'Admin', owner: 'Client', status: 'Done' }), 'task');
+// Only a moment is a Moment. A step used to come back as one, which
+// put the word at the top of the drawer of every task we do.
+is('kind: a step of ours is a task',
+   itemKind({ momentType: null, type: 'Admin', owner: 'Blueprint', status: 'Not Started' }),
+   'task');
+is('kind: a moment is still a moment',
+   itemKind({ momentType: null, type: null, owner: null, status: null, kind: 'Moment' }),
+   'moment');
 is('kindLabel: every kind has a word',
-   ['show', 'release', 'content', 'moment', 'todo'].every((k) => !!KIND_LABEL[k]), true);
+   ['show', 'release', 'content', 'moment', 'todo', 'task'].every((k) => !!KIND_LABEL[k]), true);
 is('momentKind: a moment on its own reads the same way',
    momentKind({ momentType: 'Show' }), 'show');
 is('momentKind: nothing in particular is a moment',
    momentKind({ momentType: null }), 'moment');
+
+section('Flow \u00b7 the whole Owner \u00d7 Type \u00d7 Flow \u00d7 Status board');
+
+/* Flow is the one fact the layers key on, and most live rows have not
+   been given one yet, so the fallback has to be exactly as good as
+   the real thing. Every combination is walked here: nothing may land
+   in no layer, nothing a client owns may be read-only, and nothing of
+   ours may be writable by them. */
+
+const FLOWS_OR_NONE = [null, ...STEP_FLOWS];
+const OWNERS = ['Blueprint', 'Client', null];
+const TYPES = ['Admin', 'Content', null];
+const STATUSES = ['Not Started', 'In Progress', 'Done', 'Skipped', 'Moved', null];
+const TITLES = ['Announce the thing', `${FILM_MARK} Film: the thing`];
+
+const cellOf = (owner, type, flow, status, title) =>
+  ({ owner, type, flow, status, title });
+
+let cells = 0;
+let noLayer = 0;
+const broke = [];
+for (const owner of OWNERS) {
+  for (const type of TYPES) {
+    for (const flow of FLOWS_OR_NONE) {
+      for (const status of STATUSES) {
+        for (const title of TITLES) {
+          cells++;
+          const row = cellOf(owner, type, flow, status, title);
+          const ls = stepLayers(row);
+          const f = flowOf(row);
+
+          // Every layer is a real layer, and no duplicates.
+          if (ls.some((l) => !PORTAL_LAYERS.includes(l))) broke.push(['layer not on a screen', row, ls]);
+          if (new Set(ls).size !== ls.length) broke.push(['a layer twice', row, ls]);
+
+          // A flow is one of Notion's, or nothing at all.
+          if (f !== null && !STEP_FLOWS.includes(f)) broke.push(['invented a flow', row, f]);
+
+          // A row with no owner cannot be classified, and that is the
+          // only way to land nowhere.
+          if (!ls.length) {
+            noLayer++;
+            if (owner !== null) broke.push(['an owned row landed nowhere', row, ls]);
+          }
+
+          // Ours is ours: the client may not write it, whatever the
+          // status says.
+          if (f === 'Blueprint task') {
+            if (ls.join('|') !== 'blueprint') broke.push(['our task is not ours alone', row, ls]);
+            if (canSetStepDate(row, 'client')) broke.push(['client could move our task', row]);
+            if (canSetStepStatus(row, 'Done', 'client')) broke.push(['client could tick our task', row]);
+          }
+
+          // Theirs is theirs: anything in to-dos is owned by them, and
+          // anything owned by them is in to-dos.
+          const theirs = ls.includes('todos');
+          if (theirs !== (owner === 'Client')) broke.push(['to-dos disagreed with Owner', row, ls]);
+
+          // A step they own and that is still in play is writable.
+          if (owner === 'Client' && ['Not Started', 'In Progress', 'Done', null].includes(status)) {
+            if (!canSetStepDate(row, 'client')) broke.push(['client could not move their own', row]);
+          }
+          // One of ours standing in their portal may move anything.
+          if (!canSetStepDate(row, 'admin')) broke.push(['admin could not move', row]);
+        }
+      }
+    }
+  }
+}
+is(`flow: walked the whole board (${cells} cells)`, cells, 3 * 3 * 7 * 6 * 2);
+is('flow: nothing in the board broke a rule', broke.slice(0, 3), []);
+is('flow: the only rows that land nowhere are the ones with no owner',
+   noLayer, 1 * 3 * 7 * 6 * 2);
+
+/* The fallback, stated plainly. These are the five shapes the live
+   board actually holds. */
+const derived = (owner, type, title = 'A thing') => flowOf({ owner, type, title, flow: null });
+is('flow: Blueprint + Admin is our task', derived('Blueprint', 'Admin'), 'Blueprint task');
+is('flow: Blueprint + Content is ours to make and post',
+   derived('Blueprint', 'Content'), 'Blueprint makes + posts');
+is('flow: Client + Content is theirs to make and post',
+   derived('Client', 'Content'), 'Client makes + posts');
+is('flow: Client + Admin is a task of theirs', derived('Client', 'Admin'), 'Client task');
+is('flow: Client + Admin with a clapperboard is a film session',
+   derived('Client', 'Admin', `${FILM_MARK} Film: it`), 'Client film session');
+is('flow: no owner, no flow', derived(null, 'Content'), null);
+// Type blank is the one that used to make a row of ours vanish.
+is('flow: ours with no Type is still our task', derived('Blueprint', null), 'Blueprint task');
+// A moment is not a job. It carries an Owner like anything else, and
+// without this it read as our task in the drawer of every show.
+is('flow: a moment has no flow',
+   flowOf({ owner: 'Blueprint', type: null, title: 'The Echo', kind: 'Moment' }), null);
+is('flow: nor does one known only by its Moment Type',
+   flowOf({ owner: 'Blueprint', type: null, title: 'The Echo', momentType: 'Show' }), null);
+is('flow: and a moment is nobody\u2019s Blueprint task',
+   isBlueprintWork({ owner: 'Blueprint', type: null, title: 'The Echo', kind: 'Moment' }), false);
+is('flow: a moment lands in no step layer',
+   stepLayers({ owner: 'Blueprint', type: null, title: 'The Echo', kind: 'Moment' }).length, 0);
+is('flow: theirs with no Type is still their task', derived('Client', null), 'Client task');
+is('flow: Notion wins over the fallback',
+   flowOf({ owner: 'Blueprint', type: 'Content', title: 'x',
+            flow: 'Client films \u2192 Blueprint edits + posts' }),
+   'Client films \u2192 Blueprint edits + posts');
+is('flow: a value Notion does not have is not a flow',
+   flowOf({ owner: 'Blueprint', type: 'Admin', title: 'x', flow: 'Something else' }),
+   'Blueprint task');
+// A Flow that contradicts Owner is a mistake in Notion, and the side
+// that can actually write the row is the one to believe.
+is('flow: Owner wins when the two disagree',
+   flowOf({ owner: 'Blueprint', type: 'Admin', title: 'x', flow: 'Client task' }),
+   'Blueprint task');
+is('flow: and the other way round',
+   flowOf({ owner: 'Client', type: 'Admin', title: 'x', flow: 'Blueprint task' }),
+   'Client task');
+is('flow: every flow names its own side',
+   STEP_FLOWS.map((f) => `${f}=${flowOwner(f)}`).join(' | '),
+   'Blueprint makes + posts=Blueprint | Blueprint task=Blueprint | Client task=Client | '
+   + 'Client makes + posts=Client | Client films \u2192 Blueprint edits + posts=Blueprint | '
+   + 'Client film session=Client');
+
+/* What the client is told. */
+is('flow: we post it', flowChip('Blueprint makes + posts'), 'Blueprint posts');
+is('flow: we post what they filmed',
+   flowChip('Client films \u2192 Blueprint edits + posts'), 'Blueprint posts');
+is('flow: they post it', flowChip('Client makes + posts'), 'You post');
+is('flow: they film it', flowChip('Client film session'), 'You film');
+is('flow: our task just says Blueprint', flowChip('Blueprint task'), 'Blueprint');
+is('flow: a plain to-do of theirs says nothing', flowChip('Client task'), null);
+is('flow: and neither does nothing', flowChip(null), null);
+is('flow: who posts a post',
+   STEP_FLOWS.map((f) => `${f}=${postsBy(f) ?? '-'}`).join(' | '),
+   'Blueprint makes + posts=blueprint | Blueprint task=- | Client task=- | '
+   + 'Client makes + posts=client | Client films \u2192 Blueprint edits + posts=blueprint | '
+   + 'Client film session=-');
+is('flow: the labels a client reads',
+   `${POSTS_LABEL.blueprint} / ${POSTS_LABEL.client}`, 'Blueprint posts / You post');
+is('flow: isBlueprintWork follows the flow, derived or not',
+   [isBlueprintWork({ owner: 'Blueprint', type: 'Admin', title: 'x' }),
+    isBlueprintWork({ owner: 'Blueprint', type: 'Content', title: 'x' }),
+    isBlueprintWork({ owner: 'Client', type: 'Admin', title: 'x' })].join('|'),
+   'true|false|false');
+
+section('Flow \u00b7 a card and the step it hangs off are one thing');
+
+/* On the live board a card's Campaign relation names a STEP, and one
+   step often has three cards. Drawing both put the same thing on the
+   same day twice. */
+const cards = [
+  { status: 'Planned', campaign: ['406c-8be8-aaaa'] },
+  { status: 'Planned', campaign: ['406c-8be8-aaaa'] },
+  { status: 'Idea', campaign: ['406c8be8bbbb'] },
+  { status: 'Skipped', campaign: ['406c8be8cccc'] },
+  { status: 'Posted', campaign: [] },
+];
+const covered = stepsCoveredByCards(cards);
+is('dedupe: a step three cards hang off is claimed once',
+   covered.has('406c8be8aaaa'), true);
+is('dedupe: dashes do not matter', covered.has(sameId('406C8BE8-BBBB')), true);
+is('dedupe: a skipped card claims nothing', covered.has('406c8be8cccc'), false);
+is('dedupe: a card with no campaign claims nothing', covered.size, 2);
+is('dedupe: an id normalises to lowercase and no dashes',
+   sameId('40AC-8BE8-816B'), '40ac8be8816b');
+is('dedupe: nothing normalises to an empty string', sameId(null), '');
 
 section('Blueprint HQ \u00b7 a card reads the same on both screens');
 

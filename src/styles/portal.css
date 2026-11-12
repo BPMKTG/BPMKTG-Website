@@ -363,6 +363,30 @@ body.pt {
 .pt-tag-tentative { background: transparent; border: 1px dashed var(--pt-line-strong); color: var(--pt-muted); }
 .pt-tag-todo { background: var(--pt-tint-orange); color: var(--pt-orange-ink); }
 
+/* Who makes it and who posts it. Quiet by default: it is an answer to
+   a question, not an announcement. */
+.pt-tag-flow {
+  background: transparent; border: 1px solid var(--pt-line);
+  color: var(--pt-ink-3); font-weight: 600;
+}
+/* Ours. Flatter still, so a run of our tasks reads as background to
+   the client's own week rather than as more work for them. */
+.pt-tag-theirs { border-style: dashed; color: var(--pt-muted); }
+
+/* A chip for work the person looking at it cannot change. It keeps
+   its colour so the layer still reads, and loses its weight. */
+.pt-chip-theirs {
+  opacity: .66;
+  border-style: dashed;
+  font-weight: 500;
+}
+.pt-chip-theirs .pt-chip-title { font-weight: 500; }
+
+.pt-drawer-note {
+  margin: calc(var(--pt-2) * -1) 0 var(--pt-4);
+  font-size: .88rem; line-height: 1.45; color: var(--pt-ink-3);
+}
+
 .pt-delta {
   display: inline-flex; align-items: center; gap: 3px;
   padding: 2px 8px; border-radius: var(--pt-r-pill);
@@ -565,6 +589,7 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
 .pt-kind-content { background: var(--pt-blue); }
 .pt-kind-moment  { background: var(--pt-slate); }
 .pt-kind-todo    { background: var(--pt-orange); }
+.pt-kind-task    { background: var(--pt-ink-3); }
 
 /* ── calendar ──────────────────────────────────────────────── */
 
@@ -3340,9 +3365,9 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 }
 .pt-who-on .pt-chip-who { box-shadow: 0 0 0 1px rgb(0 0 0 / .25); }
 
-/* A Blueprint task on HQ's calendar. The client portal has no layer
-   for these, so it has no chip for them either: plain, quiet, and
-   clearly not a show. */
+/* A task, on either calendar: plain, quiet, and clearly not a show.
+   On the client's it also wears .pt-chip-theirs, which is what says
+   they cannot touch it. */
 .pt-chip-task {
   background: var(--pt-surface-2); color: var(--pt-ink-2);
   border: 1px solid var(--pt-line);

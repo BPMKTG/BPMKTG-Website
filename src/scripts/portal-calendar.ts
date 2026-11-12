@@ -19,7 +19,10 @@
  */
 import {
   canSetStepDate,
+  isBlueprintWork,
   isFilmStep,
+  sameId,
+  stepsCoveredByCards,
   isStepDone,
   parseNotionDate,
   showsOnCalendar,
@@ -141,7 +144,15 @@ export function createCalendar(H: CalendarHost) {
    * do is not a thing the calendar has an opinion about.
    */
   function syncCalendarContent() {
-    CAL.items = CAL_BASE.filter(showsOnCalendar).concat(H.extraRows());
+    // A card and the step it hangs off are the same thing on the same
+    // day, so only the card is drawn. Steps only: if a card ever
+    // pointed straight at a moment, hiding the moment would take its
+    // whole campaign off the calendar.
+    const covered = stepsCoveredByCards(H.content());
+    CAL.items = CAL_BASE
+      .filter((it) => showsOnCalendar(it)
+        && !(it.kind === 'Step' && covered.has(sameId(it.id))))
+      .concat(H.extraRows());
   }
 
   /* ── calendar ──────────────────────────────────────────────── */
@@ -252,6 +263,23 @@ export function createCalendar(H: CalendarHost) {
     // post, so it does not wear the post pill either.
     if (isFilmStep(it)) return false;
     return it.type === 'Content';
+  }
+
+  /**
+   * Our own work, seen by someone who cannot change it.
+   *
+   * It is on the calendar to be read: the client can see that we are
+   * pitching editorial on Thursday, and that is all. No box, no drag,
+   * and a muted fill so a wall of our tasks does not read as a wall
+   * of theirs. On OUR screen the same row is ordinary work, which is
+   * why this asks the server's own rule with this viewer's role
+   * rather than keying on the flow alone.
+   */
+  function readOnlyWork(it: PortalCalendarItem): boolean {
+    if ((it as CalRow).content) return false;
+    if (it.momentType || it.kind === 'Moment') return false;
+    if (!isBlueprintWork(it)) return false;
+    return !canSetStepDate(it, H.role() === 'admin' ? 'admin' : 'client');
   }
 
   /**
@@ -1153,6 +1181,7 @@ export function createCalendar(H: CalendarHost) {
         ? `pt-chip pt-chip-film pt-nc-${H.bucketColor(null)}`
         : `pt-chip pt-chip-${k}`)
       + (it.tentative ? ' pt-chip-tentative' : '')
+      + (readOnlyWork(it) ? ' pt-chip-theirs' : '')
       + (m ? ` pt-edge-${H.momentKind(m)}` : '');
     const label = m
       ? `${H.kindLabel(k)}: ${it.title} — part of ${m.title}`
