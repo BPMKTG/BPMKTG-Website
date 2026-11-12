@@ -148,6 +148,10 @@ export interface HqContentItem {
    *  be dragged to another day and it is what the deliverables count
    *  counts, so HQ needs it, not just the portal. */
   postedBy: string | null;
+  /** Who makes it: Client Films, Show Media or Flyer / Graphic. The
+   *  pipeline board puts a card in a column by this, so a board
+   *  without it would file every card under Planned. */
+  source: string | null;
   notes: string | null;
 }
 
@@ -345,6 +349,7 @@ async function readContent(token: string, now: Date): Promise<HqContentItem[]> {
       bucket: readSelect(p['Bucket']),
       format: readSelect(p['Format']),
       postedBy: readSelect(p['Posted By']),
+      source: readSelect(p['Source']),
       notes: readText(p['Notes']),
     };
   });

@@ -21,6 +21,7 @@ const NAV = [
   { id: 'today',    label: 'Today',    icon: 'check' },
   { id: 'clients',  label: 'Clients',  icon: 'home' },
   { id: 'calendar', label: 'Calendar', icon: 'cal' },
+  { id: 'content',  label: 'Content',  icon: 'film' },
   { id: 'pipeline', label: 'Pipeline', icon: 'grip' },
   { id: 'reports',  label: 'Reports',  icon: 'chart' },
 ];
@@ -134,6 +135,7 @@ const NAV = [
           <section class="pt-view" data-view="today" hidden></section>
           <section class="pt-view" data-view="clients" hidden></section>
           <section class="pt-view" data-view="calendar" hidden></section>
+          <section class="pt-view" data-view="content" hidden></section>
           <section class="pt-view" data-view="pipeline" hidden></section>
           <section class="pt-view" data-view="reports" hidden></section>
         </div>
@@ -225,9 +227,10 @@ const NAV = [
   import { HQ_STAGES, LEAD_SOURCES } from '../../data/hq';
   // The same pieces the client portal is built from, so there is one
   // copy of them rather than one per screen.
+  import { createBoard, type Board } from '../../scripts/portal-board';
   import { clear, el, icon, q, qq, show } from '../../scripts/portal-dom';
 
-  const VIEWS = ['today', 'clients', 'calendar', 'pipeline', 'reports'] as const;
+  const VIEWS = ['today', 'clients', 'calendar', 'content', 'pipeline', 'reports'] as const;
   type View = typeof VIEWS[number];
 
   let HQ: any = null;
@@ -363,6 +366,7 @@ const NAV = [
     if (view === 'today') drawToday(root);
     if (view === 'clients') drawClients(root);
     if (view === 'calendar') drawCalendarTab(root);
+    if (view === 'content') drawContentTab(root);
     if (view === 'pipeline') drawPipeline(root);
     if (view === 'reports') drawReports(root);
   }
@@ -582,6 +586,8 @@ const NAV = [
     root.appendChild(todosCard(c));
     root.appendChild(calendarCard(c));
     root.appendChild(contentCard(c));
+    // The same board the client is looking at, with our hands on it.
+    root.appendChild(clientBoard(c.slug));
     root.appendChild(reportsCard(c));
   }
 
@@ -1092,7 +1098,7 @@ const NAV = [
         status: c.status,
         bucket: c.bucket,
         format: c.format ? [c.format] : [],
-        source: null,
+        source: c.source ?? null,
         filmBy: c.filmBy,
         postDate: c.postDate,
         postedBy: c.postedBy,
@@ -1381,15 +1387,23 @@ const NAV = [
       filmBy: local.filmBy !== undefined ? local.filmBy : row.filmBy,
       status: local.status !== undefined ? local.status : row.status,
     });
+    // Remembered BEFORE the request, not after. A refresh already in
+    // flight can land while we are waiting on Notion, and it replaces
+    // the whole payload: anything not written down by then is lost,
+    // which is how a second quick drag used to snap back.
+    remember(id, local as Record<string, any>);
     hqCal().sync();
     if (currentView() === 'calendar') hqCal().draw();
+    redrawBoard();
 
     const ok = await patch(
       `/portal/${encodeURIComponent(slug)}/content/${encodeURIComponent(id)}`, patchBody);
     if (!ok) {
+      PENDING.delete(id);
       Object.assign(row, before);
       hqCal().sync();
       if (currentView() === 'calendar') hqCal().draw();
+      redrawBoard();
       toast('That did not save. Check your connection and try again.', true);
       return false;
     }
@@ -1507,18 +1521,62 @@ const NAV = [
    * ago. The month, the layers and the open day are left where they
    * were: a reload that threw those away would be its own small bug.
    */
+  /**
+   * Rows we have just written, and what we wrote.
+   *
+   * Notion answers a page PATCH before that change shows up in a
+   * database query, so the refresh that follows a save can come back
+   * still holding the old value and put the card back in the column it
+   * was dragged out of. The drag looked broken; it had already saved.
+   *
+   * So a write is remembered until a refresh agrees with it, or until
+   * it has been waited on long enough that something else is wrong and
+   * the server's answer is the better one to trust.
+   */
+  const PENDING = new Map<string, { at: number; status?: string | null;
+                                    postDate?: string | null; filmBy?: string | null }>();
+  const PENDING_MS = 25_000;
+
+  function remember(id: string, local: Record<string, any>): void {
+    const keep: any = { at: Date.now() };
+    for (const k of ['status', 'postDate', 'filmBy']) {
+      if (local[k] !== undefined) keep[k] = local[k];
+    }
+    if (Object.keys(keep).length > 1) PENDING.set(id, keep);
+  }
+
+  /** Lay the writes we are still waiting on back over a fresh payload,
+   *  and forget the ones it has caught up with. */
+  function applyPending(payload: any): void {
+    if (!PENDING.size) return;
+    const rows = new Map<string, any>(
+      ((payload?.content ?? []) as any[]).map((r) => [r.id, r]));
+    for (const [id, want] of [...PENDING]) {
+      const row = rows.get(id);
+      if (!row) { PENDING.delete(id); continue; }
+      const agreed = (['status', 'postDate', 'filmBy'] as const)
+        .every((k) => want[k] === undefined || row[k] === want[k]);
+      if (agreed || Date.now() - want.at > PENDING_MS) { PENDING.delete(id); continue; }
+      for (const k of ['status', 'postDate', 'filmBy'] as const) {
+        if (want[k] !== undefined) row[k] = want[k];
+      }
+    }
+  }
+
   async function refreshCalendar(): Promise<boolean> {
     try {
       const res = await fetch('/portal/hq/data', { credentials: 'same-origin' });
       if (!res.ok) return false;
       const next = await res.json();
       if (!next?.clients) return false;
+      applyPending(next);
       HQ = next;
       if (HQCAL) {
         HQCAL.setRows(calRows());
         HQCAL.sync();
         if (currentView() === 'calendar') HQCAL.draw();
       }
+      redrawBoard();
       return true;
     } catch {
       return false;
@@ -1544,6 +1602,101 @@ const NAV = [
       cal.sync();
       cal.draw();
     }
+  }
+
+  /* ══ CONTENT ════════════════════════════════════════════════
+     The client's pipeline board, drawn by the same component the
+     client sees, with role admin. Cross-client here and one client at
+     a time on a client's own page: same board, different `items`. */
+
+  let HQBOARD: Board | null = null;
+  let BOARD_ITEMS: PortalContentItem[] = [];
+  let BOARD_COL = 'toFilm';
+  /** Where the board is on the page and whose cards it is showing, so
+   *  a save can move the card there and then rather than leaving it in
+   *  the column it was dragged out of until the tab is reopened. */
+  let BOARD_MOUNT: HTMLElement | null = null;
+  let BOARD_SCOPE: string | null = null;
+
+  function hqBoard(): Board {
+    HQBOARD ??= createBoard({
+      // One of us is looking, so any card may go in any column the
+      // column can hold. The server is told the same thing and checks
+      // it again; this is not a way around it.
+      role: () => 'admin',
+      items: () => BOARD_ITEMS,
+      now: () => new Date(),
+      bucketColor: calBucketColor,
+      openCard: (c) => openCalDrawer(cardAsRow(c)),
+      setStatus: (c, status) => { void saveCalCard(c.id, { status }, { status }); },
+      toast,
+      empty: (title, body) => hqEmpty(title, body),
+      filtering: () => WHO.size > 0,
+      col: { get: () => BOARD_COL, set: (v) => { BOARD_COL = v; } },
+      redraw: () => draw(currentView()),
+      clientOf: (c) => (c as any).clientName ?? null,
+    });
+    return HQBOARD;
+  }
+
+  /** The cards the board should be showing, for whatever scope it is
+   *  mounted in. Read fresh so a save is reflected. */
+  function boardItems(): PortalContentItem[] {
+    const all = calCards();
+    return BOARD_SCOPE ? all.filter((c) => (c as any).clientSlug === BOARD_SCOPE) : all;
+  }
+
+  function mountBoard(scope: string | null): HTMLElement {
+    BOARD_SCOPE = scope;
+    BOARD_ITEMS = boardItems();
+    const mount = el('div');
+    mount.dataset.boardroot = '1';
+    mount.appendChild(hqBoard().draw());
+    BOARD_MOUNT = mount;
+    return mount;
+  }
+
+  /** Draw the board again where it already is. Called after a save,
+   *  because a card that writes to Notion and stays in the column it
+   *  came from reads as a drag that did not work. */
+  function redrawBoard(): void {
+    if (!BOARD_MOUNT?.isConnected) { BOARD_MOUNT = null; return; }
+    BOARD_ITEMS = boardItems();
+    clear(BOARD_MOUNT);
+    BOARD_MOUNT.appendChild(hqBoard().draw());
+  }
+
+  function drawContentTab(root: HTMLElement) {
+    root.appendChild(whoBar());
+    const n = boardItemCount();
+    const bar = el('div', 'pt-toolbar');
+    bar.appendChild(el('h1', undefined, 'Content'));
+    bar.appendChild(el('p', 'pt-sub',
+      `${n} card${n === 1 ? '' : 's'} across every live client. `
+      + 'Drag one to move it; the drop writes straight to Notion.'));
+    root.appendChild(bar);
+    root.appendChild(mountBoard(null));
+  }
+
+  function boardItemCount(): number {
+    BOARD_SCOPE = null;
+    return boardItems().length;
+  }
+
+  /** The same board on one client's own page, filtered to them. */
+  function clientBoard(slug: string): HTMLElement {
+    const wrap = el('section', 'hq-sec');
+    wrap.appendChild(el('h2', undefined, 'Content'));
+    wrap.appendChild(mountBoard(slug));
+    return wrap;
+  }
+
+  function hqEmpty(title: string, body: string): HTMLElement {
+    const e = el('div', 'pt-empty');
+    const ic = el('div', 'pt-empty-icon');
+    ic.appendChild(icon('film'));
+    e.append(ic, el('h3', undefined, title), el('p', undefined, body));
+    return e;
   }
 
   /** All clients, or any set of them. The colour beside each name is

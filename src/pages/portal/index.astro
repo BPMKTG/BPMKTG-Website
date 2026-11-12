@@ -274,6 +274,7 @@ const NAV = [
     type PortalAdminAudit,
     type PortalAdminSnapshot,
   } from '../../data/portal';
+  import { createBoard, type Board } from '../../scripts/portal-board';
   import { createCalendar, type CalRow } from '../../scripts/portal-calendar';
   import { createMover } from '../../scripts/portal-move';
   import {
@@ -281,25 +282,16 @@ const NAV = [
   } from '../../scripts/portal-sheet';
   import {
     canClientMove,
-    canDrop,
     cardDate,
-    clientFilms,
-    dropStatus,
     isIdea,
     normaliseId,
-    stageOf,
     DRAG_BLOCKED,
     MAX_TEXT,
     MAX_TITLE,
-    REVIEW_LABEL,
     REVIEW_TARGET,
-    STAGE_NOTE,
-    STAGE_ORDER,
-    STAGE_TITLE,
     type PortalContentItem,
     type PortalContentSchema,
     type ReviewAction,
-    type Stage,
   } from '../../data/portal-content';
   import {
     compactNumber,
@@ -1549,34 +1541,6 @@ const NAV = [
     add?: () => void;
     /** The column heading already names the bucket. */
     hideBucket?: boolean;
-    /** Set when the column is drawn, so picking a card up can dim
-     *  every column that will not take it. */
-    list?: HTMLElement;
-  }
-
-  /** The columns on screen right now. Held so that a dragstart can dim
-   *  the ones this card cannot go into, rather than leaving the client
-   *  to discover it by dropping. */
-  let BOARD_COLS: Column[] = [];
-
-  function markDropTargets(card: PortalContentItem | null): void {
-    for (const c of BOARD_COLS) {
-      if (!c.list) continue;
-      const refuses = !!card && !!c.onDrop && !!c.accepts && !c.accepts(card)
-        && !c.items.some((i) => i.id === card.id);
-      c.list.classList.toggle('pt-board-dim', refuses);
-    }
-  }
-
-  /** Why this column would not take this card. Two different noes, and
-   *  a client told the wrong one would go looking in the wrong place. */
-  function dropRefusal(card: PortalContentItem, stage: string): string {
-    if (dropStatus(card, stage as Stage) === null) {
-      return clientFilms(card.source)
-        ? 'This one is yours to film, so it lives in To film.'
-        : 'That column is for a different kind of card.';
-    }
-    return DRAG_BLOCKED;
   }
 
   function ideasBoard(items: PortalContentItem[]): HTMLElement {
@@ -1605,25 +1569,34 @@ const NAV = [
                  'Jot one down and it lands here, ready to plan when you are.');
   }
 
+  /** The pipeline board, drawn by the component HQ also uses. Built
+   *  once and kept, the same as the calendar, so the column a phone is
+   *  looking at survives a redraw. */
+  let BOARD: Board | null = null;
+
   function pipelineBoard(items: PortalContentItem[]): HTMLElement {
-    const now = todayStart();
-    const role = VIEWER.role === 'admin' ? 'admin' : 'client';
-    const cols: Column[] = STAGE_ORDER.map((stage) => ({
-      key: stage,
-      title: STAGE_TITLE[stage],
-      note: STAGE_NOTE[stage],
-      items: items.filter((c) => stageOf(c, now) === stage),
-      // One question, asked of the shared rules, and asked again on
-      // the server before anything is written.
-      accepts: (c) => canDrop(c, stage, role),
-      onDrop: (c) => {
-        const to = dropStatus(c, stage);
-        if (to) void setStatus(c, to);
-      },
-    }));
-    return board(cols, 'Nothing is moving yet',
-                 'An idea joins the pipeline as soon as it has a shoot date or a post date.');
+    BOARD ??= createBoard({
+      role: () => (VIEWER.role === 'admin' ? 'admin' : 'client'),
+      items: () => PIPE_ITEMS,
+      now: () => todayStart(),
+      bucketColor,
+      openCard: openContentDrawer,
+      setStatus: (c, status) => { void setStatus(c, status); },
+      toast,
+      empty: contentEmpty,
+      filtering: conFiltering,
+      col: { get: () => CON.col, set: (v) => { CON.col = v; } },
+      redraw: drawContent,
+      reviewAct: (c, a) => { void reviewAct(c, a); },
+    });
+    PIPE_ITEMS = items;
+    return BOARD.draw();
   }
+
+  /** What the board should draw, handed over just before it draws.
+   *  The host reads it through a closure so the component never holds
+   *  a stale array across a save. */
+  let PIPE_ITEMS: PortalContentItem[] = [];
 
   function board(cols: Column[], emptyTitle: string, emptyBody: string): HTMLElement {
     const total = cols.reduce((n, c) => n + c.items.length, 0);
@@ -1661,7 +1634,6 @@ const NAV = [
     const scroller = el('div', 'pt-board');
     scroller.dataset.boardScroll = 'true';
     for (const c of cols) scroller.appendChild(boardColumn(c));
-    BOARD_COLS = cols;
     wrap.appendChild(scroller);
     return wrap;
   }
@@ -1688,7 +1660,6 @@ const NAV = [
     col.appendChild(head);
 
     const list = el('div', 'pt-board-list');
-    c.list = list;
     if (!c.items.length) list.appendChild(el('p', 'pt-board-none', 'Nothing here'));
     for (const item of c.items) list.appendChild(contentCard(item, { hideBucket: c.hideBucket }));
 
@@ -1700,22 +1671,19 @@ const NAV = [
       // client is left guessing whether they missed or we said no.
       list.addEventListener('dragover', (ev) => {
         if (!DRAG) return;
+        if (c.accepts && !c.accepts(DRAG)) return;
         if (c.items.some((i) => i.id === DRAG!.id)) return;
         ev.preventDefault();
-        const ok = !c.accepts || c.accepts(DRAG);
-        list.classList.toggle('pt-board-drop', ok);
-        list.classList.toggle('pt-board-nodrop', !ok);
+        list.classList.add('pt-board-drop');
       });
-      list.addEventListener('dragleave', () => {
-        list.classList.remove('pt-board-drop', 'pt-board-nodrop');
-      });
+      list.addEventListener('dragleave', () => list.classList.remove('pt-board-drop'));
       list.addEventListener('drop', (ev) => {
         ev.preventDefault();
-        list.classList.remove('pt-board-drop', 'pt-board-nodrop');
+        list.classList.remove('pt-board-drop');
         const card = DRAG;
         DRAG = null;
         if (!card) return;
-        if (c.accepts && !c.accepts(card)) { toast(dropRefusal(card, c.key)); return; }
+        if (c.accepts && !c.accepts(card)) return;
         c.onDrop!(card);
       });
     }
@@ -1768,20 +1736,6 @@ const NAV = [
 
     card.appendChild(open);
 
-    // A card waiting on the client gets the two answers on its face.
-    // Buried in the drawer, "your review" was a status rather than a
-    // thing to do, and cards sat there for days.
-    if (c.status === 'Ready for Review' && VIEWER.role !== 'admin') {
-      const acts = el('div', 'pt-ccard-acts');
-      for (const a of ['approve', 'changes'] as ReviewAction[]) {
-        const b = el('button', `pt-ccard-act pt-ccard-act-${a}`, REVIEW_LABEL[a]);
-        b.type = 'button';
-        b.addEventListener('click', (ev) => { ev.stopPropagation(); void reviewAct(c, a); });
-        acts.appendChild(b);
-      }
-      card.appendChild(acts);
-    }
-
     if (!isNarrow()) {
       card.draggable = true;
       const grip = el('span', 'pt-ccard-grip');
@@ -1791,14 +1745,12 @@ const NAV = [
       card.addEventListener('dragstart', (ev) => {
         DRAG = c;
         card.classList.add('pt-ccard-dragging');
-        markDropTargets(c);
         ev.dataTransfer?.setData('text/plain', c.title);
         if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
       });
       card.addEventListener('dragend', () => {
         DRAG = null;
         card.classList.remove('pt-ccard-dragging');
-        markDropTargets(null);
       });
     }
     return card;
