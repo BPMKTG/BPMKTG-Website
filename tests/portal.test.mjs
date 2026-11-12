@@ -188,6 +188,10 @@ import {
   dayClash,
   itemKind,
   momentKind,
+  cardFilmRow,
+  cardOnCalendar,
+  cardRowTitle,
+  CARD_FILMED,
   KIND_LABEL,
 } from '../.tmp-portal-lib.mjs';
 import { readFileSync } from 'node:fs';
@@ -2812,6 +2816,36 @@ is('momentKind: a moment on its own reads the same way',
    momentKind({ momentType: 'Show' }), 'show');
 is('momentKind: nothing in particular is a moment',
    momentKind({ momentType: null }), 'moment');
+
+section('Blueprint HQ \u00b7 a card reads the same on both screens');
+
+/* A Content Pipeline card is the one row both screens BUILD rather
+   than receive, and they used to build it differently: the portal
+   prefixed its film row and dropped it at Posted, HQ did neither.
+   These are now one rule, so a card cannot read two ways. */
+is('card: a post row keeps its own title',
+   cardRowTitle('Drop day post', 'post'), 'Drop day post');
+is('card: a film row says what the job is',
+   cardRowTitle('Drop day post', 'film'), 'Film \u00b7 Drop day post');
+is('card: no film date, no film row',
+   cardFilmRow({ filmBy: null, status: 'Planned' }), false);
+is('card: a planned shoot earns a row',
+   cardFilmRow({ filmBy: '2026-11-20', status: 'Planned' }), true);
+is('card: an idea with a shoot date earns one too',
+   cardFilmRow({ filmBy: '2026-11-20', status: 'Idea' }), true);
+for (const st of CARD_FILMED) {
+  is(`card: nothing left to shoot at ${st}`,
+     cardFilmRow({ filmBy: '2026-11-20', status: st }), false);
+}
+is('card: the filmed list covers the whole back half of the pipeline',
+   CARD_FILMED.join('|'), 'Posted|Footage In|Editing|Ready for Review|Approved|Scheduled');
+is('card: skipped is not a plan',
+   cardOnCalendar({ status: 'Skipped' }), false);
+is('card: everything else is',
+   ['Idea', 'Planned', 'Footage In', 'Editing', 'Posted']
+     .every((st) => cardOnCalendar({ status: st })), true);
+is('card: a status we have never seen is still on the calendar',
+   cardOnCalendar({ status: null }), true);
 
 section('Blueprint HQ · the layers it draws');
 

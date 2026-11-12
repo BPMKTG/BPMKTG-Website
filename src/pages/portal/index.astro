@@ -232,6 +232,9 @@ const NAV = [
 <script>
   import {
     canSetStepStatus,
+    cardFilmRow,
+    cardOnCalendar,
+    cardRowTitle,
     daysBetween,
     daysUntil,
     goalProgress,
@@ -2552,12 +2555,12 @@ const NAV = [
     const look = momentLookup();
     const out: CalRow[] = [];
     for (const c of items) {
-      if (c.status === 'Skipped') continue;
+      if (!cardOnCalendar(c)) continue;
       const moment = c.campaign
         .map((id) => look.get(normaliseId(id)))
         .find((m): m is PortalMoment => !!m) ?? null;
       if (c.postDate) out.push(contentRow(c, 'post', c.postDate, moment));
-      if (c.filmBy && c.status !== 'Posted') out.push(contentRow(c, 'film', c.filmBy, moment));
+      if (cardFilmRow(c)) out.push(contentRow(c, 'film', c.filmBy as string, moment));
     }
     return out;
   }
@@ -2569,7 +2572,7 @@ const NAV = [
     moment: PortalMoment | null,
   ): CalRow {
     return {
-      title: role === 'film' ? `Film · ${c.title}` : c.title,
+      title: cardRowTitle(c.title, role),
       tentative: false,
       kind: 'Content',
       momentType: null,

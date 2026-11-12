@@ -485,6 +485,36 @@ export function momentKind(m: { momentType: string | null }): 'show' | 'release'
   return momentKindOf(m.momentType);
 }
 
+/* ── a Content Pipeline card on the calendar ───────────────────────
+   A card is not a step, and it can sit on two days: the day it posts,
+   and the day it has to be filmed. Both screens build those rows, so
+   both ask these. */
+
+/** Once the footage is in, the film date is history: the shoot is
+ *  done and a chip telling anyone to film it is a lie. A card at any
+ *  of these has nothing left to shoot. */
+export const CARD_FILMED: readonly string[] = [
+  'Posted', 'Footage In', 'Editing', 'Ready for Review', 'Approved', 'Scheduled',
+];
+
+/** Whether a card still earns a row on its film day. */
+export function cardFilmRow(c: { filmBy: string | null; status: string | null }): boolean {
+  if (!c.filmBy) return false;
+  return !CARD_FILMED.includes(c.status ?? '');
+}
+
+/** Whether a card is on the calendar at all. Skipped is not a plan. */
+export function cardOnCalendar(c: { status: string | null }): boolean {
+  return c.status !== 'Skipped';
+}
+
+/** What the chip says. A film row names the job, not the post, so a
+ *  shoot and the thing it feeds do not read identically two weeks
+ *  apart. */
+export function cardRowTitle(title: string, role: 'post' | 'film'): string {
+  return role === 'film' ? `Film \u00b7 ${title}` : title;
+}
+
 export const PORTAL_LAYERS: readonly CalendarLayer[] = ['moments', 'posts', 'films', 'todos'];
 
 export const HQ_LAYERS: readonly CalendarLayer[] = [...PORTAL_LAYERS, 'blueprint'];

@@ -210,7 +210,8 @@ const NAV = [
     type RowClient, type StripItem, type CardClient, type HealthVerdict,
   } from '../../data/hq';
   import {
-    canSetStepStatus, cleanItemTitle, isStepDone, itemKind, momentKind,
+    canSetStepStatus, cardFilmRow, cardOnCalendar, cardRowTitle,
+    cleanItemTitle, isStepDone, itemKind, momentKind,
     termProgress, HQ_LAYERS, KIND_LABEL,
     type PortalCalendarItem,
   } from '../../data/portal';
@@ -1108,7 +1109,7 @@ const NAV = [
     const moments = momentsNow();
     const out: PortalCalendarItem[] = [];
     for (const c of calCards()) {
-      if (c.status === 'Skipped') continue;
+      if (!cardOnCalendar(c)) continue;
       const m = c.campaign.map((id) => moments.get(id)).find((x) => !!x);
       const base = {
         kind: 'Content',
@@ -1128,16 +1129,16 @@ const NAV = [
         clientName: (c as any).clientName,
       };
       if (c.postDate) {
-        out.push({ ...base, id: `${c.id}:post`, title: c.title, date: c.postDate,
-                   contentRole: 'post' } as any);
+        out.push({ ...base, id: `${c.id}:post`, title: cardRowTitle(c.title, 'post'),
+                   date: c.postDate, contentRole: 'post' } as any);
       }
-      // A shoot is only worth its own row while it is still ahead of
-      // the edit. Once the footage is in, the film date is history.
-      if (c.filmBy && c.status !== 'Posted' && c.status !== 'Footage In'
-        && c.status !== 'Editing' && c.status !== 'Ready for Review'
-        && c.status !== 'Approved' && c.status !== 'Scheduled') {
-        out.push({ ...base, id: `${c.id}:film`, title: c.title, date: c.filmBy,
-                   contentRole: 'film' } as any);
+      // Whether a shoot still earns a row, and what the chip says, are
+      // the client portal's rules, read from the one place that holds
+      // them: a card has to read the same on both screens or HQ is
+      // looking at a different calendar.
+      if (cardFilmRow(c)) {
+        out.push({ ...base, id: `${c.id}:film`, title: cardRowTitle(c.title, 'film'),
+                   date: c.filmBy, contentRole: 'film' } as any);
       }
     }
     return out;
