@@ -86,6 +86,20 @@ export interface BuildContext {
   allowedCampaigns: readonly string[];
   /** The status the row is in now, or null when creating. */
   currentStatus: string | null;
+  /**
+   * Posted By and Source as Notion holds them, read off the page that
+   * was just fetched and never off the request. Both widen what a
+   * client may do with this one row: they own a row they post, and
+   * only a card they film can come back out of Filmed.
+   */
+  postedBy?: string | null;
+  source?: string | null;
+  /**
+   * Who is asking. One of us moves any card to any column, which is
+   * what the HQ board is for; absent means client, so a caller that
+   * forgets this gets the tighter answer rather than the looser one.
+   */
+  role?: 'client' | 'admin';
 }
 
 export interface BuildResult {
@@ -122,11 +136,18 @@ export function buildContentProperties(body: Record<string, unknown>, ctx: Build
     (v) => ({ title: v ? [{ text: { content: v } }] : [] }));
 
   // Status is the one field with a rule beyond its type: a client may
-  // only move a card where CLIENT_STATUS_MOVES allows, whatever the
-  // request says. "Editing" is ours to set.
+  // only move a card where canClientMove allows, whatever the request
+  // says. This is the check the dimmed column and the toast are a
+  // picture of, and it is the one that actually holds: a client can
+  // send this endpoint any JSON they like.
   if ('status' in body) {
     const wanted = cleanPatchSelect(body.status, names(ctx.schema.status));
-    if (typeof wanted === 'string' && canClientMove(ctx.currentStatus, wanted)) {
+    const mayMove = typeof wanted === 'string' && (
+      ctx.role === 'admin'
+      || canClientMove(ctx.currentStatus, wanted,
+                       { postedBy: ctx.postedBy, source: ctx.source })
+    );
+    if (typeof wanted === 'string' && mayMove) {
       props[CLIENT_EDITABLE.status] = selectProp(wanted);
     } else {
       rejected.push('status');

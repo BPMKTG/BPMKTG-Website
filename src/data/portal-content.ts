@@ -106,10 +106,20 @@ export function weMake(source: string | null): boolean {
  *  on a card they film; everything else is counting down to a post. */
 export interface CardDate { label: 'Film by' | 'Posts'; date: string }
 
+/** Statuses where the camera has already rolled, so a Film By on the
+ *  card is history rather than something anyone still has to do. */
+const SHOT_ALREADY: readonly string[] = ['Filmed', 'Footage In', 'Editing',
+  'Ready for Review', 'Approved', 'Scheduled', 'Posted'];
+
 export function cardDate(
-  item: { source: string | null; filmBy: string | null; postDate: string | null },
+  item: {
+    source: string | null; filmBy: string | null; postDate: string | null;
+    status?: string | null;
+  },
 ): CardDate | null {
-  if (clientFilms(item.source) && item.filmBy) return { label: 'Film by', date: item.filmBy };
+  if (clientFilms(item.source) && item.filmBy && !SHOT_ALREADY.includes(item.status ?? '')) {
+    return { label: 'Film by', date: item.filmBy };
+  }
   if (item.postDate) return { label: 'Posts', date: item.postDate };
   return null;
 }

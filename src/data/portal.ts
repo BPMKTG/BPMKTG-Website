@@ -688,6 +688,65 @@ export function cardOnCalendar(c: { status: string | null }): boolean {
   return c.status !== 'Skipped';
 }
 
+/* ── one film day per campaign ─────────────────────────────────────
+   A campaign's film day is the 🎥 step. The deliverables that come out
+   of that shoot each carry a Film By as well, so the same shoot used
+   to draw four chips on one day: the step, plus one per asset. The
+   step is the single source, and the cards fall silent. */
+
+/** Which campaigns are already covered by a film session, and how to
+ *  get from a card's relation to the campaign it belongs to. */
+export interface FilmCover {
+  /** Moment ids carrying at least one live Client film session step. */
+  moments: Set<string>;
+  /** Step id to its moment id, because a card's Campaign relation may
+   *  point at either one. */
+  stepMoment: Map<string, string>;
+}
+
+export function filmCover(
+  items: readonly {
+    id: string; kind?: string | null; momentType?: string | null;
+    status: string | null; flow?: string | null; owner: string | null;
+    type: string | null; title: string | null;
+    moment: { id: string } | null;
+  }[],
+): FilmCover {
+  const moments = new Set<string>();
+  const stepMoment = new Map<string, string>();
+  for (const it of items) {
+    if (!it.moment?.id) continue;
+    const m = sameId(it.moment.id);
+    stepMoment.set(sameId(it.id), m);
+    // A shoot taken out of the plan covers nothing, so the cards that
+    // came off it go back to speaking for themselves.
+    if (it.status === 'Skipped' || it.status === 'Moved') continue;
+    if (flowOf(it) === 'Client film session') moments.add(m);
+  }
+  return { moments, stepMoment };
+}
+
+/**
+ * Whether this card's film day is already drawn by a 🎥 step.
+ *
+ * The relation can point at the moment or at one of its steps, so both
+ * are followed. A card linked to nothing, which is most of the
+ * client's own planned content, is never covered: it is the only thing
+ * that knows its own shoot date.
+ */
+export function cardFilmCovered(
+  card: { campaign: readonly string[] },
+  cover: FilmCover,
+): boolean {
+  for (const raw of card.campaign) {
+    const id = sameId(raw);
+    if (cover.moments.has(id)) return true;
+    const via = cover.stepMoment.get(id);
+    if (via && cover.moments.has(via)) return true;
+  }
+  return false;
+}
+
 /**
  * A card's Campaign relation points at a Campaign Calendar row, and
  * on the live board it points at a STEP rather than at the moment:

@@ -233,7 +233,9 @@ const NAV = [
   import {
     canSetStepDate,
     canSetStepStatus,
+    cardFilmCovered,
     cardFilmRow,
+    filmCover,
     flowOf,
     isBlueprintWork,
     stepFlowChip,
@@ -279,15 +281,24 @@ const NAV = [
   } from '../../scripts/portal-sheet';
   import {
     canClientMove,
+    canDrop,
+    cardDate,
+    clientFilms,
+    dropStatus,
     isIdea,
     normaliseId,
     stageOf,
+    DRAG_BLOCKED,
     MAX_TEXT,
     MAX_TITLE,
+    REVIEW_LABEL,
+    REVIEW_TARGET,
+    STAGE_NOTE,
     STAGE_ORDER,
     STAGE_TITLE,
     type PortalContentItem,
     type PortalContentSchema,
+    type ReviewAction,
     type Stage,
   } from '../../data/portal-content';
   import {
@@ -1528,6 +1539,8 @@ const NAV = [
     key: string;
     title: string;
     color?: string;
+    /** A line under the heading saying whose move this column is. */
+    note?: string | null;
     items: PortalContentItem[];
     /** What a card dropped here becomes. Absent means no drop target. */
     onDrop?: (c: PortalContentItem) => void;
@@ -1536,6 +1549,34 @@ const NAV = [
     add?: () => void;
     /** The column heading already names the bucket. */
     hideBucket?: boolean;
+    /** Set when the column is drawn, so picking a card up can dim
+     *  every column that will not take it. */
+    list?: HTMLElement;
+  }
+
+  /** The columns on screen right now. Held so that a dragstart can dim
+   *  the ones this card cannot go into, rather than leaving the client
+   *  to discover it by dropping. */
+  let BOARD_COLS: Column[] = [];
+
+  function markDropTargets(card: PortalContentItem | null): void {
+    for (const c of BOARD_COLS) {
+      if (!c.list) continue;
+      const refuses = !!card && !!c.onDrop && !!c.accepts && !c.accepts(card)
+        && !c.items.some((i) => i.id === card.id);
+      c.list.classList.toggle('pt-board-dim', refuses);
+    }
+  }
+
+  /** Why this column would not take this card. Two different noes, and
+   *  a client told the wrong one would go looking in the wrong place. */
+  function dropRefusal(card: PortalContentItem, stage: string): string {
+    if (dropStatus(card, stage as Stage) === null) {
+      return clientFilms(card.source)
+        ? 'This one is yours to film, so it lives in To film.'
+        : 'That column is for a different kind of card.';
+    }
+    return DRAG_BLOCKED;
   }
 
   function ideasBoard(items: PortalContentItem[]): HTMLElement {
@@ -1566,31 +1607,22 @@ const NAV = [
 
   function pipelineBoard(items: PortalContentItem[]): HTMLElement {
     const now = todayStart();
+    const role = VIEWER.role === 'admin' ? 'admin' : 'client';
     const cols: Column[] = STAGE_ORDER.map((stage) => ({
       key: stage,
       title: STAGE_TITLE[stage],
+      note: STAGE_NOTE[stage],
       items: items.filter((c) => stageOf(c, now) === stage),
-      accepts: (c) => !!stageTarget(stage) && canClientMove(c.status, stageTarget(stage)!),
+      // One question, asked of the shared rules, and asked again on
+      // the server before anything is written.
+      accepts: (c) => canDrop(c, stage, role),
       onDrop: (c) => {
-        const to = stageTarget(stage);
+        const to = dropStatus(c, stage);
         if (to) void setStatus(c, to);
       },
     }));
     return board(cols, 'Nothing is moving yet',
                  'An idea joins the pipeline as soon as it has a shoot date or a post date.');
-  }
-
-  /** The status a drop into this column means. Columns a client cannot
-   *  put a card into on their own have none. */
-  function stageTarget(stage: Stage): string | null {
-    switch (stage) {
-      case 'planned': return 'Planned';
-      case 'toFilm':  return 'Planned';
-      case 'filmed':  return 'Filmed';
-      case 'ready':   return 'Approved';
-      case 'posted':  return 'Posted';
-      default:        return null;   // In edit and Your review are ours
-    }
   }
 
   function board(cols: Column[], emptyTitle: string, emptyBody: string): HTMLElement {
@@ -1629,6 +1661,7 @@ const NAV = [
     const scroller = el('div', 'pt-board');
     scroller.dataset.boardScroll = 'true';
     for (const c of cols) scroller.appendChild(boardColumn(c));
+    BOARD_COLS = cols;
     wrap.appendChild(scroller);
     return wrap;
   }
@@ -1643,6 +1676,7 @@ const NAV = [
     const head = el('div', 'pt-board-col-head');
     head.appendChild(el('h3', undefined, c.title));
     head.appendChild(el('span', 'pt-board-count pt-num', String(c.items.length)));
+    if (c.note) head.appendChild(el('span', 'pt-board-col-note', c.note));
     if (c.add && !isNarrow()) {
       const plus = el('button', 'pt-board-add');
       plus.type = 'button';
@@ -1654,25 +1688,34 @@ const NAV = [
     col.appendChild(head);
 
     const list = el('div', 'pt-board-list');
+    c.list = list;
     if (!c.items.length) list.appendChild(el('p', 'pt-board-none', 'Nothing here'));
     for (const item of c.items) list.appendChild(contentCard(item, { hideBucket: c.hideBucket }));
 
     if (c.onDrop && !isNarrow()) {
+      // preventDefault runs whether or not the column will take the
+      // card, because a drop event only fires on a target that allowed
+      // the dragover. Without it a refused drop is silent, and silent
+      // is the one thing it must not be: the card springs back and the
+      // client is left guessing whether they missed or we said no.
       list.addEventListener('dragover', (ev) => {
         if (!DRAG) return;
-        if (c.accepts && !c.accepts(DRAG)) return;
         if (c.items.some((i) => i.id === DRAG!.id)) return;
         ev.preventDefault();
-        list.classList.add('pt-board-drop');
+        const ok = !c.accepts || c.accepts(DRAG);
+        list.classList.toggle('pt-board-drop', ok);
+        list.classList.toggle('pt-board-nodrop', !ok);
       });
-      list.addEventListener('dragleave', () => list.classList.remove('pt-board-drop'));
+      list.addEventListener('dragleave', () => {
+        list.classList.remove('pt-board-drop', 'pt-board-nodrop');
+      });
       list.addEventListener('drop', (ev) => {
         ev.preventDefault();
-        list.classList.remove('pt-board-drop');
+        list.classList.remove('pt-board-drop', 'pt-board-nodrop');
         const card = DRAG;
         DRAG = null;
         if (!card) return;
-        if (c.accepts && !c.accepts(card)) return;
+        if (c.accepts && !c.accepts(card)) { toast(dropRefusal(card, c.key)); return; }
         c.onDrop!(card);
       });
     }
@@ -1725,6 +1768,20 @@ const NAV = [
 
     card.appendChild(open);
 
+    // A card waiting on the client gets the two answers on its face.
+    // Buried in the drawer, "your review" was a status rather than a
+    // thing to do, and cards sat there for days.
+    if (c.status === 'Ready for Review' && VIEWER.role !== 'admin') {
+      const acts = el('div', 'pt-ccard-acts');
+      for (const a of ['approve', 'changes'] as ReviewAction[]) {
+        const b = el('button', `pt-ccard-act pt-ccard-act-${a}`, REVIEW_LABEL[a]);
+        b.type = 'button';
+        b.addEventListener('click', (ev) => { ev.stopPropagation(); void reviewAct(c, a); });
+        acts.appendChild(b);
+      }
+      card.appendChild(acts);
+    }
+
     if (!isNarrow()) {
       card.draggable = true;
       const grip = el('span', 'pt-ccard-grip');
@@ -1734,26 +1791,28 @@ const NAV = [
       card.addEventListener('dragstart', (ev) => {
         DRAG = c;
         card.classList.add('pt-ccard-dragging');
+        markDropTargets(c);
         ev.dataTransfer?.setData('text/plain', c.title);
         if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
       });
       card.addEventListener('dragend', () => {
         DRAG = null;
         card.classList.remove('pt-ccard-dragging');
+        markDropTargets(null);
       });
     }
     return card;
   }
 
-  /** The one date that matters next for this card. */
+  /** The one date that matters next for this card.
+   *
+   *  Film by only ever appears on a card the client films. A flyer we
+   *  are drawing has a Film By too, and showing it told the client to
+   *  go and shoot something that was never theirs to shoot. */
   function nextDateLine(c: PortalContentItem): string | null {
     if (c.status === 'Posted') return c.postDate ? `Posted ${fmtDateShort(c.postDate)}` : null;
-    if (c.filmBy && c.status !== 'Filmed' && c.status !== 'Footage In') {
-      return `Film by ${fmtDateShort(c.filmBy)}`;
-    }
-    if (c.postDate) return `Posts ${fmtDateShort(c.postDate)}`;
-    if (c.filmBy) return `Filmed ${fmtDateShort(c.filmBy)}`;
-    return null;
+    const d = cardDate(c);
+    return d ? `${d.label} ${fmtDateShort(d.date)}` : null;
   }
 
   function postedList(items: PortalContentItem[]): HTMLElement {
@@ -1953,13 +2012,37 @@ const NAV = [
     }
   }
 
+  /** May whoever is looking set this card to this status?
+   *
+   *  One of us standing in a client's portal may set anything, which
+   *  is what the HQ board needs. A client is held to canClientMove,
+   *  which now also knows whether they film this card and whether
+   *  they are the one who posts it. */
+  function maySetStatus(c: PortalContentItem, status: string): boolean {
+    if (VIEWER.role === 'admin') return true;
+    return canClientMove(c.status, status, { postedBy: c.postedBy, source: c.source });
+  }
+
   async function setStatus(c: PortalContentItem, status: string, note?: string) {
-    if (!canClientMove(c.status, status)) {
-      toast('That move is ours to make. We will take it from here.', true);
-      return;
-    }
+    if (!maySetStatus(c, status)) { toast(DRAG_BLOCKED, true); return; }
     if (await saveCard(c.id, { status }, { status })) toast(`Moved to ${status}`);
     if (note) toast(note);
+  }
+
+  /** The two buttons on a card waiting for the client. Approve sends
+   *  it on; Request changes hands it back to us WITH the note, in one
+   *  write, so a card never sits in In edit with nothing said. */
+  async function reviewAct(c: PortalContentItem, action: ReviewAction) {
+    const status = REVIEW_TARGET[action];
+    if (action === 'approve') {
+      if (await saveCard(c.id, { status }, { status })) toast('Approved. We will get it out.');
+      return;
+    }
+    const note = window.prompt('What needs changing?')?.trim();
+    if (!note) return;
+    if (await saveCard(c.id, { status, feedback: note }, { status, feedback: note })) {
+      toast('Sent back to us with your note.');
+    }
   }
 
   async function createIdea(patch: Record<string, unknown>): Promise<boolean> {
@@ -2033,13 +2116,16 @@ const NAV = [
     body.appendChild(selectEditor('Bucket', c.bucket, CON.schema.bucket, 'No bucket',
       (v, tick) => save({ bucket: v }, { bucket: v }, tick)));
 
-    // Only the moves this client is allowed to make are offered. The
-    // server checks again; this is so the list never lies.
-    const moves = CON.schema.status.filter((o) => canClientMove(c.status, o.name));
-    if (moves.length) {
-      body.appendChild(selectEditor('Status', c.status, moves, null,
-        (v, tick) => { if (v) save({ status: v }, { status: v }, tick); }));
-    }
+    // Every status Notion has, so the dropdown is a true picture of
+    // where a card can be rather than a short list that reads like the
+    // rest do not exist. Picking one we move is answered out loud; the
+    // server refuses it again either way.
+    body.appendChild(selectEditor('Status', c.status, CON.schema.status, null,
+      (v, tick) => {
+        if (!v || v === c.status) return;
+        if (!maySetStatus(c, v)) { toast(DRAG_BLOCKED, true); return; }
+        save({ status: v }, { status: v }, tick);
+      }));
 
     body.appendChild(multiEditor('Format', c.format, CON.schema.format,
       (v, tick) => save({ format: v }, { format: v }, tick)));
@@ -2583,6 +2669,9 @@ const NAV = [
 
   function contentRows(items: PortalContentItem[]): CalRow[] {
     const look = momentLookup();
+    // The campaigns whose film day is already drawn by their 🎥 step.
+    // Built once per draw rather than per card: it walks every step.
+    const cover = filmCover(DATA?.calendar ?? []);
     const out: CalRow[] = [];
     for (const c of items) {
       if (!cardOnCalendar(c)) continue;
@@ -2590,7 +2679,9 @@ const NAV = [
         .map((id) => look.get(normaliseId(id)))
         .find((m): m is PortalMoment => !!m) ?? null;
       if (c.postDate) out.push(contentRow(c, 'post', c.postDate, moment));
-      if (cardFilmRow(c)) out.push(contentRow(c, 'film', c.filmBy as string, moment));
+      if (cardFilmRow(c) && !cardFilmCovered(c, cover)) {
+        out.push(contentRow(c, 'film', c.filmBy as string, moment));
+      }
     }
     return out;
   }

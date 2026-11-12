@@ -211,7 +211,8 @@ const NAV = [
     type RowClient, type StripItem, type CardClient, type HealthVerdict,
   } from '../../data/hq';
   import {
-    canSetStepStatus, cardFilmRow, cardOnCalendar, cardRowTitle, flowOf,
+    canSetStepStatus, cardFilmCovered, cardFilmRow, cardOnCalendar, cardRowTitle,
+    filmCover, flowOf,
     cleanItemTitle, isStepDone, itemKind, momentKind,
     termProgress, HQ_LAYERS, KIND_LABEL,
     type PortalCalendarItem,
@@ -1121,6 +1122,15 @@ const NAV = [
    */
   function calCardRows(): PortalCalendarItem[] {
     const moments = momentsNow();
+    // The campaigns already covered by a 🎥 step, from the same
+    // function the client portal uses. Built off every step HQ holds,
+    // not the filtered view, so turning a client off does not make
+    // another client's cards start drawing film chips.
+    const cover = filmCover(((HQ?.calendar ?? []) as any[]).map((r) => ({
+      id: r.id, kind: r.kind, momentType: r.momentType, status: r.status,
+      flow: r.flow, owner: r.owner, type: r.type, title: r.title,
+      moment: r.momentId ? { id: r.momentId } : null,
+    })));
     const out: PortalCalendarItem[] = [];
     for (const c of calCards()) {
       if (!cardOnCalendar(c)) continue;
@@ -1150,7 +1160,7 @@ const NAV = [
       // the client portal's rules, read from the one place that holds
       // them: a card has to read the same on both screens or HQ is
       // looking at a different calendar.
-      if (cardFilmRow(c)) {
+      if (cardFilmRow(c) && !cardFilmCovered(c, cover)) {
         out.push({ ...base, id: `${c.id}:film`, title: cardRowTitle(c.title, 'film'),
                    date: c.filmBy, contentRole: 'film' } as any);
       }

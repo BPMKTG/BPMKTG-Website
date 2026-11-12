@@ -519,6 +519,55 @@ export async function fetchOwnedStep(
 }
 
 /**
+ * A deliverable reaching Posted ticks the campaign step it hangs off,
+ * and coming back off Posted un-ticks it.
+ *
+ * The two rows are one piece of work seen twice: the step says
+ * "announce the show" and the card is the asset that announces it, so
+ * a step still reading Not Started under a posted card is simply
+ * wrong, and it is wrong on the client's own screen.
+ *
+ * Three things this deliberately does not do:
+ *
+ *   - it will not touch a step whose Status is Skipped or Moved. A
+ *     step taken out of the plan stays out of it; a card posted
+ *     against it does not quietly put it back.
+ *   - it will not touch a moment. The relation can hold either, and a
+ *     moment is a date, not a job that can be done.
+ *   - un-ticking lands on Not Started, not on whatever the step held
+ *     before. A checkbox that comes unchecked goes back to unchecked;
+ *     remembering a half-finished state nobody asked us to keep would
+ *     be a guess dressed up as a courtesy.
+ *
+ * Every id goes through fetchOwnedStep first, so a relation pointing
+ * at another client's row is indistinguishable from one pointing at
+ * nothing. The ids come out of Notion rather than off the request, but
+ * the check is cheap and the alternative is trusting a join.
+ */
+export async function syncStepFromCard(
+  token: string,
+  clientPageId: string,
+  campaign: readonly string[],
+  posted: boolean,
+  by: 'Blueprint' | 'Client',
+): Promise<string[]> {
+  const want = posted ? 'Done' : 'Not Started';
+  const touched: string[] = [];
+  for (const id of campaign) {
+    const step = await fetchOwnedStep(token, clientPageId, id);
+    if (!step) continue;
+    if (step.status === want) continue;
+    if (step.status === 'Skipped' || step.status === 'Moved') continue;
+    const ok = await patchCalendarPage(token, id, {
+      Status: { select: { name: want } },
+      'Last Edited By': { select: { name: by } },
+    });
+    if (ok) touched.push(id);
+  }
+  return touched;
+}
+
+/**
  * The one moment with this id that this client owns.
  *
  * Same shape of check as a step, with Kind read the other way round: a

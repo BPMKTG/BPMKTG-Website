@@ -72,6 +72,14 @@ import {
   CLIENT_EDITABLE,
   CLIENT_READ_ONLY,
   canClientMove,
+  canDrop,
+  cardFilmCovered,
+  filmCover,
+  cardDate,
+  dropStatus,
+  STAGE_NOTE,
+  STAGE_ORDER,
+  STAGE_TITLE,
   cleanPatchText,
   cleanPatchUrl,
   cleanPatchDate,
@@ -1289,6 +1297,157 @@ is('pipeline: a post older than 30 days drops off',
    stageOf(card({ status: 'Posted', postDate: '2026-09-01' }), nowC), null);
 is('pipeline: the 30th day still counts',
    stageOf(card({ status: 'Posted', postDate: '2026-09-28' }), nowC), 'posted');
+
+section('Calendar: one film day per campaign');
+
+{
+  const step = (o) => ({ id: 'x', kind: 'Step', momentType: null, status: 'Not Started',
+    flow: null, owner: null, type: null, title: null, moment: null, ...o });
+  const shoot = (id, momentId, o = {}) => step({ id, moment: { id: momentId },
+    owner: 'Client', flow: 'Client film session', ...o });
+
+  const cover = filmCover([
+    shoot('s1', 'm1'),
+    step({ id: 's2', moment: { id: 'm1' }, owner: 'Blueprint', type: 'Content' }),
+    step({ id: 's3', moment: { id: 'm2' }, owner: 'Blueprint', type: 'Content' }),
+    shoot('s4', 'm3', { status: 'Skipped' }),
+  ]);
+
+  is('film cover: the campaign with a shoot is covered', cover.moments.has('m1'), true);
+  is('film cover: a campaign with no shoot is not', cover.moments.has('m2'), false);
+  is('film cover: a shoot taken out of the plan covers nothing',
+     cover.moments.has('m3'), false);
+
+  is('film cover: a card linked to the moment falls silent',
+     cardFilmCovered({ campaign: ['m1'] }, cover), true);
+  is('film cover: a card linked to a step of that moment too',
+     cardFilmCovered({ campaign: ['s2'] }, cover), true);
+  is('film cover: a card on a campaign with no shoot keeps its chip',
+     cardFilmCovered({ campaign: ['m2'] }, cover), false);
+  is('film cover: a card linked to nothing always keeps its chip',
+     cardFilmCovered({ campaign: [] }, cover), false);
+  is('film cover: dashes in an id do not hide the match',
+     cardFilmCovered({ campaign: ['M1'] }, cover), true);
+  is('film cover: the skipped shoot leaves its own cards speaking',
+     cardFilmCovered({ campaign: ['m3'] }, cover), false);
+
+  // The two rules compose: covered decides whether to ask, cardFilmRow
+  // decides whether there is anything left to shoot.
+  const c = { filmBy: '2026-11-10', status: 'Planned', campaign: ['m1'] };
+  is('film cover: covered beats a live film date',
+     cardFilmRow(c) && !cardFilmCovered(c, cover), false);
+  const own = { filmBy: '2026-11-10', status: 'Planned', campaign: [] };
+  is('film cover: the client\u2019s own planned shoot still draws',
+     cardFilmRow(own) && !cardFilmCovered(own, cover), true);
+}
+
+section('Pipeline: whose move is it');
+
+const pcard = (o) => ({ status: null, source: null, postedBy: null,
+  filmBy: null, postDate: null, ...o });
+
+// ── the three pre-camera columns share one status, so a drop into the
+//    wrong one of them is refused rather than bounced ──
+is('drop: Client Films into To film writes Planned',
+   dropStatus(pcard({ source: 'Client Films' }), 'toFilm'), 'Planned');
+is('drop: Client Films cannot go in Up next',
+   dropStatus(pcard({ source: 'Client Films' }), 'upNext'), null);
+is('drop: a flyer cannot go in To film',
+   dropStatus(pcard({ source: 'Flyer / Graphic' }), 'toFilm'), null);
+is('drop: a flyer into Up next writes Planned',
+   dropStatus(pcard({ source: 'Flyer / Graphic' }), 'upNext'), 'Planned');
+is('drop: a sourceless card belongs to Planned alone',
+   [dropStatus(pcard({}), 'planned'), dropStatus(pcard({}), 'toFilm'), dropStatus(pcard({}), 'upNext')],
+   ['Planned', null, null]);
+is('drop: a sourced card is not allowed back into plain Planned',
+   dropStatus(pcard({ source: 'Client Films' }), 'planned'), null);
+is('drop: every later column maps to one status',
+   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) => dropStatus(pcard({}), st)),
+   ['Filmed', 'Editing', 'Ready for Review', 'Approved', 'Posted']);
+
+// ── the client's own two moves ──
+is('move: To film to Filmed is the client\u2019s',
+   canDrop(pcard({ status: 'Planned', source: 'Client Films' }), 'filmed', 'client'), true);
+is('move: and back out again, on a card they film',
+   canDrop(pcard({ status: 'Filmed', source: 'Client Films' }), 'toFilm', 'client'), true);
+is('move: but not back out of ours',
+   canClientMove('Filmed', 'Planned', { source: 'Flyer / Graphic' }), false);
+is('move: Your review, approved',
+   canDrop(pcard({ status: 'Ready for Review' }), 'ready', 'client'), true);
+is('move: Your review, handed back to us',
+   canClientMove('Ready for Review', 'Editing'), true);
+is('move: a client cannot reach In edit from anywhere else',
+   canClientMove('Planned', 'Editing'), false);
+
+// ── a row the client posts is theirs end to end ──
+is('move: Posted By Client goes anywhere',
+   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) =>
+     canDrop(pcard({ status: 'Planned', postedBy: 'Client' }), st, 'client')),
+   [true, true, true, true, true]);
+is('move: the same card, posted by us, does not',
+   canDrop(pcard({ status: 'Planned', postedBy: 'Blueprint' }), 'editing', 'client'), false);
+is('move: Posted By Client still cannot break the Source rule',
+   canDrop(pcard({ status: 'Planned', postedBy: 'Client', source: 'Client Films' }), 'upNext', 'client'),
+   false);
+
+// ── admin moves anything the column can hold ──
+is('move: admin reaches every real column',
+   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) =>
+     canDrop(pcard({ status: 'Planned', postedBy: 'Blueprint' }), st, 'admin')),
+   [true, true, true, true, true]);
+is('move: admin is still refused a column that would bounce',
+   canDrop(pcard({ status: 'Planned', source: 'Client Films' }), 'upNext', 'admin'), false);
+
+// ── no cell of the board lets a client write one of ours ──
+{
+  const statuses = ['Idea', 'Planned', 'Filmed', 'Footage In', 'Editing',
+    'Ready for Review', 'Approved', 'Scheduled', 'Posted', 'Skipped'];
+  const sources = [null, 'Client Films', 'Show Media', 'Flyer / Graphic'];
+  const stages = ['upNext', 'planned', 'toFilm', 'filmed', 'editing', 'review', 'ready', 'posted'];
+  let wrong = [];
+  for (const status of statuses) {
+    for (const source of sources) {
+      for (const stage of stages) {
+        const ours = pcard({ status, source, postedBy: 'Blueprint' });
+        if (!canDrop(ours, stage, 'client')) continue;
+        const to = dropStatus(ours, stage);
+        // Allowed by canDrop means allowed by the table the server
+        // enforces. If those two ever disagree, the board offers a
+        // move the server will refuse, which is the silent failure
+        // this whole pass exists to remove.
+        if (!canClientMove(status, to, { postedBy: 'Blueprint', source })) {
+          wrong.push(`${status}/${source}/${stage}`);
+        }
+      }
+    }
+  }
+  is('move: the board never offers a client a move the server refuses', wrong, []);
+}
+
+section('Pipeline: the date on the face of a card');
+
+is('card date: a film date the client owns',
+   cardDate(pcard({ source: 'Client Films', filmBy: '2026-11-10', postDate: '2026-11-14' })),
+   { label: 'Film by', date: '2026-11-10' });
+is('card date: a flyer shows when it posts, never a film date',
+   cardDate(pcard({ source: 'Flyer / Graphic', filmBy: '2026-11-10', postDate: '2026-11-14' })),
+   { label: 'Posts', date: '2026-11-14' });
+is('card date: show media the same',
+   cardDate(pcard({ source: 'Show Media', filmBy: '2026-11-10', postDate: '2026-11-14' })),
+   { label: 'Posts', date: '2026-11-14' });
+is('card date: once it is shot, the film date stops being news',
+   cardDate(pcard({ source: 'Client Films', status: 'Filmed',
+                    filmBy: '2026-11-10', postDate: '2026-11-14' })),
+   { label: 'Posts', date: '2026-11-14' });
+is('card date: nothing dated says nothing', cardDate(pcard({})), null);
+is('card date: no source and a film date is still not a film job',
+   cardDate(pcard({ filmBy: '2026-11-10' })), null);
+
+is('board: Up next comes first', STAGE_ORDER[0], 'upNext');
+is('board: every column has a title',
+   STAGE_ORDER.filter((st) => !STAGE_TITLE[st]), []);
+is('board: the two columns with an owner say so',
+   STAGE_ORDER.filter((st) => STAGE_NOTE[st]), ['upNext', 'toFilm', 'review']);
 
 section('Content: the quick-add status default');
 

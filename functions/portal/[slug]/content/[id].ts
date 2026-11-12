@@ -9,8 +9,12 @@
    ────────────────────────────────────────────────────────────── */
 
 import { portalNotFound } from '../../../../src/server/portal-auth';
-import { fetchOwnedContent, updateContentPage } from '../../../../src/server/portal-notion';
-import { buildContentProperties, stampEdit } from '../../../../src/server/portal-write';
+import {
+  fetchOwnedContent,
+  syncStepFromCard,
+  updateContentPage,
+} from '../../../../src/server/portal-notion';
+import { buildContentProperties, editedBy, stampEdit } from '../../../../src/server/portal-write';
 import {
   beginWrite,
   bustDataCache,
@@ -40,8 +44,13 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
     schema: ctx.schema,
     allowedCampaigns: ctx.allowedCampaigns,
     // The status it is in NOW, read from Notion rather than from the
-    // request, is what decides which moves are legal.
+    // request, is what decides which moves are legal. So are Posted By
+    // and Source: a client owns a row they post, and only a card they
+    // film can come back out of Filmed. All three off the page.
     currentStatus: owned.item.status,
+    postedBy: owned.item.postedBy,
+    source: owned.item.source,
+    role: ctx.viewer.role,
   });
 
   if (rejected.length) console.error('portal: content patch dropped fields', ctx.slug, rejected.join(','));
@@ -53,6 +62,20 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
 
   const item = await updateContentPage(env.NOTION_TOKEN, id, stampEdit(properties, ctx.viewer.role));
   if (!item) return portalNotFound();
+
+  // The campaign step this card hangs off follows it across the Posted
+  // line, in either direction. Only when the line was actually
+  // crossed: a save that touches a caption must not re-tick anything.
+  const wasPosted = owned.item.status === 'Posted';
+  const nowPosted = item.status === 'Posted';
+  if (wasPosted !== nowPosted && item.campaign.length) {
+    const touched = await syncStepFromCard(
+      env.NOTION_TOKEN, ctx.record.pageId, item.campaign, nowPosted,
+      editedBy(ctx.viewer.role),
+    );
+    if (touched.length) console.log('portal: card', nowPosted ? 'posted' : 'un-posted',
+      'synced step(s)', touched.join(','));
+  }
 
   await bustDataCache(ctx.slug, env);
   return writeOk({ ok: true, item, changed: true });
