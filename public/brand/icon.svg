@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 576">
+<!--
+  The Blueprint mark, cropped to itself.
+
+  The artwork lives at x 170.7–395.4, y 112.9–450.8 inside the original
+  576 square, so a tab bar drew it about six pixels wide and padded the
+  rest. The viewBox below is that bounding box plus a tenth of breathing
+  room, centred on it, which is why the paths are untouched: only the
+  window onto them moved.
+
+  The colours trade places in dark mode. Navy on a dark tab strip is
+  nearly invisible, so the body takes the light blue and the play mark
+  takes the navy, which reads as a hole punched through it. Browsers
+  match this query to their own chrome, not to the page.
+-->
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="95.05 93.85 376 376">
   <defs>
     <style>
       .cls-1 {
@@ -8,6 +22,16 @@
 
       .cls-2 {
         fill: #b2def5;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .cls-1 {
+          fill: #b2def5;
+        }
+
+        .cls-2 {
+          fill: #264fa0;
+        }
       }
     </style>
   </defs>

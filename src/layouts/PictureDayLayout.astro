@@ -41,7 +41,16 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).href;
     <meta name="theme-color" content="#ffffff" />
     {noindex && <meta name="robots" content="noindex, nofollow" />}
 
+    <!-- The SVG carries its own light/dark rule, so it is offered first
+         and the .ico is only reached by what cannot read it. -->
     <link rel="icon" type="image/svg+xml" href="/brand/icon.svg" />
+    <link rel="icon" sizes="any" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Icons only, on purpose. A manifest naming the app, or asking for
+         a display mode, would rename an already-installed shortcut and
+         make the site installable; this one just hands over the tile so
+         the browser stops drawing its own. -->
+    <link rel="manifest" href="/site.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
