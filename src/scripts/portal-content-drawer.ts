@@ -69,7 +69,7 @@ function fact(label: string, value: string): HTMLElement {
 /** The cut, in place. A frame for the hosts we can embed, a player or
  *  an image for a direct file, and otherwise nothing: the link below
  *  is the honest fallback. */
-function previewEl(url: string, title: string): HTMLElement | null {
+export function previewEl(url: string, title: string): HTMLElement | null {
   const p = editPreview(url);
   if (!p) return null;
   const box = el('div', `pt-preview pt-preview-${p.kind}`);

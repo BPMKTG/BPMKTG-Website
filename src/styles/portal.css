@@ -3782,3 +3782,45 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
   .pt-count-rowbtn .pt-tag:not(.pt-tag-over) { display: none; }
   .pt-count-line { font-size: .95rem; }
 }
+
+/* ── needs your review ── */
+.pt-reviewstrip {
+  margin-bottom: var(--pt-5); padding: var(--pt-4);
+  border: 1px solid var(--pt-orange); border-radius: var(--pt-r);
+  background: var(--pt-tint-orange);
+}
+.pt-reviewstrip-head { display: flex; align-items: center; gap: var(--pt-2); margin-bottom: var(--pt-3); }
+.pt-reviewstrip-head h2 { margin: 0; font-size: 1rem; font-weight: 750; color: var(--pt-orange-ink); }
+.pt-reviewstrip-row { display: flex; gap: var(--pt-3); overflow-x: auto; padding-bottom: 4px; }
+.pt-rcard {
+  flex: 0 0 min(100%, 340px);
+  display: flex; flex-direction: column;
+  background: var(--pt-surface); border: 1px solid var(--pt-line);
+  border-radius: var(--pt-r); overflow: hidden; box-shadow: var(--pt-shadow);
+}
+.pt-rcard .pt-preview { margin: 0; border: 0; border-radius: 0; }
+.pt-rcard .pt-preview video, .pt-rcard .pt-preview img { max-height: 300px; }
+.pt-rcard .pt-preview iframe { aspect-ratio: 4 / 3; max-height: 300px; }
+.pt-rcard-link {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: var(--pt-5) var(--pt-3); background: var(--pt-tint-soft);
+  font-size: .86rem; font-weight: 650; color: var(--pt-navy);
+}
+.pt-rcard-link svg { width: 16px; height: 16px; }
+.pt-rcard-nolink { margin: 0; padding: var(--pt-4) var(--pt-3); background: var(--pt-tint-soft); font-size: .82rem; color: var(--pt-muted); }
+.pt-rcard-body { display: flex; flex-direction: column; gap: var(--pt-2); padding: var(--pt-3); flex: 1; }
+.pt-rcard-title { text-align: left; font-size: .95rem; font-weight: 700; color: var(--pt-ink); }
+.pt-rcard-title:hover { color: var(--pt-navy); }
+.pt-rcard-cap p {
+  margin: 0; font-size: .84rem; line-height: 1.4; color: var(--pt-ink-2); white-space: pre-wrap;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.pt-rcard-lab { display: block; font-size: .64rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--pt-muted); margin-bottom: 2px; }
+.pt-rcard-acts { display: flex; gap: 6px; margin-top: auto; padding-top: var(--pt-2); }
+.pt-rcard-acts .pt-btn { flex: 1; justify-content: center; }
+.pt-ccard-act-filmed { border-color: var(--pt-orange); color: var(--pt-orange-ink); }
+.pt-ccard-act-filmed:hover { background: var(--pt-tint-orange); }
+/* Two answers on a 186px card do not fit side by side without one of
+   them wrapping mid-word, so they stack when they have to. */
+.pt-ccard-acts { flex-wrap: wrap; }
+.pt-ccard-act { flex: 1 1 auto; white-space: nowrap; }

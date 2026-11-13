@@ -31,8 +31,10 @@
    ────────────────────────────────────────────────────────────── */
 
 import {
+  canClientMove,
   canDrop,
   dropStatus,
+  isFilmJob,
   latestFeedback,
   nextMove,
   shortDay,
@@ -259,6 +261,19 @@ export function createBoard(host: BoardHost): Board {
         b.addEventListener('click', (ev) => { ev.stopPropagation(); host.reviewAct!(c, a); });
         acts.appendChild(b);
       }
+      card.appendChild(acts);
+    }
+
+    // The one thing a client does to a card of ours before review:
+    // say they have filmed it. A button, because the other way to say
+    // it is to drag the card into Make, and nobody guesses that.
+    if (c.status === 'Planned' && host.role() === 'client' && isFilmJob(c)
+        && canClientMove(c.status, 'Filmed', { postedBy: c.postedBy, source: c.source })) {
+      const acts = el('div', 'pt-ccard-acts');
+      const b = el('button', 'pt-ccard-act pt-ccard-act-filmed', 'I filmed it');
+      b.type = 'button';
+      b.addEventListener('click', (ev) => { ev.stopPropagation(); host.setStatus(c, 'Filmed'); });
+      acts.appendChild(b);
       card.appendChild(acts);
     }
 

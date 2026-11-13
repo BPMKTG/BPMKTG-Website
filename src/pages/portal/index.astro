@@ -295,6 +295,7 @@ const NAV = [
   import { createBoard, isPhone, type Board } from '../../scripts/portal-board';
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { createCounter } from '../../scripts/portal-content-counter';
+  import { createReviewStrip } from '../../scripts/portal-content-review';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { createCalendar, type CalRow } from '../../scripts/portal-calendar';
   import { createMover } from '../../scripts/portal-move';
@@ -1458,6 +1459,14 @@ const NAV = [
     redraw: drawContent,
   });
 
+  /** Whatever is waiting on the client, lifted to the top of the tab. */
+  const conReview = createReviewStrip({
+    items: () => CON.items,
+    momentOf: conMoment,
+    openCard: openContentDrawer,
+    reviewAct: (c, a) => { void reviewAct(c, a); },
+  });
+
   /** The Content tab: the same view HQ draws, told a client is reading. */
   let CONVIEW: ContentView | null = null;
 
@@ -1477,7 +1486,7 @@ const NAV = [
       empty: contentEmpty,
       today: dateKeyToday,
       redraw: drawContent,
-      above: [conCounter],
+      above: [conReview, conCounter],
     });
     return CONVIEW;
   }
