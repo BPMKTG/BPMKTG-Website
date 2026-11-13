@@ -108,6 +108,64 @@ export function createBoard(host: BoardHost): Board {
     return DRAG_BLOCKED;
   }
 
+  /* ── dragging to a column that is off screen ─────────────────── */
+  // Eight columns do not fit on a laptop. Reaching the far one used to
+  // mean parking the card, scrolling the board and picking it up again,
+  // which is not a gesture anyone would guess at. Holding the card near
+  // an edge now pulls the board along under it.
+  //
+  // The loop reschedules itself rather than waiting on dragover,
+  // because dragover stops firing the moment the pointer holds still,
+  // which is exactly when someone is waiting for the board to move.
+
+  /** How near an edge counts as being at it. */
+  const EDGE = 72;
+  /** Pixels per frame hard against the edge, easing to nothing at EDGE. */
+  const EDGE_RATE = 22;
+
+  let edgeFrame = 0;
+  let edgeRate = 0;
+  /** The scroller of the current draw, for the handlers to reach. */
+  let scrollerEl: HTMLElement | null = null;
+
+  // Scroll snapping and a drag do not mix. The board snaps by the
+  // column, so a 15px nudge is rounded straight back to where it
+  // started and the board never moves at all. Snapping is turned off
+  // for the length of the drag and put back afterwards.
+  function edgeFree(on: boolean): void {
+    scrollerEl?.classList.toggle('pt-board-free', on);
+  }
+
+  function edgeStop(): void {
+    if (edgeFrame) cancelAnimationFrame(edgeFrame);
+    edgeFrame = 0;
+    edgeRate = 0;
+  }
+
+  function edgeStep(sc: HTMLElement): void {
+    edgeFrame = 0;
+    if (!DRAG || !edgeRate) return;
+    const was = sc.scrollLeft;
+    sc.scrollLeft = was + edgeRate;
+    // Hitting the end is the one way this stops on its own.
+    if (sc.scrollLeft === was) { edgeRate = 0; return; }
+    edgeFrame = requestAnimationFrame(() => edgeStep(sc));
+  }
+
+  /** Aim the loop from where the pointer is, or call it off. */
+  function edgeAim(sc: HTMLElement, x: number): void {
+    const r = sc.getBoundingClientRect();
+    const fromLeft = x - r.left;
+    const fromRight = r.right - x;
+    let rate = 0;
+    if (fromLeft < EDGE) rate = -EDGE_RATE * (1 - Math.max(0, fromLeft) / EDGE);
+    else if (fromRight < EDGE) rate = EDGE_RATE * (1 - Math.max(0, fromRight) / EDGE);
+    rate = Math.round(rate);
+    if (!rate) { edgeStop(); return; }
+    edgeRate = rate;
+    if (!edgeFrame) edgeFrame = requestAnimationFrame(() => edgeStep(sc));
+  }
+
   function cardEl(c: PortalContentItem): HTMLElement {
     const card = el('article', 'pt-ccard');
     const open = el('button', 'pt-ccard-open');
@@ -153,6 +211,16 @@ export function createBoard(host: BoardHost): Board {
 
     card.appendChild(open);
 
+    // The client's own words, on the face of the card. A row that lands
+    // in In edit carries the reason it was sent back, so whoever picks
+    // it up does not have to open the drawer to find out what to change.
+    if (c.feedback) {
+      const note = el('p', 'pt-ccard-note');
+      note.appendChild(el('span', 'pt-ccard-note-lab', 'Asked for'));
+      note.appendChild(el('span', undefined, c.feedback));
+      card.appendChild(note);
+    }
+
     // A card waiting on the client gets the two answers on its face.
     // Buried in the drawer, "your review" was a status rather than a
     // thing to do, and cards sat in it for days.
@@ -175,6 +243,7 @@ export function createBoard(host: BoardHost): Board {
       card.appendChild(grip);
       card.addEventListener('dragstart', (ev) => {
         DRAG = c;
+        edgeFree(true);
         card.classList.add('pt-ccard-dragging');
         markDropTargets(c);
         ev.dataTransfer?.setData('text/plain', c.title);
@@ -182,6 +251,8 @@ export function createBoard(host: BoardHost): Board {
       });
       card.addEventListener('dragend', () => {
         DRAG = null;
+        edgeStop();
+        edgeFree(false);
         card.classList.remove('pt-ccard-dragging');
         markDropTargets(null);
       });
@@ -235,6 +306,8 @@ export function createBoard(host: BoardHost): Board {
       });
       list.addEventListener('drop', (ev) => {
         ev.preventDefault();
+        edgeStop();
+        edgeFree(false);
         list.classList.remove('pt-board-drop', 'pt-board-nodrop');
         const item = DRAG;
         DRAG = null;
@@ -292,6 +365,11 @@ export function createBoard(host: BoardHost): Board {
 
     const scroller = el('div', 'pt-board');
     scroller.dataset.boardScroll = 'true';
+    scrollerEl = scroller;
+    scroller.addEventListener('dragover', (ev) => {
+      if (DRAG) edgeAim(scroller, ev.clientX);
+    });
+    scroller.addEventListener('drop', edgeStop);
     for (const c of COLS) scroller.appendChild(column(c));
     wrap.appendChild(scroller);
     return wrap;

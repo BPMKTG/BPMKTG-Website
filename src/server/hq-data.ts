@@ -152,6 +152,10 @@ export interface HqContentItem {
    *  pipeline board puts a card in a column by this, so a board
    *  without it would file every card under Planned. */
   source: string | null;
+  /** What the client wrote when they sent a cut back. Read into HQ so
+   *  the note travels with the card: a row that lands in In edit with
+   *  no reason on it is the one thing worse than no note at all. */
+  feedback: string | null;
   notes: string | null;
 }
 
@@ -350,6 +354,7 @@ async function readContent(token: string, now: Date): Promise<HqContentItem[]> {
       format: readSelect(p['Format']),
       postedBy: readSelect(p['Posted By']),
       source: readSelect(p['Source']),
+      feedback: readText(p['Feedback']),
       notes: readText(p['Notes']),
     };
   });

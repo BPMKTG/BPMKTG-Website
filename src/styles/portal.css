@@ -234,6 +234,9 @@ body.pt {
 
 .pt-main { flex: 1; min-width: 0; padding: var(--pt-6) var(--pt-5) var(--pt-8); }
 .pt-view { max-width: 1120px; margin: 0 auto; }
+/* The pipeline is eight columns wide and the reading column shows four
+   of them. The board views, and only those, are let out of it. */
+.pt-view[data-view="content"] { max-width: none; }
 .pt-view[hidden] { display: none; }
 
 /* bottom tab bar (mobile) */
@@ -1295,9 +1298,18 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
   padding-bottom: var(--pt-3);
   scroll-snap-type: x proximity;
 }
+/* Set while a card is in the air. Snapping rounds an auto-scroll step
+   back to the column it started on, so the board would never move. */
+.pt-board.pt-board-free { scroll-snap-type: none; }
 .pt-board-col {
   position: relative;
-  flex: 0 0 258px;
+  /* Grow into whatever room there is and shrink until the cards stop
+     reading, so a wide screen shows the whole pipeline rather than
+     half of it. Past the floor the board scrolls, and a drag near
+     either edge pulls it along. */
+  flex: 1 1 258px;
+  min-width: 212px;
+  max-width: 320px;
   display: flex; flex-direction: column;
   background: var(--pt-surface-2);
   border: 1px solid var(--pt-line);
@@ -3465,6 +3477,32 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 .pt-board-list { transition: opacity .14s ease, filter .14s ease; }
 
 /* The two answers a client gives a card that is waiting on them. */
+/* The client's own words, carried on the face of the card so whoever
+   picks the row up knows why it came back. Clamped to three lines: a
+   long note belongs in the drawer, a short one belongs here. */
+.pt-ccard-note {
+  margin: 0 .6rem .55rem;
+  padding: .4rem .5rem;
+  background: var(--pt-surface-2);
+  border-left: 2px solid var(--pt-blue);
+  border-radius: 0 var(--pt-r-sm) var(--pt-r-sm) 0;
+  font-size: .78rem;
+  line-height: 1.35;
+  color: var(--pt-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pt-ccard-note-lab {
+  display: block;
+  font-size: .64rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--pt-muted);
+  margin-bottom: .12rem;
+}
+
 .pt-ccard-acts {
   display: flex;
   gap: .4rem;
