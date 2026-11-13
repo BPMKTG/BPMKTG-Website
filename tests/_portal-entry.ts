@@ -27,3 +27,5 @@ export * from '../src/server/hq-write';
 // The one record of a publish email. Reads a claim out of a KV-shaped
 // object, so a stub covers it.
 export { mailSentAt } from '../src/server/report-mail';
+export * from '../src/data/playbooks';
+export * from '../src/server/playbooks';

@@ -57,6 +57,18 @@ integration. A database that was never shared returns 404 from the API,
 which the portal reports to the client as "this link isn't working",
 with the real reason only in the Function logs.
 
+Two more are read by the Content and Playbooks tabs, and need the same
+connection:
+
+| Database | ID |
+|---|---|
+| Content Pipeline | `086468afa36c414a9dd0e13fca387a42` |
+| Playbook Overrides | `a105d9c5790143dfb42741aa8e10d900` |
+
+The Playbook Overrides id is the **database** id. Notion also shows a
+`collection://` id for the same thing, and the API does not accept that
+one.
+
 ### 5. Tell them where it is
 
 ```
@@ -152,7 +164,7 @@ databases carry the column and both writes stamp it.
 
 ### What a client may write
 
-Five things, and nothing else:
+Six things, and nothing else:
 
 - their own content cards (the whitelist in `src/data/portal-content.ts`),
 - a new idea,
@@ -163,14 +175,52 @@ Five things, and nothing else:
   or picking one in the drawer,
 - the **Date** of a moment, which takes its campaign with it. See below.
 
+- a request for a change to a playbook step, which creates one Playbook
+  Overrides row with Status = Requested. They supply the step and a
+  reason. What the change is, and whether it applies, are set in HQ.
+
 Every one of those is re-checked on the server against the row as Notion
 currently holds it, never against anything in the request.
 
-**Offset (days) is never written.** It is the playbook's default
+On a content card that is OURS to post (Posted By = Blueprint) a client
+may do exactly two things: answer a cut that is Ready for Review, by
+approving it or sending it back with a note, and tick Filmed on a card
+they film (Source = Client Films), and untick it. A card they post is
+theirs end to end. Everything else is refused, and the board says
+"Blueprint moves this one".
+
+**Offset (days) is never written by the portal.** It is the playbook's default
 position for a step, and a dragged date is an override of that default,
 not a rewrite of it. After a whole campaign moves, every offset is still
 correct, because the moment and its steps moved by the same number of
 days.
+
+### Playbooks and overrides
+
+A playbook is the set of Campaign Calendar rows with **Is Playbook**
+ticked that share a **Playbook** name. HQ → Playbooks edits them, and
+every edit is confirmed with "This changes the playbook for every
+client, for future campaigns."
+
+An override is one client's exception to one playbook. Only an override
+whose Status is **Approved**, and which says completely what it does,
+is ever applied. It is applied in three places and nowhere else:
+
+- the timeline drawn for that client, in HQ and in their portal,
+- HQ → Playbooks → "Apply *playbook* to a moment", which creates the
+  steps on that client's moment with the overrides already in,
+- "Apply to open steps in upcoming moments" on an approved override,
+  which shows what it would change before it changes it, and only
+  touches steps that are Not Started or In Progress on moments that
+  have not happened.
+
+Approving an override never rewrites a campaign that is already on a
+calendar by itself. A playbook copied onto a moment by hand in Notion
+does not see overrides at all; use the button in HQ.
+
+HQ's own writes do set Offset (days), when an override shifts a step:
+that is the playbook's position for that client changing, which is what
+the column means.
 
 ### Moving a moment moves its campaign
 

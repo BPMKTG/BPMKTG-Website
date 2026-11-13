@@ -22,6 +22,7 @@ const NAV = [
   { id: 'clients',  label: 'Clients',  icon: 'home' },
   { id: 'calendar', label: 'Calendar', icon: 'cal' },
   { id: 'content',  label: 'Content',  icon: 'film' },
+  { id: 'playbooks', label: 'Playbooks', icon: 'playbook' },
   { id: 'pipeline', label: 'Pipeline', icon: 'grip' },
   { id: 'reports',  label: 'Reports',  icon: 'chart' },
 ];
@@ -63,6 +64,9 @@ const NAV = [
       </symbol>
       <symbol id="pt-i-story" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 6.5h3"/>
+      </symbol>
+      <symbol id="pt-i-playbook" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 4h11a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V4z"/><path d="M6 18a2 2 0 0 1 2-2h11"/><path d="M10 8h5M10 11.5h5"/>
       </symbol>
       <symbol id="pt-i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
         <path d="M12 5v14M5 12h14"/>
@@ -151,6 +155,7 @@ const NAV = [
           <section class="pt-view" data-view="clients" hidden></section>
           <section class="pt-view" data-view="calendar" hidden></section>
           <section class="pt-view" data-view="content" hidden></section>
+          <section class="pt-view" data-view="playbooks" hidden></section>
           <section class="pt-view" data-view="pipeline" hidden></section>
           <section class="pt-view" data-view="reports" hidden></section>
         </div>
@@ -245,10 +250,11 @@ const NAV = [
   import { createBoard, type Board } from '../../scripts/portal-board';
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { createCounter } from '../../scripts/portal-content-counter';
+  import { createHqPlaybooks, type Answer as PbAnswer } from '../../scripts/portal-playbooks';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { clear, el, icon, q, qq, show } from '../../scripts/portal-dom';
 
-  const VIEWS = ['today', 'clients', 'calendar', 'content', 'pipeline', 'reports'] as const;
+  const VIEWS = ['today', 'clients', 'calendar', 'content', 'playbooks', 'pipeline', 'reports'] as const;
   type View = typeof VIEWS[number];
 
   let HQ: any = null;
@@ -385,6 +391,7 @@ const NAV = [
     if (view === 'clients') drawClients(root);
     if (view === 'calendar') drawCalendarTab(root);
     if (view === 'content') drawContentTab(root);
+    if (view === 'playbooks') hqPlaybooks().draw(root);
     if (view === 'pipeline') drawPipeline(root);
     if (view === 'reports') drawReports(root);
   }
@@ -1937,6 +1944,43 @@ const NAV = [
     // Whichever tab the bar was clicked on. It used to redraw the
     // calendar from anywhere, which left Content showing the old set.
     draw(currentView() === 'content' ? 'content' : 'calendar');
+  }
+
+  /* ══ PLAYBOOKS ══════════════════════════════════════════════
+     The masters, and each client's overrides. Read on first open
+     rather than with the rest of HQ: a hundred rows that change a few
+     times a year should not be in the payload every tab waits on. */
+
+  let HQPB: ReturnType<typeof createHqPlaybooks> | null = null;
+
+  async function pbSend(method: 'GET' | 'POST' | 'PATCH', url: string, body?: unknown): Promise<PbAnswer> {
+    try {
+      const res = await fetch(url, {
+        method,
+        credentials: 'same-origin',
+        headers: method === 'GET' ? undefined : { 'Content-Type': 'application/json' },
+        body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
+      });
+      let json: Record<string, any> | null = null;
+      try { json = JSON.parse(await res.text()); } catch { json = null; }
+      return { ok: res.ok && json?.ok === true, status: res.status, json };
+    } catch (err) {
+      return { ok: false, status: 0, json: { detail: String(err) } };
+    }
+  }
+
+  function hqPlaybooks() {
+    HQPB ??= createHqPlaybooks({
+      send: pbSend,
+      clients: () => calClients().map((c) => ({ pageId: c.pageId, slug: c.slug, artist: c.artist })),
+      moments: (slug) => [...momentsNow().values()]
+        .filter((m) => m.clientSlug === slug)
+        .map((m) => ({ id: m.id, title: m.title, date: m.date })),
+      toast,
+      today: () => isoToday(),
+      calendarChanged: () => { void refreshCalendar(); },
+    });
+    return HQPB;
   }
 
   /* ══ PIPELINE ═══════════════════════════════════════════════ */

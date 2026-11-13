@@ -105,6 +105,31 @@ import {
   monthBounds,
   MONTH_MIN,
   MONTH_CAP,
+  // playbooks
+  offsetLabel,
+  stepWho,
+  overrideProblem,
+  isApplied,
+  effectivePlaybook,
+  byPhase,
+  nearestPhase,
+  playbookNames,
+  planApply,
+  planOverrideOnOpen,
+  stepFromMaster,
+  addDaysIso,
+  CHANGE_TYPES,
+  OVERRIDE_STATUSES,
+  clientPlaybooks,
+  clientRequests,
+  buildMasterProperties,
+  buildNewMaster,
+  buildOverrideProperties,
+  stepProperties,
+  cleanOffset,
+  vocabularyOf,
+  shapeMaster,
+  shapeOverride,
   cleanPatchText,
   cleanPatchUrl,
   cleanPatchDate,
@@ -3583,6 +3608,318 @@ is('layers: HQ draws the portal’s layers and Blueprint tasks',
    HQ_LAYERS.join('|'), 'moments|posts|films|todos|blueprint');
 is('layers: and the portal’s are a prefix of them, not a different list',
    HQ_LAYERS.slice(0, PORTAL_LAYERS.length).join('|'), PORTAL_LAYERS.join('|'));
+
+section('Playbooks · saying an offset, and who does a step');
+
+is('offset: before', offsetLabel(-21), '21 days before');
+is('offset: one day', [offsetLabel(-1), offsetLabel(1)], ['1 day before', '1 day after']);
+is('offset: the day itself', offsetLabel(0), 'On the day');
+is('offset: none', offsetLabel(null), 'No day set');
+is('who: a client flow is You', stepWho({ flow: 'Client film session', owner: 'Blueprint' }), 'You');
+is('who: films-then-we-edit is ours', stepWho({ flow: 'Client films → Blueprint edits + posts', owner: 'Client' }), 'Blueprint');
+is('who: with no flow, the owner says', [stepWho({ flow: null, owner: 'Client' }), stepWho({ flow: null, owner: 'Blueprint' })], ['You', 'Blueprint']);
+
+section('Playbooks · a playbook as one client gets it');
+
+const SEAN_ID = '3f7c8be8-be72-8123-a420-fb9aef6bc0e9';
+const mstep = (id, title, offset, o = {}) => ({ id, title, playbook: 'Release Sprint', phase: 'Sprint · Setup',
+  offset, flow: 'Blueprint task', owner: 'Blueprint', type: 'Admin', notes: null, where: null, why: null,
+  momentId: 'pb-moment', ...o });
+const MASTERS = [
+  mstep('m-upload', 'Upload to the distributor', -28),
+  mstep('m-film', '🎥 Film: studio snippet', -27, { flow: 'Client film session', owner: 'Client' }),
+  mstep('m-announce', 'Announce the single', -14, { phase: 'Sprint · Announce', flow: 'Blueprint makes + posts', type: 'Content' }),
+  mstep('m-drop', 'Drop day post', 0, { phase: 'Sprint · Follow-Through', flow: 'Blueprint makes + posts', type: 'Content' }),
+  mstep('m-other', 'Remix: clear the sample', -21, { playbook: 'Remix Drop', phase: 'Remix · Setup' }),
+];
+const ov = (id, o) => ({ id, change: id, clientId: SEAN_ID, playbook: 'Release Sprint', masterStepId: null,
+  changeType: null, newOffset: null, newFlow: null, newTitle: null, reason: null,
+  status: 'Approved', requestedBy: 'Blueprint', created: `2026-11-0${id.length % 9 + 1}T00:00:00Z`, ...o });
+const eff = (overrides, client = SEAN_ID, pb = 'Release Sprint') => effectivePlaybook(MASTERS, overrides, pb, client);
+const find = (list, key) => list.find((s2) => s2.key === key);
+
+is('effective: with nothing approved it is the master, step for step',
+   eff([]).map((s2) => [s2.title, s2.offset, s2.skipped, s2.added]),
+   [['Upload to the distributor', -28, false, false], ['🎥 Film: studio snippet', -27, false, false],
+    ['Announce the single', -14, false, false], ['Drop day post', 0, false, false]]);
+is('effective: only this playbook’s steps', eff([]).some((s2) => s2.playbook !== 'Release Sprint'), false);
+is('effective: with no client, overrides are not applied',
+   find(effectivePlaybook(MASTERS, [ov('a', { changeType: 'Skip', masterStepId: 'm-upload' })], 'Release Sprint', null), 'm-upload').skipped, false);
+
+{
+  const shifted = eff([ov('shift', { changeType: 'Shift timing', masterStepId: 'm-upload', newOffset: -18 })]);
+  is('shift: the step moves', find(shifted, 'm-upload').offset, -18);
+  is('shift: and remembers where the master had it', find(shifted, 'm-upload').was, { offset: -28 });
+  is('shift: the order follows the new day', shifted.map((s2) => s2.key).slice(0, 2), ['m-film', 'm-upload']);
+
+  const re = eff([ov('re', { changeType: 'Reassign', masterStepId: 'm-film', newFlow: 'Blueprint task' })]);
+  is('reassign: the Flow changes and the Owner follows it',
+     [find(re, 'm-film').flow, find(re, 'm-film').owner], ['Blueprint task', 'Blueprint']);
+  is('reassign: the master’s flow is kept for the hover', find(re, 'm-film').was.flow, 'Client film session');
+
+  const sk = eff([ov('sk', { changeType: 'Skip', masterStepId: 'm-announce' })]);
+  is('skip: the step is marked, not removed, so the timeline can show it', find(sk, 'm-announce').skipped, true);
+
+  const rw = eff([ov('rw', { changeType: 'Reword', masterStepId: 'm-drop', newTitle: '  Drop day: post and pin  ' })]);
+  is('reword: the new wording, trimmed', [find(rw, 'm-drop').title, find(rw, 'm-drop').was.title],
+     ['Drop day: post and pin', 'Drop day post']);
+
+  const ad = eff([ov('ad', { changeType: 'Add step', newTitle: 'Clear the remix', newOffset: -21, newFlow: 'Blueprint task', reason: 'flagged before' })]);
+  const added = find(ad, 'add:ad');
+  is('add: a step that exists only for this client',
+     [added.added, added.masterId, added.offset, added.flow, added.owner, added.type],
+     [true, null, -21, 'Blueprint task', 'Blueprint', 'Admin']);
+  is('add: it joins the phase of the step nearest its day', added.phase, 'Sprint · Setup');
+  is('add: a step that posts is content',
+     find(eff([ov('ad2', { changeType: 'Add step', newTitle: 'Teaser', newOffset: -7, newFlow: 'Blueprint makes + posts' })]), 'add:ad2').type, 'Content');
+  is('add: it is not added to another playbook', eff([ov('ad', { changeType: 'Add step', newTitle: 'x', newOffset: -1, newFlow: 'Blueprint task' })], SEAN_ID, 'Remix Drop').some((s2) => s2.added), false);
+}
+
+// Only Approved applies. This is the rule the whole feature hangs on.
+for (const status of ['Draft', 'Requested', 'Declined', null]) {
+  is(`effective: a ${status ?? 'statusless'} override changes nothing`,
+     eff([ov('x', { status, changeType: 'Shift timing', masterStepId: 'm-upload', newOffset: -18 }),
+          ov('y', { status, changeType: 'Add step', newTitle: 'Extra', newOffset: -3, newFlow: 'Blueprint task' })])
+       .map((s2) => [s2.key, s2.offset, s2.overrideIds.length]),
+     eff([]).map((s2) => [s2.key, s2.offset, 0]));
+}
+is('effective: another client’s approved override changes nothing',
+   find(eff([ov('z', { clientId: 'someone-else', changeType: 'Skip', masterStepId: 'm-upload' })]), 'm-upload').skipped, false);
+is('effective: an approved override that says nothing changes nothing',
+   eff([ov('v', { changeType: null })]).every((s2) => !s2.overrideIds.length), true);
+is('effective: two on one step compose, oldest first',
+   find(eff([ov('bb', { changeType: 'Shift timing', masterStepId: 'm-upload', newOffset: -10, created: '2026-11-02T00:00:00Z' }),
+             ov('aa', { changeType: 'Shift timing', masterStepId: 'm-upload', newOffset: -20, created: '2026-11-01T00:00:00Z' })]), 'm-upload'),
+   { ...find(eff([]), 'm-upload'), offset: -10, was: { offset: -28 }, overrideIds: ['aa', 'bb'] });
+
+section('Playbooks · when an override can be approved');
+
+is('problem: no change type', overrideProblem(ov('p', {})), 'Say what kind of change it is first.');
+is('problem: a shift with no offset', overrideProblem(ov('p', { changeType: 'Shift timing', masterStepId: 'm-upload' })), 'Say the new offset in days.');
+is('problem: a shift with no step', overrideProblem(ov('p', { changeType: 'Shift timing', newOffset: -3 })), 'Pick the step it changes.');
+is('problem: a reassign to something that is not a flow', overrideProblem(ov('p', { changeType: 'Reassign', masterStepId: 'm-film', newFlow: 'Whoever' })), 'Pick the new flow.');
+is('problem: an add with no flow', overrideProblem(ov('p', { changeType: 'Add step', newTitle: 'x', newOffset: -1 })), 'Pick who does it.');
+is('problem: no client', overrideProblem(ov('p', { clientId: null, changeType: 'Skip', masterStepId: 'm-film' })), 'It is not linked to a client.');
+is('problem: a zero offset is an offset', overrideProblem(ov('p', { changeType: 'Shift timing', masterStepId: 'm-upload', newOffset: 0 })), null);
+is('problem: each kind, complete, has none',
+   [ov('p', { changeType: 'Shift timing', masterStepId: 'm-upload', newOffset: -18 }),
+    ov('p', { changeType: 'Reassign', masterStepId: 'm-film', newFlow: 'Blueprint task' }),
+    ov('p', { changeType: 'Skip', masterStepId: 'm-film' }),
+    ov('p', { changeType: 'Reword', masterStepId: 'm-film', newTitle: 'New words' }),
+    ov('p', { changeType: 'Add step', newTitle: 'x', newOffset: -1, newFlow: 'Client task' })].map(overrideProblem),
+   [null, null, null, null, null]);
+is('applied: Approved and complete', isApplied(ov('p', { changeType: 'Skip', masterStepId: 'm-film' })), true);
+is('applied: Approved but incomplete is not', isApplied(ov('p', { changeType: 'Shift timing', masterStepId: 'm-film' })), false);
+is('vocabulary: the five kinds and four statuses Notion has',
+   [CHANGE_TYPES.length, OVERRIDE_STATUSES.join('|')], [5, 'Draft|Requested|Approved|Declined']);
+
+section('Playbooks · phases and names');
+
+is('phases: in the order they happen', byPhase(eff([])).map((g) => `${g.phase}:${g.steps.length}`),
+   ['Sprint · Setup:2', 'Sprint · Announce:1', 'Sprint · Follow-Through:1']);
+is('phases: a step with none still has somewhere to be', byPhase([{ phase: null, offset: 0 }])[0].phase, 'No phase');
+is('nearest phase: the step it follows', nearestPhase(MASTERS.filter((m) => m.playbook === 'Release Sprint'), -13), 'Sprint · Announce');
+is('names: campaign order, then anything new alphabetically',
+   playbookNames([{ playbook: 'Zeta' }, { playbook: 'Post-Show' }, { playbook: 'Release Rollout' }, { playbook: 'Alpha' }, { playbook: 'Post-Show' }]),
+   ['Release Rollout', 'Post-Show', 'Alpha', 'Zeta']);
+
+section('Playbooks · applying one to a moment');
+
+{
+  const plain = planApply(eff([]), '2026-12-04');
+  is('apply: every step, dated from the moment',
+     plain.map((p2) => [p2.title, p2.date]),
+     [['Upload to the distributor', '2026-11-06'], ['🎥 Film: studio snippet', '2026-11-07'],
+      ['Announce the single', '2026-11-20'], ['Drop day post', '2026-12-04']]);
+  const withAll = planApply(eff([
+    ov('shift', { changeType: 'Shift timing', masterStepId: 'm-upload', newOffset: -18 }),
+    ov('re', { changeType: 'Reassign', masterStepId: 'm-film', newFlow: 'Blueprint task' }),
+    ov('sk', { changeType: 'Skip', masterStepId: 'm-announce' }),
+    ov('rw', { changeType: 'Reword', masterStepId: 'm-drop', newTitle: 'Drop day: post and pin' }),
+    ov('ad', { changeType: 'Add step', newTitle: 'Clear the remix', newOffset: -21, newFlow: 'Blueprint task' }),
+    ov('draft', { status: 'Draft', changeType: 'Skip', masterStepId: 'm-drop' }),
+  ]), '2026-12-04');
+  const by = (t) => withAll.find((p2) => p2.title === t);
+  is('apply: a shifted step lands on its new day', [by('Upload to the distributor').offset, by('Upload to the distributor').date], [-18, '2026-11-16']);
+  is('apply: a reassigned step has its new Flow and Owner', [by('🎥 Film: studio snippet').flow, by('🎥 Film: studio snippet').owner], ['Blueprint task', 'Blueprint']);
+  is('apply: a skipped step is not created', by('Announce the single'), undefined);
+  is('apply: a reworded step is created under its new title', !!by('Drop day: post and pin') && !by('Drop day post'), true);
+  is('apply: an added step is created', [by('Clear the remix').date, by('Clear the remix').owner], ['2026-11-13', 'Blueprint']);
+  is('apply: a Draft skip did not remove anything', withAll.length, 4);
+  is('apply: a step already on the moment is not doubled',
+     planApply(eff([]), '2026-12-04', ['drop day post ', 'Something else']).map((p2) => p2.title).includes('Drop day post'), false);
+  is('apply: a moment with no date gets undated steps', planApply(eff([]), null).every((p2) => p2.date === null), true);
+  is('days: across a month and a year', [addDaysIso('2026-12-04', -18), addDaysIso('2026-12-25', 10)], ['2026-11-16', '2027-01-04']);
+}
+
+section('Playbooks · applying an override to campaigns already running');
+
+{
+  const moments = [
+    { id: 'mo-past', title: 'Rooftop Remix', date: '2026-11-01' },
+    { id: 'mo-soon', title: 'IDHHW', date: '2026-12-04' },
+    { id: 'mo-later', title: 'Every Season', date: '2027-01-08' },
+    { id: 'mo-show', title: 'Christmas Show', date: '2026-12-13' },
+  ];
+  const cstep = (id, momentId, title, offset, o = {}) => ({ id, title, playbook: 'Release Sprint',
+    phase: 'Sprint · Setup', offset, status: 'Not Started', momentId, ...o });
+  const steps = [
+    cstep('s1', 'mo-past', 'Upload to the distributor', -28),
+    cstep('s2', 'mo-soon', 'Upload to the distributor', -28),
+    cstep('s3', 'mo-later', 'Upload to the distributor', -28, { status: 'Done' }),
+    cstep('s4', 'mo-later', 'Get the master to the distributor', -28),            // reworded by hand
+    cstep('s5', 'mo-soon', '🎥 Film: studio snippet', -27, { status: 'Skipped' }),
+    cstep('s6', 'mo-show', 'Lock show details', -35, { playbook: 'Pre-Show', phase: 'Pre-Show · Prep' }),
+  ];
+  const plan = (o) => planOverrideOnOpen(o, MASTERS, steps, moments, '2026-11-13');
+  const shift = plan(ov('shift', { changeType: 'Shift timing', masterStepId: 'm-upload', newOffset: -18 }));
+  is('open: only open steps on moments still ahead', shift.map((w) => w.stepId), ['s2', 's4']);
+  is('open: the new offset and the date it implies', shift[0].set, { offset: -18, date: '2026-11-16' });
+  is('open: a copy reworded by hand is still found, by where it sits', shift[1].stepTitle, 'Get the master to the distributor');
+  is('open: a past moment is left alone', shift.some((w) => w.momentId === 'mo-past'), false);
+  is('open: a finished step is left alone', shift.some((w) => w.stepId === 's3'), false);
+  is('open: a skipped step is left alone',
+     plan(ov('re', { changeType: 'Reassign', masterStepId: 'm-film', newFlow: 'Blueprint task' })), []);
+  is('open: skip writes Skipped',
+     plan(ov('sk', { changeType: 'Skip', masterStepId: 'm-upload' })).map((w) => w.set), [{ status: 'Skipped' }, { status: 'Skipped' }]);
+  is('open: reword does not rewrite a step that already says it',
+     plan(ov('rw', { changeType: 'Reword', masterStepId: 'm-upload', newTitle: 'Get the master to the distributor' })).map((w) => w.stepId), ['s2']);
+  const add = plan(ov('ad', { changeType: 'Add step', newTitle: 'Clear the remix', newOffset: -21, newFlow: 'Blueprint task' }));
+  is('open: an added step goes on each upcoming campaign running that playbook',
+     add.map((w) => [w.kind, w.momentTitle, w.step.date]), [['create', 'IDHHW', '2026-11-13'], ['create', 'Every Season', '2026-12-18']]);
+  is('open: and not on a campaign running a different one', add.some((w) => w.momentId === 'mo-show'), false);
+  is('open: nor twice',
+     planOverrideOnOpen(ov('ad', { changeType: 'Add step', newTitle: 'Clear the remix', newOffset: -21, newFlow: 'Blueprint task' }),
+       MASTERS, [...steps, cstep('s9', 'mo-soon', 'clear the remix', -21)], moments, '2026-11-13').map((w) => w.momentTitle), ['Every Season']);
+  for (const status of ['Draft', 'Requested', 'Declined']) {
+    is(`open: a ${status} override writes nothing`,
+       plan(ov('n', { status, changeType: 'Skip', masterStepId: 'm-upload' })), []);
+  }
+  is('match: the same title', stepFromMaster(steps[1], MASTERS[0], MASTERS.filter((m) => m.playbook === 'Release Sprint')), true);
+  is('match: not across playbooks', stepFromMaster({ ...steps[1], playbook: 'Remix Drop' }, MASTERS[0], MASTERS), false);
+  is('match: a step that is another master by title is not this one',
+     stepFromMaster(cstep('q', 'mo-soon', '🎥 Film: studio snippet', -28), MASTERS[0], MASTERS.filter((m) => m.playbook === 'Release Sprint')), false);
+  is('match: a shared slot identifies nobody',
+     stepFromMaster(cstep('q', 'mo-soon', 'Something reworded', -28), MASTERS[0],
+       [...MASTERS.filter((m) => m.playbook === 'Release Sprint'), mstep('m-twin', 'Twin', -28)]), false);
+}
+
+section('Playbooks · what a client is sent');
+
+{
+  const withNotes = MASTERS.map((m) => ({ ...m, notes: 'OURS: do not show', where: 'IG', why: 'Because it works' }));
+  const sent = clientPlaybooks(withNotes, [
+    ov('sk', { changeType: 'Skip', masterStepId: 'm-announce' }),
+    ov('shift', { changeType: 'Shift timing', masterStepId: 'm-upload', newOffset: -18 }),
+    ov('ad', { changeType: 'Add step', newTitle: 'Clear the remix', newOffset: -21, newFlow: 'Blueprint task', reason: 'internal reason' }),
+    ov('draft', { status: 'Draft', changeType: 'Reword', masterStepId: 'm-drop', newTitle: 'A DRAFT TITLE' }),
+  ], SEAN_ID);
+  const sprint = sent.find((p2) => p2.name === 'Release Sprint');
+  const flat = sprint.phases.flatMap((g) => g.steps);
+  is('client: every playbook that has steps', sent.map((p2) => p2.name), ['Release Sprint', 'Remix Drop']);
+  is('client: a step carries these keys and no others',
+     Object.keys(flat[0]).sort(), ['changed', 'key', 'offset', 'title', 'where', 'who', 'why']);
+  is('client: our notes are nowhere in it', JSON.stringify(sent).includes('OURS'), false);
+  is('client: nor the reason we gave for an added step', JSON.stringify(sent).includes('internal reason'), false);
+  is('client: a skipped step is simply not there', flat.some((x) => x.title === 'Announce the single'), false);
+  is('client: a shifted step is on its new day and marked',
+     [flat.find((x) => x.key === 'm-upload').offset, flat.find((x) => x.key === 'm-upload').changed], [-18, true]);
+  is('client: an added step is there, marked, with nothing to request against',
+     [flat.find((x) => x.title === 'Clear the remix').changed, flat.find((x) => x.title === 'Clear the remix').key], [true, '']);
+  is('client: a Draft of ours changes nothing they see', JSON.stringify(sent).includes('A DRAFT TITLE'), false);
+  is('client: every step says You or Blueprint', flat.every((x) => x.who === 'You' || x.who === 'Blueprint'), true);
+  is('client: a hidden master is left out',
+     clientPlaybooks(MASTERS.map((m) => (m.id === 'm-film' ? { ...m, hideFromClient: true } : m)), [], SEAN_ID)
+       .flatMap((p2) => p2.phases.flatMap((g) => g.steps)).some((x) => x.key === 'm-film'), false);
+
+  const reqs = clientRequests(MASTERS, [
+    ov('theirs', { requestedBy: 'Client', status: 'Requested', masterStepId: 'm-upload', reason: 'too early', created: '2026-11-10T00:00:00Z' }),
+    ov('theirs2', { requestedBy: 'Client', status: 'Declined', masterStepId: 'm-drop', created: '2026-11-12T00:00:00Z' }),
+    ov('ours', { requestedBy: 'Blueprint', status: 'Draft', masterStepId: 'm-film', reason: 'EXAMPLE' }),
+    ov('other', { requestedBy: 'Client', clientId: 'someone-else', status: 'Requested', masterStepId: 'm-film' }),
+  ], SEAN_ID);
+  is('requests: theirs only, newest first', reqs.map((r) => [r.id, r.status]), [['theirs2', 'Declined'], ['theirs', 'Requested']]);
+  is('requests: the step by name', reqs[1].step, 'Upload to the distributor');
+  is('requests: nothing we drafted for them', JSON.stringify(reqs).includes('EXAMPLE'), false);
+}
+
+section('Playbooks · the write whitelists');
+
+{
+  const vocab = vocabularyOf(MASTERS);
+  is('vocabulary: phases and playbooks some master already uses',
+     [vocab.phases.includes('Sprint · Setup'), vocab.playbooks.slice().sort()], [true, ['Release Sprint', 'Remix Drop']]);
+  is('offset: a whole number of days within a year', [cleanOffset(-28), cleanOffset(0), cleanOffset(365)], [-28, 0, 365]);
+  is('offset: nothing else', [cleanOffset(-28.5), cleanOffset('-28'), cleanOffset(366), cleanOffset(null), cleanOffset(NaN)],
+     [undefined, undefined, undefined, undefined, undefined]);
+
+  const edit = buildMasterProperties({ title: '  New title ', offset: -30, flow: 'Client film session', phase: 'Sprint · Setup', notes: '' }, vocab);
+  is('master: each field lands on its own property',
+     Object.keys(edit.properties).sort(), ['Flow', 'Item', 'Notes', 'Offset (days)', 'Owner', 'Phase']);
+  is('master: Owner follows Flow, and is never the request’s to say',
+     [edit.properties.Owner.select.name,
+      buildMasterProperties({ flow: 'Blueprint task', owner: 'Client', Owner: 'Client' }, vocab).properties.Owner.select.name],
+     ['Client', 'Blueprint']);
+  is('master: an empty note clears it', edit.properties.Notes.rich_text, []);
+  is('master: a phase Notion does not have is refused, not created',
+     buildMasterProperties({ phase: 'A Phase I Made Up' }, vocab).rejected, ['phase']);
+  is('master: a flow that is not a flow is refused', buildMasterProperties({ flow: 'Whoever' }, vocab).rejected, ['flow']);
+  is('master: a title cannot be emptied', buildMasterProperties({ title: '   ' }, vocab).rejected, ['title']);
+  is('master: the things that make a row a master cannot be sent',
+     Object.keys(buildMasterProperties({ 'Is Playbook': false, Kind: 'Moment', Client: ['x'], isPlaybook: false, kind: 'Moment' }, vocab).properties), []);
+
+  const fresh = buildNewMaster({ playbook: 'Release Sprint', title: 'Teaser', offset: -7, flow: 'Blueprint makes + posts', phase: 'Sprint · Announce' }, vocab, MASTERS);
+  is('new master: it is a master step, in that playbook, hung off its moment',
+     [fresh.properties['Is Playbook'].checkbox, fresh.properties.Kind.select.name, fresh.properties.Playbook.select.name,
+      fresh.properties.Moment.relation[0].id, fresh.properties.Type.select.name, fresh.rejected],
+     [true, 'Step', 'Release Sprint', 'pb-moment', 'Content', []]);
+  is('new master: a playbook that does not exist is refused',
+     buildNewMaster({ playbook: 'Made Up', title: 'x', offset: 0, flow: 'Blueprint task', phase: 'Sprint · Setup' }, vocab, MASTERS).rejected, ['playbook']);
+  is('new master: it needs every part of a step',
+     buildNewMaster({ playbook: 'Release Sprint', title: 'x' }, vocab, MASTERS).rejected.sort(),
+     ['missing:Flow', 'missing:Offset (days)', 'missing:Phase']);
+
+  const octx = (role) => ({ masterIds: MASTERS.map((m) => m.id), playbooks: vocab.playbooks, role });
+  const asClient = buildOverrideProperties({ reason: 'too early', status: 'Approved', changeType: 'Skip',
+    newOffset: -1, newFlow: 'Blueprint task', newTitle: 'x', masterStepId: 'm-upload', change: 'x', playbook: 'Remix Drop' }, octx('client'));
+  is('override: a client writes a reason and nothing else', Object.keys(asClient.properties), ['Reason']);
+  is('override: and everything else they sent is named as refused',
+     asClient.rejected.sort(), ['change', 'changeType', 'masterStepId', 'newFlow', 'newOffset', 'newTitle', 'playbook', 'status']);
+  const asAdmin = buildOverrideProperties({ change: 'Shift it', changeType: 'Shift timing', masterStepId: 'm-upload',
+    newOffset: -18, status: 'Approved', reason: 'because' }, octx('admin'));
+  is('override: an admin sets the change',
+     [asAdmin.properties['Change Type'].select.name, asAdmin.properties['New Offset (days)'].number,
+      asAdmin.properties['Master Step'].relation[0].id, asAdmin.properties.Status.select.name, asAdmin.rejected],
+     ['Shift timing', -18, 'm-upload', 'Approved', []]);
+  is('override: a step that is not a master cannot be linked',
+     buildOverrideProperties({ masterStepId: 'a-clients-own-step' }, octx('admin')).rejected, ['masterStepId']);
+  is('override: a kind or a status Notion does not have is refused',
+     buildOverrideProperties({ changeType: 'Delete everything', status: 'Live' }, octx('admin')).rejected, ['changeType', 'status']);
+  is('override: who it is for and who asked are never the request’s to say',
+     Object.keys(buildOverrideProperties({ Client: ['x'], clientId: 'x', requestedBy: 'Blueprint', 'Requested By': 'Blueprint' }, octx('admin')).properties), []);
+
+  const made = stepProperties({ title: 'Drop day post', playbook: 'Release Sprint', phase: 'Sprint · Follow-Through',
+    offset: 0, date: '2026-12-04', flow: 'Blueprint makes + posts', owner: 'Blueprint', type: 'Content',
+    notes: 'n', where: 'IG', why: 'y' }, 'client-page', 'moment-page');
+  is('created step: it is a client’s step on that moment, not a master',
+     [made['Is Playbook'].checkbox, made.Kind.select.name, made.Client.relation[0].id, made.Moment.relation[0].id,
+      made.Status.select.name, made.Date.date.start, made['Offset (days)'].number, made['Last Edited By'].select.name],
+     [false, 'Step', 'client-page', 'moment-page', 'Not Started', '2026-12-04', 0, 'Blueprint']);
+  is('created step: a flow that is not a flow is left empty rather than created',
+     stepProperties({ title: 'x', playbook: 'Release Sprint', phase: null, offset: 0, date: null, flow: 'Made up',
+       owner: 'Nobody', type: 'Other', notes: null, where: null, why: null }, 'c', 'm').Flow.select, null);
+
+  const page = { id: 'p1', created_time: '2026-11-13T00:00:00Z', properties: {
+    'Is Playbook': { type: 'checkbox', checkbox: true }, Kind: { type: 'select', select: { name: 'Step' } },
+    Playbook: { type: 'select', select: { name: 'Pre-Show' } }, Item: { type: 'title', title: [{ plain_text: ' Lock it ' }] },
+    'Offset (days)': { type: 'number', number: -35 } } };
+  is('read: a master row', [shapeMaster(page).title, shapeMaster(page).offset, shapeMaster(page).playbook], ['Lock it', -35, 'Pre-Show']);
+  is('read: a client’s step is not a master',
+     shapeMaster({ ...page, properties: { ...page.properties, 'Is Playbook': { type: 'checkbox', checkbox: false } } }), null);
+  is('read: a master moment is not a master step',
+     shapeMaster({ ...page, properties: { ...page.properties, Kind: { type: 'select', select: { name: 'Moment' } } } }), null);
+  is('read: an override row with nothing set', [shapeOverride({ id: 'o1', properties: {} }).status, shapeOverride({ id: 'o1', properties: {} }).newOffset], [null, null]);
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

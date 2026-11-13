@@ -15,6 +15,7 @@ const NAV = [
   { id: 'home',     label: 'Home',     icon: 'home' },
   { id: 'calendar', label: 'Calendar', icon: 'cal' },
   { id: 'content',  label: 'Content',  icon: 'film' },
+  { id: 'playbooks', label: 'Playbooks', icon: 'playbook' },
   { id: 'reports',  label: 'Reports',  icon: 'chart' },
   { id: 'files',    label: 'Files',    icon: 'folder' },
 ];
@@ -55,6 +56,9 @@ const NAV = [
       </symbol>
       <symbol id="pt-i-story" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 6.5h3"/>
+      </symbol>
+      <symbol id="pt-i-playbook" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 4h11a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V4z"/><path d="M6 18a2 2 0 0 1 2-2h11"/><path d="M10 8h5M10 11.5h5"/>
       </symbol>
       <symbol id="pt-i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
         <path d="M12 5v14M5 12h14"/>
@@ -195,6 +199,7 @@ const NAV = [
         <section class="pt-view" data-view="home" aria-label="Home"></section>
         <section class="pt-view" data-view="calendar" aria-label="Calendar" hidden></section>
         <section class="pt-view" data-view="content" aria-label="Content" hidden></section>
+        <section class="pt-view" data-view="playbooks" aria-label="Playbooks" hidden></section>
         <section class="pt-view" data-view="reports" aria-label="Reports" hidden></section>
         <section class="pt-view" data-view="files" aria-label="Files" hidden></section>
       </main>
@@ -296,6 +301,7 @@ const NAV = [
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { createCounter } from '../../scripts/portal-content-counter';
   import { createReviewStrip } from '../../scripts/portal-content-review';
+  import { createClientPlaybooks, type Answer as PbAnswer } from '../../scripts/portal-playbooks';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { createCalendar, type CalRow } from '../../scripts/portal-calendar';
   import { createMover } from '../../scripts/portal-move';
@@ -574,7 +580,7 @@ const NAV = [
   /* ── router ────────────────────────────────────────────────────
      Hash routes so each section is its own view in the shell rather
      than one long scroll, and so a client can bookmark "my calendar". */
-  const VIEWS = ['home', 'calendar', 'content', 'reports', 'files'] as const;
+  const VIEWS = ['home', 'calendar', 'content', 'playbooks', 'reports', 'files'] as const;
   type View = typeof VIEWS[number];
 
   function currentRoute(): { view: View; detail: string } {
@@ -598,6 +604,7 @@ const NAV = [
     }
     if (view === 'reports') showPlatform(detail);
     if (view === 'content') drawContent();
+    if (view === 'playbooks') drawPlaybooks();
     // #/calendar/<moment page id> opens the calendar with that campaign
     // already filtered. Blueprint HQ's campaign chips link here, so a
     // moment in a list over there is one click from the rollout it
@@ -1458,6 +1465,33 @@ const NAV = [
     mediaOptions: () => CON.schema.media.map((o) => o.name),
     redraw: drawContent,
   });
+
+  /* ── playbooks ────────────────────────────────────────────────
+     How a campaign is planned, as this client will get it. Read on
+     first open; nothing else in the portal waits on it. */
+
+  async function pbSend(method: 'GET' | 'POST' | 'PATCH', url: string, body?: unknown): Promise<PbAnswer> {
+    try {
+      const res = await fetch(url, {
+        method,
+        credentials: 'same-origin',
+        headers: method === 'GET' ? undefined : { 'Content-Type': 'application/json' },
+        body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
+      });
+      let json: Record<string, any> | null = null;
+      try { json = JSON.parse(await res.text()); } catch { json = null; }
+      return { ok: res.ok && json?.ok === true, status: res.status, json };
+    } catch {
+      return { ok: false, status: 0, json: null };
+    }
+  }
+
+  const PLAYBOOKS = createClientPlaybooks({ send: pbSend, slug: () => SLUG, toast });
+
+  function drawPlaybooks() {
+    const root = q('[data-view="playbooks"]');
+    if (root) PLAYBOOKS.draw(root);
+  }
 
   /** Whatever is waiting on the client, lifted to the top of the tab. */
   const conReview = createReviewStrip({
