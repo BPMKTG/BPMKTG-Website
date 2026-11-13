@@ -234,7 +234,7 @@ const NAV = [
     termProgress, HQ_LAYERS, KIND_LABEL,
     type PortalCalendarItem,
   } from '../../data/portal';
-  import { type PortalContentItem, type Voice } from '../../data/portal-content';
+  import { counterMonths, type PortalContentItem, type Voice } from '../../data/portal-content';
   import type { HqCalItem, HqContentItem } from '../../server/hq-data';
   import { createCalendar, type Calendar } from '../../scripts/portal-calendar';
   import { createMover, type Mover } from '../../scripts/portal-move';
@@ -244,6 +244,7 @@ const NAV = [
   // copy of them rather than one per screen.
   import { createBoard, type Board } from '../../scripts/portal-board';
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
+  import { createCounter } from '../../scripts/portal-content-counter';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { clear, el, icon, q, qq, show } from '../../scripts/portal-dom';
 
@@ -602,8 +603,6 @@ const NAV = [
     root.appendChild(linksCard(c));
     root.appendChild(todosCard(c));
     root.appendChild(calendarCard(c));
-    root.appendChild(contentCard(c));
-    // The same board the client is looking at, with our hands on it.
     root.appendChild(clientBoard(c.slug));
     root.appendChild(reportsCard(c));
   }
@@ -934,44 +933,6 @@ const NAV = [
       list.appendChild(r);
     }
     body.appendChild(list);
-    return card;
-  }
-
-  function contentCard(c: CardClient): HTMLElement {
-    const { card, body } = cardShell('Content');
-    const rows = (HQ?.content ?? []).filter((p: any) => p.clientId === c.pageId);
-    if (!rows.length) {
-      body.appendChild(el('p', 'hq-none', 'No content in the window.'));
-      return card;
-    }
-
-    // Grouped by status, in the order the pipeline runs rather than
-    // alphabetically, so the board reads left to right.
-    const ORDER = ['Idea', 'Planned', 'Filmed', 'Footage In', 'Editing',
-                   'Ready for Review', 'Approved', 'Scheduled', 'Posted', 'Skipped'];
-    const groups = new Map<string, any[]>();
-    for (const p of rows) {
-      const k = p.status ?? 'No status';
-      if (!groups.has(k)) groups.set(k, []);
-      groups.get(k)!.push(p);
-    }
-    const board = el('div', 'hq-board');
-    for (const name of [...groups.keys()].sort((a, b) =>
-      (ORDER.indexOf(a) + 1 || 99) - (ORDER.indexOf(b) + 1 || 99))) {
-      const col = el('div', 'hq-col');
-      const h = el('div', 'hq-col-head');
-      h.append(el('span', undefined, name),
-        el('span', 'hq-sec-count', String(groups.get(name)!.length)));
-      col.appendChild(h);
-      for (const p of groups.get(name)!) {
-        const t = el('div', 'hq-col-card');
-        t.append(el('div', 'hq-col-t', p.title || 'Untitled'),
-          el('div', 'hq-col-d', p.postDate ? shortDay(p.postDate) : 'no date'));
-        col.appendChild(t);
-      }
-      board.appendChild(col);
-    }
-    body.appendChild(board);
     return card;
   }
 
@@ -1731,10 +1692,40 @@ const NAV = [
         today: () => isoToday(),
         redraw: redrawBoard,
         clientOf: (c) => (scope ? null : (c as any).clientName ?? null),
+        above: [hqCounter(scope)],
       });
       HQVIEWS.set(key, view);
     }
     return view;
+  }
+
+  /** What gets each client to twenty-five. One block per client on
+   *  screen: a single number across a roster would be a total nobody
+   *  sold and nobody owes. */
+  function hqCounter(scope: string | null) {
+    return createCounter({
+      role: () => 'admin',
+      groups: () => calClients()
+        .filter((c) => (scope ? c.slug === scope : showingClient(c.slug)))
+        .map((c) => ({
+          key: c.slug, name: c.artist,
+          items: BOARD_ITEMS.filter((x) => (x as any).clientSlug === c.slug),
+        })),
+      months: () => counterMonths(isoToday()),
+      today: () => isoToday(),
+      momentOf: hqMomentOf,
+      openCard: openCardDrawer,
+      mediaOptions: () => ((HQ?.contentSchema?.media ?? []) as Array<{ name: string }>).map((o) => o.name),
+      addPiece: async (group, piece) => {
+        const res = await hqPost(`/portal/${encodeURIComponent(group.key)}/content`,
+          { ...piece, status: 'Planned', piece: true });
+        if (!res.ok) { toast('That did not save. Check your connection and try again.', true); return false; }
+        toast(`Added for ${group.name}`);
+        await refreshCalendar();
+        return true;
+      },
+      redraw: redrawBoard,
+    });
   }
 
   function mountBoard(scope: string | null): HTMLElement {

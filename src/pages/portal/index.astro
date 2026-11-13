@@ -294,6 +294,7 @@ const NAV = [
   } from '../../data/portal';
   import { createBoard, isPhone, type Board } from '../../scripts/portal-board';
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
+  import { createCounter } from '../../scripts/portal-content-counter';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { createCalendar, type CalRow } from '../../scripts/portal-calendar';
   import { createMover } from '../../scripts/portal-move';
@@ -302,7 +303,9 @@ const NAV = [
   } from '../../scripts/portal-sheet';
   import {
     canClientMove,
+    countsToward,
     normaliseId,
+    postMonths,
     DRAG_BLOCKED,
     MAX_TEXT,
     MAX_TITLE,
@@ -1438,6 +1441,23 @@ const NAV = [
     return BOARD;
   }
 
+  /** "Blueprint is making 21 pieces for you this month." Always in the
+   *  client's voice here, even when one of us is the one looking: this
+   *  is their portal, and what it says to them is the thing to check. */
+  const conCounter = createCounter({
+    role: () => 'client',
+    groups: () => [{ key: SLUG, name: DATA?.client.artist ?? '', items: CON.items }],
+    // Every month we have something dated in, and this one regardless.
+    months: () => Array.from(new Set([
+      ...postMonths(CON.items.filter(countsToward)), dateKeyToday().slice(0, 7),
+    ])).sort(),
+    today: dateKeyToday,
+    momentOf: conMoment,
+    openCard: openContentDrawer,
+    mediaOptions: () => CON.schema.media.map((o) => o.name),
+    redraw: drawContent,
+  });
+
   /** The Content tab: the same view HQ draws, told a client is reading. */
   let CONVIEW: ContentView | null = null;
 
@@ -1457,6 +1477,7 @@ const NAV = [
       empty: contentEmpty,
       today: dateKeyToday,
       redraw: drawContent,
+      above: [conCounter],
     });
     return CONVIEW;
   }

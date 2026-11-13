@@ -827,3 +827,100 @@ export function campaignLanes<T extends { status: string | null; campaign: reado
     return (a.moment?.title ?? '').localeCompare(b.moment?.title ?? '');
   });
 }
+
+/* ── the month counter ────────────────────────────────────────── */
+
+/** What a month should hold. A tier is sold as fifteen to twenty-five
+ *  of our posts a month; fewer is a plan with holes in it and more is
+ *  work nobody is paying for. */
+export const MONTH_MIN = 15;
+export const MONTH_CAP = 25;
+
+export interface MonthRow<T> {
+  /** Its number in the month, from 1, in posting order. */
+  n: number;
+  item: T;
+  /** Numbered past the cap: real, dated, and one too many. */
+  overCap: boolean;
+}
+
+export interface MonthCount<T> {
+  ym: string;
+  label: string;
+  /** Every piece that counts this month, posted or not. */
+  planned: number;
+  posted: number;
+  /** Media and how many, most first. An unclassified row is a video. */
+  byMedia: Array<{ media: string; n: number }>;
+  rows: MonthRow<T>[];
+  state: 'under' | 'ok' | 'over';
+  /** How many short of the minimum, or past the cap. Zero otherwise. */
+  short: number;
+  over: number;
+}
+
+/**
+ * What gets us to twenty-five: every piece that counts toward one
+ * month, numbered in the order it goes out.
+ *
+ * One row is one deliverable. A piece crossposted to four platforms is
+ * still one piece, so Platforms is not looked at.
+ */
+export function monthCount<T extends {
+  title: string; status: string | null; postDate: string | null;
+  postedBy?: string | null; media?: string | null;
+}>(items: readonly T[], ym: string): MonthCount<T> {
+  const mine = items
+    .filter((c) => countsToward(c) && c.postDate!.slice(0, 7) === ym)
+    .sort((a, b) => a.postDate!.localeCompare(b.postDate!) || a.title.localeCompare(b.title));
+  const tally = new Map<string, number>();
+  for (const c of mine) {
+    const m = c.media ?? 'Video';
+    tally.set(m, (tally.get(m) ?? 0) + 1);
+  }
+  const order = (m: string) => {
+    const i = (CONTENT_MEDIA as readonly string[]).indexOf(m);
+    return i === -1 ? 99 : i;
+  };
+  const planned = mine.length;
+  return {
+    ym,
+    label: monthLabel(ym),
+    planned,
+    posted: mine.filter((c) => c.status === 'Posted').length,
+    byMedia: [...tally].map(([media, n]) => ({ media, n }))
+      .sort((a, b) => b.n - a.n || order(a.media) - order(b.media)),
+    rows: mine.map((item, i) => ({ n: i + 1, item, overCap: i + 1 > MONTH_CAP })),
+    state: planned < MONTH_MIN ? 'under' : planned > MONTH_CAP ? 'over' : 'ok',
+    short: Math.max(0, MONTH_MIN - planned),
+    over: Math.max(0, planned - MONTH_CAP),
+  };
+}
+
+/** 'YYYY-MM', N months on from another. */
+export function shiftMonth(ym: string, by: number): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(ym);
+  if (!m) return ym;
+  const t = Number(m[1]) * 12 + (Number(m[2]) - 1) + by;
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`;
+}
+
+/**
+ * The months HQ can count whole: last month through two months out.
+ *
+ * HQ reads a window of content rather than all of it, and a month the
+ * window only half covers would be counted wrong and look right. So
+ * the window is cut on month boundaries and this is the list of months
+ * inside it. The server and the picker both ask here.
+ */
+export function counterMonths(today: string): string[] {
+  const ym = today.slice(0, 7);
+  return [-1, 0, 1, 2].map((by) => shiftMonth(ym, by));
+}
+
+/** The first and last day of a month, as ISO days. */
+export function monthBounds(ym: string): { first: string; last: string } {
+  const next = shiftMonth(ym, 1);
+  const end = new Date(Date.parse(`${next}-01T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  return { first: `${ym}-01`, last: end };
+}

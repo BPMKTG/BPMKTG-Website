@@ -99,6 +99,12 @@ import {
   campaignLanes,
   postMonths,
   monthLabel,
+  monthCount,
+  shiftMonth,
+  counterMonths,
+  monthBounds,
+  MONTH_MIN,
+  MONTH_CAP,
   cleanPatchText,
   cleanPatchUrl,
   cleanPatchDate,
@@ -1699,6 +1705,62 @@ section('Content: campaigns as lanes');
      lanes.reduce((n, l) => n + l.items.length, 0), 6);
   is('lanes: a card linked to something unseen still has a lane',
      lanes[4].items.length, 1);
+}
+
+section('Content: the month counter');
+
+{
+  const piece = (n, o = {}) => ({ title: `Piece ${String(n).padStart(2, '0')}`, status: 'Planned',
+    postDate: `2026-11-${String((n % 28) + 1).padStart(2, '0')}`, postedBy: 'Blueprint', media: 'Video', ...o });
+  const many = (k) => Array.from({ length: k }, (_, i) => piece(i));
+
+  const c21 = monthCount([
+    ...many(21).map((p, i) => (i < 6 ? { ...p, status: 'Posted' } : p)),
+    piece(1, { postedBy: 'Client' }),                     // theirs
+    piece(2, { status: 'Skipped' }),                      // dropped
+    piece(3, { postDate: null }),                         // undated
+    piece(4, { postDate: '2026-12-01' }),                 // another month
+  ], '2026-11');
+  is('count: what counts, counted', [c21.planned, c21.posted], [21, 6]);
+  is('count: inside the band', [c21.state, c21.short, c21.over], ['ok', 0, 0]);
+  is('count: the label is the month', c21.label, 'November 2026');
+
+  const c12 = monthCount(many(12), '2026-11');
+  is('count: under the minimum', [c12.state, c12.short, c12.over], ['under', MONTH_MIN - 12, 0]);
+  is('count: an empty month is fifteen short', monthCount([], '2026-11').short, MONTH_MIN);
+  is('count: exactly fifteen is on target', monthCount(many(15), '2026-11').state, 'ok');
+  is('count: exactly twenty-five is on target', monthCount(many(25), '2026-11').state, 'ok');
+
+  const c28 = monthCount(many(28), '2026-11');
+  is('count: over the cap', [c28.state, c28.over], ['over', 3]);
+  is('count: rows are numbered from one', c28.rows.map((r) => r.n).slice(0, 3), [1, 2, 3]);
+  is('count: the pieces past twenty-five are the ones flagged',
+     c28.rows.filter((r) => r.overCap).map((r) => r.n), [26, 27, 28]);
+  is('count: numbered in the order they go out',
+     c28.rows.every((r, i, a) => i === 0 || a[i - 1].item.postDate <= r.item.postDate), true);
+
+  const mixed = monthCount([
+    piece(1, { media: 'Story' }), piece(2, { media: 'Story' }), piece(3, { media: null }),
+    piece(4, { media: 'Graphic' }), piece(5, { media: 'Video' }), piece(6, { media: 'Video' }),
+  ], '2026-11');
+  is('count: the breakdown, most first, an unclassified row as a video',
+     mixed.byMedia, [{ media: 'Video', n: 3 }, { media: 'Story', n: 2 }, { media: 'Graphic', n: 1 }]);
+  is('count: the breakdown adds up to the count',
+     mixed.byMedia.reduce((t, m) => t + m.n, 0), mixed.planned);
+
+  // A crosspost is one row, so it is one deliverable.
+  is('count: four platforms is still one piece',
+     monthCount([piece(1, { platforms: ['Instagram', 'TikTok', 'YouTube', 'Facebook'] })], '2026-11').planned, 1);
+
+  // The card on the client page and the counter are the same number.
+  is('count: the HQ client card agrees with the counter',
+     deliverables(many(28), new Date('2026-11-13T12:00:00Z')).total, c28.planned);
+
+  is('months: forward a month', shiftMonth('2026-11', 1), '2026-12');
+  is('months: across a year, both ways', [shiftMonth('2026-12', 1), shiftMonth('2027-01', -1)], ['2027-01', '2026-12']);
+  is('months: what HQ can count whole', counterMonths('2026-11-13'), ['2026-10', '2026-11', '2026-12', '2027-01']);
+  is('months: the bounds of one', monthBounds('2027-02'), { first: '2027-02-01', last: '2027-02-28' });
+  is('months: and of a thirty-one day one', monthBounds('2026-12').last, '2026-12-31');
 }
 
 section('Content: the quick-add status default');

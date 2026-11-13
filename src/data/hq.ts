@@ -18,7 +18,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { canSetStepStatus, canSetStepDate, cleanItemTitle, flowOf, isFilmStep } from './portal';
-import { countsToward, STAGE_STATUSES } from './portal-content';
+import { countsToward, MONTH_CAP, MONTH_MIN, STAGE_STATUSES } from './portal-content';
 
 /* ── the window ───────────────────────────────────────────────── */
 
@@ -248,8 +248,9 @@ export const DEAD_STAGES = ['Ended'] as const;
    theirs: a client posting ten things themselves does not discharge
    anything we promised. */
 
-export const DELIVERABLES_MIN = 15;
-export const DELIVERABLES_MAX = 25;
+// The band lives with the counter, which is the thing that shows it.
+export const DELIVERABLES_MIN = MONTH_MIN;
+export const DELIVERABLES_MAX = MONTH_CAP;
 
 export interface Deliverables {
   /** "Nov", for the label. */

@@ -89,6 +89,8 @@ export interface ContentViewHost {
 export interface ContentViewApi {
   filters: () => ContentFilters;
   setFilter: (k: keyof ContentFilters, v: string) => void;
+  /** Several at once, with one redraw. */
+  setFilters: (patch: Partial<ContentFilters>) => void;
   tab: () => ContentTab;
   setTab: (t: ContentTab) => void;
 }
@@ -138,6 +140,7 @@ export function createContentView(host: ContentViewHost): ContentView {
   const api: ContentViewApi = {
     filters: () => S.f,
     setFilter: (k, v) => { S.f[k] = v; remember(); host.redraw(); },
+    setFilters: (patch) => { S.f = { ...S.f, ...patch }; remember(); host.redraw(); },
     tab: () => S.tab,
     setTab: (t) => { S.tab = t; remember(); host.redraw(); },
   };

@@ -44,7 +44,7 @@ import { shapeReportSnapshot } from './report-data';
 import { mailSentAt } from './report-mail';
 import type { ReportSnapshot } from '../data/print';
 import { cleanItemTitle, parseNotionDate } from '../data/portal';
-import type { PortalContentSchema } from '../data/portal-content';
+import { counterMonths, monthBounds, type PortalContentSchema } from '../data/portal-content';
 
 /* ── how much, and for how long ───────────────────────────────── */
 
@@ -331,8 +331,16 @@ function readFormulaDay(p: any): string | null {
 }
 
 async function readContent(token: string, now: Date): Promise<HqContentItem[]> {
-  const from = dayOffset(-CONTENT_BACK_DAYS, now);
-  const to = dayOffset(CONTENT_FORWARD_DAYS, now);
+  // The month counter counts whole months, so the window is widened to
+  // the month boundaries either side of the days-based one. A month the
+  // window only half covered would be counted wrong and look right.
+  const months = counterMonths(today(now));
+  const lo = monthBounds(months[0]).first;
+  const hi = monthBounds(months[months.length - 1]).last;
+  const fromDays = dayOffset(-CONTENT_BACK_DAYS, now);
+  const toDays = dayOffset(CONTENT_FORWARD_DAYS, now);
+  const from = lo < fromDays ? lo : fromDays;
+  const to = hi > toDays ? hi : toDays;
   // Three reasons a card belongs in the payload, not one. It posts in
   // the window; or it is filmed in the window, which the Film days
   // layer needs and which can be weeks before the post; or it has no
