@@ -93,6 +93,12 @@ import {
   editPreview,
   cardMoment,
   cardMomentIndex,
+  matchesFilters,
+  isFiltering,
+  NO_FILTERS,
+  campaignLanes,
+  postMonths,
+  monthLabel,
   cleanPatchText,
   cleanPatchUrl,
   cleanPatchDate,
@@ -1628,6 +1634,72 @@ is('preview: an unknown host is never framed', editPreview('https://evil.example
 is('preview: nor is plain http', editPreview('http://cdn.example.com/x.mp4'), null);
 is('preview: nor a javascript: link', editPreview('javascript:alert(1)'), null);
 is('preview: nothing is nothing', editPreview(null), null);
+
+section('Content: filters');
+
+{
+  const base = { id: '1', title: 'Faith Rave flyer', status: 'Planned', bucket: null, format: [],
+    source: 'Flyer / Graphic', filmBy: null, postDate: '2026-11-18', postedBy: 'Blueprint',
+    platforms: [], campaign: ['step-1'], shootCode: 'FR1', onScreenText: null, caption: null,
+    notes: null, feedback: null, footageLink: null, editLink: null, postLink: null, media: 'Graphic' };
+  const ctxF = { voice: { name: 'Sean' }, momentId: 'aaaa-1111' };
+  const f = (o) => ({ ...NO_FILTERS, ...o });
+  const hit = (o, item = base) => matchesFilters(item, f(o), ctxF);
+
+  is('filter: nothing set matches everything', hit({}), true);
+  is('filter: nothing set is not filtering', isFiltering(NO_FILTERS), false);
+  is('filter: media', [hit({ media: 'Graphic' }), hit({ media: 'Video' })], [true, false]);
+  is('filter: an unclassified row is a video',
+     matchesFilters({ ...base, media: null }, f({ media: 'Video' }), ctxF), true);
+  is('filter: waiting on comes from the next-move line',
+     [hit({ waiting: 'Blueprint' }), hit({ waiting: 'Client' })], [true, false]);
+  is('filter: a card in review is waiting on the client',
+     matchesFilters({ ...base, status: 'Ready for Review' }, f({ waiting: 'Client' }), ctxF), true);
+  is('filter: a posted card is waiting on nobody',
+     ['Blueprint', 'Client'].map((w) => matchesFilters({ ...base, status: 'Posted' }, f({ waiting: w }), ctxF)),
+     [false, false]);
+  is('filter: posted by', [hit({ postedBy: 'Blueprint' }), hit({ postedBy: 'Client' })], [true, false]);
+  is('filter: moment, dashed or not', [hit({ moment: 'AAAA1111' }), hit({ moment: 'bbbb-2222' })], [true, false]);
+  is('filter: month is the post date’s', [hit({ month: '2026-11' }), hit({ month: '2026-12' })], [true, false]);
+  is('filter: an undated card is in no month',
+     matchesFilters({ ...base, postDate: null }, f({ month: '2026-11' }), ctxF), false);
+  is('filter: search reads the title and the shoot code',
+     [hit({ search: 'flyer' }), hit({ search: 'fr1' }), hit({ search: 'recap' })], [true, true, false]);
+  is('filter: filters combine', hit({ media: 'Graphic', month: '2026-11', waiting: 'Client' }), false);
+
+  is('months: the ones something posts in, in order',
+     postMonths([{ postDate: '2026-12-04' }, { postDate: '2026-11-01' }, { postDate: null }, { postDate: '2026-11-30' }]),
+     ['2026-11', '2026-12']);
+  is('months: a label a person reads', monthLabel('2026-11'), 'November 2026');
+}
+
+section('Content: campaigns as lanes');
+
+{
+  const M = {
+    past:   { id: 'm-past', title: 'Rooftop Revival', date: '2026-10-18', momentType: 'Show' },
+    soon:   { id: 'm-soon', title: 'Rooftop Remix', date: '2026-11-13', momentType: 'Release' },
+    later:  { id: 'm-later', title: 'Christmas Show', date: '2026-12-13', momentType: 'Show' },
+    older:  { id: 'm-older', title: 'Sunset Service', date: '2026-09-01', momentType: 'Show' },
+  };
+  const row = (status, m, extra = {}) => ({ status, campaign: m ? [m.id] : [], m, ...extra });
+  const lanes = campaignLanes([
+    row('Planned', M.later), row('Posted', M.past), row('Posted', M.soon), row('Planned', M.soon),
+    row('Skipped', M.soon), row('Posted', M.older), row('Planned', null), row('Idea', null),
+    row('Planned', null, { campaign: ['hidden-step'] }),
+  ], (c) => c.m, '2026-11-13');
+
+  is('lanes: soonest first, then the past most recent first, then the unplaceable',
+     lanes.map((l) => l.moment?.title ?? '(unlinked)'),
+     ['Rooftop Remix', 'Christmas Show', 'Rooftop Revival', 'Sunset Service', '(unlinked)']);
+  is('lanes: a moment happening today is still ahead', lanes[0].moment.id, 'm-soon');
+  is('lanes: x of y posted, and a skipped card is in neither',
+     [lanes[0].posted, lanes[0].total], [1, 2]);
+  is('lanes: a row with no campaign is not in any lane',
+     lanes.reduce((n, l) => n + l.items.length, 0), 6);
+  is('lanes: a card linked to something unseen still has a lane',
+     lanes[4].items.length, 1);
+}
 
 section('Content: the quick-add status default');
 

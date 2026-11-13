@@ -84,13 +84,17 @@ export interface Board {
   /** Forget the lanes of the last draw. Call once per redraw. */
   begin: () => void;
   /** Five columns of these cards. */
-  lane: (items: PortalContentItem[]) => HTMLElement;
+  lane: (items: PortalContentItem[], opts?: LaneOpts) => HTMLElement;
   /** The same cards as a list grouped by stage, for a phone: no
    *  dragging, and a menu on each card to move it. */
-  list: (items: PortalContentItem[]) => HTMLElement;
+  list: (items: PortalContentItem[], opts?: LaneOpts) => HTMLElement;
   /** One card, for a view that lays them out itself. */
   card: (c: PortalContentItem, opts?: { menu?: boolean }) => HTMLElement;
 }
+
+/** A lane under a heading that already names the campaign and the
+ *  client does not need every card in it to say so again. */
+export interface LaneOpts { inCampaign?: boolean }
 
 interface Col {
   stage: Stage;
@@ -171,7 +175,10 @@ export function createBoard(host: BoardHost): Board {
 
   /* ── one card ─────────────────────────────────────────────────── */
 
-  function cardEl(c: PortalContentItem, opts: { menu?: boolean; drag?: boolean } = {}): HTMLElement {
+  function cardEl(
+    c: PortalContentItem,
+    opts: { menu?: boolean; drag?: boolean; inCampaign?: boolean } = {},
+  ): HTMLElement {
     const card = el('article', 'pt-ccard');
     const voice = host.voice(c);
     const move = nextMove(c, voice);
@@ -186,7 +193,7 @@ export function createBoard(host: BoardHost): Board {
     // shown exactly as typed and never prettied up.
     open.appendChild(el('span', 'pt-ccard-title', c.title));
 
-    const who = host.clientOf?.(c) ?? null;
+    const who = opts.inCampaign ? null : host.clientOf?.(c) ?? null;
     if (who) open.appendChild(el('span', 'pt-ccard-who', who));
 
     // The next move: the one line on the card that is an instruction
@@ -216,8 +223,8 @@ export function createBoard(host: BoardHost): Board {
     // Which campaign it is for, and who puts it up. One row, so a card
     // is four lines tall rather than six.
     const foot = el('span', 'pt-ccard-foot');
-    const camp = host.momentOf(c);
-    if (camp) foot.appendChild(el('span', 'pt-ccard-camp', camp));
+    const camp = opts.inCampaign ? null : host.momentOf(c);
+    foot.appendChild(el('span', 'pt-ccard-camp', camp ?? ''));
     if (c.postedBy === 'Blueprint') {
       foot.appendChild(el('span', 'pt-tag pt-tag-ours', 'Blueprint posts'));
     } else if (c.postedBy === 'Client') {
@@ -327,7 +334,7 @@ export function createBoard(host: BoardHost): Board {
 
   /* ── columns and lanes ────────────────────────────────────────── */
 
-  function column(stage: Stage, items: PortalContentItem[]): HTMLElement {
+  function column(stage: Stage, items: PortalContentItem[], opts: LaneOpts): HTMLElement {
     const col = el('section', 'pt-board-col');
     col.dataset.stage = stage;
     col.appendChild(el('span', 'pt-board-accent'));
@@ -340,7 +347,7 @@ export function createBoard(host: BoardHost): Board {
     const list = el('div', 'pt-board-list');
     COLS.push({ stage, list });
     if (!items.length) list.appendChild(el('p', 'pt-board-none', 'Nothing here'));
-    for (const item of items) list.appendChild(cardEl(item, { drag: true }));
+    for (const item of items) list.appendChild(cardEl(item, { drag: true, ...opts }));
 
     // preventDefault runs whether or not the column will take the
     // card, because a drop event only fires on a target that allowed
@@ -383,7 +390,7 @@ export function createBoard(host: BoardHost): Board {
       .sort((a, b) => dir * key(a).localeCompare(key(b)) || a.title.localeCompare(b.title));
   }
 
-  function lane(items: PortalContentItem[]): HTMLElement {
+  function lane(items: PortalContentItem[], opts: LaneOpts = {}): HTMLElement {
     const scroller = el('div', 'pt-board');
     scroller.dataset.boardScroll = 'true';
     SCROLLERS.push(scroller);
@@ -392,12 +399,12 @@ export function createBoard(host: BoardHost): Board {
     });
     scroller.addEventListener('drop', edgeStop);
     for (const stage of STAGE_ORDER) {
-      scroller.appendChild(column(stage, inStage(items, stage)));
+      scroller.appendChild(column(stage, inStage(items, stage), opts));
     }
     return scroller;
   }
 
-  function list(items: PortalContentItem[]): HTMLElement {
+  function list(items: PortalContentItem[], opts: LaneOpts = {}): HTMLElement {
     const wrap = el('div', 'pt-stagelist');
     for (const stage of STAGE_ORDER) {
       const mine = inStage(items, stage);
@@ -408,7 +415,7 @@ export function createBoard(host: BoardHost): Board {
       head.appendChild(el('h3', undefined, STAGE_TITLE[stage]));
       head.appendChild(el('span', 'pt-board-count pt-num', String(mine.length)));
       sec.appendChild(head);
-      for (const item of mine) sec.appendChild(cardEl(item, { menu: true }));
+      for (const item of mine) sec.appendChild(cardEl(item, { menu: true, ...opts }));
       wrap.appendChild(sec);
     }
     return wrap;

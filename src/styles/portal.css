@@ -3629,3 +3629,66 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
   cursor: pointer; font-size: .8rem; font-weight: 650; color: var(--pt-navy);
   margin-bottom: var(--pt-3);
 }
+
+/* ── the Content tab: switch, filters, lanes, ideas ── */
+.pt-conbar { display: flex; flex-direction: column; gap: var(--pt-3); }
+.pt-seg-n {
+  margin-left: 6px; padding: 0 6px; border-radius: var(--pt-r-pill);
+  background: var(--pt-tint-soft); color: var(--pt-muted);
+  font-size: .68rem; font-weight: 700;
+}
+.pt-seg button[aria-pressed='true'] .pt-seg-n { background: var(--pt-tint-blue); color: var(--pt-navy); }
+.pt-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pt-2); }
+.pt-filter { font-size: .8rem; padding-top: 6px; padding-bottom: 6px; }
+/* A filter that is narrowing the view says so without being read. */
+.pt-filter-on { border-color: var(--pt-blue); background: var(--pt-tint-blue); color: var(--pt-navy); font-weight: 650; }
+.pt-filter-clear { font-size: .78rem; font-weight: 650; color: var(--pt-navy); padding: 6px 8px; border-radius: var(--pt-r-sm); }
+.pt-filter-clear:hover { background: var(--pt-tint); }
+.pt-conbody { margin-top: var(--pt-4); }
+.pt-conbody .pt-boardwrap { margin-top: 0; }
+.pt-board-older { margin: var(--pt-3) 0 0; font-size: .8rem; color: var(--pt-muted); }
+
+.pt-lanes { display: flex; flex-direction: column; gap: var(--pt-4); }
+.pt-lane {
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r);
+  background: var(--pt-surface);
+}
+.pt-lane-head {
+  display: flex; align-items: center; gap: var(--pt-2) var(--pt-3); flex-wrap: wrap;
+  width: 100%; padding: var(--pt-3) var(--pt-4); text-align: left;
+}
+.pt-lane-head:hover .pt-lane-title { color: var(--pt-navy); }
+.pt-lane-chev { width: 14px; height: 14px; color: var(--pt-muted); transition: transform var(--pt-t); }
+.pt-lane-head[aria-expanded='true'] .pt-lane-chev { transform: rotate(90deg); }
+.pt-lane-title { font-size: .98rem; font-weight: 700; color: var(--pt-ink); }
+.pt-lane-who { font-weight: 600; color: var(--pt-muted); }
+.pt-lane-date { font-size: .8rem; color: var(--pt-muted); }
+.pt-lane-tally { display: inline-flex; align-items: center; gap: var(--pt-2); font-size: .8rem; font-weight: 650; color: var(--pt-ink-2); }
+.pt-lane-bar { width: 84px; height: 6px; border-radius: 3px; background: var(--pt-tint-soft); overflow: hidden; }
+.pt-lane-bar span { display: block; height: 100%; background: var(--pt-good); border-radius: 3px; }
+.pt-lane-body { padding: 0 var(--pt-3) var(--pt-3); }
+.pt-lane-body .pt-board { padding-bottom: 0; }
+
+.pt-ideas { display: flex; flex-direction: column; gap: var(--pt-5); max-width: 920px; }
+.pt-ideas-head { display: flex; align-items: center; gap: var(--pt-2); margin-bottom: var(--pt-2); }
+.pt-ideas-head h3 { margin: 0; font-size: .8rem; font-weight: 700; }
+.pt-ideas-head h3:not(.pt-bchip) { letter-spacing: .06em; text-transform: uppercase; color: var(--pt-ink-2); font-size: .72rem; }
+.pt-idealist { list-style: none; margin: 0; padding: 0; border: 1px solid var(--pt-line); border-radius: var(--pt-r); background: var(--pt-surface); }
+.pt-idea { display: flex; align-items: center; gap: var(--pt-3); padding: 0 var(--pt-3) 0 0; }
+.pt-idea + .pt-idea { border-top: 1px solid var(--pt-line-soft); }
+.pt-idea-open { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 10px var(--pt-3); text-align: left; }
+.pt-idea-open:hover .pt-idea-title { color: var(--pt-navy); }
+.pt-idea-title { font-size: .9rem; font-weight: 650; color: var(--pt-ink); }
+.pt-idea-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: .74rem; color: var(--pt-muted); }
+.pt-idea-notes { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 52ch; }
+.pt-idea-plan { flex: none; padding: 6px 12px; font-size: .78rem; }
+
+@media (max-width: 767px) {
+  .pt-filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .pt-filter { flex: none; }
+  .pt-lane-head { padding: var(--pt-3); }
+  .pt-lane-body { padding: 0 var(--pt-3) var(--pt-3); }
+  .pt-lane-tally .pt-lane-bar { display: none; }
+  .pt-conbar .pt-input-search { flex: 1; width: auto; min-width: 0; }
+  .pt-conbar .pt-btn-add { display: none; }
+}

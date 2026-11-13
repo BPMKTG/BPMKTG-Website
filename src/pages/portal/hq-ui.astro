@@ -234,18 +234,16 @@ const NAV = [
     termProgress, HQ_LAYERS, KIND_LABEL,
     type PortalCalendarItem,
   } from '../../data/portal';
-  import {
-    postedRecently, stageOf,
-    type PortalContentItem, type Voice,
-  } from '../../data/portal-content';
+  import { type PortalContentItem, type Voice } from '../../data/portal-content';
   import type { HqCalItem, HqContentItem } from '../../server/hq-data';
   import { createCalendar, type Calendar } from '../../scripts/portal-calendar';
   import { createMover, type Mover } from '../../scripts/portal-move';
-  import { bindSheet } from '../../scripts/portal-sheet';
+  import { bindSheet, openSheet, sheetField, sheetSubmit } from '../../scripts/portal-sheet';
   import { HQ_STAGES, LEAD_SOURCES } from '../../data/hq';
   // The same pieces the client portal is built from, so there is one
   // copy of them rather than one per screen.
-  import { createBoard, isPhone, type Board } from '../../scripts/portal-board';
+  import { createBoard, type Board } from '../../scripts/portal-board';
+  import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { clear, el, icon, q, qq, show } from '../../scripts/portal-dom';
 
@@ -1707,22 +1705,36 @@ const NAV = [
     return BOARD_SCOPE ? all.filter((c) => (c as any).clientSlug === BOARD_SCOPE) : all;
   }
 
-  function boardBody(): HTMLElement {
-    const now = new Date();
-    const live = BOARD_ITEMS.filter((c) => {
-      const st = stageOf(c);
-      return !!st && (st !== 'posted' || postedRecently(c, now));
-    });
-    if (!live.length) {
-      return WHO.size > 0
-        ? hqEmpty('Nothing matches that', 'Try a different client to see the rest of the board.')
-        : hqEmpty('Nothing is moving yet', 'A card joins the board as soon as it is planned.');
+  /** The Content tab the client sees, with role admin. One view per
+   *  scope, so the cross-client page and each client's own page keep
+   *  their own tab and filters. */
+  const HQVIEWS = new Map<string, ContentView>();
+
+  function hqView(scope: string | null): ContentView {
+    const key = scope ?? '';
+    let view = HQVIEWS.get(key);
+    if (!view) {
+      view = createContentView({
+        storeKey: scope ? `bp.hq.content.v1.${scope}` : 'bp.hq.content.v1',
+        role: () => 'admin',
+        items: () => BOARD_ITEMS,
+        schema: () => ({ bucket: [], format: [], platforms: [], status: [], media: [],
+                         ...(HQ?.contentSchema ?? {}) }),
+        board: hqBoard,
+        voice: hqVoice,
+        momentRef: (c) => cardMoment(c, hqMomentIdx()),
+        openCard: openCardDrawer,
+        save: (c, patchBody, local) => saveCalCard(c.id, patchBody, local),
+        newIdea: () => hqNewIdea(scope),
+        toast,
+        empty: hqEmpty,
+        today: () => isoToday(),
+        redraw: redrawBoard,
+        clientOf: (c) => (scope ? null : (c as any).clientName ?? null),
+      });
+      HQVIEWS.set(key, view);
     }
-    const board = hqBoard();
-    board.begin();
-    const wrap = el('div', 'pt-boardwrap');
-    wrap.appendChild(isPhone() ? board.list(live) : board.lane(live));
-    return wrap;
+    return view;
   }
 
   function mountBoard(scope: string | null): HTMLElement {
@@ -1730,24 +1742,60 @@ const NAV = [
     BOARD_ITEMS = boardItems();
     const mount = el('div');
     mount.dataset.boardroot = '1';
-    mount.appendChild(boardBody());
     BOARD_MOUNT = mount;
+    hqView(scope).draw(mount);
     return mount;
   }
 
-  /** Draw the board again where it already is. Called after a save,
+  /** Draw the tab again where it already is. Called after a save,
    *  because a card that writes to Notion and stays in the column it
    *  came from reads as a drag that did not work. */
   function redrawBoard(): void {
     if (!BOARD_MOUNT?.isConnected) { BOARD_MOUNT = null; return; }
     BOARD_ITEMS = boardItems();
-    const scroll = q('[data-board-scroll]', BOARD_MOUNT)?.scrollLeft ?? 0;
-    clear(BOARD_MOUNT);
-    BOARD_MOUNT.appendChild(boardBody());
-    const sc = q('[data-board-scroll]', BOARD_MOUNT);
-    if (sc) sc.scrollLeft = scroll;
+    hqView(BOARD_SCOPE).draw(BOARD_MOUNT);
   }
 
+  /** An idea added on a client's behalf. It is still their idea: the
+   *  endpoint files it as theirs to post, stamped as edited by us. */
+  function hqNewIdea(scope: string | null) {
+    const roster = calClients();
+    if (!roster.length) { toast('There is no live client to add an idea for.', true); return; }
+    openSheet('New idea', (form, close) => {
+      let who: HTMLSelectElement | null = null;
+      if (!scope) {
+        who = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
+        for (const c of roster) {
+          const o = el('option', undefined, c.artist) as HTMLOptionElement;
+          o.value = c.slug;
+          if (WHO.size === 1 && WHO.has(c.slug)) o.selected = true;
+          who.appendChild(o);
+        }
+        form.appendChild(sheetField('Client', who));
+      }
+      const title = el('input', 'pt-input') as HTMLInputElement;
+      title.required = true;
+      title.maxLength = 200;
+      title.placeholder = 'What is the idea';
+      form.appendChild(sheetField('Idea', title));
+
+      const go = sheetSubmit(form, 'Add it');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const name = title.value.trim();
+        const slug = scope ?? who?.value ?? '';
+        if (!name) { title.focus(); return; }
+        if (!slug) return;
+        go.disabled = true;
+        const res = await hqPost(`/portal/${encodeURIComponent(slug)}/content`, { title: name });
+        go.disabled = false;
+        if (!res.ok) { toast('That did not save. Check your connection and try again.', true); return; }
+        close();
+        toast('Added to their ideas');
+        void refreshCalendar();
+      });
+    });
+  }
   /* ── the card drawer ──────────────────────────────────────────
      The same drawer the client opens, with role admin: every field
      saves, the Edit Link is ours to attach, and a note on the thread
@@ -1832,19 +1880,12 @@ const NAV = [
 
   function drawContentTab(root: HTMLElement) {
     root.appendChild(whoBar());
-    const n = boardItemCount();
     const bar = el('div', 'pt-toolbar');
     bar.appendChild(el('h1', undefined, 'Content'));
     bar.appendChild(el('p', 'pt-sub',
-      `${n} card${n === 1 ? '' : 's'} across every live client. `
-      + 'Drag one to move it; the drop writes straight to Notion.'));
+      'Every live client. Drag a card to move it; the drop writes straight to Notion.'));
     root.appendChild(bar);
     root.appendChild(mountBoard(null));
-  }
-
-  function boardItemCount(): number {
-    BOARD_SCOPE = null;
-    return boardItems().length;
   }
 
   /** The same board on one client's own page, filtered to them. */
@@ -1902,7 +1943,9 @@ const NAV = [
     const cal = hqCal();
     cal.setRows(calRows());
     cal.sync();
-    draw('calendar');
+    // Whichever tab the bar was clicked on. It used to redraw the
+    // calendar from anywhere, which left Content showing the old set.
+    draw(currentView() === 'content' ? 'content' : 'calendar');
   }
 
   /* ══ PIPELINE ═══════════════════════════════════════════════ */

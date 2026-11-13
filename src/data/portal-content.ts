@@ -17,7 +17,7 @@
 // Nothing here talks to Notion or reads a secret.
 // ─────────────────────────────────────────────────────────────
 
-import { parseNotionDate } from './portal';
+import { parseNotionDate, type MomentRef } from './portal';
 
 /* ── read whitelist ───────────────────────────────────────────── */
 
@@ -719,4 +719,111 @@ export function inIdeas(item: { status: string | null; campaign: readonly string
 /** Still only an idea, as opposed to a standalone piece on its way. */
 export function isIdea(item: { status: string | null }): boolean {
   return item.status === 'Idea';
+}
+
+/* ── filters ──────────────────────────────────────────────────── */
+
+/** What the Content tab can be narrowed by. Empty string means "any",
+ *  so a saved set of filters is five short strings. */
+export interface ContentFilters {
+  media: string;
+  /** 'Blueprint' or 'Client': whose move the card's next-move line
+   *  says it is. Not stored anywhere; it is the line. */
+  waiting: string;
+  postedBy: string;
+  /** A moment id. */
+  moment: string;
+  /** 'YYYY-MM', by Post Date. */
+  month: string;
+  search: string;
+}
+
+export const NO_FILTERS: ContentFilters = {
+  media: '', waiting: '', postedBy: '', moment: '', month: '', search: '',
+};
+
+export function isFiltering(f: ContentFilters): boolean {
+  return !!(f.media || f.waiting || f.postedBy || f.moment || f.month || f.search.trim());
+}
+
+export function matchesFilters(
+  item: PortalContentItem,
+  f: ContentFilters,
+  ctx: { voice: Voice; momentId: string | null },
+): boolean {
+  if (f.media && (item.media ?? 'Video') !== f.media) return false;
+  if (f.waiting && nextMove(item, ctx.voice)?.waiting !== f.waiting) return false;
+  if (f.postedBy && item.postedBy !== f.postedBy) return false;
+  if (f.moment && normaliseId(ctx.momentId ?? '') !== normaliseId(f.moment)) return false;
+  if (f.month && (item.postDate ?? '').slice(0, 7) !== f.month) return false;
+  const needle = f.search.trim().toLowerCase();
+  if (needle && !item.title.toLowerCase().includes(needle)
+      && !(item.shootCode ?? '').toLowerCase().includes(needle)) return false;
+  return true;
+}
+
+const MONTHS_FULL = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** "November 2026" from "2026-11". */
+export function monthLabel(ym: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(ym);
+  if (!m) return ym;
+  return `${MONTHS_FULL[Number(m[2]) - 1] ?? ''} ${m[1]}`.trim();
+}
+
+/** The months these rows post in, oldest first, for a picker. */
+export function postMonths(items: readonly { postDate: string | null }[]): string[] {
+  const out = new Set<string>();
+  for (const c of items) {
+    const ym = (c.postDate ?? '').slice(0, 7);
+    if (/^\d{4}-\d{2}$/.test(ym)) out.add(ym);
+  }
+  return [...out].sort();
+}
+
+/* ── campaigns, as lanes ──────────────────────────────────────── */
+
+export interface CampaignLane<T> {
+  /** Null for the lane of cards linked to something this reader
+   *  cannot see: still campaign work, with nowhere better to sit. */
+  moment: MomentRef | null;
+  items: T[];
+  /** "x of y posted". Skipped cards are in neither number. */
+  posted: number;
+  total: number;
+}
+
+/**
+ * Campaign rows grouped by the moment they are for.
+ *
+ * Soonest first, because the lane you need is the one about to
+ * happen: moments still ahead in date order, then the ones behind us
+ * most recent first, then anything undated.
+ */
+export function campaignLanes<T extends { status: string | null; campaign: readonly string[] }>(
+  items: readonly T[],
+  momentOf: (c: T) => MomentRef | null,
+  today: string,
+): CampaignLane<T>[] {
+  const byId = new Map<string, CampaignLane<T>>();
+  for (const c of items) {
+    if (originOf(c) !== 'campaign' || c.status === 'Skipped') continue;
+    const m = momentOf(c);
+    const key = m ? normaliseId(m.id) : '';
+    let lane = byId.get(key);
+    if (!lane) { lane = { moment: m, items: [], posted: 0, total: 0 }; byId.set(key, lane); }
+    lane.items.push(c);
+    lane.total++;
+    if (c.status === 'Posted') lane.posted++;
+  }
+  const day = (l: CampaignLane<T>) => (l.moment?.date ?? '').slice(0, 10);
+  const rank = (l: CampaignLane<T>) => (!l.moment ? 3 : !day(l) ? 2 : day(l) >= today ? 0 : 1);
+  return [...byId.values()].sort((a, b) => {
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    if (ra === 0) return day(a).localeCompare(day(b));
+    if (ra === 1) return day(b).localeCompare(day(a));
+    return (a.moment?.title ?? '').localeCompare(b.moment?.title ?? '');
+  });
 }

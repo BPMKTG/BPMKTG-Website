@@ -285,6 +285,7 @@ const NAV = [
     type PortalPayload,
     type PortalBrief,
     type PortalViewer,
+    type MomentRef,
     type PortalSnapshot,
     type PortalAudit,
     type PortalAdmin,
@@ -292,6 +293,7 @@ const NAV = [
     type PortalAdminSnapshot,
   } from '../../data/portal';
   import { createBoard, isPhone, type Board } from '../../scripts/portal-board';
+  import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { createCalendar, type CalRow } from '../../scripts/portal-calendar';
   import { createMover } from '../../scripts/portal-move';
@@ -300,10 +302,7 @@ const NAV = [
   } from '../../scripts/portal-sheet';
   import {
     canClientMove,
-    isIdea,
     normaliseId,
-    postedRecently,
-    stageOf,
     DRAG_BLOCKED,
     MAX_TEXT,
     MAX_TITLE,
@@ -1375,16 +1374,7 @@ const NAV = [
      below is trusted to enforce anything; it only tries not to offer
      what the server would refuse. */
 
-  type ContentView = 'ideas' | 'pipeline' | 'posted';
-
   const CON = {
-    view: 'ideas' as ContentView,
-    bucket: '',
-    source: '',
-    campaign: '',
-    search: '',
-    /** On a phone one column shows at a time; this is which. */
-    col: '',
     items: [] as PortalContentItem[],
     schema: { bucket: [], format: [], platforms: [], status: [], media: [] } as PortalContentSchema,
   };
@@ -1396,66 +1386,10 @@ const NAV = [
     return CON.schema.bucket.find((o) => o.name === name)?.color ?? 'default';
   }
 
-  const SOURCE_ICON: Record<string, string> = {
-    'Client Films': 'film',
-    'Show Media': 'ticket',
-    'Flyer / Graphic': 'folder',
-  };
-
   function renderContent(data: PortalPayload) {
     CON.items = (data.content ?? []).slice();
-    if (data.contentSchema) CON.schema = data.contentSchema;
-    CON.col = '';
+    if (data.contentSchema) CON.schema = { ...CON.schema, ...data.contentSchema };
     drawContent();
-  }
-
-  /** The content a card's own title and shoot code answer to. */
-  function conMatchesSearch(c: PortalContentItem): boolean {
-    if (!CON.search) return true;
-    const needle = CON.search.toLowerCase();
-    return c.title.toLowerCase().includes(needle)
-      || (c.shootCode ?? '').toLowerCase().includes(needle);
-  }
-
-  function conFiltered(): PortalContentItem[] {
-    return CON.items.filter((c) => {
-      if (CON.bucket && c.bucket !== CON.bucket) return false;
-      if (CON.source && c.source !== CON.source) return false;
-      if (CON.campaign && !c.campaign.some((id) => normaliseId(id) === normaliseId(CON.campaign))) return false;
-      return conMatchesSearch(c);
-    });
-  }
-
-  /** Whether the board is showing a slice rather than the whole thing.
-   *  An empty slice and an empty board need different words. */
-  function conFiltering(): boolean {
-    return !!(CON.bucket || CON.source || CON.campaign || CON.search.trim());
-  }
-
-  function drawContent() {
-    const root = q('[data-view="content"]');
-    if (!root) return;
-    const scroll = qq('[data-board-scroll]', root)[0]?.scrollLeft ?? 0;
-    clear(root);
-    root.appendChild(contentToolbar());
-
-    const items = conFiltered();
-    if (!CON.items.length) {
-      root.appendChild(contentEmpty(
-        'Your content board starts here',
-        'Ideas you jot down, shoots we plan and posts that go out all live on this one board.',
-      ));
-      root.appendChild(newIdeaFab());
-      return;
-    }
-
-    if (CON.view === 'ideas') root.appendChild(ideasBoard(items));
-    else if (CON.view === 'pipeline') root.appendChild(pipelineBoard(items));
-    else root.appendChild(postedList(items));
-
-    const sc = qq('[data-board-scroll]', root)[0];
-    if (sc) sc.scrollLeft = scroll;
-    root.appendChild(newIdeaFab());
   }
 
   function contentEmpty(title: string, body: string): HTMLElement {
@@ -1466,140 +1400,18 @@ const NAV = [
     return e;
   }
 
-  function contentToolbar(): HTMLElement {
-    const bar = el('div', 'pt-toolbar');
-
-    const seg = el('div', 'pt-seg');
-    seg.setAttribute('role', 'group');
-    seg.setAttribute('aria-label', 'Content view');
-    for (const [v, text] of [['ideas', 'Ideas'], ['pipeline', 'Pipeline'], ['posted', 'Posted']] as const) {
-      const b = el('button', undefined, text);
-      b.type = 'button';
-      b.setAttribute('aria-pressed', String(CON.view === v));
-      b.addEventListener('click', () => { CON.view = v; CON.col = ''; drawContent(); });
-      seg.appendChild(b);
-    }
-    bar.append(seg, el('span', 'pt-toolbar-spacer'));
-
-    const search = el('input', 'pt-input pt-input-search') as HTMLInputElement;
-    search.type = 'search';
-    search.placeholder = 'Title or shoot code';
-    search.setAttribute('aria-label', 'Search content');
-    search.value = CON.search;
-    search.addEventListener('input', () => {
-      CON.search = search.value.trim();
-      drawContent();
-      q<HTMLInputElement>('.pt-input-search')?.focus();
-    });
-    bar.appendChild(search);
-
-    const pick = (label: string, value: string, opts: Array<[string, string]>, set: (v: string) => void) => {
-      const sel = el('select', 'pt-select') as HTMLSelectElement;
-      sel.setAttribute('aria-label', label);
-      for (const [v, text] of opts) {
-        const o = el('option', undefined, text) as HTMLOptionElement;
-        o.value = v;
-        if (value === v) o.selected = true;
-        sel.appendChild(o);
-      }
-      sel.addEventListener('change', () => { set(sel.value); CON.col = ''; drawContent(); });
-      return sel;
-    };
-
-    bar.appendChild(pick('Filter by bucket', CON.bucket,
-      [['', 'Every bucket'], ...CON.schema.bucket.map((o) => [o.name, o.name] as [string, string])],
-      (v) => { CON.bucket = v; }));
-
-    const sources = Array.from(new Set(CON.items.map((c) => c.source).filter(Boolean) as string[]));
-    if (sources.length > 1) {
-      bar.appendChild(pick('Filter by source', CON.source,
-        [['', 'Any source'], ...sources.map((s) => [s, s] as [string, string])],
-        (v) => { CON.source = v; }));
-    }
-
-    const camps = campaigns();
-    if (camps.length) {
-      bar.appendChild(pick('Filter by campaign', CON.campaign,
-        [['', 'Every campaign'], ...camps.map((m) => [m.id, m.title] as [string, string])],
-        (v) => { CON.campaign = v; }));
-    }
-
-    const add = el('button', 'pt-btn pt-btn-primary pt-btn-add');
-    add.type = 'button';
-    add.appendChild(icon('plus'));
-    add.appendChild(el('span', undefined, 'New idea'));
-    add.addEventListener('click', () => openQuickAdd(CON.bucket || null));
-    bar.appendChild(add);
-
-    return bar;
-  }
-
-  /** The sticky button a thumb can always reach. */
-  function newIdeaFab(): HTMLElement {
-    const b = el('button', 'pt-fab');
-    b.type = 'button';
-    b.setAttribute('aria-label', 'New idea');
-    b.appendChild(icon('plus'));
-    b.appendChild(el('span', undefined, 'New idea'));
-    b.addEventListener('click', () => openQuickAdd(CON.bucket || null));
-    return b;
-  }
-
-  /* ── the boards ───────────────────────────────────────────────── */
-
-  interface Column {
-    key: string;
-    title: string;
-    color?: string;
-    /** A line under the heading saying whose move this column is. */
-    note?: string | null;
-    items: PortalContentItem[];
-    /** What a card dropped here becomes. Absent means no drop target. */
-    onDrop?: (c: PortalContentItem) => void;
-    /** Whether this card may be dropped here at all. */
-    accepts?: (c: PortalContentItem) => boolean;
-    add?: () => void;
-    /** The column heading already names the bucket. */
-    hideBucket?: boolean;
-  }
-
-  function ideasBoard(items: PortalContentItem[]): HTMLElement {
-    const well = items.filter(isIdea);
-    const cols: Column[] = CON.schema.bucket.map((o) => ({
-      key: o.name,
-      title: o.name,
-      color: o.color,
-      items: well.filter((c) => c.bucket === o.name),
-      accepts: () => true,
-      onDrop: (c) => { void setBucket(c, o.name); },
-      add: () => openQuickAdd(o.name),
-      hideBucket: true,
-    }));
-    // A card with no bucket yet would otherwise be invisible, which is
-    // the one thing an idea well must never do.
-    const loose = well.filter((c) => !c.bucket);
-    if (loose.length) {
-      cols.unshift({
-        key: '', title: 'No bucket yet', items: loose,
-        accepts: () => true, onDrop: (c) => { void setBucket(c, null); },
-        add: () => openQuickAdd(null),
-      });
-    }
-    return board(cols, 'Your idea well is empty',
-                 'Jot one down and it lands here, ready to plan when you are.');
-  }
-
   /** Who the client is to whoever is reading: "You" to them, their
    *  name to one of us standing in their portal. */
   function conVoice(): Voice {
     return { name: DATA?.client.artist ?? 'Client', you: VIEWER.role !== 'admin' };
   }
 
-  /** The campaign a card belongs to, by name. A card links to the step
-   *  it delivers, so the link is followed one hop to the moment. */
-  function conMoment(c: PortalContentItem): string | null {
-    return cardMoment(c, conMomentIndex())?.title ?? null;
+  /** The campaign a card belongs to. A card links to the step it
+   *  delivers, so the link is followed one hop to the moment. */
+  function conMomentRef(c: PortalContentItem): MomentRef | null {
+    return cardMoment(c, conMomentIndex());
   }
+  const conMoment = (c: PortalContentItem): string | null => conMomentRef(c)?.title ?? null;
 
   /** Built once per calendar payload, not once per card. */
   let MOMENT_IDX: { of: unknown; idx: ReturnType<typeof cardMomentIndex> } | null = null;
@@ -1626,223 +1438,45 @@ const NAV = [
     return BOARD;
   }
 
-  function pipelineBoard(items: PortalContentItem[]): HTMLElement {
-    const now = todayStart();
-    const live = items.filter((c) => {
-      const st = stageOf(c);
-      return !!st && (st !== 'posted' || postedRecently(c, now));
+  /** The Content tab: the same view HQ draws, told a client is reading. */
+  let CONVIEW: ContentView | null = null;
+
+  function conView(): ContentView {
+    CONVIEW ??= createContentView({
+      storeKey: `bp.portal.content.v1.${SLUG}`,
+      role: () => (VIEWER.role === 'admin' ? 'admin' : 'client'),
+      items: () => CON.items,
+      schema: () => CON.schema,
+      board: conBoard,
+      voice: conVoice,
+      momentRef: conMomentRef,
+      openCard: openContentDrawer,
+      save: (c, patch, local) => saveCard(c.id, patch, local),
+      newIdea: () => openQuickAdd(null),
+      toast,
+      empty: contentEmpty,
+      today: dateKeyToday,
+      redraw: drawContent,
     });
-    if (!live.length) {
-      return conFiltering()
-        ? contentEmpty('Nothing matches that', 'Try a different filter to see the rest of the board.')
-        : contentEmpty('Nothing is moving yet', 'A card joins the board as soon as it is planned.');
-    }
-    const board = conBoard();
-    board.begin();
-    const wrap = el('div', 'pt-boardwrap');
-    wrap.appendChild(isPhone() ? board.list(live) : board.lane(live));
-    return wrap;
+    return CONVIEW;
   }
 
-  function board(cols: Column[], emptyTitle: string, emptyBody: string): HTMLElement {
-    const total = cols.reduce((n, c) => n + c.items.length, 0);
-    if (!total) {
-      return conFiltering()
-        ? contentEmpty('Nothing matches that',
-                       'Try a different filter to see the rest of your board.')
-        : contentEmpty(emptyTitle, emptyBody);
-    }
-
-    const wrap = el('div', 'pt-boardwrap');
-
-    // On a phone, a pill row picks the one column worth the width.
-    if (isNarrow()) {
-      if (!CON.col || !cols.some((c) => c.key === CON.col)) {
-        CON.col = (cols.find((c) => c.items.length) ?? cols[0]).key;
-      }
-      const pills = el('div', 'pt-pillrow');
-      pills.setAttribute('role', 'tablist');
-      for (const c of cols) {
-        const b = el('button', 'pt-pill' + (c.key === CON.col ? ' pt-pill-on' : ''));
-        b.type = 'button';
-        b.setAttribute('aria-pressed', String(c.key === CON.col));
-        if (c.color) b.classList.add(`pt-nc-${c.color}`);
-        b.append(el('span', undefined, c.title), el('span', 'pt-pill-n pt-num', String(c.items.length)));
-        b.addEventListener('click', () => { CON.col = c.key; drawContent(); });
-        pills.appendChild(b);
-      }
-      wrap.appendChild(pills);
-      const only = cols.find((c) => c.key === CON.col)!;
-      wrap.appendChild(boardColumn(only));
-      return wrap;
-    }
-
-    const scroller = el('div', 'pt-board');
-    scroller.dataset.boardScroll = 'true';
-    for (const c of cols) scroller.appendChild(boardColumn(c));
-    wrap.appendChild(scroller);
-    return wrap;
+  function drawContent() {
+    const root = q('[data-view="content"]');
+    if (!root) return;
+    conView().draw(root);
+    root.appendChild(newIdeaFab());
   }
 
-  let DRAG: PortalContentItem | null = null;
-
-  function boardColumn(c: Column): HTMLElement {
-    const col = el('section', 'pt-board-col');
-    if (c.color) col.classList.add(`pt-nc-${c.color}`);
-    col.appendChild(el('span', 'pt-board-accent'));
-
-    const head = el('div', 'pt-board-col-head');
-    head.appendChild(el('h3', undefined, c.title));
-    head.appendChild(el('span', 'pt-board-count pt-num', String(c.items.length)));
-    if (c.note) head.appendChild(el('span', 'pt-board-col-note', c.note));
-    if (c.add && !isNarrow()) {
-      const plus = el('button', 'pt-board-add');
-      plus.type = 'button';
-      plus.setAttribute('aria-label', `New idea in ${c.title}`);
-      plus.appendChild(icon('plus'));
-      plus.addEventListener('click', c.add);
-      head.appendChild(plus);
-    }
-    col.appendChild(head);
-
-    const list = el('div', 'pt-board-list');
-    if (!c.items.length) list.appendChild(el('p', 'pt-board-none', 'Nothing here'));
-    for (const item of c.items) list.appendChild(contentCard(item, { hideBucket: c.hideBucket }));
-
-    if (c.onDrop && !isNarrow()) {
-      // preventDefault runs whether or not the column will take the
-      // card, because a drop event only fires on a target that allowed
-      // the dragover. Without it a refused drop is silent, and silent
-      // is the one thing it must not be: the card springs back and the
-      // client is left guessing whether they missed or we said no.
-      list.addEventListener('dragover', (ev) => {
-        if (!DRAG) return;
-        if (c.accepts && !c.accepts(DRAG)) return;
-        if (c.items.some((i) => i.id === DRAG!.id)) return;
-        ev.preventDefault();
-        list.classList.add('pt-board-drop');
-      });
-      list.addEventListener('dragleave', () => list.classList.remove('pt-board-drop'));
-      list.addEventListener('drop', (ev) => {
-        ev.preventDefault();
-        list.classList.remove('pt-board-drop');
-        const card = DRAG;
-        DRAG = null;
-        if (!card) return;
-        if (c.accepts && !c.accepts(card)) return;
-        c.onDrop!(card);
-      });
-    }
-    col.appendChild(list);
-    return col;
-  }
-
-  function contentCard(c: PortalContentItem, opts: { hideBucket?: boolean } = {}): HTMLElement {
-    const card = el('article', 'pt-ccard');
-    const open = el('button', 'pt-ccard-open');
-    open.type = 'button';
-    open.setAttribute('aria-label', `Open ${c.title}`);
-    open.addEventListener('click', () => openContentDrawer(c));
-
-    // A shoot-code title ("SM L1D1") is how he names things, so it is
-    // shown exactly as typed, on one line, and never prettied up.
-    const title = el('span', 'pt-ccard-title', c.title);
-    open.appendChild(title);
-
-    const tags = el('span', 'pt-ccard-tags');
-    // On the Ideas board the column already says the bucket, and a
-    // chip repeating it on every card is noise in a tight space.
-    if (c.bucket && !opts.hideBucket) {
-      tags.appendChild(el('span', `pt-bchip pt-nc-${bucketColor(c.bucket)}`, c.bucket));
-    }
-    for (const f of c.format) tags.appendChild(el('span', 'pt-tag', f));
-    if (c.shootCode && c.shootCode !== c.title) {
-      tags.appendChild(el('span', 'pt-ccard-code pt-num', c.shootCode));
-    }
-    if (tags.firstChild) open.appendChild(tags);
-
-    const meta = el('span', 'pt-ccard-meta');
-    const next = nextDateLine(c);
-    if (next) meta.appendChild(el('span', undefined, next));
-    if (c.source && SOURCE_ICON[c.source]) {
-      const s = el('span', 'pt-ccard-src');
-      s.appendChild(icon(SOURCE_ICON[c.source]));
-      s.appendChild(el('span', undefined, c.source));
-      meta.appendChild(s);
-    }
-    if (meta.firstChild) open.appendChild(meta);
-
-    const badges = el('span', 'pt-ccard-badges');
-    if (c.postedBy === 'Client') badges.appendChild(el('span', 'pt-tag pt-tag-todo', 'You post'));
-    if (c.status === 'Ready for Review') {
-      badges.appendChild(el('span', 'pt-tag pt-tag-review',
-        c.feedback ? 'Changes requested' : 'Needs your review'));
-    }
-    if (badges.firstChild) open.appendChild(badges);
-
-    card.appendChild(open);
-
-    if (!isNarrow()) {
-      card.draggable = true;
-      const grip = el('span', 'pt-ccard-grip');
-      grip.setAttribute('aria-hidden', 'true');
-      grip.appendChild(icon('grip'));
-      card.appendChild(grip);
-      card.addEventListener('dragstart', (ev) => {
-        DRAG = c;
-        card.classList.add('pt-ccard-dragging');
-        ev.dataTransfer?.setData('text/plain', c.title);
-        if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move';
-      });
-      card.addEventListener('dragend', () => {
-        DRAG = null;
-        card.classList.remove('pt-ccard-dragging');
-      });
-    }
-    return card;
-  }
-
-  /** The one date on an idea's card, if it has been given one. */
-  function nextDateLine(c: PortalContentItem): string | null {
-    return c.postDate ? `Posts ${fmtDateShort(c.postDate)}` : null;
-  }
-
-  function postedList(items: PortalContentItem[]): HTMLElement {
-    const posted = items
-      .filter((c) => c.status === 'Posted')
-      .sort((a, b) => (parseNotionDate(b.postDate)?.getTime() ?? 0) - (parseNotionDate(a.postDate)?.getTime() ?? 0));
-    if (!posted.length) {
-      return conFiltering()
-        ? contentEmpty('Nothing matches that',
-                       'Try a different filter to see the rest of your posts.')
-        : contentEmpty('Nothing posted yet',
-                       'Once a piece goes out it moves here, newest first, with the link to the post.');
-    }
-    const grid = el('div', 'pt-posted');
-    for (const c of posted) {
-      const row = el('article', 'pt-posted-card');
-      const open = el('button', 'pt-posted-open');
-      open.type = 'button';
-      open.addEventListener('click', () => openContentDrawer(c));
-      open.appendChild(el('span', 'pt-ccard-title', c.title));
-      const meta = el('span', 'pt-ccard-meta');
-      if (c.bucket) meta.appendChild(el('span', `pt-bchip pt-nc-${bucketColor(c.bucket)}`, c.bucket));
-      if (c.postDate) meta.appendChild(el('span', undefined, fmtDateShort(c.postDate)));
-      if (c.platforms.length) meta.appendChild(el('span', undefined, c.platforms.join(' · ')));
-      open.appendChild(meta);
-      row.appendChild(open);
-      if (c.postLink) {
-        const a = el('a', 'pt-posted-link') as HTMLAnchorElement;
-        a.href = c.postLink;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.setAttribute('aria-label', `See ${c.title} on ${c.platforms[0] ?? 'the platform'}`);
-        a.appendChild(icon('ext'));
-        row.appendChild(a);
-      }
-      grid.appendChild(row);
-    }
-    return grid;
+  /** The sticky button a thumb can always reach. */
+  function newIdeaFab(): HTMLElement {
+    const b = el('button', 'pt-fab');
+    b.type = 'button';
+    b.setAttribute('aria-label', 'New idea');
+    b.appendChild(icon('plus'));
+    b.appendChild(el('span', undefined, 'New idea'));
+    b.addEventListener('click', () => openQuickAdd(null));
+    return b;
   }
 
   /* ── saving ───────────────────────────────────────────────────── */
@@ -1994,13 +1628,6 @@ const NAV = [
       if (DRAWER_ID === id) fillContentDrawer(before);
       toast('That did not save. Check your connection and try again.', true);
       return false;
-    }
-  }
-
-  async function setBucket(c: PortalContentItem, bucket: string | null) {
-    if (c.bucket === bucket) return;
-    if (await saveCard(c.id, { bucket }, { bucket })) {
-      toast(bucket ? `Moved to ${bucket}` : 'Bucket cleared');
     }
   }
 
@@ -4284,17 +3911,21 @@ const NAV = [
   // rescales, so crossing the breakpoint has to re-pick the view
   // rather than redraw the desktop one at phone width.
   let wasNarrow = isNarrow();
+  let wasPhone = isPhone();
   window.addEventListener('resize', () => {
     closePopover();
     if (!DATA) return;
     const now = isNarrow();
     if (now !== wasNarrow) {
       wasNarrow = now;
-      CON.col = '';
       cal.onWidthChange();
     }
     drawCalendar();
-    drawContent();
+    // The content tab only changes shape at one width, board to list.
+    // Redrawing it on every resize would replace the search box under
+    // a phone's keyboard, which resizes the window just by opening.
+    const phone = isPhone();
+    if (phone !== wasPhone) { wasPhone = phone; drawContent(); }
   });
 
   boot();
