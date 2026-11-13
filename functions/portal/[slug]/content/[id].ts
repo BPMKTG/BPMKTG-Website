@@ -51,6 +51,10 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
     postedBy: owned.item.postedBy,
     source: owned.item.source,
     role: ctx.viewer.role,
+    // A note is added to the thread as Notion holds it, and dated by
+    // us. Neither is the request's to say.
+    currentFeedback: owned.item.feedback,
+    today: new Date().toISOString().slice(0, 10),
   });
 
   if (rejected.length) console.error('portal: content patch dropped fields', ctx.slug, rejected.join(','));

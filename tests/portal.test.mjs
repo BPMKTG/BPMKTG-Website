@@ -75,11 +75,24 @@ import {
   canDrop,
   cardFilmCovered,
   filmCover,
-  cardDate,
   dropStatus,
-  STAGE_NOTE,
   STAGE_ORDER,
   STAGE_TITLE,
+  STAGE_STATUSES,
+  CONTENT_MEDIA,
+  nextMove,
+  originOf,
+  countsToward,
+  isFilmJob,
+  inIdeas,
+  postedRecently,
+  shortDay,
+  parseFeedback,
+  appendFeedback,
+  latestFeedback,
+  editPreview,
+  cardMoment,
+  cardMomentIndex,
   cleanPatchText,
   cleanPatchUrl,
   cleanPatchDate,
@@ -1085,28 +1098,42 @@ is('content: Edit Link is readable but not writable',
 
 section('Content: status moves a client may make');
 
-is('status: Idea to Planned', canClientMove('Idea', 'Planned'), true);
-is('status: Planned back to Idea', canClientMove('Planned', 'Idea'), true);
-is('status: Planned to Filmed', canClientMove('Planned', 'Filmed'), true);
-is('status: Filmed to Footage In', canClientMove('Filmed', 'Footage In'), true);
-is('status: Ready for Review to Approved', canClientMove('Ready for Review', 'Approved'), true);
-is('status: Approved to Posted', canClientMove('Approved', 'Posted'), true);
-is('status: Scheduled to Posted', canClientMove('Scheduled', 'Posted'), true);
-is('status: Skipped back to Idea', canClientMove('Skipped', 'Idea'), true);
-is('status: anything to Skipped',
-   CONTENT_STATUSES.every(s => s === 'Skipped' || canClientMove(s, 'Skipped')), true);
+// Three things a client may do: anything on a row they post, answer a
+// cut that is waiting on them, and tick "filmed" on a card they film.
+const ownRow = { postedBy: 'Client', source: 'Client Films' };
+const oursFilmed = { postedBy: 'Blueprint', source: 'Client Films' };
+const oursDrawn = { postedBy: 'Blueprint', source: 'Flyer / Graphic' };
 
-// Editing, Ready for Review and Scheduled are ours to set in Notion.
-is('status: a client cannot start an edit', canClientMove('Footage In', 'Editing'), false);
-is('status: a client cannot put their own card up for review',
-   canClientMove('Filmed', 'Ready for Review'), false);
-is('status: a client cannot schedule', canClientMove('Approved', 'Scheduled'), false);
-is('status: no jumping the queue', canClientMove('Idea', 'Posted'), false);
-is('status: no approving your own unseen edit', canClientMove('Editing', 'Approved'), false);
-is('status: no un-posting', canClientMove('Posted', 'Approved'), false);
-is('status: an invented status is not a status', canClientMove('Idea', 'Published'), false);
+is('status: review, approved', canClientMove('Ready for Review', 'Approved', oursDrawn), true);
+is('status: review, handed back', canClientMove('Ready for Review', 'Editing', oursDrawn), true);
+is('status: review cannot be skipped past', canClientMove('Ready for Review', 'Posted', oursDrawn), false);
+
+is('status: the film tick', canClientMove('Planned', 'Filmed', oursFilmed), true);
+is('status: and unticking it', canClientMove('Filmed', 'Planned', oursFilmed), true);
+is('status: footage in follows a film they shot', canClientMove('Filmed', 'Footage In', oursFilmed), true);
+is('status: no film tick on a flyer', canClientMove('Planned', 'Filmed', oursDrawn), false);
+is('status: no film tick with no source at all', canClientMove('Planned', 'Filmed'), false);
+
+// Everything else on one of ours is ours.
+is('status: a client cannot start an edit', canClientMove('Footage In', 'Editing', oursFilmed), false);
+is('status: a client cannot put a card up for review',
+   canClientMove('Filmed', 'Ready for Review', oursFilmed), false);
+is('status: a client cannot schedule', canClientMove('Approved', 'Scheduled', oursDrawn), false);
+is('status: a client cannot mark ours posted', canClientMove('Approved', 'Posted', oursDrawn), false);
+is('status: a client cannot skip ours',
+   CONTENT_STATUSES.filter(st => st !== 'Skipped' && canClientMove(st, 'Skipped', oursDrawn)), []);
+is('status: no approving an unseen edit', canClientMove('Editing', 'Approved', oursDrawn), false);
+is('status: no un-posting', canClientMove('Posted', 'Approved', oursDrawn), false);
+is('status: the table holds nothing but the review answer',
+   CONTENT_STATUSES.filter(st => CLIENT_STATUS_MOVES[st].length), ['Ready for Review']);
+
+// A row the client posts is ownRow end to end.
+is('status: their own row goes anywhere',
+   CONTENT_STATUSES.every(to => canClientMove('Idea', to, ownRow)), true);
+is('status: but not to a status that does not exist', canClientMove('Idea', 'Published', ownRow), false);
+
 is('status: a status that is already set is a no-op, not a refusal',
-   canClientMove('Editing', 'Editing'), true);
+   canClientMove('Editing', 'Editing', oursDrawn), true);
 is('status: a blank row can only start at the beginning',
    [canClientMove(null, 'Idea'), canClientMove(null, 'Planned'), canClientMove(null, 'Approved')],
    [true, true, false]);
@@ -1168,8 +1195,10 @@ const schema = {
   format: [{ name: 'Text on Screen', color: 'gray' }],
   platforms: platforms.map(name => ({ name, color: 'gray' })),
   status: CONTENT_STATUSES.map(name => ({ name, color: 'gray' })),
+  media: CONTENT_MEDIA.map(name => ({ name, color: 'gray' })),
 };
-const ctx = (currentStatus = 'Planned') => ({ schema, allowedCampaigns: mine, currentStatus });
+const ctx = (currentStatus = 'Planned', more = {}) =>
+  ({ schema, allowedCampaigns: mine, currentStatus, ...more });
 
 // A key the client did not send must not appear in the properties at
 // all: an autosave sends one field, and the others must be left alone.
@@ -1194,9 +1223,63 @@ is('build: a disallowed status move writes nothing',
    Object.keys(jump.properties).length, 0);
 is('build: and is reported as rejected', jump.rejected, ['status']);
 
-const move = buildContentProperties({ status: 'Filmed' }, ctx('Planned'));
+const move = buildContentProperties({ status: 'Filmed' },
+  ctx('Planned', { source: 'Client Films', postedBy: 'Blueprint' }));
 is('build: an allowed status move writes the select',
    move.properties.Status.select.name, 'Filmed');
+is('build: the film tick is refused on a card nobody films',
+   buildContentProperties({ status: 'Filmed' },
+     ctx('Planned', { source: 'Flyer / Graphic', postedBy: 'Blueprint' })).rejected, ['status']);
+is('build: an admin moves anything',
+   buildContentProperties({ status: 'Posted' },
+     ctx('Planned', { role: 'admin', postedBy: 'Blueprint' })).properties.Status.select.name, 'Posted');
+
+// Media: theirs to set on a row they own, ours everywhere else.
+is('build: a client sets Media on their own row',
+   buildContentProperties({ media: 'Carousel' }, ctx('Idea', { postedBy: 'Client' })).properties.Media.select.name,
+   'Carousel');
+is('build: and on a row they are creating',
+   buildContentProperties({ media: 'Story' }, ctx(null)).properties.Media.select.name, 'Story');
+is('build: but not on one of ours',
+   buildContentProperties({ media: 'Carousel' }, ctx('Planned', { postedBy: 'Blueprint' })).rejected, ['media']);
+is('build: an admin sets Media anywhere',
+   buildContentProperties({ media: 'Photo' },
+     ctx('Planned', { postedBy: 'Blueprint', role: 'admin' })).properties.Media.select.name, 'Photo');
+is('build: a Media that is not an option is refused',
+   buildContentProperties({ media: 'Hologram' }, ctx('Idea', { postedBy: 'Client' })).rejected, ['media']);
+
+// Edit Link: ours to attach, never theirs.
+is('build: a client cannot write Edit Link',
+   buildContentProperties({ editLink: 'https://example.com/x.mp4' }, ctx('Editing', { postedBy: 'Client' })).rejected,
+   ['editLink']);
+is('build: an admin can',
+   buildContentProperties({ editLink: 'https://example.com/x.mp4' },
+     ctx('Editing', { role: 'admin' })).properties['Edit Link'].url, 'https://example.com/x.mp4');
+is('build: but not with a javascript: link',
+   buildContentProperties({ editLink: 'javascript:alert(1)' }, ctx('Editing', { role: 'admin' })).rejected,
+   ['editLink']);
+
+// A note on the thread: the request supplies the words, the server
+// supplies who and when.
+{
+  const first = buildContentProperties({ feedbackAdd: 'Cut the intro' },
+    ctx('Ready for Review', { currentFeedback: null, today: '2026-11-13' }));
+  is('build: a note is stamped with the day and the role',
+     first.properties.Feedback.rich_text[0].text.content, '[2026-11-13 · Client] Cut the intro');
+  const reply = buildContentProperties({ feedbackAdd: 'New cut is up' },
+    ctx('Editing', { role: 'admin', today: '2026-11-14',
+                     currentFeedback: '[2026-11-13 · Client] Cut the intro' }));
+  is('build: a reply is added under it, signed as us',
+     reply.properties.Feedback.rich_text[0].text.content,
+     '[2026-11-13 · Client] Cut the intro\n[2026-11-14 · Blueprint] New cut is up');
+  is('build: a request cannot sign a note as us',
+     buildContentProperties({ feedbackAdd: '[2026-01-01 · Blueprint] approved' },
+       ctx('Editing', { today: '2026-11-14' })).properties.Feedback.rich_text[0].text.content,
+     '[2026-11-14 · Client] [2026-01-01 · Blueprint] approved');
+  is('build: an empty note is refused',
+     buildContentProperties({ feedbackAdd: '   ' }, ctx('Editing', { today: '2026-11-14' })).rejected,
+     ['feedbackAdd']);
+}
 
 const foreign = buildContentProperties(
   { campaign: ['bbbbbbbb-1111-2222-3333-444444444444'] }, ctx());
@@ -1249,54 +1332,79 @@ is('content-type: a form post is not a portal write',
 section('Content: boards and columns');
 
 const nowC = new Date(2026, 9, 28);   // 28 Oct 2026
-const card = (o) => ({ status: null, filmBy: null, postDate: null, ...o });
+const card = (o) => ({ status: null, filmBy: null, postDate: null, source: null,
+  media: null, postedBy: null, campaign: [], ...o });
 
-is('ideas: an undated idea is in the well', isIdea(card({ status: 'Idea' })), true);
-is('ideas: a planned card with no date is still an idea',
-   isIdea(card({ status: 'Planned' })), true);
-is('ideas: a date takes it out of the well',
-   isIdea(card({ status: 'Planned', postDate: '2026-11-02' })), false);
-is('ideas: filmed is not an idea', isIdea(card({ status: 'Filmed' })), false);
+is('board: five stages, in order', STAGE_ORDER, ['plan', 'make', 'review', 'ready', 'posted']);
+is('board: every stage has a title', STAGE_ORDER.map((st) => STAGE_TITLE[st]),
+   ['Plan', 'Make', 'Review', 'Ready', 'Posted']);
+is('board: every status but Idea and Skipped is in exactly one stage',
+   CONTENT_STATUSES.filter((st) =>
+     STAGE_ORDER.filter((g) => STAGE_STATUSES[g].includes(st)).length !== 1),
+   ['Idea', 'Skipped']);
+is('board: the mapping, status by status',
+   CONTENT_STATUSES.map((status) => stageOf(card({ status }))),
+   [null, 'plan', 'make', 'make', 'make', 'review', 'ready', 'ready', 'posted', null]);
+is('board: an idea is not on the board, dated or not',
+   [stageOf(card({ status: 'Idea' })), stageOf(card({ status: 'Idea', postDate: '2026-11-09' }))],
+   [null, null]);
+is('board: Source no longer decides a column',
+   ['Client Films', 'Show Media', 'Flyer / Graphic', null]
+     .map((source) => stageOf(card({ status: 'Planned', source }))),
+   ['plan', 'plan', 'plan', 'plan']);
 
-is('pipeline: planned with no film date', stageOf(card({ status: 'Planned' }), nowC), 'planned');
-// Source decides the pre-camera column now, not Film By. A flyer we
-// are drawing has a Film By too, and it used to land in the client's
-// To film pile with a date they could do nothing about.
-is('pipeline: a film date alone is not To film',
-   stageOf(card({ status: 'Planned', filmBy: '2026-11-01' }), nowC), 'planned');
-is('pipeline: Client Films is To film',
-   stageOf(card({ status: 'Planned', filmBy: '2026-11-01', source: 'Client Films' }), nowC), 'toFilm');
-is('pipeline: Client Films is To film even with no film date',
-   stageOf(card({ status: 'Planned', source: 'Client Films' }), nowC), 'toFilm');
-is('pipeline: a flyer we draw goes to Up next, not To film',
-   stageOf(card({ status: 'Planned', filmBy: '2026-11-01', source: 'Flyer / Graphic' }), nowC), 'upNext');
-is('pipeline: show media goes to Up next',
-   stageOf(card({ status: 'Planned', source: 'Show Media' }), nowC), 'upNext');
-is('pipeline: filmed and footage in share a column',
-   [stageOf(card({ status: 'Filmed' }), nowC), stageOf(card({ status: 'Footage In' }), nowC)],
-   ['filmed', 'filmed']);
-is('pipeline: approved and scheduled share Ready to Post',
-   [stageOf(card({ status: 'Approved' }), nowC), stageOf(card({ status: 'Scheduled' }), nowC)],
-   ['ready', 'ready']);
-is('pipeline: skipped is hidden', stageOf(card({ status: 'Skipped' }), nowC), null);
-is('pipeline: an undated idea is not on the pipeline', stageOf(card({ status: 'Idea' }), nowC), null);
-is('pipeline: a dated idea lands in Planned',
-   stageOf(card({ status: 'Idea', postDate: '2026-11-09' }), nowC), 'planned');
-is('pipeline: a dated idea the client films lands in To film',
-   stageOf(card({ status: 'Idea', postDate: '2026-11-09', filmBy: '2026-11-05',
-                  source: 'Client Films' }), nowC), 'toFilm');
-is('pipeline: a dated idea with a shoot date but no source stays in Planned',
-   stageOf(card({ status: 'Idea', postDate: '2026-11-09', filmBy: '2026-11-05' }), nowC), 'planned');
-is('pipeline: an idea with only a shoot date is still on the board',
-   stageOf(card({ status: 'Idea', filmBy: '2026-11-05', source: 'Client Films' }), nowC), 'toFilm');
-is('ideas: a dated idea is off the Ideas board',
-   isIdea({ status: 'Idea', postDate: '2026-11-09' }), false);
-is('pipeline: a recent post still shows',
-   stageOf(card({ status: 'Posted', postDate: '2026-10-20' }), nowC), 'posted');
-is('pipeline: a post older than 30 days drops off',
-   stageOf(card({ status: 'Posted', postDate: '2026-09-01' }), nowC), null);
-is('pipeline: the 30th day still counts',
-   stageOf(card({ status: 'Posted', postDate: '2026-09-28' }), nowC), 'posted');
+is('board: a recent post is recent',
+   postedRecently(card({ status: 'Posted', postDate: '2026-10-20' }), nowC), true);
+is('board: a post older than 30 days is not',
+   postedRecently(card({ status: 'Posted', postDate: '2026-09-01' }), nowC), false);
+is('board: the 30th day still counts',
+   postedRecently(card({ status: 'Posted', postDate: '2026-09-28' }), nowC), true);
+
+section('Content: where a row came from, and whether it counts');
+
+is('origin: linked to a campaign', originOf(card({ status: 'Planned', campaign: ['x'] })), 'campaign');
+is('origin: an idea with no campaign', originOf(card({ status: 'Idea' })), 'idea');
+is('origin: anything else with no campaign is standalone',
+   originOf(card({ status: 'Posted' })), 'standalone');
+is('origin: an idea linked to a campaign is a campaign row',
+   originOf(card({ status: 'Idea', campaign: ['x'] })), 'campaign');
+
+is('counts: ours, dated, not skipped',
+   countsToward(card({ postedBy: 'Blueprint', status: 'Planned', postDate: '2026-11-09' })), true);
+is('counts: a client post does not', countsToward(card({ postedBy: 'Client', status: 'Posted', postDate: '2026-11-09' })), false);
+is('counts: undated does not', countsToward(card({ postedBy: 'Blueprint', status: 'Planned' })), false);
+is('counts: skipped does not', countsToward(card({ postedBy: 'Blueprint', status: 'Skipped', postDate: '2026-11-09' })), false);
+is('counts: nobody named as posting it does not', countsToward(card({ status: 'Planned', postDate: '2026-11-09' })), false);
+
+is('ideas: an idea is in the list', inIdeas(card({ status: 'Idea' })), true);
+is('ideas: a standalone piece on its way is too', inIdeas(card({ status: 'Planned' })), true);
+is('ideas: a campaign row is not', inIdeas(card({ status: 'Planned', campaign: ['x'] })), false);
+is('ideas: nor a campaign row in any later stage',
+   CONTENT_STATUSES.filter((st) => st !== 'Idea' && inIdeas(card({ status: st, campaign: ['x'] }))), []);
+is('ideas: a finished standalone piece is not backlog', inIdeas(card({ status: 'Posted' })), false);
+is('ideas: a skipped one neither', inIdeas(card({ status: 'Skipped' })), false);
+is('ideas: isIdea means the status and nothing else',
+   [isIdea(card({ status: 'Idea', postDate: '2026-11-09' })), isIdea(card({ status: 'Planned' }))],
+   [true, false]);
+
+// A card links to the step it delivers; the board groups by moment.
+{
+  const mom = { id: 'aaaa-1111', title: 'Faith Rave', date: '2026-11-15', momentType: 'Show' };
+  const idx = cardMomentIndex([
+    { id: 'aaaa-1111', title: 'Faith Rave', date: '2026-11-15', kind: 'Moment', momentType: 'Show', moment: null },
+    { id: 'bbbb-2222', title: 'Flyer', date: '2026-11-01', kind: 'Step', momentType: null, moment: mom },
+    { id: 'cccc-3333', title: 'A loose to-do', date: '2026-11-02', kind: 'Step', momentType: null, moment: null },
+  ]);
+  is('moment: a card linked to a step resolves to the step’s moment',
+     cardMoment({ campaign: ['bbbb2222'] }, idx)?.title, 'Faith Rave');
+  is('moment: a card linked straight to the moment resolves to it',
+     cardMoment({ campaign: ['AAAA-1111'] }, idx)?.id, 'aaaa-1111');
+  is('moment: a card linked to a step with no moment has none',
+     cardMoment({ campaign: ['cccc-3333'] }, idx), null);
+  is('moment: a card linked to something unseen has none',
+     cardMoment({ campaign: ['dddd-4444'] }, idx), null);
+  is('moment: a card linked to nothing has none', cardMoment({ campaign: [] }, idx), null);
+}
 
 section('Calendar: one film day per campaign');
 
@@ -1343,111 +1451,183 @@ section('Calendar: one film day per campaign');
 
 section('Pipeline: whose move is it');
 
-const pcard = (o) => ({ status: null, source: null, postedBy: null,
+const pcard = (o) => ({ status: null, source: null, postedBy: null, media: null,
   filmBy: null, postDate: null, ...o });
 
-// ── the three pre-camera columns share one status, so a drop into the
-//    wrong one of them is refused rather than bounced ──
-is('drop: Client Films into To film writes Planned',
-   dropStatus(pcard({ source: 'Client Films' }), 'toFilm'), 'Planned');
-is('drop: Client Films cannot go in Up next',
-   dropStatus(pcard({ source: 'Client Films' }), 'upNext'), null);
-is('drop: a flyer cannot go in To film',
-   dropStatus(pcard({ source: 'Flyer / Graphic' }), 'toFilm'), null);
-is('drop: a flyer into Up next writes Planned',
-   dropStatus(pcard({ source: 'Flyer / Graphic' }), 'upNext'), 'Planned');
-is('drop: a sourceless card belongs to Planned alone',
-   [dropStatus(pcard({}), 'planned'), dropStatus(pcard({}), 'toFilm'), dropStatus(pcard({}), 'upNext')],
-   ['Planned', null, null]);
-is('drop: a sourced card is not allowed back into plain Planned',
-   dropStatus(pcard({ source: 'Client Films' }), 'planned'), null);
-is('drop: every later column maps to one status',
-   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) => dropStatus(pcard({}), st)),
-   ['Filmed', 'Editing', 'Ready for Review', 'Approved', 'Posted']);
+// A drop writes the column's first status, except Make and Ready.
+is('drop: what each column writes for us',
+   STAGE_ORDER.map((st) => dropStatus(pcard({}), st, 'admin')),
+   ['Planned', 'Editing', 'Ready for Review', 'Approved', 'Posted']);
+is('drop: Make writes Editing for us even on a card the client films',
+   dropStatus(pcard({ source: 'Client Films' }), 'make', 'admin'), 'Editing');
+// The client's Make on a card they film is the film tick.
+is('drop: the client’s Make on a film job is Filmed',
+   dropStatus(pcard({ source: 'Client Films', media: 'Video' }), 'make', 'client'), 'Filmed');
+is('drop: but Editing on anything nobody films',
+   dropStatus(pcard({ source: 'Client Films', media: 'Graphic' }), 'make', 'client'), 'Editing');
 
-// ── the client's own two moves ──
-is('move: To film to Filmed is the client\u2019s',
-   canDrop(pcard({ status: 'Planned', source: 'Client Films' }), 'filmed', 'client'), true);
-is('move: and back out again, on a card they film',
-   canDrop(pcard({ status: 'Filmed', source: 'Client Films' }), 'toFilm', 'client'), true);
-is('move: but not back out of ours',
-   canClientMove('Filmed', 'Planned', { source: 'Flyer / Graphic' }), false);
-is('move: Your review, approved',
-   canDrop(pcard({ status: 'Ready for Review' }), 'ready', 'client'), true);
-is('move: Your review, handed back to us',
-   canClientMove('Ready for Review', 'Editing'), true);
-is('move: a client cannot reach In edit from anywhere else',
-   canClientMove('Planned', 'Editing'), false);
+// ── the client's own moves ──
+is('move: the film tick, by dragging Plan to Make',
+   canDrop(pcard({ status: 'Planned', source: 'Client Films', postedBy: 'Blueprint' }), 'make', 'client'), true);
+is('move: and back out again',
+   canDrop(pcard({ status: 'Filmed', source: 'Client Films', postedBy: 'Blueprint' }), 'plan', 'client'), true);
+is('move: not on a flyer',
+   canDrop(pcard({ status: 'Planned', source: 'Flyer / Graphic', postedBy: 'Blueprint' }), 'make', 'client'), false);
+is('move: review, approved',
+   canDrop(pcard({ status: 'Ready for Review', postedBy: 'Blueprint' }), 'ready', 'client'), true);
+is('move: review, sent back to Make',
+   canDrop(pcard({ status: 'Ready for Review', postedBy: 'Blueprint', source: 'Show Media' }), 'make', 'client'), true);
+is('move: the client cannot drag ours to Posted',
+   canDrop(pcard({ status: 'Approved', postedBy: 'Blueprint' }), 'posted', 'client'), false);
+is('move: nor a Blueprint card anywhere from Plan',
+   STAGE_ORDER.filter((st) => st !== 'plan'
+     && canDrop(pcard({ status: 'Planned', postedBy: 'Blueprint', source: 'Show Media' }), st, 'client')), []);
 
 // ── a row the client posts is theirs end to end ──
 is('move: Posted By Client goes anywhere',
-   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) =>
-     canDrop(pcard({ status: 'Planned', postedBy: 'Client' }), st, 'client')),
+   STAGE_ORDER.map((st) => canDrop(pcard({ status: 'Planned', postedBy: 'Client' }), st, 'client')),
    [true, true, true, true, true]);
-is('move: the same card, posted by us, does not',
-   canDrop(pcard({ status: 'Planned', postedBy: 'Blueprint' }), 'editing', 'client'), false);
-is('move: Posted By Client still cannot break the Source rule',
-   canDrop(pcard({ status: 'Planned', postedBy: 'Client', source: 'Client Films' }), 'upNext', 'client'),
-   false);
 
-// ── admin moves anything the column can hold ──
-is('move: admin reaches every real column',
-   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) =>
-     canDrop(pcard({ status: 'Planned', postedBy: 'Blueprint' }), st, 'admin')),
-   [true, true, true, true, true]);
-is('move: admin is still refused a column that would bounce',
-   canDrop(pcard({ status: 'Planned', source: 'Client Films' }), 'upNext', 'admin'), false);
+// ── admin moves anything ──
+is('move: admin reaches every column from every status',
+   CONTENT_STATUSES.every((status) => STAGE_ORDER.every((st) =>
+     canDrop(pcard({ status, postedBy: 'Blueprint' }), st, 'admin'))), true);
 
 // ── no cell of the board lets a client write one of ours ──
 {
-  const statuses = ['Idea', 'Planned', 'Filmed', 'Footage In', 'Editing',
-    'Ready for Review', 'Approved', 'Scheduled', 'Posted', 'Skipped'];
   const sources = [null, 'Client Films', 'Show Media', 'Flyer / Graphic'];
-  const stages = ['upNext', 'planned', 'toFilm', 'filmed', 'editing', 'review', 'ready', 'posted'];
+  const medias = [null, ...CONTENT_MEDIA];
   let wrong = [];
-  for (const status of statuses) {
+  let offered = 0;
+  for (const status of CONTENT_STATUSES) {
     for (const source of sources) {
-      for (const stage of stages) {
-        const ours = pcard({ status, source, postedBy: 'Blueprint' });
-        if (!canDrop(ours, stage, 'client')) continue;
-        const to = dropStatus(ours, stage);
-        // Allowed by canDrop means allowed by the table the server
-        // enforces. If those two ever disagree, the board offers a
-        // move the server will refuse, which is the silent failure
-        // this whole pass exists to remove.
-        if (!canClientMove(status, to, { postedBy: 'Blueprint', source })) {
-          wrong.push(`${status}/${source}/${stage}`);
+      for (const media of medias) {
+        for (const stage of STAGE_ORDER) {
+          const ours = pcard({ status, source, media, postedBy: 'Blueprint' });
+          if (!canDrop(ours, stage, 'client')) continue;
+          offered++;
+          const to = dropStatus(ours, stage, 'client');
+          // Allowed by canDrop means allowed by the rule the server
+          // enforces. If those two ever disagree, the board offers a
+          // move the server will refuse, which is the silent failure
+          // this whole pass exists to remove.
+          if (!canClientMove(status, to, { postedBy: 'Blueprint', source })) {
+            wrong.push(`${status}/${source}/${media}/${stage}`);
+          }
         }
       }
     }
   }
   is('move: the board never offers a client a move the server refuses', wrong, []);
+  ok('move: and it does offer some', offered > 0);
 }
 
-section('Pipeline: the date on the face of a card');
+section('Pipeline: the next move on the face of a card');
 
-is('card date: a film date the client owns',
-   cardDate(pcard({ source: 'Client Films', filmBy: '2026-11-10', postDate: '2026-11-14' })),
-   { label: 'Film by', date: '2026-11-10' });
-is('card date: a flyer shows when it posts, never a film date',
-   cardDate(pcard({ source: 'Flyer / Graphic', filmBy: '2026-11-10', postDate: '2026-11-14' })),
-   { label: 'Posts', date: '2026-11-14' });
-is('card date: show media the same',
-   cardDate(pcard({ source: 'Show Media', filmBy: '2026-11-10', postDate: '2026-11-14' })),
-   { label: 'Posts', date: '2026-11-14' });
-is('card date: once it is shot, the film date stops being news',
-   cardDate(pcard({ source: 'Client Films', status: 'Filmed',
-                    filmBy: '2026-11-10', postDate: '2026-11-14' })),
-   { label: 'Posts', date: '2026-11-14' });
-is('card date: nothing dated says nothing', cardDate(pcard({})), null);
-is('card date: no source and a film date is still not a film job',
-   cardDate(pcard({ filmBy: '2026-11-10' })), null);
+const seanV = { name: 'Sean Comma' };
+const youV = { name: 'Sean Comma', you: true };
+const nm = (o, v = seanV) => nextMove(pcard(o), v);
 
-is('board: Up next comes first', STAGE_ORDER[0], 'upNext');
-is('board: every column has a title',
-   STAGE_ORDER.filter((st) => !STAGE_TITLE[st]), []);
-is('board: the two columns with an owner say so',
-   STAGE_ORDER.filter((st) => STAGE_NOTE[st]), ['upNext', 'toFilm', 'review']);
+is('next: planned, the client films',
+   nm({ status: 'Planned', source: 'Client Films', media: 'Video', filmBy: '2026-11-10', postDate: '2026-11-14' }),
+   { text: 'Sean Comma films by Nov 10', waiting: 'Client' });
+is('next: the same line to the client themselves',
+   nm({ status: 'Planned', source: 'Client Films', media: 'Video', filmBy: '2026-11-10' }, youV).text,
+   'You film by Nov 10');
+is('next: planned, anything else',
+   nm({ status: 'Planned', source: 'Show Media', media: 'Video', postDate: '2026-11-14', postedBy: 'Blueprint' }),
+   { text: 'Blueprint making · posts Nov 14', waiting: 'Blueprint' });
+is('next: filmed and footage in',
+   [nm({ status: 'Filmed' }), nm({ status: 'Footage In' })],
+   [{ text: 'Blueprint to edit', waiting: 'Blueprint' }, { text: 'Blueprint to edit', waiting: 'Blueprint' }]);
+is('next: editing, by what it is',
+   [null, 'Video', 'Graphic', 'Story', 'Photo', 'Carousel'].map((media) => nm({ status: 'Editing', media }).text),
+   ['Blueprint editing', 'Blueprint editing', 'Blueprint designing', 'Blueprint designing',
+    'Blueprint selecting', 'Blueprint selecting']);
+is('next: ready for review', nm({ status: 'Ready for Review' }), { text: 'Sean Comma to approve', waiting: 'Client' });
+is('next: ready for review, to the client', nm({ status: 'Ready for Review' }, youV).text, 'Yours to approve');
+is('next: approved and scheduled',
+   [nm({ status: 'Approved', postDate: '2026-11-14', postedBy: 'Blueprint' }),
+    nm({ status: 'Scheduled', postDate: '2026-11-14', postedBy: 'Blueprint' })],
+   [{ text: 'Posts Nov 14', waiting: 'Blueprint' }, { text: 'Posts Nov 14', waiting: 'Blueprint' }]);
+is('next: approved, and the client is the one posting',
+   nm({ status: 'Approved', postDate: '2026-11-14', postedBy: 'Client' }).waiting, 'Client');
+is('next: posted waits on nobody', nm({ status: 'Posted', postDate: '2026-11-01' }), { text: 'Posted Nov 1', waiting: null });
+is('next: an idea and a skipped card have no next move',
+   [nm({ status: 'Idea' }), nm({ status: 'Skipped' })], [null, null]);
+
+// A Graphic never mentions filming, whatever its Source says.
+{
+  const says = [];
+  for (const status of CONTENT_STATUSES) {
+    for (const source of [null, 'Client Films', 'Show Media', 'Flyer / Graphic']) {
+      for (const postedBy of ['Blueprint', 'Client']) {
+        for (const v of [seanV, youV]) {
+          const t = nm({ status, source, postedBy, media: 'Graphic',
+                         filmBy: '2026-11-10', postDate: '2026-11-14' }, v)?.text ?? '';
+          if (/film/i.test(t) || t.includes('Nov 10')) says.push(`${status}/${source}/${postedBy}: ${t}`);
+        }
+      }
+    }
+  }
+  is('next: a Graphic never mentions filming, or shows its Film By', says, []);
+}
+is('next: Film By appears only in the films line',
+   CONTENT_STATUSES.filter((status) => status !== 'Planned'
+     && (nm({ status, source: 'Client Films', media: 'Video',
+              filmBy: '2026-11-10', postDate: '2026-11-14' })?.text ?? '').includes('Nov 10')), []);
+is('next: a film job is Client Films and something a camera makes',
+   [isFilmJob({ source: 'Client Films', media: 'Video' }), isFilmJob({ source: 'Client Films', media: 'Story' }),
+    isFilmJob({ source: 'Client Films', media: null }), isFilmJob({ source: 'Client Films', media: 'Graphic' }),
+    isFilmJob({ source: 'Show Media', media: 'Video' })],
+   [true, true, true, false, false]);
+is('next: a piece the client makes and posts is not ours to be making',
+   nm({ status: 'Planned', source: 'Client Films', media: 'Carousel', postedBy: 'Client', postDate: '2026-11-14' }),
+   { text: 'Sean Comma making · posts Nov 14', waiting: 'Client' });
+is('next: a day reads as the day it says', [shortDay('2026-11-01'), shortDay('2026-01-31'), shortDay(null)],
+   ['Nov 1', 'Jan 31', '']);
+
+section('Content: the feedback thread');
+
+is('thread: nothing is nothing', parseFeedback(null), []);
+is('thread: text typed by hand is one undated note',
+   parseFeedback('Cut the intro'), [{ who: null, day: null, text: 'Cut the intro' }]);
+is('thread: stamped notes, in order',
+   parseFeedback('[2026-11-13 · Client] Cut the intro\n[2026-11-14 · Blueprint] Done').map((e) => `${e.who}:${e.text}`),
+   ['Client:Cut the intro', 'Blueprint:Done']);
+is('thread: a note may run over lines',
+   parseFeedback('[2026-11-13 · Client] one\ntwo\n[2026-11-14 · Blueprint] three')[0].text, 'one\ntwo');
+is('thread: hand-typed text before the first stamp is kept',
+   parseFeedback('old note\n[2026-11-13 · Client] new').map((e) => e.text), ['old note', 'new']);
+is('thread: the latest is the last',
+   latestFeedback('[2026-11-13 · Client] a\n[2026-11-14 · Blueprint] b')?.text, 'b');
+is('thread: appending keeps what was there',
+   appendFeedback('old note', 'Client', '2026-11-13', 'new'), 'old note\n[2026-11-13 · Client] new');
+{
+  const long = 'x'.repeat(1100);
+  let t = appendFeedback(null, 'Client', '2026-11-01', long);
+  t = appendFeedback(t, 'Blueprint', '2026-11-02', long);
+  t = appendFeedback(t, 'Client', '2026-11-03', 'the newest');
+  ok('thread: it never outgrows the field', t.length <= MAX_TEXT);
+  is('thread: and the oldest note is the one that goes',
+     parseFeedback(t).map((e) => e.day), ['2026-11-02', '2026-11-03']);
+}
+
+section('Content: previewing the cut');
+
+is('preview: a video file plays in place',
+   editPreview('https://cdn.example.com/cuts/final.mp4'), { kind: 'video', src: 'https://cdn.example.com/cuts/final.mp4' });
+is('preview: an image shows in place', editPreview('https://cdn.example.com/a/flyer.PNG')?.kind, 'image');
+is('preview: a Drive file becomes its own preview address',
+   editPreview('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view?usp=sharing'),
+   { kind: 'frame', src: 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/preview' });
+is('preview: a Drive folder is just a link', editPreview('https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOp'), null);
+is('preview: YouTube, by id', editPreview('https://youtu.be/dQw4w9WgXcQ')?.src,
+   'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
+is('preview: an unknown host is never framed', editPreview('https://evil.example.com/page'), null);
+is('preview: nor is plain http', editPreview('http://cdn.example.com/x.mp4'), null);
+is('preview: nor a javascript: link', editPreview('javascript:alert(1)'), null);
+is('preview: nothing is nothing', editPreview(null), null);
 
 section('Content: the quick-add status default');
 

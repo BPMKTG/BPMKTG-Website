@@ -6,13 +6,22 @@
    two boards drifting apart means a card reads one way to the client
    and another way to us, and then nobody trusts either.
 
+   Five columns, the same five for every kind of piece: Plan, Make,
+   Review, Ready, Posted. Whose move it is inside a column is said on
+   the card, in one line, and not by which column the card is in.
+
+   One board can draw several lanes. The Campaigns view is a lane per
+   moment, and a card picked up in one lane has to dim the columns of
+   every lane, so the drag state belongs to the board and not to the
+   lane.
+
    The host supplies what differs:
 
      role      'client' or 'admin'. The only thing it changes is who
                may drag what, and that question is answered by canDrop
                in the data layer, not here.
-     items     the cards to draw, already filtered by whatever the
-               surface's own toolbar says.
+     voice     who the client is to the reader: their name in HQ,
+               "You" to them.
      clientOf  HQ only: the artist whose card this is, so a
                cross-client board says whose work it is looking at.
 
@@ -23,48 +32,48 @@
 
 import {
   canDrop,
-  cardDate,
-  clientFilms,
   dropStatus,
+  latestFeedback,
+  nextMove,
+  shortDay,
+  stageOf,
   DRAG_BLOCKED,
   REVIEW_LABEL,
-  STAGE_NOTE,
   STAGE_ORDER,
   STAGE_TITLE,
-  stageOf,
   type PortalContentItem,
   type ReviewAction,
   type Stage,
+  type Voice,
 } from '../data/portal-content';
-import { el, fmtDateShort, icon, isNarrow } from './portal-dom';
+import { el, icon } from './portal-dom';
 
-/** Which icon stands for each Source on a card. */
-const SOURCE_ICON: Record<string, string> = {
-  'Client Films': 'film',
-  'Show Media': 'ticket',
-  'Flyer / Graphic': 'folder',
+/** Which sprite icon stands for each Media. An unclassified row reads
+ *  as a video, which is what nearly all of them are. */
+export const MEDIA_ICON: Record<string, string> = {
+  Video: 'video',
+  Photo: 'photo',
+  Carousel: 'carousel',
+  Graphic: 'graphic',
+  Story: 'story',
 };
+
+/** Below this the board becomes a list. Narrower than the portal's
+ *  usual break: five columns still fit on a tablet held sideways, and
+ *  a list is the worse view wherever the board fits. */
+export const isPhone = () => window.matchMedia('(max-width: 767px)').matches;
 
 export interface BoardHost {
   role: () => 'client' | 'admin';
-  items: () => PortalContentItem[];
-  /** Today, so the Posted window is the host's idea of now. */
-  now: () => Date;
-  bucketColor: (name: string | null) => string;
+  /** Who the client of this card is to whoever is reading. */
+  voice: (c: PortalContentItem) => Voice;
+  /** The campaign a card belongs to, by name, or null. */
+  momentOf: (c: PortalContentItem) => string | null;
   openCard: (c: PortalContentItem) => void;
   /** Write the new status. The board does not wait on it: the host
    *  redraws when the save comes back, the same as everywhere else. */
   setStatus: (c: PortalContentItem, status: string) => void;
   toast: (text: string, bad?: boolean) => void;
-  /** An empty state in the host's own voice. */
-  empty: (title: string, body: string) => HTMLElement;
-  /** Whether the host's toolbar is filtering, which changes what an
-   *  empty board means: nothing here, or nothing matching. */
-  filtering: () => boolean;
-  /** The phone layout shows one column at a time, and which one is
-   *  the host's state because the host owns the redraw. */
-  col: { get: () => string; set: (v: string) => void };
-  redraw: () => void;
   /** Client only: the two buttons on a card awaiting review. */
   reviewAct?: (c: PortalContentItem, action: ReviewAction) => void;
   /** HQ only: whose card this is. */
@@ -72,47 +81,43 @@ export interface BoardHost {
 }
 
 export interface Board {
-  draw: () => HTMLElement;
+  /** Forget the lanes of the last draw. Call once per redraw. */
+  begin: () => void;
+  /** Five columns of these cards. */
+  lane: (items: PortalContentItem[]) => HTMLElement;
+  /** The same cards as a list grouped by stage, for a phone: no
+   *  dragging, and a menu on each card to move it. */
+  list: (items: PortalContentItem[]) => HTMLElement;
+  /** One card, for a view that lays them out itself. */
+  card: (c: PortalContentItem, opts?: { menu?: boolean }) => HTMLElement;
 }
 
 interface Col {
   stage: Stage;
-  items: PortalContentItem[];
-  list?: HTMLElement;
+  list: HTMLElement;
 }
 
 export function createBoard(host: BoardHost): Board {
   let DRAG: PortalContentItem | null = null;
+  /** Every column of every lane in the current draw. */
   let COLS: Col[] = [];
+  let SCROLLERS: HTMLElement[] = [];
 
   /** Picking a card up answers the question for every column at once,
-   *  so the client sees where it can go before they let go of it. */
+   *  so the reader sees where it can go before they let go of it. */
   function markDropTargets(card: PortalContentItem | null): void {
     for (const c of COLS) {
-      if (!c.list) continue;
       const refuses = !!card
         && !canDrop(card, c.stage, host.role())
-        && !c.items.some((i) => i.id === card.id);
+        && stageOf(card) !== c.stage;
       c.list.classList.toggle('pt-board-dim', refuses);
     }
   }
 
-  /** Why this column would not take this card. Two different noes, and
-   *  a client told the wrong one goes looking in the wrong place. */
-  function refusal(card: PortalContentItem, stage: Stage): string {
-    if (dropStatus(card, stage) === null) {
-      return clientFilms(card.source)
-        ? 'This one is yours to film, so it lives in To film.'
-        : 'That column is for a different kind of card.';
-    }
-    return DRAG_BLOCKED;
-  }
-
   /* ── dragging to a column that is off screen ─────────────────── */
-  // Eight columns do not fit on a laptop. Reaching the far one used to
-  // mean parking the card, scrolling the board and picking it up again,
-  // which is not a gesture anyone would guess at. Holding the card near
-  // an edge now pulls the board along under it.
+  // On a narrow window five columns do not all fit. Holding the card
+  // near an edge pulls the board along under it, so the far column is
+  // one gesture away.
   //
   // The loop reschedules itself rather than waiting on dragover,
   // because dragover stops firing the moment the pointer holds still,
@@ -125,15 +130,13 @@ export function createBoard(host: BoardHost): Board {
 
   let edgeFrame = 0;
   let edgeRate = 0;
-  /** The scroller of the current draw, for the handlers to reach. */
-  let scrollerEl: HTMLElement | null = null;
 
   // Scroll snapping and a drag do not mix. The board snaps by the
   // column, so a 15px nudge is rounded straight back to where it
   // started and the board never moves at all. Snapping is turned off
   // for the length of the drag and put back afterwards.
   function edgeFree(on: boolean): void {
-    scrollerEl?.classList.toggle('pt-board-free', on);
+    for (const sc of SCROLLERS) sc.classList.toggle('pt-board-free', on);
   }
 
   function edgeStop(): void {
@@ -166,8 +169,14 @@ export function createBoard(host: BoardHost): Board {
     if (!edgeFrame) edgeFrame = requestAnimationFrame(() => edgeStep(sc));
   }
 
-  function cardEl(c: PortalContentItem): HTMLElement {
+  /* ── one card ─────────────────────────────────────────────────── */
+
+  function cardEl(c: PortalContentItem, opts: { menu?: boolean; drag?: boolean } = {}): HTMLElement {
     const card = el('article', 'pt-ccard');
+    const voice = host.voice(c);
+    const move = nextMove(c, voice);
+    if (move?.waiting) card.dataset.waiting = move.waiting;
+
     const open = el('button', 'pt-ccard-open');
     open.type = 'button';
     open.setAttribute('aria-label', `Open ${c.title}`);
@@ -180,45 +189,56 @@ export function createBoard(host: BoardHost): Board {
     const who = host.clientOf?.(c) ?? null;
     if (who) open.appendChild(el('span', 'pt-ccard-who', who));
 
-    const tags = el('span', 'pt-ccard-tags');
-    if (c.bucket) {
-      tags.appendChild(el('span', `pt-bchip pt-nc-${host.bucketColor(c.bucket)}`, c.bucket));
+    // The next move: the one line on the card that is an instruction
+    // rather than a fact. The dot says whose it is at a glance.
+    if (move) {
+      const line = el('span', 'pt-ccard-next');
+      const dot = el('span', 'pt-ccard-dot');
+      dot.setAttribute('aria-hidden', 'true');
+      line.append(dot, el('span', undefined, move.text));
+      open.appendChild(line);
     }
-    for (const f of c.format) tags.appendChild(el('span', 'pt-tag', f));
-    if (c.shootCode && c.shootCode !== c.title) {
-      tags.appendChild(el('span', 'pt-ccard-code pt-num', c.shootCode));
-    }
-    if (tags.firstChild) open.appendChild(tags);
 
+    // What it is, and when it goes out. The date is left off when the
+    // line above has already said it.
     const meta = el('span', 'pt-ccard-meta');
-    const line = dateLine(c);
-    if (line) meta.appendChild(el('span', undefined, line));
-    if (c.source && SOURCE_ICON[c.source]) {
-      const s = el('span', 'pt-ccard-src');
-      s.appendChild(icon(SOURCE_ICON[c.source]));
-      s.appendChild(el('span', undefined, c.source));
-      meta.appendChild(s);
+    const media = c.media ?? 'Video';
+    const m = el('span', 'pt-ccard-media');
+    m.appendChild(icon(MEDIA_ICON[media] ?? 'video'));
+    m.appendChild(el('span', undefined, media));
+    meta.appendChild(m);
+    const day = shortDay(c.postDate);
+    if (day && !(move?.text ?? '').includes(day)) {
+      meta.appendChild(el('span', 'pt-ccard-day pt-num', day));
     }
-    if (meta.firstChild) open.appendChild(meta);
+    open.appendChild(meta);
 
-    const badges = el('span', 'pt-ccard-badges');
-    if (c.postedBy === 'Client') badges.appendChild(el('span', 'pt-tag pt-tag-todo', 'You post'));
-    if (c.status === 'Ready for Review') {
-      badges.appendChild(el('span', 'pt-tag pt-tag-review',
-        c.feedback ? 'Changes requested' : 'Needs your review'));
+    // Which campaign it is for, and who puts it up. One row, so a card
+    // is four lines tall rather than six.
+    const foot = el('span', 'pt-ccard-foot');
+    const camp = host.momentOf(c);
+    if (camp) foot.appendChild(el('span', 'pt-ccard-camp', camp));
+    if (c.postedBy === 'Blueprint') {
+      foot.appendChild(el('span', 'pt-tag pt-tag-ours', 'Blueprint posts'));
+    } else if (c.postedBy === 'Client') {
+      foot.appendChild(el('span', 'pt-tag pt-tag-todo',
+        voice.you ? 'You post' : `${voice.name} posts`));
     }
-    if (badges.firstChild) open.appendChild(badges);
+    if (foot.firstChild) open.appendChild(foot);
 
     card.appendChild(open);
 
-    // The client's own words, on the face of the card. A row that lands
-    // in In edit carries the reason it was sent back, so whoever picks
-    // it up does not have to open the drawer to find out what to change.
-    if (c.feedback) {
-      const note = el('p', 'pt-ccard-note');
-      note.appendChild(el('span', 'pt-ccard-note-lab', 'Asked for'));
-      note.appendChild(el('span', undefined, c.feedback));
-      card.appendChild(note);
+    // The latest note on the thread, on the face of the card. A row
+    // that lands back in Make carries the reason it was sent there, so
+    // whoever picks it up does not have to open the drawer to find out
+    // what to change.
+    const note = latestFeedback(c.feedback);
+    if (note && c.status !== 'Posted') {
+      const p = el('p', 'pt-ccard-note');
+      p.appendChild(el('span', 'pt-ccard-note-lab',
+        note.who === 'Blueprint' ? 'Blueprint said' : 'Asked for'));
+      p.appendChild(el('span', undefined, note.text));
+      card.appendChild(p);
     }
 
     // A card waiting on the client gets the two answers on its face.
@@ -235,7 +255,12 @@ export function createBoard(host: BoardHost): Board {
       card.appendChild(acts);
     }
 
-    if (!isNarrow()) {
+    if (opts.menu) {
+      const menu = moveMenu(c);
+      if (menu) card.appendChild(menu);
+    }
+
+    if (opts.drag) {
       card.draggable = true;
       const grip = el('span', 'pt-ccard-grip');
       grip.setAttribute('aria-hidden', 'true');
@@ -260,120 +285,139 @@ export function createBoard(host: BoardHost): Board {
     return card;
   }
 
-  /** The one date that matters next for this card.
-   *
-   *  Film by only ever appears on a card the client films. A flyer we
-   *  are drawing carries a Film By too, and showing it told the client
-   *  to go and shoot something that was never theirs to shoot. */
-  function dateLine(c: PortalContentItem): string | null {
-    if (c.status === 'Posted') return c.postDate ? `Posted ${fmtDateShort(c.postDate)}` : null;
-    const d = cardDate(c);
-    return d ? `${d.label} ${fmtDateShort(d.date)}` : null;
+  /** Move a card to a stage, or say out loud why not. The one path a
+   *  drop and a menu both take. */
+  function moveTo(c: PortalContentItem, stage: Stage): void {
+    if (stageOf(c) === stage) return;
+    if (!canDrop(c, stage, host.role())) { host.toast(DRAG_BLOCKED, true); return; }
+    host.setStatus(c, dropStatus(c, stage, host.role()));
   }
 
-  function column(c: Col): HTMLElement {
+  /**
+   * The phone's answer to dragging: a menu on the card.
+   *
+   * It lists every stage, including the ones this viewer may not move
+   * this card to. Leaving them out would make a Blueprint card look
+   * like it simply has fewer places to go; listed and answered with the
+   * toast, it says whose it is.
+   */
+  function moveMenu(c: PortalContentItem): HTMLElement | null {
+    const here = stageOf(c);
+    if (!here) return null;
+    const wrap = el('label', 'pt-ccard-move');
+    wrap.appendChild(el('span', undefined, 'Move to'));
+    const sel = el('select', 'pt-select') as HTMLSelectElement;
+    sel.setAttribute('aria-label', `Move ${c.title} to another stage`);
+    for (const stage of STAGE_ORDER) {
+      const o = el('option', undefined, STAGE_TITLE[stage]) as HTMLOptionElement;
+      o.value = stage;
+      if (stage === here) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.addEventListener('change', () => {
+      const to = sel.value as Stage;
+      // Put the menu back first: if the move is refused the card has
+      // not gone anywhere, and if it is allowed the redraw replaces it.
+      sel.value = here;
+      moveTo(c, to);
+    });
+    wrap.appendChild(sel);
+    return wrap;
+  }
+
+  /* ── columns and lanes ────────────────────────────────────────── */
+
+  function column(stage: Stage, items: PortalContentItem[]): HTMLElement {
     const col = el('section', 'pt-board-col');
+    col.dataset.stage = stage;
     col.appendChild(el('span', 'pt-board-accent'));
 
     const head = el('div', 'pt-board-col-head');
-    head.appendChild(el('h3', undefined, STAGE_TITLE[c.stage]));
-    head.appendChild(el('span', 'pt-board-count pt-num', String(c.items.length)));
-    const note = STAGE_NOTE[c.stage];
-    if (note) head.appendChild(el('span', 'pt-board-col-note', note));
+    head.appendChild(el('h3', undefined, STAGE_TITLE[stage]));
+    head.appendChild(el('span', 'pt-board-count pt-num', String(items.length)));
     col.appendChild(head);
 
     const list = el('div', 'pt-board-list');
-    c.list = list;
-    if (!c.items.length) list.appendChild(el('p', 'pt-board-none', 'Nothing here'));
-    for (const item of c.items) list.appendChild(cardEl(item));
+    COLS.push({ stage, list });
+    if (!items.length) list.appendChild(el('p', 'pt-board-none', 'Nothing here'));
+    for (const item of items) list.appendChild(cardEl(item, { drag: true }));
 
-    if (!isNarrow()) {
-      // preventDefault runs whether or not the column will take the
-      // card, because a drop event only fires on a target that allowed
-      // the dragover. Without it a refused drop is silent, and silent
-      // is the one thing it must not be: the card springs back and the
-      // reader is left guessing whether they missed or we said no.
-      list.addEventListener('dragover', (ev) => {
-        if (!DRAG) return;
-        if (c.items.some((i) => i.id === DRAG!.id)) return;
-        ev.preventDefault();
-        const ok = canDrop(DRAG, c.stage, host.role());
-        list.classList.toggle('pt-board-drop', ok);
-        list.classList.toggle('pt-board-nodrop', !ok);
-      });
-      list.addEventListener('dragleave', () => {
-        list.classList.remove('pt-board-drop', 'pt-board-nodrop');
-      });
-      list.addEventListener('drop', (ev) => {
-        ev.preventDefault();
-        edgeStop();
-        edgeFree(false);
-        list.classList.remove('pt-board-drop', 'pt-board-nodrop');
-        const item = DRAG;
-        DRAG = null;
-        if (!item) return;
-        if (!canDrop(item, c.stage, host.role())) { host.toast(refusal(item, c.stage), true); return; }
-        const to = dropStatus(item, c.stage);
-        if (to) host.setStatus(item, to);
-      });
-    }
+    // preventDefault runs whether or not the column will take the
+    // card, because a drop event only fires on a target that allowed
+    // the dragover. Without it a refused drop is silent, and silent
+    // is the one thing it must not be: the card springs back and the
+    // reader is left guessing whether they missed or we said no.
+    list.addEventListener('dragover', (ev) => {
+      if (!DRAG) return;
+      if (stageOf(DRAG) === stage) return;
+      ev.preventDefault();
+      const ok = canDrop(DRAG, stage, host.role());
+      list.classList.toggle('pt-board-drop', ok);
+      list.classList.toggle('pt-board-nodrop', !ok);
+    });
+    list.addEventListener('dragleave', () => {
+      list.classList.remove('pt-board-drop', 'pt-board-nodrop');
+    });
+    list.addEventListener('drop', (ev) => {
+      ev.preventDefault();
+      edgeStop();
+      edgeFree(false);
+      list.classList.remove('pt-board-drop', 'pt-board-nodrop');
+      const item = DRAG;
+      DRAG = null;
+      if (item) moveTo(item, stage);
+    });
+
     col.appendChild(list);
     return col;
   }
 
-  function draw(): HTMLElement {
-    const now = host.now();
-    const items = host.items();
-    COLS = STAGE_ORDER.map((stage) => ({
-      stage,
-      items: items.filter((c) => stageOf(c, now) === stage),
-    }));
+  /** Soonest first in every column but the last, where the newest
+   *  post is the one worth seeing. Undated cards go to the bottom. */
+  function inStage(items: PortalContentItem[], stage: Stage): PortalContentItem[] {
+    const far = stage === 'posted' ? '0000' : '9999';
+    const key = (c: PortalContentItem) => c.postDate ?? far;
+    const dir = stage === 'posted' ? -1 : 1;
+    return items
+      .filter((c) => stageOf(c) === stage)
+      .sort((a, b) => dir * key(a).localeCompare(key(b)) || a.title.localeCompare(b.title));
+  }
 
-    const total = COLS.reduce((n, c) => n + c.items.length, 0);
-    if (!total) {
-      return host.filtering()
-        ? host.empty('Nothing matches that', 'Try a different filter to see the rest of the board.')
-        : host.empty('Nothing is moving yet',
-                     'A card joins the board as soon as it has a shoot date or a post date.');
-    }
-
-    const wrap = el('div', 'pt-boardwrap');
-
-    // On a phone, a pill row picks the one column worth the width.
-    if (isNarrow()) {
-      const keys = COLS.map((c) => c.stage as string);
-      if (!keys.includes(host.col.get())) {
-        host.col.set((COLS.find((c) => c.items.length) ?? COLS[0]).stage);
-      }
-      const pills = el('div', 'pt-pillrow');
-      pills.setAttribute('role', 'tablist');
-      for (const c of COLS) {
-        const on = c.stage === host.col.get();
-        const b = el('button', 'pt-pill' + (on ? ' pt-pill-on' : ''));
-        b.type = 'button';
-        b.setAttribute('aria-pressed', String(on));
-        b.append(el('span', undefined, STAGE_TITLE[c.stage]),
-                 el('span', 'pt-pill-n pt-num', String(c.items.length)));
-        b.addEventListener('click', () => { host.col.set(c.stage); host.redraw(); });
-        pills.appendChild(b);
-      }
-      wrap.appendChild(pills);
-      const only = COLS.find((c) => c.stage === host.col.get()) ?? COLS[0];
-      wrap.appendChild(column(only));
-      return wrap;
-    }
-
+  function lane(items: PortalContentItem[]): HTMLElement {
     const scroller = el('div', 'pt-board');
     scroller.dataset.boardScroll = 'true';
-    scrollerEl = scroller;
+    SCROLLERS.push(scroller);
     scroller.addEventListener('dragover', (ev) => {
       if (DRAG) edgeAim(scroller, ev.clientX);
     });
     scroller.addEventListener('drop', edgeStop);
-    for (const c of COLS) scroller.appendChild(column(c));
-    wrap.appendChild(scroller);
+    for (const stage of STAGE_ORDER) {
+      scroller.appendChild(column(stage, inStage(items, stage)));
+    }
+    return scroller;
+  }
+
+  function list(items: PortalContentItem[]): HTMLElement {
+    const wrap = el('div', 'pt-stagelist');
+    for (const stage of STAGE_ORDER) {
+      const mine = inStage(items, stage);
+      if (!mine.length) continue;
+      const sec = el('section', 'pt-stagelist-sec');
+      sec.dataset.stage = stage;
+      const head = el('div', 'pt-stagelist-head');
+      head.appendChild(el('h3', undefined, STAGE_TITLE[stage]));
+      head.appendChild(el('span', 'pt-board-count pt-num', String(mine.length)));
+      sec.appendChild(head);
+      for (const item of mine) sec.appendChild(cardEl(item, { menu: true }));
+      wrap.appendChild(sec);
+    }
     return wrap;
   }
 
-  return { draw };
+  return {
+    begin: () => { COLS = []; SCROLLERS = []; edgeStop(); },
+    lane,
+    list,
+    card: (c, opts) => cardEl(c, opts),
+  };
 }

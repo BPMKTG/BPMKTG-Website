@@ -22,6 +22,7 @@ import {
   cleanPatchSelect,
   cleanPatchText,
   cleanPatchUrl,
+  appendFeedback,
   type ContentPatch,
   type PortalContentSchema,
 } from '../data/portal-content';
@@ -100,6 +101,11 @@ export interface BuildContext {
    * forgets this gets the tighter answer rather than the looser one.
    */
   role?: 'client' | 'admin';
+  /** The Feedback field as it stands, for a note to be added to. */
+  currentFeedback?: string | null;
+  /** Today as an ISO day, stamped on a note. Passed in so the rule is
+   *  testable and the clock is the server's, not the request's. */
+  today?: string;
 }
 
 export interface BuildResult {
@@ -168,6 +174,38 @@ export function buildContentProperties(body: Record<string, unknown>, ctx: Build
   take('feedback', cleanPatchText(body.feedback, MAX_TEXT), richText);
   take('footageLink', cleanPatchUrl(body.footageLink), (v) => ({ url: v }));
   take('postLink', cleanPatchUrl(body.postLink), (v) => ({ url: v }));
+
+  // Media says what a piece is, and on one of ours it feeds the month's
+  // count. So a client sets it on a row they own (or one they are
+  // creating, which will be theirs) and nowhere else.
+  if ('media' in body) {
+    const owns = ctx.role === 'admin' || ctx.postedBy === 'Client' || ctx.currentStatus === null;
+    const wanted = cleanPatchSelect(body.media, names(ctx.schema.media ?? []));
+    if (owns && wanted !== undefined) props[CLIENT_EDITABLE.media] = selectProp(wanted);
+    else rejected.push('media');
+  }
+
+  // One more note on the thread. The request supplies the words and
+  // nothing else: who said it comes from the session and the day from
+  // the server, so a note cannot be backdated or signed as us.
+  if ('feedbackAdd' in body) {
+    const note = cleanPatchText(body.feedbackAdd, MAX_TEXT);
+    if (typeof note === 'string' && ctx.today) {
+      const thread = appendFeedback(ctx.currentFeedback ?? null, editedBy(ctx.role ?? 'client'), ctx.today, note);
+      props[CLIENT_EDITABLE.feedback] = richText(thread);
+    } else {
+      rejected.push('feedbackAdd');
+    }
+  }
+
+  // The cut itself. Ours to attach and nobody else's: a client who
+  // could point Edit Link anywhere could put any page in front of us
+  // under the words "watch the edit".
+  if ('editLink' in body) {
+    const link = cleanPatchUrl(body.editLink);
+    if (ctx.role === 'admin' && link !== undefined) props['Edit Link'] = { url: link };
+    else rejected.push('editLink');
+  }
 
   return { properties: props, rejected };
 }

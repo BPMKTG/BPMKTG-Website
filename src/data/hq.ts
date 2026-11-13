@@ -18,7 +18,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { canSetStepStatus, canSetStepDate, cleanItemTitle, flowOf, isFilmStep } from './portal';
-import { canClientMove } from './portal-content';
+import { countsToward, STAGE_STATUSES } from './portal-content';
 
 /* ── the window ───────────────────────────────────────────────── */
 
@@ -272,12 +272,10 @@ export function deliverables(
   now: Date = new Date(),
 ): Deliverables {
   const ym = isoToday(now).slice(0, 7);
-  const mine = cards.filter((c) =>
-    c.postedBy === 'Blueprint'
-    && !!c.postDate
-    && c.postDate.slice(0, 7) === ym
-    // A card we dropped was never a deliverable.
-    && c.status !== 'Skipped');
+  // One definition of "counts", shared with the month counter, so the
+  // number on a client card and the number on their Content page are
+  // the same number.
+  const mine = cards.filter((c) => countsToward(c) && c.postDate!.slice(0, 7) === ym);
   const total = mine.length;
   const posted = mine.filter((c) => c.status === 'Posted').length;
   const month = MONTH_SHORT[Number(ym.slice(5, 7)) - 1] ?? ym;
@@ -375,7 +373,11 @@ export function contentRows(
       status: c.status,
       date: c.postDate,
       bucket,
-      tickTo: canClientMove(c.status, 'Posted') ? 'Posted' : null,
+      // Ticking a post off means it went out, so the box is only drawn
+      // on a post that is ready to: Approved or Scheduled. This used to
+      // borrow the client's status table, which said the same thing
+      // until that table was cut down to the two answers a client has.
+      tickTo: (STAGE_STATUSES.ready as readonly string[]).includes(c.status ?? '') ? 'Posted' : null,
       snoozable: true,
       moment: (c.campaignId ? moments.get(c.campaignId) : undefined) ?? null,
       notes: oneLine(c.notes),

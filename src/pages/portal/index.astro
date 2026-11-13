@@ -41,6 +41,21 @@ const NAV = [
       <symbol id="pt-i-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M8 5v14M16 5v14M3 12h18"/>
       </symbol>
+      <symbol id="pt-i-video" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="M16 10.5l5-3v9l-5-3"/>
+      </symbol>
+      <symbol id="pt-i-photo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M21 15l-4.5-4.5L8 19"/>
+      </symbol>
+      <symbol id="pt-i-carousel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="7" y="5" width="10" height="14" rx="2"/><path d="M3.5 8v8M20.5 8v8"/>
+      </symbol>
+      <symbol id="pt-i-graphic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 9h8M8 13h5"/><circle cx="15.5" cy="15.5" r="1.4"/>
+      </symbol>
+      <symbol id="pt-i-story" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 6.5h3"/>
+      </symbol>
       <symbol id="pt-i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
         <path d="M12 5v14M5 12h14"/>
       </symbol>
@@ -234,6 +249,8 @@ const NAV = [
     canSetStepDate,
     canSetStepStatus,
     cardFilmCovered,
+    cardMoment,
+    cardMomentIndex,
     cardFilmRow,
     filmCover,
     flowOf,
@@ -274,7 +291,8 @@ const NAV = [
     type PortalAdminAudit,
     type PortalAdminSnapshot,
   } from '../../data/portal';
-  import { createBoard, type Board } from '../../scripts/portal-board';
+  import { createBoard, isPhone, type Board } from '../../scripts/portal-board';
+  import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { createCalendar, type CalRow } from '../../scripts/portal-calendar';
   import { createMover } from '../../scripts/portal-move';
   import {
@@ -282,13 +300,15 @@ const NAV = [
   } from '../../scripts/portal-sheet';
   import {
     canClientMove,
-    cardDate,
     isIdea,
     normaliseId,
+    postedRecently,
+    stageOf,
     DRAG_BLOCKED,
     MAX_TEXT,
     MAX_TITLE,
     REVIEW_TARGET,
+    type Voice,
     type PortalContentItem,
     type PortalContentSchema,
     type ReviewAction,
@@ -1366,7 +1386,7 @@ const NAV = [
     /** On a phone one column shows at a time; this is which. */
     col: '',
     items: [] as PortalContentItem[],
-    schema: { bucket: [], format: [], platforms: [], status: [] } as PortalContentSchema,
+    schema: { bucket: [], format: [], platforms: [], status: [], media: [] } as PortalContentSchema,
   };
 
   /** The Notion colour of a bucket, so a card in the portal and the
@@ -1569,34 +1589,60 @@ const NAV = [
                  'Jot one down and it lands here, ready to plan when you are.');
   }
 
+  /** Who the client is to whoever is reading: "You" to them, their
+   *  name to one of us standing in their portal. */
+  function conVoice(): Voice {
+    return { name: DATA?.client.artist ?? 'Client', you: VIEWER.role !== 'admin' };
+  }
+
+  /** The campaign a card belongs to, by name. A card links to the step
+   *  it delivers, so the link is followed one hop to the moment. */
+  function conMoment(c: PortalContentItem): string | null {
+    return cardMoment(c, conMomentIndex())?.title ?? null;
+  }
+
+  /** Built once per calendar payload, not once per card. */
+  let MOMENT_IDX: { of: unknown; idx: ReturnType<typeof cardMomentIndex> } | null = null;
+  function conMomentIndex() {
+    const cal = DATA?.calendar ?? [];
+    if (MOMENT_IDX?.of !== cal) MOMENT_IDX = { of: cal, idx: cardMomentIndex(cal) };
+    return MOMENT_IDX.idx;
+  }
+
   /** The pipeline board, drawn by the component HQ also uses. Built
-   *  once and kept, the same as the calendar, so the column a phone is
-   *  looking at survives a redraw. */
+   *  once and kept, the same as the calendar. */
   let BOARD: Board | null = null;
 
-  function pipelineBoard(items: PortalContentItem[]): HTMLElement {
+  function conBoard(): Board {
     BOARD ??= createBoard({
       role: () => (VIEWER.role === 'admin' ? 'admin' : 'client'),
-      items: () => PIPE_ITEMS,
-      now: () => todayStart(),
-      bucketColor,
+      voice: conVoice,
+      momentOf: conMoment,
       openCard: openContentDrawer,
       setStatus: (c, status) => { void setStatus(c, status); },
       toast,
-      empty: contentEmpty,
-      filtering: conFiltering,
-      col: { get: () => CON.col, set: (v) => { CON.col = v; } },
-      redraw: drawContent,
       reviewAct: (c, a) => { void reviewAct(c, a); },
     });
-    PIPE_ITEMS = items;
-    return BOARD.draw();
+    return BOARD;
   }
 
-  /** What the board should draw, handed over just before it draws.
-   *  The host reads it through a closure so the component never holds
-   *  a stale array across a save. */
-  let PIPE_ITEMS: PortalContentItem[] = [];
+  function pipelineBoard(items: PortalContentItem[]): HTMLElement {
+    const now = todayStart();
+    const live = items.filter((c) => {
+      const st = stageOf(c);
+      return !!st && (st !== 'posted' || postedRecently(c, now));
+    });
+    if (!live.length) {
+      return conFiltering()
+        ? contentEmpty('Nothing matches that', 'Try a different filter to see the rest of the board.')
+        : contentEmpty('Nothing is moving yet', 'A card joins the board as soon as it is planned.');
+    }
+    const board = conBoard();
+    board.begin();
+    const wrap = el('div', 'pt-boardwrap');
+    wrap.appendChild(isPhone() ? board.list(live) : board.lane(live));
+    return wrap;
+  }
 
   function board(cols: Column[], emptyTitle: string, emptyBody: string): HTMLElement {
     const total = cols.reduce((n, c) => n + c.items.length, 0);
@@ -1756,15 +1802,9 @@ const NAV = [
     return card;
   }
 
-  /** The one date that matters next for this card.
-   *
-   *  Film by only ever appears on a card the client films. A flyer we
-   *  are drawing has a Film By too, and showing it told the client to
-   *  go and shoot something that was never theirs to shoot. */
+  /** The one date on an idea's card, if it has been given one. */
   function nextDateLine(c: PortalContentItem): string | null {
-    if (c.status === 'Posted') return c.postDate ? `Posted ${fmtDateShort(c.postDate)}` : null;
-    const d = cardDate(c);
-    return d ? `${d.label} ${fmtDateShort(d.date)}` : null;
+    return c.postDate ? `Posts ${fmtDateShort(c.postDate)}` : null;
   }
 
   function postedList(items: PortalContentItem[]): HTMLElement {
@@ -1981,20 +2021,16 @@ const NAV = [
     if (note) toast(note);
   }
 
-  /** The two buttons on a card waiting for the client. Approve sends
+  /** The two answers on a card waiting for the client. Approve sends
    *  it on; Request changes hands it back to us WITH the note, in one
-   *  write, so a card never sits in In edit with nothing said. */
+   *  write, so a card never sits in Make with nothing said. */
   async function reviewAct(c: PortalContentItem, action: ReviewAction) {
-    const status = REVIEW_TARGET[action];
     if (action === 'approve') {
+      const status = REVIEW_TARGET.approve;
       if (await saveCard(c.id, { status }, { status })) toast('Approved. We will get it out.');
       return;
     }
-    const note = window.prompt('What needs changing?')?.trim();
-    if (!note) return;
-    if (await saveCard(c.id, { status, feedback: note }, { status, feedback: note })) {
-      toast('Sent back to us with your note.');
-    }
+    openFeedbackSheet(c);
   }
 
   async function createIdea(patch: Record<string, unknown>): Promise<boolean> {
@@ -2048,88 +2084,17 @@ const NAV = [
     clear(body);
     clear(foot);
 
-    const tags = el('div', 'pt-drawer-tags');
-    if (c.status) tags.appendChild(el('span', 'pt-tag', c.status));
-    if (c.bucket) tags.appendChild(el('span', `pt-bchip pt-nc-${bucketColor(c.bucket)}`, c.bucket));
-    if (c.postedBy === 'Client') tags.appendChild(el('span', 'pt-tag pt-tag-todo', 'You post'));
-    if (c.source) tags.appendChild(el('span', 'pt-tag', c.source));
-    body.appendChild(tags);
-
-    /* review, when it is the client's turn */
-    if (c.status === 'Ready for Review') body.appendChild(reviewBox(c));
-
-    /* the fields */
-    const save = (patch: Record<string, unknown>, local: Partial<PortalContentItem>, tick: HTMLElement) =>
-      saveCard(c.id, patch, local).then((ok) => { if (ok) flashTick(tick); });
-
-    body.appendChild(textField('Title', c.title, 'A short name, the way you say it', MAX_TITLE,
-      (v, tick) => save({ title: v }, { title: v ?? c.title }, tick)));
-
-    body.appendChild(selectEditor('Bucket', c.bucket, CON.schema.bucket, 'No bucket',
-      (v, tick) => save({ bucket: v }, { bucket: v }, tick)));
-
-    // Every status Notion has, so the dropdown is a true picture of
-    // where a card can be rather than a short list that reads like the
-    // rest do not exist. Picking one we move is answered out loud; the
-    // server refuses it again either way.
-    body.appendChild(selectEditor('Status', c.status, CON.schema.status, null,
-      (v, tick) => {
-        if (!v || v === c.status) return;
-        if (!maySetStatus(c, v)) { toast(DRAG_BLOCKED, true); return; }
-        save({ status: v }, { status: v }, tick);
-      }));
-
-    body.appendChild(multiEditor('Format', c.format, CON.schema.format,
-      (v, tick) => save({ format: v }, { format: v }, tick)));
-    body.appendChild(multiEditor('Platforms', c.platforms, CON.schema.platforms,
-      (v, tick) => save({ platforms: v }, { platforms: v }, tick)));
-
-    body.appendChild(dateField('Film by', c.filmBy,
-      (v, tick) => save({ filmBy: v }, { filmBy: v }, tick)));
-    body.appendChild(dateField('Post date', c.postDate,
-      (v, tick) => save({ postDate: v }, { postDate: v }, tick)));
-
-    const camps = campaigns();
-    if (camps.length) {
-      const current = c.campaign.map(normaliseId);
-      const picked = camps.find((m) => current.includes(normaliseId(m.id)));
-      body.appendChild(selectEditor('Campaign', picked?.id ?? null,
-        camps.map((m) => ({ name: m.id, color: 'default', label: m.title })), 'No campaign',
-        (v, tick) => save({ campaign: v ? [v] : [] }, { campaign: v ? [v] : [] }, tick)));
-    }
-
-    body.appendChild(textField('Shoot code', c.shootCode, 'SM L1D1', MAX_TEXT,
-      (v, tick) => save({ shootCode: v }, { shootCode: v }, tick), { mono: true }));
-    body.appendChild(textField('On-screen text', c.onScreenText, 'What the viewer reads', MAX_TEXT,
-      (v, tick) => save({ onScreenText: v }, { onScreenText: v }, tick), { lines: 3 }));
-    body.appendChild(textField('Caption', c.caption, 'The caption that goes with it', MAX_TEXT,
-      (v, tick) => save({ caption: v }, { caption: v }, tick), { lines: 4 }));
-    body.appendChild(textField('Notes', c.notes, 'Anything we should know', MAX_TEXT,
-      (v, tick) => save({ notes: v }, { notes: v }, tick), { lines: 3 }));
-
-    body.appendChild(urlField('Footage link', c.footageLink, 'Paste the Drive or iCloud link',
-      (v, tick) => save({ footageLink: v }, { footageLink: v }, tick)));
-    body.appendChild(urlField('Post link', c.postLink, 'Paste the link to the live post',
-      (v, tick) => save({ postLink: v }, { postLink: v }, tick)));
-
-    if (c.feedback) {
-      const why = el('div', 'pt-why');
-      why.appendChild(el('strong', undefined, 'Changes you asked for'));
-      why.appendChild(el('span', undefined, c.feedback));
-      body.appendChild(why);
-    }
-
-    /* read-only, and said so */
-    if (c.editLink) {
-      const a = el('a', 'pt-btn') as HTMLAnchorElement;
-      a.href = c.editLink;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.style.width = '100%';
-      a.appendChild(icon('play'));
-      a.appendChild(el('span', undefined, 'Watch the edit'));
-      body.appendChild(a);
-    }
+    // The same drawer HQ opens, told who is reading it.
+    fillSharedDrawer({
+      role: () => (VIEWER.role === 'admin' ? 'admin' : 'client'),
+      schema: () => CON.schema,
+      voice: conVoice,
+      momentOf: conMoment,
+      campaigns: () => campaigns().map((m) => ({ id: m.id, title: m.title })),
+      save: (card, patch, local) => saveCard(card.id, patch, local),
+      toast,
+      reviewAct: (card, a) => { void reviewAct(card, a); },
+    }, c, body);
 
     /* the one action this card is waiting on */
     const actions = contentActions(c);
@@ -2170,210 +2135,6 @@ const NAV = [
     }
 
     return row.firstChild ? row : null;
-  }
-
-  /** Blueprint has put an edit up and it is the client's turn. */
-  function reviewBox(c: PortalContentItem): HTMLElement {
-    const box = el('div', 'pt-review');
-    box.appendChild(el('div', 'pt-review-label', c.feedback ? 'Changes requested' : 'Ready for your review'));
-    box.appendChild(el('p', undefined, c.feedback
-      ? 'We have your notes. The next cut comes back here.'
-      : 'Have a look at the edit, then approve it or tell us what to change.'));
-
-    const row = el('div', 'pt-review-actions');
-    if (c.editLink) {
-      const watch = el('a', 'pt-btn') as HTMLAnchorElement;
-      watch.href = c.editLink;
-      watch.target = '_blank';
-      watch.rel = 'noopener noreferrer';
-      watch.appendChild(icon('play'));
-      watch.appendChild(el('span', undefined, 'Watch the edit'));
-      row.appendChild(watch);
-    }
-    const yes = el('button', 'pt-btn pt-btn-primary');
-    yes.type = 'button';
-    yes.appendChild(icon('check'));
-    yes.appendChild(el('span', undefined, 'Approve'));
-    yes.addEventListener('click', () => { void setStatus(c, 'Approved'); });
-    row.appendChild(yes);
-
-    const no = el('button', 'pt-btn');
-    no.type = 'button';
-    no.textContent = 'Request changes';
-    no.addEventListener('click', () => openFeedbackSheet(c));
-    row.appendChild(no);
-
-    box.appendChild(row);
-    return box;
-  }
-
-  /* ── editable fields ──────────────────────────────────────────── */
-
-  type Tick = HTMLElement;
-
-  /** Label, a quiet tick that appears after a save, and the control. */
-  function fieldShell(label: string): { wrap: HTMLElement; tick: Tick; slot: HTMLElement } {
-    const wrap = el('div', 'pt-field');
-    const head = el('div', 'pt-field-head');
-    const id = `pt-f-${label.toLowerCase().replace(/[^a-z]+/g, '-')}`;
-    const lab = el('label', 'pt-field-label', label);
-    (lab as HTMLLabelElement).htmlFor = id;
-    head.appendChild(lab);
-    const tick = el('span', 'pt-field-tick');
-    tick.appendChild(icon('check'));
-    tick.appendChild(el('span', undefined, 'Saved'));
-    head.appendChild(tick);
-    wrap.appendChild(head);
-    const slot = el('div', 'pt-field-slot');
-    slot.dataset.fieldId = id;
-    wrap.appendChild(slot);
-    return { wrap, tick, slot };
-  }
-
-  function flashTick(tick: Tick) {
-    tick.dataset.on = 'true';
-    window.setTimeout(() => { tick.dataset.on = 'false'; }, 1600);
-  }
-
-  function textField(
-    label: string,
-    value: string | null,
-    placeholder: string,
-    max: number,
-    onSave: (v: string | null, tick: Tick) => void,
-    opts: { lines?: number; mono?: boolean } = {},
-  ): HTMLElement {
-    const { wrap, tick, slot } = fieldShell(label);
-    const input = opts.lines
-      ? el('textarea', 'pt-input pt-textarea') as HTMLTextAreaElement
-      : el('input', 'pt-input') as HTMLInputElement;
-    if (opts.lines) (input as HTMLTextAreaElement).rows = opts.lines;
-    if (opts.mono) input.classList.add('pt-num');
-    input.id = slot.dataset.fieldId!;
-    input.placeholder = placeholder;
-    input.maxLength = max;
-    input.value = value ?? '';
-    // Blur, not keystroke: one save per edit, and no save while the
-    // client is still mid-sentence.
-    input.addEventListener('blur', () => {
-      const next = input.value.trim();
-      if (next === (value ?? '')) return;
-      onSave(next || null, tick);
-    });
-    slot.appendChild(input);
-    return wrap;
-  }
-
-  function urlField(
-    label: string,
-    value: string | null,
-    placeholder: string,
-    onSave: (v: string | null, tick: Tick) => void,
-  ): HTMLElement {
-    const { wrap, tick, slot } = fieldShell(label);
-    const row = el('div', 'pt-field-row');
-    const input = el('input', 'pt-input') as HTMLInputElement;
-    input.id = slot.dataset.fieldId!;
-    input.type = 'url';
-    input.placeholder = placeholder;
-    input.value = value ?? '';
-    input.addEventListener('blur', () => {
-      const next = input.value.trim();
-      if (next === (value ?? '')) return;
-      onSave(next || null, tick);
-    });
-    row.appendChild(input);
-    if (value) {
-      const a = el('a', 'pt-field-open') as HTMLAnchorElement;
-      a.href = value;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.setAttribute('aria-label', `Open ${label}`);
-      a.appendChild(icon('ext'));
-      row.appendChild(a);
-    }
-    slot.appendChild(row);
-    return wrap;
-  }
-
-  function dateField(
-    label: string,
-    value: string | null,
-    onSave: (v: string | null, tick: Tick) => void,
-  ): HTMLElement {
-    const { wrap, tick, slot } = fieldShell(label);
-    const input = el('input', 'pt-input') as HTMLInputElement;
-    input.id = slot.dataset.fieldId!;
-    input.type = 'date';
-    input.value = (value ?? '').slice(0, 10);
-    input.addEventListener('change', () => {
-      const next = input.value;
-      if (next === (value ?? '').slice(0, 10)) return;
-      onSave(next || null, tick);
-    });
-    slot.appendChild(input);
-    return wrap;
-  }
-
-  function selectEditor(
-    label: string,
-    value: string | null,
-    options: Array<{ name: string; color: string; label?: string }>,
-    blank: string | null,
-    onSave: (v: string | null, tick: Tick) => void,
-  ): HTMLElement {
-    const { wrap, tick, slot } = fieldShell(label);
-    const sel = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
-    sel.id = slot.dataset.fieldId!;
-    if (blank !== null) {
-      const o = el('option', undefined, blank) as HTMLOptionElement;
-      o.value = '';
-      if (!value) o.selected = true;
-      sel.appendChild(o);
-    }
-    for (const opt of options) {
-      const o = el('option', undefined, opt.label ?? opt.name) as HTMLOptionElement;
-      o.value = opt.name;
-      if (value === opt.name) o.selected = true;
-      sel.appendChild(o);
-    }
-    sel.addEventListener('change', () => onSave(sel.value || null, tick));
-    slot.appendChild(sel);
-    return wrap;
-  }
-
-  function multiEditor(
-    label: string,
-    values: string[],
-    options: Array<{ name: string; color: string }>,
-    onSave: (v: string[], tick: Tick) => void,
-  ): HTMLElement {
-    const { wrap, tick, slot } = fieldShell(label);
-    if (!options.length) { wrap.remove(); return el('span'); }
-    const set = el('div', 'pt-chipset');
-    set.setAttribute('role', 'group');
-    set.setAttribute('aria-label', label);
-    let picked = values.slice();
-    for (const opt of options) {
-      const b = el('button', `pt-setchip pt-nc-${opt.color}`, opt.name);
-      b.type = 'button';
-      const sync = () => {
-        const on = picked.includes(opt.name);
-        b.setAttribute('aria-pressed', String(on));
-        b.classList.toggle('pt-setchip-on', on);
-      };
-      sync();
-      b.addEventListener('click', () => {
-        picked = picked.includes(opt.name)
-          ? picked.filter((v) => v !== opt.name)
-          : [...picked, opt.name];
-        sync();
-        onSave(picked.slice(), tick);
-      });
-      set.appendChild(b);
-    }
-    slot.appendChild(set);
-    return wrap;
   }
 
   /**
@@ -2562,7 +2323,7 @@ const NAV = [
         const local: Partial<PortalContentItem> = { footageLink: url };
         // Footage arriving is what Footage In means, so the status
         // follows the link rather than needing a second step.
-        if (canClientMove(c.status, 'Footage In')) {
+        if (canClientMove(c.status, 'Footage In', { postedBy: c.postedBy, source: c.source })) {
           patch.status = 'Footage In';
           local.status = 'Footage In';
         }
@@ -2573,8 +2334,9 @@ const NAV = [
     });
   }
 
-  /** Request changes. The note is the point, so it is required and the
-   *  status does not move: the edit is still ours. */
+  /** Request changes. The note is the point, so it is required, and it
+   *  goes with the status in one write: the card lands back in Make
+   *  carrying the reason. The server stamps who said it and when. */
   function openFeedbackSheet(c: PortalContentItem) {
     openSheet('Request changes', (form, close) => {
       const note = el('textarea', 'pt-input pt-textarea') as HTMLTextAreaElement;
@@ -2582,18 +2344,18 @@ const NAV = [
       note.required = true;
       note.maxLength = MAX_TEXT;
       note.placeholder = 'Cut the intro, the text is late, use the second take...';
-      note.value = c.feedback ?? '';
       form.appendChild(sheetField('What should change', note));
 
-      const go = sheetSubmit(form, 'Send the notes');
+      const go = sheetSubmit(form, 'Send it back');
       form.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const text = note.value.trim();
         if (!text) { note.focus(); return; }
         go.disabled = true;
-        const ok = await saveCard(c.id, { feedback: text }, { feedback: text });
+        const status = REVIEW_TARGET.changes;
+        const ok = await saveCard(c.id, { status, feedbackAdd: text }, { status });
         go.disabled = false;
-        if (ok) { toast('Sent. We will recut it.'); close(); }
+        if (ok) { toast('Sent back to us with your note.'); close(); }
       });
     });
   }

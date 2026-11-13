@@ -809,6 +809,7 @@ function shapeContent(page: any): PortalContentItem {
     footageLink: readUrl(p[CONTENT_FIELDS[15]]),
     editLink: readUrl(p[CONTENT_FIELDS[16]]),
     postLink: readUrl(p[CONTENT_FIELDS[17]]),
+    media: readSelect(p[CONTENT_FIELDS[18]]),
   };
 }
 
@@ -851,7 +852,7 @@ export async function fetchContent(
  * adds it in Notion, with its colour, and no deploy.
  */
 export async function fetchContentSchema(token: string): Promise<PortalContentSchema> {
-  const empty: PortalContentSchema = { bucket: [], format: [], platforms: [], status: [] };
+  const empty: PortalContentSchema = { bucket: [], format: [], platforms: [], status: [], media: [] };
   try {
     const res = await fetch(`https://api.notion.com/v1/databases/${CONTENT_DB}`, {
       headers: notionHeaders(token),
@@ -876,6 +877,7 @@ export async function fetchContentSchema(token: string): Promise<PortalContentSc
       format: opts('Format'),
       platforms: opts('Platforms'),
       status: opts('Status'),
+      media: opts('Media'),
     };
   } catch (err) {
     console.error('portal: content schema fetch threw', err);

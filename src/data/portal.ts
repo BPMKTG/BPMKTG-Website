@@ -696,6 +696,59 @@ export function cardOnCalendar(c: { status: string | null }): boolean {
 
 /** Which campaigns are already covered by a film session, and how to
  *  get from a card's relation to the campaign it belongs to. */
+/* ── which campaign a card belongs to ─────────────────────────────
+   A content row's Campaign relation points at the STEP it delivers
+   ("Announce: artwork + pre-save"), not at the moment that step counts
+   down to. The board groups by moment, so the link has to be followed
+   one hop. Both shapes are accepted: a row linked straight to a moment
+   resolves to itself. */
+
+export interface MomentRef {
+  id: string;
+  title: string;
+  date: string | null;
+  momentType: string | null;
+}
+
+/** Every id a card might be linked to, mapped to the moment it means. */
+export function cardMomentIndex(items: readonly {
+  id?: string | null; title: string | null; date: string | null;
+  kind?: string | null; momentType?: string | null;
+  moment: { id: string; title: string; date: string | null; momentType?: string | null } | null;
+}[]): Map<string, MomentRef> {
+  const out = new Map<string, MomentRef>();
+  for (const it of items) {
+    if (it.moment?.id) {
+      const m: MomentRef = {
+        id: it.moment.id, title: it.moment.title,
+        date: it.moment.date, momentType: it.moment.momentType ?? null,
+      };
+      out.set(sameId(m.id), out.get(sameId(m.id)) ?? m);
+      if (it.id) out.set(sameId(it.id), out.get(sameId(m.id))!);
+    } else if (it.id && (it.kind === 'Moment' || (it.kind == null && it.momentType))) {
+      if (!out.has(sameId(it.id))) {
+        out.set(sameId(it.id), {
+          id: it.id, title: it.title ?? '', date: it.date, momentType: it.momentType ?? null,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/** The moment a card belongs to, or null: either it is linked to
+ *  nothing, or to a step this reader cannot see. */
+export function cardMoment(
+  card: { campaign: readonly string[] },
+  index: Map<string, MomentRef>,
+): MomentRef | null {
+  for (const raw of card.campaign) {
+    const hit = index.get(sameId(raw));
+    if (hit) return hit;
+  }
+  return null;
+}
+
 export interface FilmCover {
   /** Moment ids carrying at least one live Client film session step. */
   moments: Set<string>;

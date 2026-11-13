@@ -32,6 +32,7 @@ import {
   queryAll,
   readCheckbox,
   readDate,
+  readMultiSelect,
   readNumber,
   readRelation,
   readSelect,
@@ -156,6 +157,20 @@ export interface HqContentItem {
    *  the note travels with the card: a row that lands in In edit with
    *  no reason on it is the one thing worse than no note at all. */
   feedback: string | null;
+  /** Video, Photo, Carousel, Graphic or Story. */
+  media: string | null;
+  shootCode: string | null;
+  /** Format is a multi-select; `format` above predates that and reads
+   *  it as one value, which the Today list still labels a row by. */
+  formats: string[];
+  /** The rest of the card, so the drawer in HQ is the same drawer the
+   *  client opens and not a list of four facts beside it. */
+  platforms: string[];
+  caption: string | null;
+  onScreenText: string | null;
+  editLink: string | null;
+  footageLink: string | null;
+  postLink: string | null;
   notes: string | null;
 }
 
@@ -355,6 +370,15 @@ async function readContent(token: string, now: Date): Promise<HqContentItem[]> {
       postedBy: readSelect(p['Posted By']),
       source: readSelect(p['Source']),
       feedback: readText(p['Feedback']),
+      media: readSelect(p['Media']),
+      shootCode: readText(p['Shoot Code']),
+      formats: readMultiSelect(p['Format']),
+      platforms: readMultiSelect(p['Platforms']),
+      caption: readText(p['Caption']),
+      onScreenText: readText(p['On-Screen Text']),
+      editLink: readUrl(p['Edit Link']),
+      footageLink: readUrl(p['Footage Link']),
+      postLink: readUrl(p['Post Link']),
       notes: readText(p['Notes']),
     };
   });
