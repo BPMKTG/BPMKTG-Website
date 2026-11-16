@@ -19,7 +19,7 @@
    rather than one column behind a row of pills.
 
    Which rows are on this side is not decided here. The host hands
-   over the rows that belong to no campaign.
+   over the rows the client posts that belong to no campaign.
    ────────────────────────────────────────────────────────────── */
 
 import { parseNotionDate } from '../data/portal';
@@ -62,7 +62,7 @@ export interface OwnContentHost {
   /** Where this screen remembers which of the three views it was on. */
   storeKey: string;
   role: () => 'client' | 'admin';
-  /** The rows that belong to no campaign, unfiltered. */
+  /** The client's own rows (contentSide 'own'), unfiltered. */
   items: () => PortalContentItem[];
   schema: () => PortalContentSchema;
   openCard: (c: PortalContentItem) => void;

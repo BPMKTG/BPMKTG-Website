@@ -110,6 +110,7 @@ import {
   isFiltering,
   NO_FILTERS,
   campaignLanes,
+  LOOSE_LANE_TITLE,
   postMonths,
   monthLabel,
   monthCount,
@@ -155,6 +156,7 @@ import {
   MAX_TEXT,
   // writes
   buildContentProperties,
+  newContentOwner,
   stampEdit,
   editedBy,
   isSameOrigin,
@@ -1714,12 +1716,16 @@ section('Content: campaigns as lanes');
     later:  { id: 'm-later', title: 'Christmas Show', date: '2026-12-13', momentType: 'Show' },
     older:  { id: 'm-older', title: 'Sunset Service', date: '2026-09-01', momentType: 'Show' },
   };
-  const row = (status, m, extra = {}) => ({ status, campaign: m ? [m.id] : [], m, ...extra });
-  const lanes = campaignLanes([
+  const row = (status, m, extra = {}) =>
+    ({ status, campaign: m ? [m.id] : [], postedBy: 'Blueprint', m, ...extra });
+  const theirOwn = { postedBy: 'Client' };
+  const all = [
     row('Planned', M.later), row('Posted', M.past), row('Posted', M.soon), row('Planned', M.soon),
-    row('Skipped', M.soon), row('Posted', M.older), row('Planned', null), row('Idea', null),
+    row('Skipped', M.soon), row('Posted', M.older),
+    row('Planned', null, theirOwn), row('Idea', null, theirOwn),
     row('Planned', null, { campaign: ['hidden-step'] }),
-  ], (c) => c.m, '2026-11-13');
+  ];
+  const lanes = campaignLanes(all, (c) => c.m, '2026-11-13');
 
   is('lanes: soonest first, then the past most recent first, then the unplaceable',
      lanes.map((l) => l.moment?.title ?? '(unlinked)'),
@@ -1727,10 +1733,40 @@ section('Content: campaigns as lanes');
   is('lanes: a moment happening today is still ahead', lanes[0].moment.id, 'm-soon');
   is('lanes: x of y posted, and a skipped card is in neither',
      [lanes[0].posted, lanes[0].total], [1, 2]);
-  is('lanes: a row with no campaign is not in any lane',
+  is('lanes: a row the client posts in no campaign is not in any lane',
      lanes.reduce((n, l) => n + l.items.length, 0), 6);
   is('lanes: a card linked to something unseen still has a lane',
      lanes[4].items.length, 1);
+  is('lanes: with nothing of ours outside a campaign, there is no such lane',
+     lanes.some((l) => l.loose !== null), false);
+
+  // Ours, and for no campaign: one lane of its own, after everything.
+  const withLoose = campaignLanes([
+    row('Planned', null, { title: 'Loose A' }), ...all,
+    row('Posted', null, { title: 'Loose B' }), row('Skipped', null, { title: 'Dropped' }),
+    row('Planned', null, { title: 'Nobody named', postedBy: null }),
+  ], (c) => c.m, '2026-11-13');
+  const last = withLoose[withLoose.length - 1];
+  is('lanes: our pieces with no campaign get the last lane',
+     withLoose.map((l) => (l.loose !== null ? LOOSE_LANE_TITLE : l.moment?.title ?? '(unlinked)')),
+     ['Rooftop Remix', 'Christmas Show', 'Rooftop Revival', 'Sunset Service', '(unlinked)',
+      'Other Blueprint pieces']);
+  is('lanes: all of them in it, a skipped one aside, and a row nobody is named on',
+     last.items.map((c) => c.title), ['Loose A', 'Loose B', 'Nobody named']);
+  is('lanes: it counts posted like any other', [last.posted, last.total], [1, 3]);
+  is('lanes: it is not the lane of cards linked to something unseen',
+     [last.moment, withLoose[4].loose], [null, null]);
+  is('lanes: the client’s own rows are still in none of them',
+     withLoose.flatMap((l) => l.items).some((c) => c.postedBy === 'Client'), false);
+
+  // Across clients each gets their own, in name order, all still last.
+  const roster = campaignLanes([
+    row('Planned', null, { who: 'Zed' }), row('Planned', M.soon, { who: 'Zed' }),
+    row('Planned', null, { who: 'Abe' }), row('Posted', null, { who: 'Zed' }),
+  ], (c) => c.m, '2026-11-13', (c) => c.who);
+  is('lanes: one loose lane per client on a page of several',
+     roster.map((l) => l.loose), [null, 'Abe', 'Zed']);
+  is('lanes: and each holds only that client’s', roster[2].items.every((c) => c.who === 'Zed'), true);
 }
 
 section('Content: the month counter');
@@ -1953,33 +1989,35 @@ section('Content: two sides, and a row on exactly one');
 
 {
   const row = (o) => ({ status: 'Planned', source: 'Client Films', postedBy: 'Client', campaign: [], ...o });
-  is('side: no campaign is the client’s own', contentSide(row({})), 'own');
+  is('side: a row the client posts, in no campaign, is their own', contentSide(row({})), 'own');
   is('side: a campaign row is campaign work', contentSide(row({ campaign: ['step-1'], postedBy: 'Blueprint' })), 'campaign');
   is('side: a row the client posts, linked to a campaign, is still campaign work',
      contentSide(row({ campaign: ['step-1'], postedBy: 'Client' })), 'campaign');
-  is('side: one of ours with no campaign is on the client’s side',
-     contentSide(row({ postedBy: 'Blueprint' })), 'own');
+  is('side: one of ours with no campaign is NOT on the client’s side',
+     contentSide(row({ postedBy: 'Blueprint' })), 'campaign');
+  is('side: nor is a row nobody is named as posting',
+     [contentSide(row({ postedBy: null })), contentSide({ campaign: [] })], ['campaign', 'campaign']);
   is('side: every row is on exactly one',
      [row({}), row({ campaign: ['x'] }), row({ postedBy: 'Blueprint' }), row({ postedBy: null })]
        .every((r) => ['own', 'campaign'].includes(contentSide(r))), true);
 
-  // Ownership is what lets a client drag a card anywhere.
-  is('owns: a row they post', clientOwns({ postedBy: 'Client', inCampaign: true }), true);
-  is('owns: a row in no campaign, whoever posts it', clientOwns({ postedBy: 'Blueprint', inCampaign: false }), true);
-  is('owns: not one of ours in a campaign', clientOwns({ postedBy: 'Blueprint', inCampaign: true }), false);
-  is('owns: not when nobody said whether it is in a campaign',
-     clientOwns({ postedBy: 'Blueprint' }), false);
-  is('who: a card with a campaign list says so',
-     [whoOf(row({ campaign: [] })).inCampaign, whoOf(row({ campaign: ['x'] })).inCampaign], [false, true]);
-  is('who: a card with no campaign list at all leaves it unsaid',
-     'inCampaign' in whoOf({ postedBy: 'Client', source: null }), false);
+  // Ownership is what lets a client drag a card anywhere, and it is
+  // one question: do they post it?
+  is('owns: a row they post', clientOwns({ postedBy: 'Client' }), true);
+  is('owns: a row they post inside a campaign too', clientOwns(whoOf(row({ campaign: ['x'] }))), true);
+  is('owns: not one of ours, campaign or no campaign',
+     [clientOwns(whoOf(row({ postedBy: 'Blueprint' }))),
+      clientOwns(whoOf(row({ postedBy: 'Blueprint', campaign: ['x'] })))], [false, false]);
+  is('owns: not a row with nobody named', [clientOwns({ postedBy: null }), clientOwns({})], [false, false]);
+  is('who: a card is the two facts and nothing else',
+     Object.keys(whoOf(row({ campaign: ['x'] }))).sort(), ['postedBy', 'source']);
 
   // On My Content a client moves any card to any status.
-  is('own: every status to every status, on a row in no campaign',
+  is('own: every status to every status, on a row they post',
      CONTENT_STATUSES.every((from) => CONTENT_STATUSES.every((to) =>
-       canClientMove(from, to, { postedBy: 'Blueprint', source: 'Show Media', inCampaign: false }))), true);
-  is('own: the same row inside a campaign is ours again',
-     canClientMove('Planned', 'Posted', { postedBy: 'Blueprint', source: 'Show Media', inCampaign: true }), false);
+       canClientMove(from, to, whoOf(row({}))))), true);
+  is('own: one of ours with no campaign is ours all the same',
+     canClientMove('Planned', 'Posted', { postedBy: 'Blueprint', source: 'Show Media' }), false);
   is('own: the client drags their card into every column it can hold',
      OWN_STAGE_ORDER.filter((st) => canDropOwn(row({}), st, 'client')),
      ['toFilm', 'filmed', 'editing', 'review', 'ready', 'posted']);
@@ -1988,17 +2026,93 @@ section('Content: two sides, and a row on exactly one');
 
   // The server asks the same question with the fact read off the page.
   const own = buildContentProperties({ status: 'Posted' },
-    ctx('Planned', { postedBy: 'Blueprint', source: 'Show Media', inCampaign: false }));
-  is('build: a client moves a row in no campaign anywhere', own.properties.Status.select.name, 'Posted');
-  is('build: and not the same row in a campaign',
-     buildContentProperties({ status: 'Posted' },
-       ctx('Planned', { postedBy: 'Blueprint', source: 'Show Media', inCampaign: true })).rejected, ['status']);
-  is('build: with the fact left out, the tighter answer',
+    ctx('Planned', { postedBy: 'Client', source: 'Client Films' }));
+  is('build: a client moves a row they post anywhere', own.properties.Status.select.name, 'Posted');
+  is('build: and not one of ours, with no campaign to its name',
      buildContentProperties({ status: 'Posted' },
        ctx('Planned', { postedBy: 'Blueprint', source: 'Show Media' })).rejected, ['status']);
-  is('build: Media is theirs to set on a row in no campaign',
+  is('build: with nobody named, the tighter answer',
+     buildContentProperties({ status: 'Posted' }, ctx('Planned', { source: 'Show Media' })).rejected, ['status']);
+  is('build: Media on one of ours is not theirs to set, campaign or none',
+     buildContentProperties({ media: 'Carousel' }, ctx('Planned', { postedBy: 'Blueprint' })).rejected, ['media']);
+  is('build: and on a row they post it is',
      buildContentProperties({ media: 'Carousel' },
-       ctx('Planned', { postedBy: 'Blueprint', inCampaign: false })).properties.Media.select.name, 'Carousel');
+       ctx('Planned', { postedBy: 'Client' })).properties.Media.select.name, 'Carousel');
+}
+
+section('Content: a piece made with "Add a piece" on the counter');
+
+// What HQ sends from the month counter, built the way the create
+// endpoint builds it, and then read back as the row Notion would hold.
+{
+  const sent = { title: 'Merch drop teaser', media: 'Graphic', postDate: '2026-11-24',
+                 status: 'Planned', piece: true };
+  const made = (role) => {
+    const built = buildContentProperties(sent, { schema, allowedCampaigns: mine, currentStatus: null, role });
+    const owner = newContentOwner(role, sent);
+    const p = { ...built.properties, ...owner.properties };
+    return {
+      ours: owner.ours, rejected: built.rejected,
+      item: {
+        title: 'Merch drop teaser',
+        status: p.Status.select.name,
+        postedBy: p['Posted By'].select.name,
+        source: p.Source?.select?.name ?? null,
+        media: p.Media?.select?.name ?? null,
+        postDate: p['Post Date'].date.start,
+        campaign: (p.Campaign?.relation ?? []).map((r) => r.id),
+      },
+    };
+  };
+  const { item, ours, rejected } = made('admin');
+
+  is('piece: one of us asking makes it ours', [ours, rejected], [true, []]);
+  is('piece: Posted By Blueprint, no Source guessed, no campaign',
+     [item.postedBy, item.source, item.campaign], ['Blueprint', null, []]);
+  is('piece: it counts toward its month', countsToward(item), true);
+  is('piece: it is on the campaign side, not My Content', contentSide(item), 'campaign');
+
+  const M = { id: 'm-soon', title: 'Rooftop Remix', date: '2026-11-13', momentType: 'Release' };
+  const lanes = campaignLanes([
+    { status: 'Planned', postedBy: 'Blueprint', campaign: ['m-soon'] },
+    { status: 'Idea', postedBy: 'Client', campaign: [] },
+    item,
+  ], (c) => (c.campaign.length ? M : null), '2026-11-16');
+  is('piece: in "Other Blueprint pieces", which is the last lane',
+     [lanes.length, lanes[1].loose !== null, lanes[1].items[0] === item, LOOSE_LANE_TITLE],
+     [2, true, true, 'Other Blueprint pieces']);
+  is('piece: it starts in Plan', stageOf(item), 'plan');
+
+  // The client's hands on it: the cut, the film tick, nothing else.
+  is('piece: the client does not own it', clientOwns(whoOf(item)), false);
+  is('piece: no column on the board takes it from the client while it is in Plan',
+     STAGE_ORDER.filter((st) => st !== 'plan' && canDrop(item, st, 'client')), []);
+  is('piece: from no status may the client mark it posted',
+     CONTENT_STATUSES.filter((from) => from !== 'Posted' && canClientMove(from, 'Posted', whoOf(item))), []);
+  is('piece: waiting on their review, they approve or ask for changes',
+     CONTENT_STATUSES.filter((to) => to !== 'Ready for Review'
+       && canClientMove('Ready for Review', to, whoOf(item))), ['Editing', 'Approved']);
+  is('piece: with no Source it is not theirs to film, so no tick',
+     [isFilmJob(item), canClientMove('Planned', 'Filmed', whoOf(item))], [false, false]);
+  is('piece: once we say they film it, the tick is theirs and still nothing more',
+     CONTENT_STATUSES.filter((to) => to !== 'Planned'
+       && canClientMove('Planned', to, whoOf({ ...item, source: 'Client Films' }))), ['Filmed']);
+  is('piece: the server refuses a client moving it',
+     buildContentProperties({ status: 'Posted' },
+       ctx(item.status, { postedBy: item.postedBy, source: item.source, role: 'client' })).rejected, ['status']);
+  is('piece: and refuses a client setting its Media',
+     buildContentProperties({ media: 'Video' },
+       ctx(item.status, { postedBy: item.postedBy, source: item.source, role: 'client' })).rejected, ['media']);
+  is('piece: one of us moves it anywhere',
+     buildContentProperties({ status: 'Posted' },
+       ctx(item.status, { postedBy: item.postedBy, role: 'admin' })).properties.Status.select.name, 'Posted');
+
+  // The same request from a client is an idea of their own.
+  const theirs = made('client');
+  is('piece: a client sending piece: true gets their own row instead',
+     [theirs.ours, theirs.item.postedBy, theirs.item.source, contentSide(theirs.item)],
+     [false, 'Client', 'Client Films', 'own']);
+  is('piece: and that one they do own', clientOwns(whoOf(theirs.item)), true);
 }
 
 section('Content: the quick-add status default');

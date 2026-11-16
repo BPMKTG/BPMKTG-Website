@@ -8,12 +8,13 @@
    is Client. A request that tries to set them is ignored.
 
    One of us can also create a piece that is ours to post, from the
-   month counter. That is decided by the signed session.
+   month counter. That is decided by the signed session, in
+   newContentOwner.
    ────────────────────────────────────────────────────────────── */
 
 import { portalNotFound } from '../../../../src/server/portal-auth';
 import { createContentPage } from '../../../../src/server/portal-notion';
-import { buildContentProperties, stampEdit } from '../../../../src/server/portal-write';
+import { buildContentProperties, newContentOwner, stampEdit } from '../../../../src/server/portal-write';
 import {
   beginWrite,
   bustDataCache,
@@ -42,7 +43,8 @@ export const onRequestPost: PagesFunction<WriteEnv> = async ({ request, env, par
   // make and post. Only one of us can ask for it, and it is the session
   // that says so, not the body: a client sending `piece: true` gets an
   // idea of their own like any other request.
-  const ours = ctx.viewer.role === 'admin' && ctx.body.piece === true;
+  const owner = newContentOwner(ctx.viewer.role, ctx.body);
+  const ours = owner.ours;
 
   // A card with no title is not a card. Everything else is optional.
   if (!properties['Content']) return portalNotFound();
@@ -65,11 +67,7 @@ export const onRequestPost: PagesFunction<WriteEnv> = async ({ request, env, par
   const item = await createContentPage(env.NOTION_TOKEN, {
     ...stampEdit(properties, ctx.viewer.role),
     Client: { relation: [{ id: ctx.record.pageId }] },
-    // Source is left empty on one of ours: who makes it is not known
-    // yet, and guessing Client Films would tell the client to go and
-    // film a graphic.
-    ...(ours ? {} : { Source: { select: { name: 'Client Films' } } }),
-    'Posted By': { select: { name: ours ? 'Blueprint' : 'Client' } },
+    ...owner.properties,
     'Hide from Client': { checkbox: false },
   });
 

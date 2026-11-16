@@ -172,34 +172,36 @@ export interface MoveWho {
   postedBy?: string | null;
   /** Source. Only a card the client films can come back out of Filmed. */
   source?: string | null;
-  /** Whether the row is linked to a campaign. A row that is not is
-   *  the client's own content, whoever is named as posting it. Left
-   *  out, the row is treated as a campaign's: forgetting to say gets
-   *  the tighter answer, never the looser one. */
-  inCampaign?: boolean;
 }
 
-/** Which side of the Content tab a row lives on. Exactly one: a row
- *  linked to a campaign is campaign work, and everything else is the
- *  client's own content. */
+/** Which side of the Content tab a row lives on. Exactly one.
+ *
+ *  My Content is what the client posts themselves and has tied to no
+ *  campaign. Everything else is the campaign side: a row linked to a
+ *  campaign whoever posts it, and anything of ours with no campaign,
+ *  which sits there in a lane of its own (see campaignLanes). A row
+ *  with nobody named as posting it is not the client's either: an
+ *  unanswered question gets the tighter side, never the looser one. */
 export type ContentSide = 'own' | 'campaign';
 
-export function contentSide(item: { campaign: readonly string[] }): ContentSide {
-  return item.campaign.length ? 'campaign' : 'own';
+export function contentSide(item: {
+  campaign: readonly string[]; postedBy?: string | null;
+}): ContentSide {
+  return item.postedBy === 'Client' && !item.campaign.length ? 'own' : 'campaign';
 }
 
-/** Is this row the client's to do with as they like? Theirs if they
- *  post it, and theirs if it belongs to no campaign. */
+/** Is this row the client's to do with as they like? Only if they are
+ *  the one posting it. A piece of ours is ours with or without a
+ *  campaign around it. */
 export function clientOwns(who: MoveWho): boolean {
-  return who.postedBy === 'Client' || who.inCampaign === false;
+  return who.postedBy === 'Client';
 }
 
 /** May a client move this card from `from` to `to`? Staying put is
  *  always fine, which is what a save that touches other fields does.
  *
  *  Three things a client may do, and the server holds them to it:
- *    - anything at all on a row that is theirs: one they post, or one
- *      that belongs to no campaign;
+ *    - anything at all on a row that is theirs, which is one they post;
  *    - answer a cut that is waiting on them, yes or no;
  *    - tick "filmed" on a card they film, and untick it.
  *  Everything else is ours, and is answered with DRAG_BLOCKED. */
@@ -625,18 +627,11 @@ export function canDrop(
   return canClientMove(item.status, to, whoOf(item));
 }
 
-/** A card, as the three facts canClientMove asks about it. One place
+/** A card, as the two facts canClientMove asks about it. One place
  *  builds this, so the board, the drawer and the server cannot each
  *  remember a different subset. */
-export function whoOf(item: {
-  postedBy: string | null; source: string | null; campaign?: readonly string[];
-}): MoveWho {
-  return {
-    postedBy: item.postedBy,
-    source: item.source,
-    // Unknown stays unknown, which canClientMove reads as "a campaign's".
-    ...(item.campaign ? { inCampaign: item.campaign.length > 0 } : {}),
-  };
+export function whoOf(item: { postedBy: string | null; source: string | null }): MoveWho {
+  return { postedBy: item.postedBy, source: item.source };
 }
 
 /* ── the next move ────────────────────────────────────────────── */
@@ -804,42 +799,64 @@ export interface CampaignLane<T> {
   /** Null for the lane of cards linked to something this reader
    *  cannot see: still campaign work, with nowhere better to sit. */
   moment: MomentRef | null;
+  /** Set on the one lane that is not a campaign at all: our pieces
+   *  that belong to none. The value is whose they are, so a page of
+   *  several clients gets one such lane each; '' on a single client's
+   *  page. Null on every other lane. */
+  loose: string | null;
   items: T[];
   /** "x of y posted". Skipped cards are in neither number. */
   posted: number;
   total: number;
 }
 
+/** What the lane of our campaign-less pieces is called. */
+export const LOOSE_LANE_TITLE = 'Other Blueprint pieces';
+
 /**
- * Campaign rows grouped by the moment they are for.
+ * The campaign side, grouped into lanes: one per moment, and then one
+ * for the pieces of ours that are for no moment at all.
  *
  * Soonest first, because the lane you need is the one about to
  * happen: moments still ahead in date order, then the ones behind us
- * most recent first, then anything undated.
+ * most recent first, then anything undated. "Other Blueprint pieces"
+ * is always last. It is where a piece made with "Add a piece" on the
+ * month counter sits until it is linked to a campaign: ours to post,
+ * so held to the same rules as any campaign card, and never mixed in
+ * with what the client posts themselves.
+ *
+ * Rows from the My Content side are passed over, so a caller can hand
+ * this everything it has.
  */
-export function campaignLanes<T extends { status: string | null; campaign: readonly string[] }>(
+export function campaignLanes<T extends {
+  status: string | null; campaign: readonly string[]; postedBy?: string | null;
+}>(
   items: readonly T[],
   momentOf: (c: T) => MomentRef | null,
   today: string,
+  looseOf: (c: T) => string = () => '',
 ): CampaignLane<T>[] {
   const byId = new Map<string, CampaignLane<T>>();
   for (const c of items) {
-    if (originOf(c) !== 'campaign' || c.status === 'Skipped') continue;
-    const m = momentOf(c);
-    const key = m ? normaliseId(m.id) : '';
+    if (contentSide(c) !== 'campaign' || c.status === 'Skipped') continue;
+    const loose = c.campaign.length ? null : looseOf(c);
+    const m = loose === null ? momentOf(c) : null;
+    const key = loose !== null ? `loose:${loose}` : m ? normaliseId(m.id) : '';
     let lane = byId.get(key);
-    if (!lane) { lane = { moment: m, items: [], posted: 0, total: 0 }; byId.set(key, lane); }
+    if (!lane) { lane = { moment: m, loose, items: [], posted: 0, total: 0 }; byId.set(key, lane); }
     lane.items.push(c);
     lane.total++;
     if (c.status === 'Posted') lane.posted++;
   }
   const day = (l: CampaignLane<T>) => (l.moment?.date ?? '').slice(0, 10);
-  const rank = (l: CampaignLane<T>) => (!l.moment ? 3 : !day(l) ? 2 : day(l) >= today ? 0 : 1);
+  const rank = (l: CampaignLane<T>) =>
+    l.loose !== null ? 4 : !l.moment ? 3 : !day(l) ? 2 : day(l) >= today ? 0 : 1;
   return [...byId.values()].sort((a, b) => {
     const ra = rank(a), rb = rank(b);
     if (ra !== rb) return ra - rb;
     if (ra === 0) return day(a).localeCompare(day(b));
     if (ra === 1) return day(b).localeCompare(day(a));
+    if (ra === 4) return (a.loose ?? '').localeCompare(b.loose ?? '');
     return (a.moment?.title ?? '').localeCompare(b.moment?.title ?? '');
   });
 }

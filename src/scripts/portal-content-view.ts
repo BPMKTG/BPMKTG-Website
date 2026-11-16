@@ -3,13 +3,14 @@
 
    Two sides, and a row is on exactly one of them:
 
-     My Content  the rows that belong to no campaign. The client's own
-                 board, in their own vocabulary: Ideas by bucket, the
+     My Content  the rows the client posts themselves, in no campaign.
+                 Their board, in their own vocabulary: Ideas by bucket, the
                  pipeline they film and post through, and the archive.
                  Drawn by portal-own-content.ts.
      Campaigns   the rows that belong to a moment, a lane per moment,
                  soonest first, five stages, with a line on every card
-                 saying whose move it is.
+                 saying whose move it is. Our pieces that belong to no
+                 moment come last, in "Other Blueprint pieces".
 
    The month counter and the review strip sit above both, because
    neither is about one side.
@@ -29,6 +30,7 @@
 import type { MomentRef } from '../data/portal';
 import {
   campaignLanes,
+  LOOSE_LANE_TITLE,
   contentSide,
   isFiltering,
   matchesFilters,
@@ -65,7 +67,7 @@ export interface ContentViewHost {
   save: (c: PortalContentItem, patch: Record<string, unknown>,
          local: Partial<PortalContentItem>) => Promise<boolean>;
   /**
-   * The My Content side: the rows with no campaign, drawn by the
+   * The My Content side: what the client posts in no campaign, drawn by the
    * restored board. Absent on a screen that has no "my", which is HQ
    * across the roster.
    */
@@ -302,7 +304,8 @@ export function createContentView(host: ContentViewHost): ContentView {
 
   /* ── Campaigns ────────────────────────────────────────────────── */
 
-  const laneKey = (l: CampaignLane<PortalContentItem>) => l.moment?.id ?? 'unlinked';
+  const laneKey = (l: CampaignLane<PortalContentItem>) =>
+    l.loose !== null ? `loose:${l.loose}` : l.moment?.id ?? 'unlinked';
 
   /** Open unless everything in it has gone out, and then only if the
    *  reader has not said otherwise. A finished campaign is history;
@@ -336,11 +339,12 @@ export function createContentView(host: ContentViewHost): ContentView {
     head.appendChild(chev);
 
     const who = l.items.length ? host.clientOf?.(l.items[0]) ?? null : null;
-    const title = l.moment ? l.moment.title : 'Other campaign work';
+    const title = l.loose !== null ? LOOSE_LANE_TITLE : l.moment ? l.moment.title : 'Other campaign work';
     const name = el('span', 'pt-lane-title');
     if (who) name.appendChild(el('span', 'pt-lane-who', `${who} · `));
     name.appendChild(document.createTextNode(title));
     head.appendChild(name);
+    if (l.loose !== null) head.appendChild(el('span', 'pt-tag', 'No campaign'));
     if (l.moment?.momentType) head.appendChild(el('span', 'pt-tag', l.moment.momentType));
     if (l.moment?.date) head.appendChild(el('span', 'pt-lane-date pt-num', shortDay(l.moment.date)));
     head.appendChild(el('span', 'pt-toolbar-spacer'));
@@ -418,8 +422,16 @@ export function createContentView(host: ContentViewHost): ContentView {
   }
 
   function campaignsEl(shown: PortalContentItem[]): HTMLElement {
+    // A campaign ends, so its lane keeps everything it posted. The
+    // lane of our pieces that belong to no campaign never ends, so
+    // its Posted column keeps to the last month unless a month was
+    // asked for, the same as a client's own lane below.
+    const now = new Date(`${host.today()}T00:00:00`);
+    const keep = (c: PortalContentItem) => !!stageOf(c) && (
+      c.campaign.length > 0 || !!S.f.month || c.status !== 'Posted' || postedRecently(c, now));
     const lanes = campaignLanes(
-      shown.filter((c) => !!stageOf(c)), (c) => host.momentRef(c), host.today());
+      shown.filter(keep), (c) => host.momentRef(c), host.today(),
+      (c) => host.clientOf?.(c) ?? '');
     const own = S.withOwn && host.ownToggle ? ownLanes(shown) : [];
     if (!lanes.length && !own.length) {
       return isFiltering(S.f)

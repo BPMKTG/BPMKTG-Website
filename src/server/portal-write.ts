@@ -97,12 +97,6 @@ export interface BuildContext {
   postedBy?: string | null;
   source?: string | null;
   /**
-   * Whether the row is linked to a campaign, again off the page and
-   * never off the request. A row that is not is the client's own
-   * content. Absent means "a campaign's", the tighter reading.
-   */
-  inCampaign?: boolean;
-  /**
    * Who is asking. One of us moves any card to any column, which is
    * what the HQ board is for; absent means client, so a caller that
    * forgets this gets the tighter answer rather than the looser one.
@@ -158,7 +152,7 @@ export function buildContentProperties(body: Record<string, unknown>, ctx: Build
     const mayMove = typeof wanted === 'string' && (
       ctx.role === 'admin'
       || canClientMove(ctx.currentStatus, wanted,
-                       { postedBy: ctx.postedBy, source: ctx.source, inCampaign: ctx.inCampaign })
+                       { postedBy: ctx.postedBy, source: ctx.source })
     );
     if (typeof wanted === 'string' && mayMove) {
       props[CLIENT_EDITABLE.status] = selectProp(wanted);
@@ -187,7 +181,7 @@ export function buildContentProperties(body: Record<string, unknown>, ctx: Build
   // creating, which will be theirs) and nowhere else.
   if ('media' in body) {
     const owns = ctx.role === 'admin' || ctx.currentStatus === null
-      || clientOwns({ postedBy: ctx.postedBy, inCampaign: ctx.inCampaign });
+      || clientOwns({ postedBy: ctx.postedBy });
     const wanted = cleanPatchSelect(body.media, names(ctx.schema.media ?? []));
     if (owns && wanted !== undefined) props[CLIENT_EDITABLE.media] = selectProp(wanted);
     else rejected.push('media');
@@ -247,4 +241,33 @@ export function stampEdit(
   role: 'client' | 'admin',
 ): Record<string, unknown> {
   return { ...props, 'Last Edited By': { select: { name: editedBy(role) } } };
+}
+
+/**
+ * Whose a new row is, and so which side of the Content tab it lands on.
+ *
+ * Decided by the signed session and nothing else. One of us asking for
+ * a piece (`piece: true`, "Add a piece" on the month counter) makes a
+ * row that is OURS to post: it counts toward the month, it sits on the
+ * campaign side under "Other Blueprint pieces" until it is linked to a
+ * campaign, and the client can answer the cut and nothing more. Every
+ * other request, a client's `piece: true` included, makes an idea the
+ * client owns.
+ *
+ * Source is left empty on one of ours: who makes it is not known yet,
+ * and guessing Client Films would tell the client to go and film a
+ * graphic.
+ */
+export function newContentOwner(
+  role: 'client' | 'admin',
+  body: Record<string, unknown>,
+): { ours: boolean; properties: Record<string, unknown> } {
+  const ours = role === 'admin' && body.piece === true;
+  return {
+    ours,
+    properties: {
+      ...(ours ? {} : { Source: { select: { name: 'Client Films' } } }),
+      'Posted By': { select: { name: ours ? 'Blueprint' : 'Client' } },
+    },
+  };
 }

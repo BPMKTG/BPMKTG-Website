@@ -12,9 +12,14 @@
     "test:intake": "esbuild functions/api/intake.ts --bundle --format=esm --platform=neutral --outfile=.tmp-intake-lib.mjs && node tests/intake-shaping.test.mjs; rm -f .tmp-intake-lib.mjs",
     "test:portal": "esbuild tests/_portal-entry.ts --bundle --format=esm --platform=neutral --outfile=.tmp-portal-lib.mjs && node tests/portal.test.mjs; rm -f .tmp-portal-lib.mjs",
     "test": "npm run test:intake && npm run test:portal && npm run test:print",
-    "test:print": "esbuild tests/_print-entry.ts --bundle --format=esm --platform=neutral --outfile=.tmp-print-lib.mjs && node tests/print.test.mjs; rm -f .tmp-print-lib.mjs"
+    "test:print": "esbuild tests/_print-entry.ts --bundle --format=esm --platform=neutral --outfile=.tmp-print-lib.mjs && node tests/print.test.mjs; rm -f .tmp-print-lib.mjs",
+    "test:calendar": "astro build && node tests/calendar-snapshot/run.mjs",
+    "test:calendar:record": "astro build && node tests/calendar-snapshot/run.mjs --record"
   },
   "dependencies": {
     "astro": "^6.3.3"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
   }
 }

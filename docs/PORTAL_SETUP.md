@@ -184,23 +184,27 @@ currently holds it, never against anything in the request.
 
 The Content tab has two sides, and a row is on exactly one of them:
 
-- **My Content**: every row with no **Campaign** relation. The client's
-  own board (Ideas by bucket, the eight-column pipeline, the Posted
-  archive). These rows are theirs: they move any card to any column.
-- **Campaigns**: every row with a Campaign relation, whoever posts it.
+- **My Content**: every row the client posts themselves (Posted By =
+  Client) that has no **Campaign** relation. The client's own board
+  (Ideas by bucket, the eight-column pipeline, the Posted archive).
+- **Campaigns**: everything else. A row with a Campaign relation,
+  whoever posts it, in a lane for its moment; and any row of ours
+  (Posted By = Blueprint) with no Campaign relation, in a lane of its
+  own called **Other Blueprint pieces**, always the last one.
 
 A row is the client's to do with as they like if they post it (Posted
-By = Client) **or** it is in no campaign. On any other row, which is to
-say one of ours inside a campaign, a client may do exactly two things:
-answer a cut that is Ready for Review, by approving it or sending it
-back with a note, and tick Filmed on a card they film (Source = Client
-Films), and untick it. Everything else is refused, and the board says
-"Blueprint moves this one".
+By = Client), in a campaign or out of one. On any other row a client
+may do exactly two things: answer a cut that is Ready for Review, by
+approving it or sending it back with a note, and tick Filmed on a card
+they film (Source = Client Films), and untick it. Everything else is
+refused, and the board says "Blueprint moves this one".
 
-One consequence worth knowing: a piece of ours that is linked to no
-campaign (for example one added with "Add a piece" on the month
-counter and not yet linked) is on the client's side and they can move
-it. Link it to a campaign step to make it ours again.
+"Other Blueprint pieces" is where a piece added with "Add a piece" on
+the month counter sits until it is linked to a campaign step. It counts
+toward the month like any other piece of ours and carries the same
+permissions. Its Posted column keeps the last 30 days unless a month is
+picked in the filters. A row with Posted By left empty lands there too,
+because an unanswered "who posts this" is never read as "the client".
 
 **Offset (days) is never written by the portal.** It is the playbook's default
 position for a step, and a dragged date is an override of that default,
@@ -444,6 +448,19 @@ stuffed with rates, keys and internal notes), title cleanup, engagement
 formatting, term progress, slug validation, session signing for both
 roles, who may sign in, the code store and its limits, what a client may
 tick off, and that every one of those failures is identical.
+
+The calendar has a second gate of its own, which drives the built
+portal in two browsers and compares what it draws with a recorded
+baseline. It needs a build and Playwright's browsers, so it is a
+separate command and not part of `npm test`:
+
+```bash
+npm run test:calendar
+```
+
+Run it before and after any change to the calendar. How it works, and
+when and how to re-record the baseline, is in
+`tests/calendar-snapshot/README.md`.
 
 ---
 

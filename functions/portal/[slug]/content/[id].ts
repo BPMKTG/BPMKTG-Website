@@ -45,13 +45,12 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
     allowedCampaigns: ctx.allowedCampaigns,
     // The status it is in NOW, read from Notion rather than from the
     // request, is what decides which moves are legal. So are Posted By
-    // and Source: a client owns a row they post, and only a card they
-    // film can come back out of Filmed. All three off the page.
+    // and Source: a client owns a row they post, campaign or no
+    // campaign, and only a card they film can come back out of
+    // Filmed. All three off the page.
     currentStatus: owned.item.status,
     postedBy: owned.item.postedBy,
     source: owned.item.source,
-    // A row linked to no campaign is the client's own content.
-    inCampaign: owned.item.campaign.length > 0,
     role: ctx.viewer.role,
     // A note is added to the thread as Notion holds it, and dated by
     // us. Neither is the request's to say.
