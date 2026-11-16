@@ -46,6 +46,13 @@ export interface MasterStep {
   /** Ticked on a master we do not want a client reading. None are
    *  today; the flag is honoured so ticking one works. */
   hideFromClient?: boolean;
+  /** The three things a deliverable step says about the piece it
+   *  owes: how much it matters when a month is over, what it is, and
+   *  how many rows it is worth (blank is one). Empty on a step that
+   *  delivers nothing. See src/data/pieces.ts. */
+  priority?: string | null;
+  defaultMedia?: string | null;
+  pieces?: number | null;
 }
 
 export const OVERRIDE_STATUSES = ['Draft', 'Requested', 'Approved', 'Declined'] as const;
@@ -87,6 +94,10 @@ export interface EffectiveStep {
   notes: string | null;
   where: string | null;
   why: string | null;
+  /** Carried from the master untouched: no override changes these. */
+  priority: string | null;
+  defaultMedia: string | null;
+  pieces: number | null;
   /** What the master says, for each thing an override changed. Absent
    *  means unchanged. */
   was: { title?: string; offset?: number | null; flow?: string | null };
@@ -193,6 +204,7 @@ export function effectivePlaybook(
     key: m.id, masterId: m.id, title: m.title, playbook: m.playbook, phase: m.phase,
     offset: m.offset, flow: m.flow, owner: m.owner, type: m.type,
     notes: m.notes, where: m.where, why: m.why,
+    priority: m.priority ?? null, defaultMedia: m.defaultMedia ?? null, pieces: m.pieces ?? null,
     was: {}, skipped: false, added: false, overrideIds: [],
   }]));
   const added: EffectiveStep[] = [];
@@ -214,6 +226,7 @@ export function effectivePlaybook(
         // A step that makes a post is content; anything else is a job.
         type: /posts/.test(flow) ? 'Content' : 'Admin',
         notes: o.reason, where: null, why: null,
+        priority: null, defaultMedia: null, pieces: null,
         was: {}, skipped: false, added: true, overrideIds: [o.id],
       });
       continue;
@@ -266,8 +279,25 @@ export function byPhase<T extends { phase: string | null; offset: number | null 
 const PLAYBOOK_ORDER = ['Release Rollout', 'Release Sprint', 'Remix Drop',
   'Pre-Show', 'Show Night', 'Post-Show'];
 
+/**
+ * Where a master step goes when it is taken out of its playbook
+ * without being deleted. It is a value of the Playbook select in
+ * Notion, so it reads like a playbook, and it is not one: nothing in
+ * it is applied to a moment and no client is shown it. HQ still lists
+ * it, last, so a retired step can be read and put back.
+ */
+export const RETIRED_PLAYBOOK = 'Retired';
+
+export function isRetiredPlaybook(name: string | null | undefined): boolean {
+  return (name ?? '').trim().toLowerCase() === RETIRED_PLAYBOOK.toLowerCase();
+}
+
 export function playbookNames(masters: readonly MasterStep[]): string[] {
-  const rank = (n: string) => { const i = PLAYBOOK_ORDER.indexOf(n); return i === -1 ? 99 : i; };
+  const rank = (n: string) => {
+    if (isRetiredPlaybook(n)) return 999;
+    const i = PLAYBOOK_ORDER.indexOf(n);
+    return i === -1 ? 99 : i;
+  };
   return [...new Set(masters.map((m) => m.playbook))]
     .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
@@ -294,6 +324,10 @@ export interface PlannedStep {
   notes: string | null;
   where: string | null;
   why: string | null;
+  /** Copied onto the step so its piece can be made from it. */
+  priority?: string | null;
+  defaultMedia?: string | null;
+  pieces?: number | null;
 }
 
 /**
@@ -319,6 +353,7 @@ export function planApply(
       date: momentDate && s.offset !== null ? addDaysIso(momentDate, s.offset) : null,
       flow: s.flow, owner: s.owner, type: s.type,
       notes: s.notes, where: s.where, why: s.why,
+      priority: s.priority, defaultMedia: s.defaultMedia, pieces: s.pieces,
     }));
 }
 
@@ -486,7 +521,7 @@ export function clientPlaybooks(
   masters: readonly MasterStep[], overrides: readonly PlaybookOverride[], clientId: string,
 ): ClientPlaybook[] {
   const hidden = new Set(masters.filter((m) => m.hideFromClient).map((m) => m.id));
-  return playbookNames(masters).map((name) => {
+  return playbookNames(masters).filter((name) => !isRetiredPlaybook(name)).map((name) => {
     const steps = effectivePlaybook(masters, overrides, name, clientId)
       .filter((s) => !s.skipped && !(s.masterId && hidden.has(s.masterId)));
     return {

@@ -39,6 +39,8 @@ export function openSheet(
   const form = body.cloneNode(false) as HTMLFormElement;
   body.replaceWith(form);
 
+  // Each sheet says for itself whether it is one of the wide ones.
+  delete sheet.dataset.wide;
   build(form, closeSheet);
   show(scrim, true);
   show(sheet, true);

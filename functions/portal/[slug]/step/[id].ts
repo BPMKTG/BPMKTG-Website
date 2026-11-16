@@ -10,6 +10,10 @@
    write also stamps Last Edited By, which the client does not get to
    choose: it is read off the session, not off the request.
 
+   A step that moves takes its Planned pieces with it: the Content
+   Pipeline rows linked to it get the step's new day as their Post
+   Date. A piece past Planned is never moved from here.
+
    Offset (days) is deliberately left alone. It is the playbook's
    default position for this step, and dragging one step to a different
    day is an override of that default, not a rewrite of it.
@@ -29,7 +33,8 @@
 import { canSetStepStatus, canSetStepDate, isIsoDay } from '../../../../src/data/portal';
 import { portalNotFound } from '../../../../src/server/portal-auth';
 import { fetchOwnedStep, patchCalendarPage } from '../../../../src/server/portal-notion';
-import { stampEdit } from '../../../../src/server/portal-write';
+import { editedBy, stampEdit } from '../../../../src/server/portal-write';
+import { followSteps } from '../../../../src/server/pieces';
 import {
   beginWrite,
   bustDataCache,
@@ -98,8 +103,24 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
   const saved = await patchCalendarPage(env.NOTION_TOKEN, id, stampEdit(props, ctx.viewer.role));
   if (!saved) return portalNotFound();
 
+  // A step and the piece it delivers are one job seen twice, so the
+  // piece's Post Date follows the step to its new day. Only a piece
+  // that is still Planned: past that, its date is somebody's decision.
+  let pieces = 0;
+  if (date !== step.date) {
+    try {
+      pieces = (await followSteps(env.NOTION_TOKEN, ctx.record.pageId,
+        [{ id, date: saved.date }], editedBy(ctx.viewer.role), 6)).moved;
+    } catch (err) {
+      // The step moved. A piece that did not is put right the next
+      // time the step moves, and is not a reason to tell the person
+      // dragging that their drag failed.
+      console.error('portal: a step moved but its pieces did not follow', id, err);
+    }
+  }
+
   await bustDataCache(ctx.slug, env);
-  return writeOk({ ok: true, id, status: saved.status, date: saved.date, changed: true });
+  return writeOk({ ok: true, id, status: saved.status, date: saved.date, changed: true, pieces });
 };
 
 export const onRequest: PagesFunction<WriteEnv> = async ({ request, next }) => {

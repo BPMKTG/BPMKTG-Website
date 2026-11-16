@@ -15,6 +15,7 @@ import {
   updateContentPage,
 } from '../../../../src/server/portal-notion';
 import { buildContentProperties, editedBy, stampEdit } from '../../../../src/server/portal-write';
+import { skipStepsOfPiece } from '../../../../src/server/pieces';
 import {
   beginWrite,
   bustDataCache,
@@ -80,6 +81,19 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
     );
     if (touched.length) console.log('portal: card', nowPosted ? 'posted' : 'un-posted',
       'synced step(s)', touched.join(','));
+  }
+
+  // A piece that is dropped takes its step with it, when it was the
+  // last piece the step had. A flyer step with three rows is only out
+  // of the plan when all three are.
+  if (owned.item.status !== 'Skipped' && item.status === 'Skipped' && item.campaign.length) {
+    try {
+      const gone = await skipStepsOfPiece(
+        env.NOTION_TOKEN, ctx.record.pageId, item.campaign, editedBy(ctx.viewer.role));
+      if (gone.length) console.log('portal: card skipped, so skipped step(s)', gone.join(','));
+    } catch (err) {
+      console.error('portal: a card was skipped but its step was not', id, err);
+    }
   }
 
   await bustDataCache(ctx.slug, env);

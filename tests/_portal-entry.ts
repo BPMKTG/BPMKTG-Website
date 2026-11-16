@@ -29,3 +29,7 @@ export * from '../src/server/hq-write';
 export { mailSentAt } from '../src/server/report-mail';
 export * from '../src/data/playbooks';
 export * from '../src/server/playbooks';
+// Pieces: the Content Pipeline rows a campaign step owes, keeping the
+// two in step, and what to trim from a month that is over.
+export * from '../src/data/pieces';
+export { pieceProperties, shapeStep, shapePiece, PIECE_WRITE_BUDGET } from '../src/server/pieces';

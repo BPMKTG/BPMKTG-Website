@@ -305,6 +305,77 @@ you are satisfied.
 
 ---
 
+## Pieces: the rows a campaign step owes
+
+A **deliverable step** is a Campaign Calendar step whose Flow is
+"Blueprint makes + posts" or "Client films → Blueprint edits + posts".
+Each one owes a row in the Content Pipeline, and a piece only counts
+toward the month once that row exists. The rules are in
+`src/data/pieces.ts`; the Notion reads and writes in
+`src/server/pieces.ts`.
+
+Three properties on Campaign Calendar describe the piece a step owes.
+They live on the master and are copied to every step made from it:
+
+| Property | Values | Used for |
+|---|---|---|
+| Priority | Core, Standard, Filler | What a trim may cut. Core never is. |
+| Default Media | Video, Photo, Carousel, Graphic, Story | The row's Media, and through it Source and Platforms. |
+| Pieces | a number, blank = 1 | How many rows. 3 is the flyer set: IG post, IG story, Event banner. |
+
+All three are shown and edited on master steps in HQ → Playbooks. A
+step that delivers nothing carries none of them.
+
+**Where rows are made.** Applying a playbook in HQ creates each
+deliverable step and its rows together. "Create missing pieces" on the
+month counter in HQ → Content does the same for steps that already
+exist and have nothing linked: it lists what it would make, by month,
+and writes only when the button is pressed. Done, Skipped and Moved
+steps are left alone, and running it twice creates nothing new.
+
+**What a created row says.** Content is "[moment] [step title]"; Client
+and Campaign (the step) are set; Posted By = Blueprint; Status =
+Planned; Post Date = the step's date; Media = Default Media. Source is
+Client Films when the Flow says the client films it, Flyer / Graphic for
+a Graphic or Story, otherwise Show Media. Film By, on a Client Films
+row only, is the nearest film session at or before it in the same
+moment. Bucket follows the playbook (Show Promo, Release Promo, Live
+Performance), except Carousel for a carousel and Flyer for the flyer
+rows. A row is hidden from the client when its step is, and a step
+made on a hidden moment is hidden with it.
+
+**Staying in step.** When a step's date changes in the portal or HQ, or
+its whole moment is moved, its Planned rows take the step's new day. A
+row past Planned is never moved. A step that is skipped takes its
+Planned rows with it, and a row that is skipped takes its step with it
+once every row the step has is Skipped. Editing a date or a status
+directly in Notion does not trigger any of this.
+
+**Trimming a month.** When a month is over 25, the "x over" on the HQ
+counter opens Suggested trims: counted pieces that are still Planned
+and not Core, first to cut at the top, with exactly x ticked. Order:
+Filler before Standard; then near-duplicates (same week, same media,
+different moments); then Remix Drop, Post-Show, Pre-Show, release
+playbooks; then pieces within three days of another moment's release
+day or announce; then latest first. Post-show and long-tail pieces can
+be moved to next month instead. Applying sets the piece and its step to
+Skipped and adds a "Trimmed [date]: over monthly cap ([reason])" line to
+both Notes. Film sessions the trim leaves with nothing to film for are
+listed afterwards and skipped only if confirmed. "Undo last trim" puts
+it all back, for twelve hours, from the same browser session.
+
+**The 50-request limit.** A Pages Function may make 50 outgoing
+requests, and every Notion call is one. So each of these writes a
+limited number of rows per request and reports what is left, and the
+page repeats the request until nothing is. If one is interrupted,
+running it again finishes it.
+
+**Retired.** A master whose Playbook is "Retired" is kept to be read and
+is not a playbook: it is not shown to clients and cannot be applied to
+a moment. HQ → Playbooks lists it last.
+
+---
+
 ## Secrets
 
 | Name | Required | What it does |

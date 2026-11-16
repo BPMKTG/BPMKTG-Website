@@ -3869,6 +3869,14 @@ div.pt-pb-step-editing { border: 1px solid var(--pt-line); border-radius: var(--
 .pt-pb-edit-row { display: grid; grid-template-columns: 9rem minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--pt-3); }
 .pt-pb-edit-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pt-2); }
 .pt-pb-said { display: block; margin-top: 3px; font-size: .72rem; color: var(--pt-muted); }
+/* What a deliverable step owes: priority, media, how many rows. */
+.pt-pb-owes { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+.pt-pb-owes[hidden] { display: none; }
+.pt-pb-priority[data-priority="Core"] { background: var(--pt-tint-navy); color: var(--pt-navy-deep); }
+.pt-pb-priority[data-priority="Filler"] { background: transparent; border: 1px dashed var(--pt-line-strong); color: var(--pt-muted); }
+.pt-pb-unset { background: var(--pt-tint-orange); color: var(--pt-orange-ink); }
+.pt-pb-media { background: transparent; border: 1px solid var(--pt-line); color: var(--pt-ink-3); }
+.pt-pb-owed { color: var(--pt-muted); }
 .pt-pb-danger { color: var(--pt-bad); border-color: color-mix(in srgb, var(--pt-bad) 40%, transparent); }
 .pt-pb-addstep { align-self: flex-start; }
 .pt-pb-warn {
@@ -3928,6 +3936,73 @@ div.pt-pb-step-editing { border: 1px solid var(--pt-line); border-radius: var(--
    are shoot codes on one line, and six columns scroll when they must. */
 .pt-board-own .pt-board-col { flex: 1 1 258px; min-width: 212px; max-width: 320px; }
 .pt-board-own .pt-ccard-title { white-space: nowrap; display: block; }
+/* ── HQ: create missing pieces, and suggested trims ── */
+.pt-sheet[data-wide='true'] { width: min(880px, calc(100vw - 32px)); max-height: min(90vh, 860px); }
+.pt-mp-clear { margin: 0; font-size: .95rem; font-weight: 600; color: var(--pt-ink); }
+.pt-mp-months { display: flex; flex-wrap: wrap; gap: 6px; margin: var(--pt-3) 0; }
+.pt-mp-month {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border: 1px solid var(--pt-line); border-radius: var(--pt-r-sm);
+  font-size: .82rem; font-weight: 600; color: var(--pt-ink-2); cursor: pointer; background: var(--pt-surface);
+}
+.pt-mp-month input, .pt-trim-main input { accent-color: var(--pt-navy); }
+.pt-mp-month strong { color: var(--pt-muted); font-weight: 700; }
+.pt-mp-list { max-height: 48vh; overflow-y: auto; border: 1px solid var(--pt-line); border-radius: var(--pt-r); }
+.pt-mp-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--pt-3);
+  margin: 0; padding: 8px 12px; font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--pt-muted); background: var(--pt-surface-2);
+}
+.pt-mp-list .pt-mp-head { position: sticky; top: 0; border-bottom: 1px solid var(--pt-line); }
+.pt-mp-rows, .pt-trim-rows { list-style: none; margin: 0; padding: 0; }
+.pt-mp-row {
+  display: grid; grid-template-columns: 3.6rem minmax(0, 1fr) 6.2rem 11.5rem; align-items: center;
+  gap: var(--pt-3); padding: 7px 12px; font-size: .84rem; border-bottom: 1px solid var(--pt-line-soft);
+}
+.pt-mp-row:last-child, .pt-trim-row:last-child { border-bottom: 0; }
+.pt-mp-date, .pt-trim-date { color: var(--pt-muted); font-size: .78rem; }
+.pt-mp-title { color: var(--pt-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-mp-src { font-size: .76rem; color: var(--pt-muted); }
+.pt-mp-unset { color: var(--pt-orange-ink); }
+.pt-trim-rows { border: 1px solid var(--pt-line); border-radius: var(--pt-r); max-height: 46vh; overflow-y: auto; margin-top: var(--pt-3); }
+.pt-trim-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 5.6rem 3.6rem 4.6rem 11.5rem; align-items: center;
+  gap: var(--pt-3); padding: 8px 12px; border-bottom: 1px solid var(--pt-line-soft);
+}
+.pt-trim-session { grid-template-columns: minmax(0, 1fr) 3.6rem; }
+.pt-trim-row[data-pick] { background: var(--pt-tint-soft); }
+.pt-trim-main { display: flex; align-items: flex-start; gap: 10px; min-width: 0; cursor: pointer; }
+.pt-trim-main input { margin-top: 3px; flex: none; }
+.pt-trim-text { display: flex; flex-direction: column; min-width: 0; }
+.pt-trim-title { font-size: .86rem; font-weight: 600; color: var(--pt-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-trim-row[data-pick='cut'] .pt-trim-title { text-decoration: line-through; text-decoration-color: var(--pt-muted); }
+.pt-trim-reason { font-size: .76rem; color: var(--pt-muted); }
+.pt-trim-move {
+  justify-self: end; padding: 4px 9px; border: 1px solid var(--pt-line); border-radius: var(--pt-r-sm);
+  font-size: .74rem; font-weight: 600; color: var(--pt-ink-2); background: var(--pt-surface);
+}
+.pt-trim-move:hover { border-color: var(--pt-line-strong); }
+.pt-trim-move[aria-pressed='true'] { background: var(--pt-tint-navy); border-color: transparent; color: var(--pt-navy-deep); }
+.pt-trim-total { margin: var(--pt-3) 0 0; font-size: .95rem; color: var(--pt-ink); }
+.pt-trim-total strong { font-size: 1.15rem; }
+.pt-trim-total[data-state='over'] strong { color: var(--pt-bad); }
+.pt-trim-bits { color: var(--pt-muted); font-size: .84rem; }
+.pt-count-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pt-count-flagbtn { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.pt-count-flagbtn:hover { text-decoration-thickness: 2px; }
+.pt-count-quiet {
+  padding: 4px 9px; border: 1px solid var(--pt-line); border-radius: var(--pt-r-sm);
+  font-size: .76rem; font-weight: 600; color: var(--pt-ink-2); background: var(--pt-surface);
+}
+.pt-count-quiet:hover { border-color: var(--pt-line-strong); color: var(--pt-ink); }
+@media (max-width: 767px) {
+  .pt-mp-row { grid-template-columns: 3.2rem minmax(0, 1fr); }
+  .pt-mp-row .pt-ccard-media, .pt-mp-src { grid-column: 2; }
+  .pt-trim-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .pt-trim-row .pt-ccard-media, .pt-trim-row .pt-pb-priority, .pt-trim-nomove { display: none; }
+  .pt-trim-move { grid-column: 1 / -1; justify-self: start; }
+}
+
 /* The sideways bar for a board taller than the window: ours, pinned to
    the bottom of the window while any of the board is on screen, so it
    is in reach wherever you are in the board. See portal-hscroll.ts. */

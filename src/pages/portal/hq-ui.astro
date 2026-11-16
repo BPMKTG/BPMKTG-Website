@@ -253,6 +253,7 @@ const NAV = [
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { createCounter } from '../../scripts/portal-content-counter';
   import { createHqPlaybooks, type Answer as PbAnswer } from '../../scripts/portal-playbooks';
+  import { hasTrimUndo, openMissingPieces, openTrims, undoLastTrim } from '../../scripts/portal-pieces';
   import { createOwnContent, type OwnContent } from '../../scripts/portal-own-content';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { clear, el, icon, q, qq, show } from '../../scripts/portal-dom';
@@ -1744,8 +1745,29 @@ const NAV = [
         await refreshCalendar();
         return true;
       },
+      trim: (group, month) => { const c = piecesClient(group.key); if (c) openTrims(piecesHost(), c, month); },
+      createMissing: (group, month) => { const c = piecesClient(group.key); if (c) openMissingPieces(piecesHost(), c, month); },
+      canUndoTrim: (group) => { const c = piecesClient(group.key); return !!c && hasTrimUndo(c.pageId); },
+      undoTrim: (group) => { const c = piecesClient(group.key); if (c) void undoLastTrim(piecesHost(), c); },
       redraw: redrawBoard,
     });
+  }
+
+  /** The client a counter block is for, as the two pieces sheets want
+   *  it: the Notion page the server is asked about, and a name. */
+  function piecesClient(slug: string): { pageId: string; name: string } | null {
+    const c = calClientBySlug().get(slug);
+    return c ? { pageId: c.pageId, name: c.artist } : null;
+  }
+
+  function piecesHost() {
+    return {
+      send: pbSend,
+      toast,
+      // Rows were created, cut or moved: read HQ again, then draw the
+      // tab again so the counter and the Undo button are both current.
+      changed: async () => { await refreshCalendar(); redrawBoard(); },
+    };
   }
 
   /** A client's own board, as that client sees it, with our hands on

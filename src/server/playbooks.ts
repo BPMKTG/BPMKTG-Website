@@ -18,6 +18,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { isStepFlow, flowOwner, type StepFlow } from '../data/portal';
+import { isDeliverableFlow, isPieceMedia, isPriority, MAX_PIECES } from '../data/pieces';
 import {
   CHANGE_TYPES,
   OVERRIDE_STATUSES,
@@ -79,6 +80,9 @@ export function shapeMaster(page: any): MasterStep | null {
     why: readText(p['Why It Matters']),
     momentId: readRelation(p['Moment'])[0] ?? null,
     hideFromClient: readCheckbox(p['Hide from Client']),
+    priority: readSelect(p['Priority']),
+    defaultMedia: readSelect(p['Default Media']),
+    pieces: readNumber(p['Pieces']),
   };
 }
 
@@ -254,6 +258,25 @@ export function buildMasterProperties(body: Record<string, unknown>, vocab: Mast
     if (v !== undefined) props['Notes'] = richText(v);
     else rejected.push('notes');
   }
+  // What the step says about the piece it owes. Each can be cleared
+  // with null. Nothing is sent that Notion does not already have an
+  // option for, and Pieces is a small whole number or nothing.
+  if ('priority' in body) {
+    if (body.priority === null) props['Priority'] = selectOf(null);
+    else if (isPriority(body.priority)) props['Priority'] = selectOf(body.priority);
+    else rejected.push('priority');
+  }
+  if ('defaultMedia' in body) {
+    if (body.defaultMedia === null) props['Default Media'] = selectOf(null);
+    else if (isPieceMedia(body.defaultMedia)) props['Default Media'] = selectOf(body.defaultMedia);
+    else rejected.push('defaultMedia');
+  }
+  if ('pieces' in body) {
+    const n = body.pieces;
+    if (n === null) props['Pieces'] = { number: null };
+    else if (typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= MAX_PIECES) props['Pieces'] = { number: n };
+    else rejected.push('pieces');
+  }
   return { properties: props, rejected };
 }
 
@@ -366,8 +389,22 @@ export function buildOverrideProperties(body: Record<string, unknown>, ctx: Over
  *  step has when a playbook is copied onto a moment by hand. */
 export function stepProperties(
   step: PlannedStep, clientPageId: string, momentId: string,
+  opts: { hidden?: boolean } = {},
 ): Record<string, unknown> {
+  // The piece a step owes is described on the step, so a step that
+  // delivers something carries the three fields its master has. A
+  // step that delivers nothing carries none of them, whatever the
+  // master happens to hold.
+  const delivers = isDeliverableFlow(step.flow);
+  const pieces = step.pieces;
   return {
+    ...(delivers ? {
+      Priority: selectOf(isPriority(step.priority) ? step.priority : null),
+      'Default Media': selectOf(isPieceMedia(step.defaultMedia) ? step.defaultMedia : null),
+      Pieces: { number: typeof pieces === 'number' && pieces >= 1 && pieces <= MAX_PIECES ? Math.round(pieces) : null },
+    } : {}),
+    // A step on a moment we are holding back is held back with it.
+    ...(opts.hidden ? { 'Hide from Client': { checkbox: true } } : {}),
     Item: { title: [{ text: { content: step.title.slice(0, MAX_STEP_TITLE) } }] },
     Kind: selectOf('Step'),
     'Is Playbook': { checkbox: false },

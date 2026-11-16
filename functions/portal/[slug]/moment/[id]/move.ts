@@ -44,7 +44,9 @@ import {
   type MoveUndo,
   type MoveWrite,
 } from '../../../../../src/server/portal-move';
-import { stampEdit } from '../../../../../src/server/portal-write';
+import { editedBy, stampEdit } from '../../../../../src/server/portal-write';
+import { followSteps } from '../../../../../src/server/pieces';
+import { movesWithMoment } from '../../../../../src/data/portal';
 import {
   beginWrite,
   bustDataCache,
@@ -72,6 +74,14 @@ const ID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i
  *  Notion's rate limit and the subrequest budget for a campaign of
  *  thirty steps, and slow enough that a burst does not come back 429. */
 const LANES = 4;
+
+/** Every Notion write one move may make, steps and pieces together.
+ *  The steps come first and always all go; the pieces that hang off
+ *  them take whatever is left, and the page asks again for the rest
+ *  (`followPieces`) until none are. */
+const MOVE_WRITES = 38;
+/** A request that only brings pieces into line with their steps. */
+const FOLLOW_WRITES = 34;
 
 const undoKey = (token: string) => `undo:${token}`;
 
@@ -124,7 +134,9 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
   // preamble already spent a token on. A preview costs nothing here:
   // it reads and writes nothing, and the dialog asks for one before
   // every move.
-  if (ctx.body.preview !== true
+  // Finishing a move already made is not another move: it is counted
+  // by the ordinary write limit in beginWrite, not by this one.
+  if (ctx.body.preview !== true && ctx.body.followPieces !== true
       && await overLimit('mv', ctx.slug, MOVE_LIMIT, MOVE_WINDOW_SECONDS)) {
     console.error('portal: cascade rate limit hit', ctx.slug);
     return writeOk({
@@ -140,6 +152,37 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
   const moment = await fetchOwnedMoment(env.NOTION_TOKEN, ctx.record.pageId, id);
   if (!moment) return portalNotFound();
   const steps = await fetchMomentSteps(env.NOTION_TOKEN, ctx.record.pageId, id);
+
+  /** Put the Planned pieces of these just-written steps on the day
+   *  each step now has. Never the reason a move fails: the steps have
+   *  moved, and a piece left behind is reported and asked for again. */
+  const followBack = async (
+    writes: MoveWrite[], budget: number,
+  ): Promise<{ moved: number; left: number }> => {
+    // No room left in this request: say there may be some, without
+    // spending a read to count them, and let the page ask again.
+    if (!writes.length) return { moved: 0, left: 0 };
+    if (budget <= 0) return { moved: 0, left: 1 };
+    try {
+      return await followSteps(env.NOTION_TOKEN, ctx.record.pageId,
+        writes.map((w) => ({ id: w.id, date: w.to })), editedBy(role), budget);
+    } catch (err) {
+      console.error('portal: a campaign moved but its pieces did not follow', id, err);
+      return { moved: 0, left: 0 };
+    }
+  };
+
+  /* ── bring the pieces along ────────────────────────────────── */
+  // The second half of a move, or of an undo, when there were more
+  // pieces than one request could carry. It reads where each step is
+  // now and puts that step's Planned pieces on the same day, so it is
+  // safe to run any number of times and does nothing once they agree.
+  if (ctx.body.followPieces === true) {
+    const live = steps.filter((s) => movesWithMoment(s) && !!s.date);
+    const out = await followSteps(env.NOTION_TOKEN, ctx.record.pageId, live, editedBy(role), FOLLOW_WRITES);
+    if (out.moved) await bustDataCache(ctx.slug, env);
+    return writeOk({ ok: true, followed: true, pieces: out.moved, piecesLeft: out.left });
+  }
 
   /* ── put it back ───────────────────────────────────────────── */
   if (typeof ctx.body.undo === 'string') {
@@ -167,6 +210,8 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
     const back = reverseWrites(undo.writes).filter((w) => allowed.has(w.id));
 
     const { done, failed } = await applyWrites(env.NOTION_TOKEN, back, role);
+    const pieces = await followBack(
+      done.filter((w) => w.id !== id), MOVE_WRITES - back.length);
     await bustDataCache(ctx.slug, env);
     return writeOk({
       ok: true,
@@ -174,6 +219,8 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
       days: -undo.days,
       moved: done.length,
       failed,
+      pieces: pieces.moved,
+      piecesLeft: pieces.left,
     });
   }
 
@@ -227,6 +274,8 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
   if (!head) return portalNotFound();
 
   const { done, failed } = await applyWrites(env.NOTION_TOKEN, plan.steps, role);
+  // The pieces each moved step delivers go to the step's new day.
+  const pieces = await followBack(done, MOVE_WRITES - 1 - plan.steps.length);
   await bustDataCache(ctx.slug, env);
 
   // Everything that landed, the moment included, so Undo puts back
@@ -264,6 +313,8 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
     failed,
     frozen: plan.frozen,
     undo: token || undefined,
+    pieces: pieces.moved,
+    piecesLeft: pieces.left,
   });
 };
 

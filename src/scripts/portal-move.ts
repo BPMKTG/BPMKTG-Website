@@ -42,6 +42,10 @@ export interface MoveResult {
   frozen?: number;
   undo?: string;
   undone?: boolean;
+  /** Pieces that followed their steps to a new day, and how many are
+   *  still waiting on another request. */
+  pieces?: number;
+  piecesLeft?: number;
 }
 
 export interface MoveHost {
@@ -218,6 +222,26 @@ export function createMover(H: MoveHost) {
     });
   }
 
+  /**
+   * Finish bringing the pieces along.
+   *
+   * A campaign's pieces move with its steps, and one request can only
+   * carry so many writes, so the server says how many are left and
+   * this asks until none are. Then the screen is rebuilt from the
+   * server, because the cards on it are the pieces that just moved.
+   */
+  async function settlePieces(it: PortalCalendarItem, out: MoveResult): Promise<void> {
+    let left = out.piecesLeft ?? 0;
+    let moved = out.pieces ?? 0;
+    for (let i = 0; left > 0 && i < 8; i++) {
+      const more = await postMove(it, { followPieces: true });
+      if (!more?.ok) break;
+      moved += more.pieces ?? 0;
+      left = more.piecesLeft ?? 0;
+    }
+    if (moved) await H.reload();
+  }
+
   function finishMove(it: PortalCalendarItem, days: number, out: MoveResult | null) {
     if (!out || !out.ok) {
       H.toast(out?.message ?? 'That did not move. Nothing has changed.', true);
@@ -241,11 +265,13 @@ export function createMover(H: MoveHost) {
     const token = out.undo;
     if (token) H.undoToast(text, () => { void undoMove(it, token); });
     else H.toast(text);
+    if ((out.pieces ?? 0) + (out.piecesLeft ?? 0) > 0) void settlePieces(it, out);
   }
 
   async function undoMove(it: PortalCalendarItem, token: string) {
     const out = await postMove(it, { undo: token });
     const ok = !!out?.ok && !out.failed;
+    if (out?.ok && (out.piecesLeft ?? 0) > 0) await settlePieces(it, { ...out, pieces: 0 });
     // Either way the screen is rebuilt from the server rather than by
     // shifting back by hand: an undo is rare, and being right about it
     // matters more than being quick.

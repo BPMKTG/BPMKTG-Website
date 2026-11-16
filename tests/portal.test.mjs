@@ -276,6 +276,15 @@ import {
   STEP_FLOWS,
   KIND_LABEL,
 } from '../.tmp-portal-lib.mjs';
+import { isRetiredPlaybook } from '../.tmp-portal-lib.mjs';
+import {
+  CLIENT_FILMS_FLOW, FILM_SESSION_FLOW, FLYER_SET, MAX_PIECES, PIECE_WRITE_BUDGET,
+  appendNote, canMoveToNextMonth, filmByFor, isDeliverableFlow, isPieceMedia, isPriority,
+  moveNote, nextMonthSameWeekday, pieceBucket, pieceCount, piecePlatforms, pieceProperties,
+  pieceSource, pieceTitle, piecesForStep, piecesToFollow, piecesToSkip, planMissingPieces,
+  removeNote, sessionsNoLongerNeeded, shapePiece, shapeStep, stepSkippedByPieces,
+  stepsWithoutPieces, suggestTrims, trimNote,
+} from '../.tmp-portal-lib.mjs';
 import { readFileSync } from 'node:fs';
 
 let pass = 0, fail = 0;
@@ -4281,6 +4290,427 @@ section('Playbooks · the write whitelists');
   is('read: a master moment is not a master step',
      shapeMaster({ ...page, properties: { ...page.properties, Kind: { type: 'select', select: { name: 'Moment' } } } }), null);
   is('read: an override row with nothing set', [shapeOverride({ id: 'o1', properties: {} }).status, shapeOverride({ id: 'o1', properties: {} }).newOffset], [null, null]);
+}
+
+
+/* ══ Pieces: the Content Pipeline rows a campaign step owes ══════ */
+
+section('Pieces · Priority, Default Media and Pieces are carried');
+
+// Notion properties as the API returns them: every one says its type.
+const NP = {
+  title: (t) => ({ type: 'title', title: [{ plain_text: t }] }),
+  sel: (name) => ({ type: 'select', select: name ? { name } : null }),
+  num: (n) => ({ type: 'number', number: n }),
+  check: (on) => ({ type: 'checkbox', checkbox: on }),
+  date: (start) => ({ type: 'date', date: start ? { start } : null }),
+  rel: (...ids) => ({ type: 'relation', relation: ids.map((id) => ({ id })) }),
+};
+
+{
+  const page = (props) => ({ id: 'pg', properties: {
+    'Is Playbook': NP.check(true), Kind: NP.sel('Step'), Playbook: NP.sel('Pre-Show'),
+    Item: NP.title('Announce: flyer, date, ticket link'), ...props } });
+  const read = shapeMaster(page({ Priority: NP.sel('Core'), 'Default Media': NP.sel('Graphic'), Pieces: NP.num(3) }));
+  is('master: the three are read off the row', [read.priority, read.defaultMedia, read.pieces], ['Core', 'Graphic', 3]);
+  const bare = shapeMaster(page({}));
+  is('master: a row without them reads as nothing', [bare.priority, bare.defaultMedia, bare.pieces], [null, null, null]);
+
+  const masters = [
+    mstep('m-a', 'Announce: flyer, date, ticket link', -21, { playbook: 'Pre-Show', flow: 'Blueprint makes + posts', priority: 'Core', defaultMedia: 'Graphic', pieces: 3 }),
+    mstep('m-b', 'Lock show details', -28, { playbook: 'Pre-Show', flow: 'Client task' }),
+  ];
+  const effective = effectivePlaybook(masters, [
+    ov('late', { playbook: 'Pre-Show', changeType: 'Shift timing', masterStepId: 'm-a', newOffset: -14 }),
+    ov('add', { playbook: 'Pre-Show', changeType: 'Add step', newTitle: 'Extra reel', newOffset: -3, newFlow: 'Blueprint makes + posts' }),
+  ], 'Pre-Show', SEAN_ID);
+  const a = effective.find((e) => e.masterId === 'm-a');
+  is('effective: an override leaves the three alone', [a.offset, a.priority, a.defaultMedia, a.pieces], [-14, 'Core', 'Graphic', 3]);
+  is('effective: a step added by an override has none', effective.find((e) => e.added).priority, null);
+  const planned = planApply(effective, '2026-12-13');
+  const pa = planned.find((s2) => s2.title.startsWith('Announce'));
+  is('apply: the plan carries them to the new step', [pa.priority, pa.defaultMedia, pa.pieces], ['Core', 'Graphic', 3]);
+
+  const props = stepProperties(pa, 'client-1', 'moment-1');
+  is('step: a deliverable step is written with all three',
+     [props.Priority.select.name, props['Default Media'].select.name, props.Pieces.number], ['Core', 'Graphic', 3]);
+  const task = stepProperties(planned.find((s2) => s2.title === 'Lock show details'), 'client-1', 'moment-1');
+  is('step: a step that delivers nothing is written with none',
+     ['Priority', 'Default Media', 'Pieces'].filter((k) => k in task), []);
+  is('step: a step on a moment we are holding back is held back too',
+     [stepProperties(pa, 'c', 'm', { hidden: true })['Hide from Client'].checkbox, 'Hide from Client' in props], [true, false]);
+  is('step: a value Notion has no option for is not sent',
+     stepProperties({ ...pa, priority: 'Vital', defaultMedia: 'Hologram', pieces: 30 }, 'c', 'm').Priority.select, null);
+
+  const vocab = vocabularyOf(MASTERS);
+  const edit = buildMasterProperties({ priority: 'Filler', defaultMedia: 'Story', pieces: 2 }, vocab);
+  is('master edit: each lands on its own property',
+     [edit.properties.Priority.select.name, edit.properties['Default Media'].select.name, edit.properties.Pieces.number, edit.rejected],
+     ['Filler', 'Story', 2, []]);
+  const clear = buildMasterProperties({ priority: null, defaultMedia: null, pieces: null }, vocab);
+  is('master edit: null clears each', [clear.properties.Priority.select, clear.properties['Default Media'].select, clear.properties.Pieces.number], [null, null, null]);
+  is('master edit: what Notion has no name for is refused, not created',
+     buildMasterProperties({ priority: 'Vital', defaultMedia: 'Hologram', pieces: 0 }, vocab).rejected, ['priority', 'defaultMedia', 'pieces']);
+  is('master edit: Pieces is a small whole number',
+     [1.5, 7, -1, '3'].map((n) => buildMasterProperties({ pieces: n }, vocab).rejected.length), [1, 1, 1, 1]);
+  is('vocabulary: the three priorities and the five media',
+     [['Core', 'Standard', 'Filler'].every(isPriority), isPriority('Vital'), CONTENT_MEDIA.every(isPieceMedia), isPieceMedia('Hologram')],
+     [true, false, true, false]);
+}
+
+section('Pieces · what a step’s rows say');
+
+const pstep = (id, title, date, o = {}) => ({ id, title, playbook: 'Pre-Show', phase: 'Pre-Show · Build',
+  flow: 'Blueprint makes + posts', status: 'Not Started', date, momentId: 'mo-show',
+  priority: 'Standard', defaultMedia: 'Video', pieces: null, ...o });
+const PC_SHOW = { id: 'mo-show', title: 'Christmas Show', date: '2026-12-13', momentType: 'Show' };
+const PC_REMIX = { id: 'mo-remix', title: 'Christmas Remix', date: '2026-12-11', momentType: 'Release' };
+
+{
+  is('deliverable: the two flows that post something of ours',
+     [isDeliverableFlow('Blueprint makes + posts'), isDeliverableFlow(CLIENT_FILMS_FLOW)], [true, true]);
+  is('deliverable: nothing else is',
+     ['Client makes + posts', 'Blueprint task', 'Client task', FILM_SESSION_FLOW, null, ''].map(isDeliverableFlow),
+     [false, false, false, false, false, false]);
+  is('count: blank is one', [pieceCount(null), pieceCount(undefined), pieceCount(1), pieceCount(3)], [1, 1, 1, 3]);
+  is('count: never fewer than one or more than the cap', [pieceCount(0), pieceCount(-2), pieceCount(40)], [1, 1, MAX_PIECES]);
+
+  is('title: the moment, then the step', pieceTitle('Christmas Show', 'Short-form: catch me in Austin'), 'Christmas Show Short-form: catch me in Austin');
+  is('title: a step on no moment is just itself', pieceTitle(null, 'Loose step'), 'Loose step');
+  const long = pieceTitle('M', 'x'.repeat(400), ' · IG story');
+  is('title: a long one keeps its suffix whole', [long.length, long.endsWith(' · IG story')], [200, true]);
+
+  is('source: the client films it', pieceSource(CLIENT_FILMS_FLOW, 'Video'), 'Client Films');
+  is('source: the Flow wins over the media', pieceSource(CLIENT_FILMS_FLOW, 'Story'), 'Client Films');
+  is('source: a graphic or a story is drawn', [pieceSource('Blueprint makes + posts', 'Graphic'), pieceSource('Blueprint makes + posts', 'Story')],
+     ['Flyer / Graphic', 'Flyer / Graphic']);
+  is('source: anything else is cut from what we hold',
+     ['Video', 'Photo', 'Carousel', null].map((m) => pieceSource('Blueprint makes + posts', m)),
+     ['Show Media', 'Show Media', 'Show Media', 'Show Media']);
+
+  is('bucket: by playbook',
+     ['Pre-Show', 'Show Night', 'Release Rollout', 'Release Sprint', 'Remix Drop', 'Post-Show'].map((pb) => pieceBucket(pb, 'Video', false)),
+     ['Show Promo', 'Show Promo', 'Release Promo', 'Release Promo', 'Release Promo', 'Live Performance']);
+  is('bucket: a carousel is a Carousel whatever the playbook', pieceBucket('Post-Show', 'Carousel', false), 'Carousel');
+  is('bucket: a flyer row is a Flyer first', [pieceBucket('Pre-Show', 'Graphic', true), pieceBucket('Pre-Show', 'Story', true)], ['Flyer', 'Flyer']);
+  is('bucket: a playbook we do not know is left empty rather than guessed', pieceBucket('Something New', 'Video', false), null);
+
+  is('platforms: a story is Instagram only', piecePlatforms('Story'), ['Instagram']);
+  is('platforms: a video goes three places', piecePlatforms('Video'), ['Instagram', 'TikTok', 'Facebook']);
+  is('platforms: the rest go two', ['Photo', 'Carousel', 'Graphic'].map(piecePlatforms),
+     [['Instagram', 'Facebook'], ['Instagram', 'Facebook'], ['Instagram', 'Facebook']]);
+
+  const sessions = [
+    pstep('s1', '🎥 Film: one', '2026-11-20', { flow: FILM_SESSION_FLOW }),
+    pstep('s2', '🎥 Film: two', '2026-12-01', { flow: FILM_SESSION_FLOW }),
+    pstep('s3', '🎥 Film: skipped', '2026-12-05', { flow: FILM_SESSION_FLOW, status: 'Skipped' }),
+    pstep('s4', '🎥 Film: another moment', '2026-12-06', { flow: FILM_SESSION_FLOW, momentId: 'mo-remix' }),
+    pstep('s5', '🎥 Film: after', '2026-12-10', { flow: FILM_SESSION_FLOW }),
+  ];
+  const giveaway = pstep('g', 'Ticket giveaway', '2026-12-07', { flow: CLIENT_FILMS_FLOW });
+  is('film by: the nearest earlier session in the same moment', filmByFor(giveaway, [...sessions, giveaway]), '2026-12-01');
+  is('film by: a session on the day itself counts', filmByFor({ ...giveaway, date: '2026-12-10' }, sessions), '2026-12-10');
+  is('film by: none before it is none', filmByFor({ ...giveaway, date: '2026-11-01' }, sessions), null);
+  is('film by: a step with no day has none', filmByFor({ ...giveaway, date: null }, sessions), null);
+
+  const one = piecesForStep(giveaway, PC_SHOW, [...sessions, giveaway]);
+  is('rows: one step, one row, unless it says otherwise', one.length, 1);
+  is('rows: everything about it comes from the step',
+     [one[0].title, one[0].media, one[0].source, one[0].bucket, one[0].platforms, one[0].postDate, one[0].filmBy, one[0].stepId],
+     ['Christmas Show Ticket giveaway', 'Video', 'Client Films', 'Show Promo', ['Instagram', 'TikTok', 'Facebook'], '2026-12-07', '2026-12-01', 'g']);
+  is('rows: a piece we make has no Film By',
+     piecesForStep(pstep('v', 'Recap', '2026-12-07'), PC_SHOW, sessions)[0].filmBy, null);
+
+  const flyer = piecesForStep(pstep('f', 'Announce: flyer, date, ticket link', '2026-11-22',
+    { phase: 'Pre-Show · Announce', defaultMedia: 'Graphic', pieces: 3, priority: 'Core' }), PC_SHOW, sessions);
+  is('flyer: three rows, suffixed', flyer.map((p2) => p2.title),
+     ['Christmas Show Announce: flyer, date, ticket link · IG post',
+      'Christmas Show Announce: flyer, date, ticket link · IG story',
+      'Christmas Show Announce: flyer, date, ticket link · Event banner']);
+  is('flyer: a graphic, a story and a graphic', flyer.map((p2) => p2.media), ['Graphic', 'Story', 'Graphic']);
+  is('flyer: all drawn, all in the Flyer bucket',
+     [flyer.every((p2) => p2.source === 'Flyer / Graphic'), flyer.every((p2) => p2.bucket === 'Flyer')], [true, true]);
+  is('flyer: the story goes to Instagram alone', flyer.map((p2) => p2.platforms.length), [2, 1, 2]);
+  is('flyer: the set is the three in the spec', FLYER_SET.map((v) => v.suffix), [' · IG post', ' · IG story', ' · Event banner']);
+  is('rows: any other number is that many of its own media, numbered',
+     piecesForStep(pstep('n', 'Clips', '2026-12-01', { pieces: 2 }), PC_SHOW, []).map((p2) => [p2.title, p2.media]),
+     [['Christmas Show Clips · 1 of 2', 'Video'], ['Christmas Show Clips · 2 of 2', 'Video']]);
+  is('rows: a step with no Default Media makes a row with none, read as a video elsewhere',
+     [piecesForStep(pstep('x', 'X', '2026-12-01', { defaultMedia: null }), PC_SHOW, [])[0].media,
+      piecesForStep(pstep('x', 'X', '2026-12-01', { defaultMedia: null }), PC_SHOW, [])[0].platforms.length], [null, 3]);
+
+  const props = pieceProperties({ ...one[0], hidden: true }, 'client-1');
+  is('row: ours to post, Planned, linked to its step and its client',
+     [props['Posted By'].select.name, props.Status.select.name, props.Campaign.relation[0].id, props.Client.relation[0].id],
+     ['Blueprint', 'Planned', 'g', 'client-1']);
+  is('row: dated, typed and sourced from the plan',
+     [props['Post Date'].date.start, props.Media.select.name, props.Source.select.name, props['Film By'].date.start,
+      props.Bucket.select.name, props.Platforms.multi_select.map((o) => o.name)],
+     ['2026-12-07', 'Video', 'Client Films', '2026-12-01', 'Show Promo', ['Instagram', 'TikTok', 'Facebook']]);
+  is('row: hidden when its step is', props['Hide from Client'].checkbox, true);
+  is('row: no Film By or Bucket property when there is none to set',
+     ['Film By', 'Bucket'].filter((k) => k in pieceProperties({ ...one[0], filmBy: null, bucket: null }, 'c')), []);
+  is('budget: a request leaves room for its reads', PIECE_WRITE_BUDGET <= 30, true);
+
+  const stepPage = { id: 'st', properties: {
+    Item: NP.title(' Teaser '), Playbook: NP.sel('Pre-Show'), Flow: NP.sel(CLIENT_FILMS_FLOW),
+    Status: NP.sel('Not Started'), Date: NP.date(null),
+    'Auto Date': { type: 'formula', formula: { type: 'date', date: { start: '2026-12-02T00:00:00.000Z' } } },
+    Moment: NP.rel('mo-show'), Priority: NP.sel('Filler'), 'Default Media': NP.sel('Video'),
+    Pieces: NP.num(null), 'Hide from Client': NP.check(true) } };
+  const shaped = shapeStep(stepPage);
+  is('read: a step with no Date is placed by its Auto Date', [shaped.title, shaped.date, shaped.priority, shaped.hidden], ['Teaser', '2026-12-02', 'Filler', true]);
+  const piecePage = { id: 'pc', properties: { Content: NP.title('A piece'), Status: NP.sel('Planned'),
+    'Post Date': NP.date('2026-12-02'), Campaign: NP.rel('st', 'st2') } };
+  is('read: a piece knows every step it is linked to', shapePiece(piecePage).campaign, ['st', 'st2']);
+}
+
+section('Pieces · creating the ones that are missing');
+
+{
+  const steps = [
+    pstep('a', 'Announce: flyer, date, ticket link', '2026-12-02', { defaultMedia: 'Graphic', pieces: 3, priority: 'Core' }),
+    pstep('b', 'Short-form: catch me in Austin', '2026-12-21'),
+    pstep('c', 'Ticket giveaway', '2027-01-03', { flow: CLIENT_FILMS_FLOW }),
+    pstep('d', 'Done already', '2026-12-04', { status: 'Done' }),
+    pstep('e', 'Skipped', '2026-12-05', { status: 'Skipped' }),
+    pstep('f', 'Moved', '2026-12-06', { status: 'Moved' }),
+    pstep('g', 'Lock show details', '2026-12-01', { flow: 'Client task' }),
+    pstep('h', '🎥 Film: giveaway', '2026-12-28', { flow: FILM_SESSION_FLOW }),
+    pstep('i', 'They post it', '2026-12-09', { flow: 'Client makes + posts' }),
+    pstep('j', 'Has one', '2026-12-10'),
+    pstep('k', 'In progress', '2026-12-11', { status: 'In Progress' }),
+  ];
+  const have = [{ id: 'p-j', title: 'A row made by hand', status: 'Planned', postDate: '2026-12-10', campaign: ['j'] }];
+  const plan = planMissingPieces(steps, [PC_SHOW], have);
+  is('missing: every open deliverable step with nothing linked, expanded by Pieces',
+     plan.map((p2) => p2.stepId), ['a', 'a', 'a', 'k', 'b', 'c']);
+  is('missing: in the order they post', plan.map((p2) => p2.postDate),
+     ['2026-12-02', '2026-12-02', '2026-12-02', '2026-12-11', '2026-12-21', '2027-01-03']);
+  is('missing: Done, Skipped and Moved steps are left alone',
+     plan.some((p2) => ['d', 'e', 'f'].includes(p2.stepId)), false);
+  is('missing: a step that delivers nothing of ours gets nothing', plan.some((p2) => ['g', 'h', 'i'].includes(p2.stepId)), false);
+  is('missing: a step with a row is covered, whatever the row is called', plan.some((p2) => p2.stepId === 'j'), false);
+  is('missing: the Film By comes from the session before it', plan.find((p2) => p2.stepId === 'c').filmBy, '2026-12-28');
+  is('missing: narrowed to a month', planMissingPieces(steps, [PC_SHOW], have, { months: ['2026-12'] }).map((p2) => p2.stepId),
+     ['a', 'a', 'a', 'k', 'b']);
+  is('missing: narrowed to some steps', planMissingPieces(steps, [PC_SHOW], have, { stepIds: ['b', 'c'] }).map((p2) => p2.stepId), ['b', 'c']);
+  is('chip: the steps the "No piece yet" chip counts', stepsWithoutPieces(steps, have).map((s2) => s2.id), ['a', 'b', 'c', 'k']);
+
+  // Run it, then run it again.
+  const made = plan.map((p2, n) => ({ id: `new-${n}`, title: p2.title, status: 'Planned', postDate: p2.postDate, campaign: [p2.stepId] }));
+  is('missing: run twice, the second run creates nothing', planMissingPieces(steps, [PC_SHOW], [...have, ...made]), []);
+  is('chip: and then it reads zero', stepsWithoutPieces(steps, [...have, ...made]), []);
+  // A write that stopped after one flyer row, the banner.
+  const banner = made.find((m) => m.title.endsWith('Event banner'));
+  const half = planMissingPieces(steps, [PC_SHOW], [...have, banner], { stepIds: ['a'] });
+  is('missing: a flyer left one row in is finished, not started again',
+     half.map((p2) => p2.title.split(' \u00b7 ').pop()), ['IG post', 'IG story']);
+  is('missing: a flyer step covered by one row made by hand is not added to',
+     planMissingPieces(steps, [PC_SHOW], [{ id: 'x', title: 'Christmas flyer', status: 'Planned', postDate: null, campaign: ['a'] }], { stepIds: ['a'] }), []);
+  is('missing: a skipped row still covers its step, so nothing is recreated behind a trim',
+     planMissingPieces(steps, [PC_SHOW], [{ id: 'x', title: 'Christmas Show Short-form: catch me in Austin', status: 'Skipped', postDate: null, campaign: ['b'] }], { stepIds: ['b'] }), []);
+  is('missing: ids match with or without dashes',
+     planMissingPieces([pstep('3f7c8be8-be72-8123-a420-fb9aef6bc0e9', 'X', '2026-12-01')], [PC_SHOW],
+       [{ id: 'x', title: 'y', status: 'Planned', postDate: null, campaign: ['3f7c8be8be728123a420fb9aef6bc0e9'] }]), []);
+}
+
+section('Pieces · a step and its rows stay in step');
+
+{
+  const rows = [
+    { id: '1', status: 'Planned', postDate: '2026-12-02' },
+    { id: '2', status: 'Planned', postDate: '2026-12-09' },
+    { id: '3', status: 'Editing', postDate: '2026-12-02' },
+    { id: '4', status: 'Posted', postDate: '2026-12-02' },
+    { id: '5', status: 'Idea', postDate: '2026-12-02' },
+    { id: '6', status: 'Skipped', postDate: '2026-12-02' },
+  ];
+  is('follow: a Planned row not already on the day', piecesToFollow(rows, '2026-12-09').map((r) => r.id), ['1']);
+  is('follow: nothing past Planned is ever moved', piecesToFollow(rows, '2026-12-20').map((r) => r.id), ['1', '2']);
+  is('follow: a step with no day moves nothing', piecesToFollow(rows, null), []);
+  is('skip: a skipped step takes its Planned rows and no others', piecesToSkip(rows).map((r) => r.id), ['1', '2']);
+  is('step: skipped when its only row is', stepSkippedByPieces([{ status: 'Skipped' }]), true);
+  is('step: a flyer is only skipped when all three are',
+     [stepSkippedByPieces([{ status: 'Skipped' }, { status: 'Skipped' }, { status: 'Planned' }]),
+      stepSkippedByPieces([{ status: 'Skipped' }, { status: 'Skipped' }, { status: 'Skipped' }])], [false, true]);
+  is('step: a step with no rows is not skipped by having none', stepSkippedByPieces([]), false);
+}
+
+section('Pieces · suggested trims for a month that is over');
+
+{
+  let n = 0;
+  const steps = [];
+  const pieces = [];
+  const add = (title, date, o = {}, po = {}) => {
+    const id = `st-${++n}`;
+    steps.push(pstep(id, title, date, o));
+    pieces.push({ id: `pc-${n}`, title: `P ${title}`, status: 'Planned', postDate: date, media: o.defaultMedia ?? 'Video', stepId: id, ...po });
+    return `pc-${n}`;
+  };
+  // Twenty Core pieces the month cannot lose.
+  for (let i = 1; i <= 20; i++) add(`Core ${i}`, `2026-12-${String(i).padStart(2, '0')}`, { priority: 'Core', playbook: 'Release Rollout', momentId: 'mo-core' });
+  const fillerRelease = add('Filler release', '2026-12-30', { priority: 'Filler', playbook: 'Release Rollout', momentId: 'mo-core', defaultMedia: 'Photo' });
+  const fillerPre = add('Filler pre-show', '2026-12-29', { priority: 'Filler', playbook: 'Pre-Show', defaultMedia: 'Graphic' });
+  const fillerPost = add('Filler post-show', '2026-12-27', { priority: 'Filler', playbook: 'Post-Show', defaultMedia: 'Carousel' });
+  const fillerRemix = add('Filler remix', '2026-12-24', { priority: 'Filler', playbook: 'Remix Drop', momentId: 'mo-remix', defaultMedia: 'Story' });
+  const stdRemixLate = add('Standard remix late', '2026-12-31', { priority: 'Standard', playbook: 'Remix Drop', momentId: 'mo-remix', defaultMedia: 'Story' });
+  const stdRemixEarly = add('Standard remix early', '2026-12-22', { priority: 'Standard', playbook: 'Remix Drop', momentId: 'mo-remix', defaultMedia: 'Photo' });
+  const stdEditing = add('Standard in the edit', '2026-12-28', { priority: 'Filler', playbook: 'Remix Drop', momentId: 'mo-remix' }, { status: 'Editing' });
+  const moments = [PC_SHOW, PC_REMIX, { id: 'mo-core', title: 'Every Season', date: '2027-01-08', momentType: 'Release' }];
+
+  const plan = suggestTrims(pieces, steps, moments);
+  is('trims: the month and how far over it is', [plan.planned, plan.over], [27, 2]);
+  is('trims: never Core, and never anything past Planned',
+     [plan.rows.some((r) => r.title.startsWith('P Core')), plan.rows.some((r) => r.pieceId === stdEditing)], [false, false]);
+  is('trims: Filler before Standard, and within a tier remix, after the show, before it, then a release',
+     plan.rows.map((r) => r.pieceId), [fillerRemix, fillerPost, fillerPre, fillerRelease, stdRemixLate, stdRemixEarly]);
+  is('trims: within a campaign, the latest goes first', plan.rows.slice(4).map((r) => r.postDate), ['2026-12-31', '2026-12-22']);
+  is('trims: exactly as many ticked as the month is over', plan.rows.filter((r) => r.suggested).map((r) => r.pieceId), [fillerRemix, fillerPost]);
+  is('trims: every row says why in one line', plan.rows[0].reason, 'Filler, Remix Drop');
+  is('trims: and nothing is left over when there is enough to cut', plan.stillOver, 0);
+  is('trims: a month inside its cap suggests nothing', suggestTrims(pieces.slice(0, 25), steps, moments).rows.filter((r) => r.suggested), []);
+
+  // Competing with another moment's big day.
+  const near = suggestTrims([
+    ...pieces.slice(0, 25),
+    { id: 'far', title: 'Far from it', status: 'Planned', postDate: '2026-12-19', media: 'Video', stepId: 'st-far' },
+    { id: 'close', title: 'Close to it', status: 'Planned', postDate: '2026-12-09', media: 'Photo', stepId: 'st-close' },
+  ], [...steps, pstep('st-far', 'Far', '2026-12-19', { playbook: 'Pre-Show' }), pstep('st-close', 'Close', '2026-12-09', { playbook: 'Pre-Show' })],
+    moments);
+  is('trims: a piece within three days of another moment’s release day goes before one that is clear of it',
+     near.rows.filter((r) => ['far', 'close'].includes(r.pieceId)).map((r) => r.pieceId), ['close', 'far']);
+  is('trims: and says which day it is up against',
+     near.rows.find((r) => r.pieceId === 'close').reason, 'Standard, Pre-Show, within 3 days of Christmas Remix’s release day'.replace('’', "'"));
+  is('trims: a moment does not compete with itself',
+     suggestTrims([...pieces.slice(0, 25), { id: 'own', title: 'Own', status: 'Planned', postDate: '2026-12-10', media: 'Video', stepId: 'st-own' }],
+       [...steps, pstep('st-own', 'Own', '2026-12-10', { playbook: 'Remix Drop', momentId: 'mo-remix' })], moments)
+       .rows.find((r) => r.pieceId === 'own').reason, 'Standard, Remix Drop');
+  const announce = suggestTrims(
+    [...pieces.slice(0, 25), { id: 'by', title: 'By the announce', status: 'Planned', postDate: '2026-12-16', media: 'Photo', stepId: 'st-by' }],
+    [...steps, pstep('st-by', 'By', '2026-12-16', { playbook: 'Post-Show' }),
+     pstep('st-ann', 'Announce: artwork and date', '2026-12-18', { momentId: 'mo-core', playbook: 'Release Rollout', priority: 'Core' })], moments);
+  is('trims: another moment’s announce counts the same way',
+     announce.rows.find((r) => r.pieceId === 'by').reason.endsWith("Every Season's announce"), true);
+
+  // Near-duplicates: same week, same media, different moments.
+  // Twenty Core pieces and as many more as it takes to fill the month,
+  // so the only candidates are the ones each case adds.
+  const full = (extra) => [...pieces.slice(0, 20),
+    ...Array.from({ length: extra }, (_, i) => ({ id: `pad-${i}`, title: `Pad ${i}`, status: 'Planned', postDate: '2026-12-15', media: 'Video', stepId: 'st-1' }))];
+  const dup = suggestTrims([
+    ...full(4),
+    { id: 'd-show', title: 'Show clip', status: 'Planned', postDate: '2026-12-22', media: 'Video', stepId: 'st-d1' },
+    { id: 'd-remix', title: 'Remix clip', status: 'Planned', postDate: '2026-12-24', media: 'Video', stepId: 'st-d2' },
+    { id: 'd-alone', title: 'Alone', status: 'Planned', postDate: '2026-12-30', media: 'Carousel', stepId: 'st-d3' },
+  ], [...steps,
+      pstep('st-d1', 'Show clip', '2026-12-22', { playbook: 'Pre-Show', momentId: 'mo-show' }),
+      pstep('st-d2', 'Remix clip', '2026-12-24', { playbook: 'Remix Drop', momentId: 'mo-remix' }),
+      pstep('st-d3', 'Alone', '2026-12-30', { playbook: 'Remix Drop', momentId: 'mo-remix' })], moments);
+  is('trims: of two alike in one week, the one that would go sooner goes, and says what it doubles',
+     [dup.rows[0].pieceId, dup.rows[0].reason], ['d-remix', 'Standard, Remix Drop, overlaps with Show clip']);
+  is('trims: the other of the pair is not marked as well', dup.rows.find((r) => r.pieceId === 'd-show').reason, 'Standard, Pre-Show');
+  is('trims: a near-duplicate still never jumps a tier',
+     suggestTrims([
+       ...full(4),
+       { id: 'fill', title: 'Filler', status: 'Planned', postDate: '2026-12-02', media: 'Photo', stepId: 'st-f' },
+       { id: 'd-show', title: 'Show clip', status: 'Planned', postDate: '2026-12-22', media: 'Video', stepId: 'st-d1' },
+       { id: 'd-remix', title: 'Remix clip', status: 'Planned', postDate: '2026-12-24', media: 'Video', stepId: 'st-d2' },
+     ], [...steps, pstep('st-f', 'F', '2026-12-02', { priority: 'Filler', playbook: 'Release Rollout', momentId: 'mo-core' }),
+         pstep('st-d1', 'Show clip', '2026-12-22', { playbook: 'Pre-Show', momentId: 'mo-show' }),
+         pstep('st-d2', 'Remix clip', '2026-12-24', { playbook: 'Remix Drop', momentId: 'mo-remix' })], moments).rows.map((r) => r.pieceId),
+     ['fill', 'd-remix', 'd-show']);
+  is('trims: the same moment twice in a week is not a duplicate',
+     suggestTrims([
+       ...pieces.slice(0, 24),
+       { id: 'x1', title: 'One', status: 'Planned', postDate: '2026-12-22', media: 'Video', stepId: 'st-x1' },
+       { id: 'x2', title: 'Two', status: 'Planned', postDate: '2026-12-24', media: 'Video', stepId: 'st-x2' },
+     ], [...steps, pstep('st-x1', 'One', '2026-12-22', { momentId: 'mo-show' }), pstep('st-x2', 'Two', '2026-12-24', { momentId: 'mo-show' })], moments)
+       .rows.some((r) => /overlaps/.test(r.reason)), false);
+
+  // Not enough to cut.
+  const tight = suggestTrims([...pieces.slice(0, 20),
+    ...Array.from({ length: 8 }, (_, i) => ({ id: `core-x${i}`, title: `More core ${i}`, status: 'Planned', postDate: '2026-12-15', media: 'Video', stepId: 'st-1' })),
+    pieces.find((p2) => p2.id === fillerRemix)], steps, moments);
+  is('trims: with fewer candidates than the overage, all of them are suggested and the shortfall is said',
+     [tight.over, tight.rows.length, tight.rows.every((r) => r.suggested), tight.stillOver], [4, 1, true, 3]);
+
+  // A piece with no step or no priority is cuttable, and says so.
+  const loose = suggestTrims([...full(5), { id: 'loose', title: 'Added by hand', status: 'Planned', postDate: '2026-12-19', media: 'Graphic', stepId: null }], steps, moments);
+  is('trims: a piece on no campaign is a Standard candidate, and says what is missing',
+     [loose.rows[0].tier, loose.rows[0].reason], ['Standard', 'Standard, no campaign, no priority set']);
+
+  // Moving instead of cutting.
+  is('move: offered for a post-show piece and a long-tail one, and nothing else',
+     [canMoveToNextMonth({ playbook: 'Post-Show', phase: 'Post-Show · Week Two' }),
+      canMoveToNextMonth({ playbook: 'Release Rollout', phase: 'Wk 3–4 · Long Tail' }),
+      canMoveToNextMonth({ playbook: 'Release Rollout', phase: 'Wk −4 · Announce' }),
+      canMoveToNextMonth({ playbook: 'Pre-Show', phase: 'Pre-Show · Build' }), canMoveToNextMonth(null)],
+     [true, true, false, false, false]);
+  is('move: to the same weekday, the first one in the next month',
+     [nextMonthSameWeekday('2026-12-27'), nextMonthSameWeekday('2026-12-03'), nextMonthSameWeekday('2027-01-31'), nextMonthSameWeekday('nope')],
+     ['2027-01-03', '2027-01-07', '2027-02-07', null]);
+  is('move: the row carries where it would go',
+     [plan.rows.find((r) => r.pieceId === fillerPost).canMove, plan.rows.find((r) => r.pieceId === fillerPost).moveTo,
+      plan.rows.find((r) => r.pieceId === fillerRemix).canMove, plan.rows.find((r) => r.pieceId === fillerRemix).moveTo],
+     [true, '2027-01-03', false, null]);
+
+  // The notes, and taking them back.
+  const line = trimNote('2026-11-16', 'Filler, Remix Drop');
+  is('note: the line the spec asks for', line, 'Trimmed 2026-11-16: over monthly cap (Filler, Remix Drop)');
+  is('note: appended, never replacing what was there', [appendNote(null, line), appendNote('Shot on the 4th.\n', line)],
+     [line, `Shot on the 4th.\n${line}`]);
+  is('note: an undo takes exactly that line back out',
+     [removeNote(`Shot on the 4th.\n${line}`, line), removeNote(line, line), removeNote('Something else', line)],
+     ['Shot on the 4th.', '', 'Something else']);
+  is('note: a move says where it came from', moveNote('2026-11-16', '2026-12-27'), 'Moved 2026-11-16: over monthly cap (was 2026-12-27)');
+}
+
+section('Pieces · film sessions a trim leaves with nothing to film');
+
+{
+  const film = (id, date, o = {}) => pstep(id, `🎥 Film ${id}`, date, { flow: FILM_SESSION_FLOW, ...o });
+  const cut = (id, date, o = {}) => pstep(id, `Cut ${id}`, date, { flow: CLIENT_FILMS_FLOW, ...o });
+  const base = [
+    film('f1', '2026-12-01'), cut('a', '2026-12-04', { status: 'Skipped' }), cut('b', '2026-12-06', { status: 'Skipped' }),
+    film('f2', '2026-12-10'), cut('c', '2026-12-12', { status: 'Skipped' }), cut('d', '2026-12-14'),
+    pstep('ours', 'Ours', '2026-12-05'),
+  ];
+  is('sessions: one whose every piece went, one of them in this trim, is listed',
+     sessionsNoLongerNeeded(base, ['b', 'c']).map((s2) => s2.id), ['f1']);
+  is('sessions: one that still feeds a piece is never listed', sessionsNoLongerNeeded(base, ['c']).map((s2) => s2.id), []);
+  is('sessions: one emptied before this trim, by something else, is not this trim’s to list',
+     sessionsNoLongerNeeded(base, ['zzz']), []);
+  is('sessions: a piece of ours between two sessions does not keep the first one', sessionsNoLongerNeeded(base, ['a']).map((s2) => s2.id), ['f1']);
+  is('sessions: one that is already done is history',
+     sessionsNoLongerNeeded(base.map((s2) => (s2.id === 'f1' ? { ...s2, status: 'Done' } : s2)), ['b']), []);
+  is('sessions: one that feeds nothing at all is not listed for that',
+     sessionsNoLongerNeeded([film('f9', '2026-12-01'), pstep('ours', 'Ours', '2026-12-05')], ['ours']), []);
+  is('sessions: the last session runs to the end of the campaign',
+     sessionsNoLongerNeeded(base.map((s2) => (s2.id === 'd' ? { ...s2, status: 'Skipped' } : s2)), ['d']).map((s2) => s2.id), ['f2']);
+  is('sessions: a skipped session is not a boundary, so the one before it covers its pieces',
+     sessionsNoLongerNeeded(base.map((s2) => (s2.id === 'f2' ? { ...s2, status: 'Skipped' } : s2)), ['b']), []);
+  is('sessions: another moment’s pieces are not this session’s',
+     sessionsNoLongerNeeded([film('f1', '2026-12-01'), cut('a', '2026-12-04', { status: 'Skipped' }),
+       cut('z', '2026-12-05', { momentId: 'mo-remix' })], ['a']).map((s2) => s2.id), ['f1']);
+}
+
+section('Playbooks · steps retired from a playbook');
+
+{
+  const withRetired = [
+    ...MASTERS,
+    mstep('r-1', 'Energy clip from a past show', -18, { playbook: 'Retired', flow: 'Blueprint makes + posts' }),
+    mstep('r-2', 'Quote graphic', 20, { playbook: 'Retired', flow: 'Blueprint makes + posts' }),
+  ];
+  is('retired: it is the name Notion gives the pile, however it is cased', [isRetiredPlaybook('Retired'), isRetiredPlaybook(' retired '), isRetiredPlaybook('Pre-Show'), isRetiredPlaybook(null)],
+     [true, true, false, false]);
+  is('retired: HQ still lists it, after every real playbook', playbookNames(withRetired), ['Release Sprint', 'Remix Drop', 'Retired']);
+  is('retired: a client is never shown it', clientPlaybooks(withRetired, [], SEAN_ID).map((p2) => p2.name), ['Release Sprint', 'Remix Drop']);
+  is('retired: and none of its steps reach them under another name',
+     clientPlaybooks(withRetired, [], SEAN_ID).flatMap((p2) => p2.phases.flatMap((g) => g.steps.map((s2) => s2.title))).some((t) => /Energy clip|Quote graphic/.test(t)), false);
+  is('retired: a real playbook does not pick up a retired step', effectivePlaybook(withRetired, [], 'Release Sprint', SEAN_ID).length, 4);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

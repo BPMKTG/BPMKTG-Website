@@ -22,8 +22,12 @@ import { dropPortalData, portalNotFound } from '../../../../../../src/server/por
 import { CALENDAR_DB, isNotionId } from '../../../../../../src/server/portal-notion';
 import {
   beginPlaybookWrite, clientSlugOf, createIn, fetchClientSteps, fetchMasters,
-  fetchOwnedOverride, stepProperties, updatePage, MAX_PLAYBOOK_WRITES,
+  fetchOwnedOverride, stepProperties, updatePage,
 } from '../../../../../../src/server/playbooks';
+import {
+  fetchLinkedPieces, patchRow, PIECE_WRITE_BUDGET, type PieceRow,
+} from '../../../../../../src/server/pieces';
+import { piecesToFollow, piecesToSkip } from '../../../../../../src/data/pieces';
 import { isApplied, planOverrideOnOpen, type OverrideWrite } from '../../../../../../src/data/playbooks';
 
 interface Env extends HqEnv, HqDataEnv {}
@@ -62,18 +66,46 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     : { kind: w.kind, moment: w.momentTitle, step: w.step.title, says: `is added for ${w.step.date ?? 'no date'}` }));
   if (gate.body.dryRun === true) return hqJson({ ok: true, dryRun: true, writes: summary });
 
+  // A step that changes day takes its Planned pieces with it, and a
+  // step that is skipped takes them out with it. The pieces are read
+  // once, and a step is only started when there is budget for it and
+  // everything that follows from it, so nothing is left half done.
+  const touchesPieces = plan.some((w) => w.kind === 'patch'
+    && (w.set.date !== undefined || w.set.status === 'Skipped'));
+  const linked: PieceRow[] = touchesPieces
+    ? await fetchLinkedPieces(env.NOTION_TOKEN, override.clientId) : [];
+  const same = (a: string, b: string) => a.replace(/-/g, '') === b.replace(/-/g, '');
+  const stamp = { 'Last Edited By': { select: { name: 'Blueprint' } } };
+
+  let budget = PIECE_WRITE_BUDGET;
   let done = 0;
-  for (const w of plan.slice(0, MAX_PLAYBOOK_WRITES)) {
+  let pieces = 0;
+  for (const w of plan) {
+    let follow: Array<{ id: string; properties: Record<string, unknown> }> = [];
+    if (w.kind === 'patch') {
+      const mine = linked.filter((p) => p.campaign.some((id) => same(id, w.stepId)));
+      if (w.set.status === 'Skipped') {
+        follow = piecesToSkip(mine).map((p) => ({ id: p.id, properties: { ...stamp, Status: { select: { name: 'Skipped' } } } }));
+      } else if (w.set.date) {
+        follow = piecesToFollow(mine, w.set.date).map((p) => ({ id: p.id, properties: { ...stamp, 'Post Date': { date: { start: w.set.date } } } }));
+      }
+    }
+    if (1 + follow.length > budget) break;
     const ok = w.kind === 'patch'
       ? await updatePage(env.NOTION_TOKEN, w.stepId, { properties: patchProps(w) }, 'a step')
       : await createIn(env.NOTION_TOKEN, CALENDAR_DB, stepProperties(w.step, override.clientId, w.momentId), 'a step');
     if (!ok) break;
+    budget--;
     done++;
+    for (const f of follow) {
+      budget--;
+      if (await patchRow(env.NOTION_TOKEN, f.id, f.properties, 'a piece following its step')) pieces++;
+    }
   }
 
   const slug = await clientSlugOf(env.NOTION_TOKEN, override.clientId);
   await Promise.all([dropHq(env), slug ? dropPortalData(slug) : Promise.resolve()]);
-  return hqJson({ ok: done > 0 || !plan.length, done, remaining: plan.length - done, writes: summary.slice(0, done) });
+  return hqJson({ ok: done > 0 || !plan.length, done, pieces, remaining: plan.length - done, writes: summary.slice(0, done) });
 };
 
 export const onRequest: PagesFunction<Env> = async ({ request, next }) => {

@@ -25,6 +25,7 @@ import { STEP_FLOWS } from '../data/portal';
 import {
   byPhase,
   effectivePlaybook,
+  isRetiredPlaybook,
   offsetLabel,
   overrideProblem,
   playbookNames,
@@ -36,7 +37,8 @@ import {
   type MasterStep,
   type PlaybookOverride,
 } from '../data/playbooks';
-import { shortDay } from '../data/portal-content';
+import { shortDay, CONTENT_MEDIA } from '../data/portal-content';
+import { isDeliverableFlow, pieceCount, MAX_PIECES, PRIORITIES } from '../data/pieces';
 import { clear, el, icon } from './portal-dom';
 import { openSheet, sheetField, sheetSubmit } from './portal-sheet';
 
@@ -198,6 +200,39 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     row.appendChild(sheetField('Phase', phase));
     form.appendChild(row);
 
+    // What the step says about the piece it owes. Only a step that
+    // posts something owes one, so the three sit out of sight until
+    // the Flow says it does.
+    const owes = el('div', 'pt-pb-edit-row pt-pb-owes');
+    const priority = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
+    optionsInto(priority, [['', 'Not set'], ...PRIORITIES.map((p) => [p, p] as [string, string])], step?.priority ?? '');
+    const prWrap = sheetField('Priority', priority);
+    prWrap.appendChild(el('span', 'pt-pb-said', 'Core is never trimmed'));
+    const media = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
+    optionsInto(media, [['', 'Not set'], ...CONTENT_MEDIA.map((m) => [m, m] as [string, string])], step?.defaultMedia ?? '');
+    const mdWrap = sheetField('Default media', media);
+    const count = el('input', 'pt-input pt-num') as HTMLInputElement;
+    count.type = 'number';
+    count.step = '1';
+    count.min = '1';
+    count.max = String(MAX_PIECES);
+    count.placeholder = '1';
+    count.value = step?.pieces ? String(step.pieces) : '';
+    const ctWrap = sheetField('Pieces', count);
+    const ctSaid = el('span', 'pt-pb-said');
+    const sayCount = () => {
+      const n = count.value === '' ? 1 : Number(count.value);
+      ctSaid.textContent = n === 3 ? 'IG post, IG story, event banner' : n > 1 ? `${n} rows, numbered` : 'blank is one';
+    };
+    count.addEventListener('input', sayCount);
+    sayCount();
+    ctWrap.appendChild(ctSaid);
+    owes.append(prWrap, mdWrap, ctWrap);
+    form.appendChild(owes);
+    const showOwes = () => { owes.hidden = !isDeliverableFlow(flow.value); };
+    flow.addEventListener('change', showOwes);
+    showOwes();
+
     const notes = el('textarea', 'pt-input pt-textarea') as HTMLTextAreaElement;
     notes.rows = 2;
     notes.maxLength = 2000;
@@ -232,9 +267,19 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
 
     form.addEventListener('submit', (ev) => {
       ev.preventDefault();
+      // A step that delivers nothing carries none of the three.
+      const delivers = isDeliverableFlow(flow.value);
+      const nPieces = count.value === '' ? null : Number(count.value);
+      if (delivers && nPieces !== null && (!Number.isInteger(nPieces) || nPieces < 1 || nPieces > MAX_PIECES)) {
+        count.focus();
+        return;
+      }
       const next = {
         title: title.value.trim(), offset: Number(offset.value), flow: flow.value,
         phase: phase.value, notes: notes.value.trim() || null,
+        priority: delivers ? priority.value || null : null,
+        defaultMedia: delivers ? media.value || null : null,
+        pieces: delivers ? nPieces : null,
       };
       if (!next.title) { title.focus(); return; }
       if (offset.value === '' || !Number.isInteger(next.offset)) { offset.focus(); return; }
@@ -262,6 +307,12 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
       if (next.flow !== step.flow) { patch.flow = next.flow; lines.push(`Flow: ${step.flow ?? 'none'} becomes ${next.flow}. Owner follows it.`); }
       if (next.phase !== step.phase) { patch.phase = next.phase; lines.push(`Phase: ${step.phase ?? 'none'} becomes ${next.phase}.`); }
       if ((next.notes ?? '') !== (step.notes ?? '')) { patch.notes = next.notes; lines.push('Notes are updated.'); }
+      if (next.priority !== (step.priority ?? null)) { patch.priority = next.priority; lines.push(`Priority: ${step.priority ?? 'not set'} becomes ${next.priority ?? 'not set'}.`); }
+      if (next.defaultMedia !== (step.defaultMedia ?? null)) { patch.defaultMedia = next.defaultMedia; lines.push(`Default media: ${step.defaultMedia ?? 'not set'} becomes ${next.defaultMedia ?? 'not set'}.`); }
+      if (next.pieces !== (step.pieces ?? null)) { patch.pieces = next.pieces; lines.push(`Pieces: ${pieceCount(step.pieces ?? null)} becomes ${pieceCount(next.pieces)}.`); }
+      if (patch.priority !== undefined || patch.defaultMedia !== undefined || patch.pieces !== undefined) {
+        lines.push('Steps already on a client\u2019s calendar keep what they have.');
+      }
       if (!lines.length) { editing = ''; redraw(); return; }
       confirmMaster('Change this step?', lines, 'Change it for everyone', async () => {
         const res = await host.send('PATCH', `/portal/hq/playbooks/step/${step.id}`, patch);
@@ -490,6 +541,7 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
       const go = sheetSubmit(form, 'Create the steps');
       go.disabled = true;
       let count = 0;
+      let pieceTotal = 0;
 
       const look = async () => {
         go.disabled = true;
@@ -499,9 +551,14 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
           { clientId, momentId: pick.value, playbook, dryRun: true });
         clear(preview);
         if (!res.ok) { preview.appendChild(el('p', 'pt-pb-warn', why(res, 'Could not plan that.'))); return; }
-        const steps = (res.json?.steps ?? []) as Array<{ title: string; date: string | null }>;
+        const steps = (res.json?.steps ?? []) as Array<{ title: string; date: string | null; pieces?: number }>;
         count = steps.length;
+        pieceTotal = Number(res.json?.pieceCount ?? 0);
         const facts: string[] = [`${count} step${count === 1 ? '' : 's'} would be created, dated from the moment.`];
+        if (pieceTotal) {
+          facts.push(`${pieceTotal} piece${pieceTotal === 1 ? '' : 's'} would be created in the Content Pipeline with them, `
+            + 'one for every step we post, Planned and dated the same day.');
+        }
         const changed = (res.json?.changed ?? []) as string[];
         const skipped = (res.json?.skipped ?? []) as string[];
         if (changed.length) facts.push(`${changed.length} carry ${client.artist}'s approved overrides: ${changed.join('; ')}.`);
@@ -512,24 +569,42 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
         for (const s of steps) {
           const li = el('li');
           li.append(el('strong', 'pt-num', s.date ? shortDay(s.date) : 'no date'), el('span', undefined, ` · ${s.title}`));
+          if (s.pieces) li.appendChild(el('span', 'pt-pb-owed', s.pieces === 1 ? ' · 1 piece' : ` · ${s.pieces} pieces`));
           list.appendChild(li);
         }
         preview.appendChild(list);
-        go.disabled = count === 0;
-        go.textContent = count ? `Create ${count} step${count === 1 ? '' : 's'}` : 'Nothing to create';
+        go.disabled = count === 0 && pieceTotal === 0;
+        go.textContent = count
+          ? `Create ${count} step${count === 1 ? '' : 's'}${pieceTotal ? ` and ${pieceTotal} piece${pieceTotal === 1 ? '' : 's'}` : ''}`
+          : pieceTotal ? `Create ${pieceTotal} missing piece${pieceTotal === 1 ? '' : 's'}` : 'Nothing to create';
       };
       pick.addEventListener('change', () => { void look(); });
       void look();
 
       form.addEventListener('submit', async (ev) => {
         ev.preventDefault();
-        if (!count) return;
+        if (!count && !pieceTotal) return;
         go.disabled = true;
-        const res = await host.send('POST', '/portal/hq/playbooks/apply', { clientId, momentId: pick.value, playbook });
+        pick.disabled = true;
+        // One request writes a limited number of rows and says what is
+        // left, so this asks until nothing is. A round that writes
+        // nothing ends it, rather than asking forever.
+        let steps = 0, pieces = 0, left = count + pieceTotal;
+        for (let round = 0; round < 12 && left > 0; round++) {
+          go.textContent = `Creating\u2026 ${steps} of ${count} steps, ${pieces} of ${pieceTotal} pieces`;
+          const res = await host.send('POST', '/portal/hq/playbooks/apply', { clientId, momentId: pick.value, playbook });
+          if (!res.ok) { host.toast(why(res, 'That did not apply.'), true); break; }
+          const made = Number(res.json?.created ?? 0) + Number(res.json?.piecesCreated ?? 0);
+          steps += Number(res.json?.created ?? 0);
+          pieces += Number(res.json?.piecesCreated ?? 0);
+          left = Number(res.json?.remaining ?? 0) + Number(res.json?.piecesRemaining ?? 0);
+          if (!made) break;
+        }
         go.disabled = false;
-        if (!res.ok) { host.toast(why(res, 'That did not apply.'), true); return; }
-        const left = Number(res.json?.remaining ?? 0);
-        host.toast(left ? `${res.json?.created} created, ${left} to go. Run it again.` : `${res.json?.created} steps created`);
+        pick.disabled = false;
+        host.toast(left
+          ? `${steps} steps and ${pieces} pieces created, ${left} still to go. Run it again.`
+          : `${steps} step${steps === 1 ? '' : 's'} and ${pieces} piece${pieces === 1 ? '' : 's'} created`, left > 0);
         host.calendarChanged();
         close();
       });
@@ -600,6 +675,8 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     const apply = el('button', 'pt-btn', `Apply ${playbook} to a moment`);
     apply.type = 'button';
     apply.addEventListener('click', applyToMoment);
+    // Retired steps are kept to be read, not run.
+    apply.hidden = isRetiredPlaybook(playbook);
     const add = el('button', 'pt-btn pt-btn-primary');
     add.type = 'button';
     add.append(icon('plus'), el('span', undefined, 'Override'));
@@ -665,6 +742,21 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     if (s.added) tags.appendChild(el('span', 'pt-tag pt-pb-st-approved', `Added for ${clientName()}`));
     if (s.flow) tags.appendChild(mark(el('span', 'pt-tag pt-tag-flow', s.flow), s.was.flow, 'Flow'));
     if (s.type) tags.appendChild(el('span', 'pt-tag', s.type));
+    // What the step owes, on a step that owes something.
+    if (isDeliverableFlow(s.flow)) {
+      if (s.priority) {
+        const pr = el('span', 'pt-tag pt-pb-priority', s.priority);
+        pr.dataset.priority = s.priority;
+        tags.appendChild(pr);
+      } else if (!s.added) {
+        tags.appendChild(el('span', 'pt-tag pt-pb-unset', 'No priority'));
+      }
+      const n = pieceCount(s.pieces);
+      if (s.defaultMedia || n > 1) {
+        tags.appendChild(el('span', 'pt-tag pt-pb-media',
+          n > 1 ? `${n} pieces` : s.defaultMedia as string));
+      }
+    }
     li.appendChild(tags);
 
     const act = el('button', 'pt-pb-act');

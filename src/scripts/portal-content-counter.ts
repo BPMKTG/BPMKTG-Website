@@ -51,6 +51,14 @@ export interface CounterHost {
   addPiece?: (group: CounterGroup,
               piece: { title: string; media: string; postDate: string }) => Promise<boolean>;
   mediaOptions: () => string[];
+  /** HQ only: open "Suggested trims" for a month that is over. */
+  trim?: (group: CounterGroup, month: string) => void;
+  /** HQ only: open "Create missing pieces", starting on this month. */
+  createMissing?: (group: CounterGroup, month: string) => void;
+  /** HQ only: whether this browser session has a trim it can take
+   *  back for this client, and the button that does. */
+  canUndoTrim?: (group: CounterGroup) => boolean;
+  undoTrim?: (group: CounterGroup) => void;
   redraw: () => void;
 }
 
@@ -234,9 +242,35 @@ export function createCounter(host: CounterHost): (view: ContentViewApi) => HTML
           note.appendChild(add);
         }
       } else if (c.state === 'over') {
-        note.appendChild(el('span', 'pt-count-flag', `${c.over} over, trim or move`));
+        // The number is the way in: it opens exactly that many
+        // suggestions, with the reasons, before anything is cut.
+        if (host.trim) {
+          const over = el('button', 'pt-count-flag pt-count-flagbtn', `${c.over} over, trim or move`);
+          over.type = 'button';
+          over.dataset.trim = '1';
+          over.title = 'See suggested trims';
+          over.addEventListener('click', () => host.trim!(group, month));
+          note.appendChild(over);
+        } else {
+          note.appendChild(el('span', 'pt-count-flag', `${c.over} over, trim or move`));
+        }
       } else {
         note.appendChild(el('span', 'pt-count-fine', 'On target'));
+      }
+      if (host.canUndoTrim?.(group) && host.undoTrim) {
+        const undo = el('button', 'pt-count-quiet', 'Undo last trim');
+        undo.type = 'button';
+        undo.dataset.undoTrim = '1';
+        undo.addEventListener('click', () => host.undoTrim!(group));
+        note.appendChild(undo);
+      }
+      if (host.createMissing) {
+        const make = el('button', 'pt-count-quiet', 'Create missing pieces');
+        make.type = 'button';
+        make.dataset.createMissing = '1';
+        make.title = 'Make a Content Pipeline row for every step we post that has none';
+        make.addEventListener('click', () => host.createMissing!(group, month));
+        note.appendChild(make);
       }
       head.appendChild(note);
     }
