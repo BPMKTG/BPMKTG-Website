@@ -186,7 +186,11 @@ The Content tab has two sides, and a row is on exactly one of them:
 
 - **My Content**: every row the client posts themselves (Posted By =
   Client) that has no **Campaign** relation. The client's own board
-  (Ideas by bucket, the eight-column pipeline, the Posted archive).
+  (Ideas by bucket, the six-column pipeline, the Posted archive). The
+  pipeline is Planned, To film, Filmed, In edit, Ready to post, Posted.
+  It has no column for our work: a card of theirs that is not one they
+  film sits in Planned, and one at Ready for Review sits in In edit and
+  is answered from the "Needs your review" strip above the board.
 - **Campaigns**: everything else. A row with a Campaign relation,
   whoever posts it, in a lane for its moment; and any row of ours
   (Posted By = Blueprint) with no Campaign relation, in a lane of its

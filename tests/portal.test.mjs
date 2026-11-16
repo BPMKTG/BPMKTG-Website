@@ -94,10 +94,8 @@ import {
   canDropOwn,
   isOwnIdea,
   cardDate,
-  weMake,
   OWN_STAGE_ORDER,
   OWN_STAGE_TITLE,
-  OWN_STAGE_NOTE,
   postedRecently,
   shortDay,
   parseFeedback,
@@ -1847,10 +1845,19 @@ is('pipeline: Client Films is To film',
    ownStageOf(ownCard({ status: 'Planned', filmBy: '2026-11-01', source: 'Client Films' }), nowOwn), 'toFilm');
 is('pipeline: Client Films is To film even with no film date',
    ownStageOf(ownCard({ status: 'Planned', source: 'Client Films' }), nowOwn), 'toFilm');
-is('pipeline: a flyer we draw goes to Up next, not To film',
-   ownStageOf(ownCard({ status: 'Planned', filmBy: '2026-11-01', source: 'Flyer / Graphic' }), nowOwn), 'upNext');
-is('pipeline: show media goes to Up next',
-   ownStageOf(ownCard({ status: 'Planned', source: 'Show Media' }), nowOwn), 'upNext');
+// "Up next" and "Your review" were columns about our work, and our
+// work has its own side now. The cards that sat in them are still on
+// the board, one column over.
+is('pipeline: a flyer is Planned, not To film, shoot date or no',
+   ownStageOf(ownCard({ status: 'Planned', filmBy: '2026-11-01', source: 'Flyer / Graphic' }), nowOwn), 'planned');
+is('pipeline: show media is Planned too',
+   ownStageOf(ownCard({ status: 'Planned', source: 'Show Media' }), nowOwn), 'planned');
+is('pipeline: a cut waiting on a yes is still in the edit',
+   [ownStageOf(ownCard({ status: 'Editing' }), nowOwn), ownStageOf(ownCard({ status: 'Ready for Review' }), nowOwn)],
+   ['editing', 'editing']);
+is('pipeline: no status a card can hold leaves it off the board for want of a column',
+   ['Planned', 'Filmed', 'Footage In', 'Editing', 'Ready for Review', 'Approved', 'Scheduled']
+     .map((status) => ownStageOf(ownCard({ status }), nowOwn)).filter((st) => !OWN_STAGE_ORDER.includes(st)), []);
 is('pipeline: filmed and footage in share a column',
    [ownStageOf(ownCard({ status: 'Filmed' }), nowOwn), ownStageOf(ownCard({ status: 'Footage In' }), nowOwn)],
    ['filmed', 'filmed']);
@@ -1882,24 +1889,24 @@ section('My Content: whose move is it');
 const ocard = (o) => ({ status: null, source: null, postedBy: null,
   filmBy: null, postDate: null, ...o });
 
-// ── the three pre-camera columns share one status, so a drop into the
+// ── the two pre-camera columns share one status, so a drop into the
 //    wrong one of them is refused rather than bounced ──
 is('drop: Client Films into To film writes Planned',
    ownDropStatus(ocard({ source: 'Client Films' }), 'toFilm'), 'Planned');
-is('drop: Client Films cannot go in Up next',
-   ownDropStatus(ocard({ source: 'Client Films' }), 'upNext'), null);
 is('drop: a flyer cannot go in To film',
    ownDropStatus(ocard({ source: 'Flyer / Graphic' }), 'toFilm'), null);
-is('drop: a flyer into Up next writes Planned',
-   ownDropStatus(ocard({ source: 'Flyer / Graphic' }), 'upNext'), 'Planned');
+is('drop: a flyer into Planned writes Planned',
+   ownDropStatus(ocard({ source: 'Flyer / Graphic' }), 'planned'), 'Planned');
 is('drop: a sourceless card belongs to Planned alone',
-   [ownDropStatus(ocard({}), 'planned'), ownDropStatus(ocard({}), 'toFilm'), ownDropStatus(ocard({}), 'upNext')],
-   ['Planned', null, null]);
-is('drop: a sourced card is not allowed back into plain Planned',
+   [ownDropStatus(ocard({}), 'planned'), ownDropStatus(ocard({}), 'toFilm')],
+   ['Planned', null]);
+is('drop: a card the client films is not allowed back into plain Planned',
    ownDropStatus(ocard({ source: 'Client Films' }), 'planned'), null);
 is('drop: every later column maps to one status',
-   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) => ownDropStatus(ocard({}), st)),
-   ['Filmed', 'Editing', 'Ready for Review', 'Approved', 'Posted']);
+   ['filmed', 'editing', 'ready', 'posted'].map((st) => ownDropStatus(ocard({}), st)),
+   ['Filmed', 'Editing', 'Approved', 'Posted']);
+is('drop: no column writes Ready for Review; that is ours to say',
+   OWN_STAGE_ORDER.map((st) => ownDropStatus(ocard({ source: 'Client Films' }), st)).includes('Ready for Review'), false);
 
 // ── the client's own two moves ──
 is('move: To film to Filmed is the client\u2019s',
@@ -1908,38 +1915,38 @@ is('move: and back out again, on a card they film',
    canDropOwn(ocard({ status: 'Filmed', source: 'Client Films' }), 'toFilm', 'client'), true);
 is('move: but not back out of ours',
    canClientMove('Filmed', 'Planned', { source: 'Flyer / Graphic' }), false);
-is('move: Your review, approved',
+is('move: a cut waiting on them, approved',
    canDropOwn(ocard({ status: 'Ready for Review' }), 'ready', 'client'), true);
-is('move: Your review, handed back to us',
+is('move: a cut waiting on them, handed back to us',
    canClientMove('Ready for Review', 'Editing'), true);
 is('move: a client cannot reach In edit from anywhere else',
    canClientMove('Planned', 'Editing'), false);
 
 // ── a row the client posts is theirs end to end ──
 is('move: Posted By Client goes anywhere',
-   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) =>
+   ['filmed', 'editing', 'ready', 'posted'].map((st) =>
      canDropOwn(ocard({ status: 'Planned', postedBy: 'Client' }), st, 'client')),
-   [true, true, true, true, true]);
+   [true, true, true, true]);
 is('move: the same card, posted by us, does not',
    canDropOwn(ocard({ status: 'Planned', postedBy: 'Blueprint' }), 'editing', 'client'), false);
 is('move: Posted By Client still cannot break the Source rule',
-   canDropOwn(ocard({ status: 'Planned', postedBy: 'Client', source: 'Client Films' }), 'upNext', 'client'),
+   canDropOwn(ocard({ status: 'Planned', postedBy: 'Client', source: 'Client Films' }), 'planned', 'client'),
    false);
 
 // ── admin moves anything the column can hold ──
 is('move: admin reaches every real column',
-   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) =>
+   ['filmed', 'editing', 'ready', 'posted'].map((st) =>
      canDropOwn(ocard({ status: 'Planned', postedBy: 'Blueprint' }), st, 'admin')),
-   [true, true, true, true, true]);
+   [true, true, true, true]);
 is('move: admin is still refused a column that would bounce',
-   canDropOwn(ocard({ status: 'Planned', source: 'Client Films' }), 'upNext', 'admin'), false);
+   canDropOwn(ocard({ status: 'Planned', source: 'Client Films' }), 'planned', 'admin'), false);
 
 // ── no cell of the board lets a client write one of ours ──
 {
   const statuses = ['Idea', 'Planned', 'Filmed', 'Footage In', 'Editing',
     'Ready for Review', 'Approved', 'Scheduled', 'Posted', 'Skipped'];
   const sources = [null, 'Client Films', 'Show Media', 'Flyer / Graphic'];
-  const stages = ['upNext', 'planned', 'toFilm', 'filmed', 'editing', 'review', 'ready', 'posted'];
+  const stages = OWN_STAGE_ORDER;
   let wrong = [];
   for (const status of statuses) {
     for (const source of sources) {
@@ -1979,11 +1986,11 @@ is('card date: nothing dated says nothing', cardDate(ocard({})), null);
 is('card date: no source and a film date is still not a film job',
    cardDate(ocard({ filmBy: '2026-11-10' })), null);
 
-is('board: Up next comes first', OWN_STAGE_ORDER[0], 'upNext');
-is('board: every column has a title',
-   OWN_STAGE_ORDER.filter((st) => !OWN_STAGE_TITLE[st]), []);
-is('board: the two columns with an owner say so',
-   OWN_STAGE_ORDER.filter((st) => OWN_STAGE_NOTE[st]), ['upNext', 'toFilm', 'review']);
+is('board: six columns, and none of them is about our work',
+   OWN_STAGE_ORDER, ['planned', 'toFilm', 'filmed', 'editing', 'ready', 'posted']);
+is('board: every column has a title, and To film reads like the rest',
+   OWN_STAGE_ORDER.map((st) => OWN_STAGE_TITLE[st]),
+   ['Planned', 'To film', 'Filmed', 'In edit', 'Ready to post', 'Posted']);
 
 section('Content: two sides, and a row on exactly one');
 
@@ -2020,9 +2027,9 @@ section('Content: two sides, and a row on exactly one');
      canClientMove('Planned', 'Posted', { postedBy: 'Blueprint', source: 'Show Media' }), false);
   is('own: the client drags their card into every column it can hold',
      OWN_STAGE_ORDER.filter((st) => canDropOwn(row({}), st, 'client')),
-     ['toFilm', 'filmed', 'editing', 'review', 'ready', 'posted']);
-  is('own: the two it cannot hold are the other pre-camera columns, for anyone',
-     OWN_STAGE_ORDER.filter((st) => !canDropOwn(row({}), st, 'admin')), ['upNext', 'planned']);
+     ['toFilm', 'filmed', 'editing', 'ready', 'posted']);
+  is('own: the one it cannot hold is the other pre-camera column, for anyone',
+     OWN_STAGE_ORDER.filter((st) => !canDropOwn(row({}), st, 'admin')), ['planned']);
 
   // The server asks the same question with the fact read off the page.
   const own = buildContentProperties({ status: 'Posted' },

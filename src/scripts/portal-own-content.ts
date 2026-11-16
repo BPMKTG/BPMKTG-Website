@@ -32,7 +32,6 @@ import {
   ownStageOf,
   clientFilms,
   DRAG_BLOCKED,
-  OWN_STAGE_NOTE,
   OWN_STAGE_ORDER,
   OWN_STAGE_TITLE,
   REVIEW_LABEL,
@@ -44,6 +43,7 @@ import {
 import { isPhone, MEDIA_ICON } from './portal-board';
 import { el, fmtDateShort, icon, isNarrow, qq } from './portal-dom';
 import { createEdgeScroll } from './portal-edge';
+import { createHScroll } from './portal-hscroll';
 
 type OwnView = 'ideas' | 'pipeline' | 'posted';
 
@@ -163,7 +163,7 @@ export function createOwnContent(host: OwnContentHost): OwnContent {
     if (ownDropStatus(card, stage) === null) {
       return clientFilms(card.source)
         ? 'This one is yours to film, so it lives in To film.'
-        : 'That column is for a different kind of card.';
+        : 'To film is for the pieces you film yourself.';
     }
     return DRAG_BLOCKED;
   }
@@ -489,11 +489,11 @@ export function createOwnContent(host: OwnContentHost): OwnContent {
     const scroller = el('div', 'pt-board pt-board-own');
     scroller.dataset.boardScroll = 'true';
     for (const c of cols) scroller.appendChild(bucketColumn(c));
-    wrap.appendChild(scroller);
+    wrap.append(scroller, createHScroll(scroller));
     return wrap;
   }
 
-  /* ── Pipeline: the eight columns ──────────────────────────────── */
+  /* ── Pipeline: the six columns ────────────────────────────────── */
 
   /** Picking a card up answers the question for every column at once,
    *  so the reader sees where it can go before they let go of it. */
@@ -514,8 +514,6 @@ export function createOwnContent(host: OwnContentHost): OwnContent {
     const head = el('div', 'pt-board-col-head');
     head.appendChild(el('h3', undefined, OWN_STAGE_TITLE[stage]));
     head.appendChild(el('span', 'pt-board-count pt-num', String(items.length)));
-    const note = OWN_STAGE_NOTE[stage];
-    if (note) head.appendChild(el('span', 'pt-board-col-note', note));
     col.appendChild(head);
 
     const list = el('div', 'pt-board-list');
@@ -587,7 +585,7 @@ export function createOwnContent(host: OwnContentHost): OwnContent {
     scroller.dataset.boardScroll = 'true';
     edge.watch(scroller);
     for (const c of cols) scroller.appendChild(stageColumn(c.stage, c.items));
-    wrap.appendChild(scroller);
+    wrap.append(scroller, createHScroll(scroller));
     return wrap;
   }
 

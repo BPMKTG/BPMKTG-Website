@@ -961,20 +961,19 @@ export function monthBounds(ym: string): { first: string; last: string } {
 /* ── the client's own pipeline ────────────────────────────────────
    My Content: the board the client had before the rebuild, restored.
 
-   Their own content is a film schedule, and the eight columns say so:
+   Their own content is a film schedule, and the six columns say so:
    what to film, what is filmed, what is in the edit. The five-stage
    board above is for campaign work, which is every kind of piece; this
    one is for the pieces a client shoots and posts themselves, and it
    keeps the vocabulary they already use. Two boards, two sets of
    rules, and a row is on exactly one of them (see contentSide).
-   ────────────────────────────────────────────────────────────── */
 
-/** We make it out of material we already hold. There is nothing for
- *  the client to do, which is why these get a column of their own
- *  rather than sitting in To film with a date they cannot act on. */
-export function weMake(source: string | null): boolean {
-  return source === 'Show Media' || source === 'Flyer / Graphic';
-}
+   It used to have two more columns, "Up next" (we are making these)
+   and "Your review" (yours to approve). Both were about our work, and
+   our work has its own side now, so they are gone. The statuses still
+   exist, and a card in one of them is still on the board: see
+   ownStageOf.
+   ────────────────────────────────────────────────────────────── */
 
 /** What a card says under its title: the only date on it that the
  *  reader can act on. Film By belongs to the client and only appears
@@ -999,34 +998,18 @@ export function cardDate(
   return null;
 }
 
-export type OwnStage = 'upNext' | 'planned' | 'toFilm' | 'filmed' | 'editing'
-  | 'review' | 'ready' | 'posted';
+export type OwnStage = 'planned' | 'toFilm' | 'filmed' | 'editing' | 'ready' | 'posted';
 
-export const OWN_STAGE_ORDER: OwnStage[] = ['upNext', 'planned', 'toFilm', 'filmed',
-  'editing', 'review', 'ready', 'posted'];
+export const OWN_STAGE_ORDER: OwnStage[] = ['planned', 'toFilm', 'filmed', 'editing',
+  'ready', 'posted'];
 
 export const OWN_STAGE_TITLE: Record<OwnStage, string> = {
-  upNext:  'Up next',
   planned: 'Planned',
   toFilm:  'To film',
   filmed:  'Filmed',
   editing: 'In edit',
-  review:  'Your review',
   ready:   'Ready to post',
   posted:  'Posted',
-};
-
-/** Said under each column heading, so a client reading the board knows
- *  whose move it is without being told. */
-export const OWN_STAGE_NOTE: Record<OwnStage, string | null> = {
-  upNext:  'We are making these',
-  planned: null,
-  toFilm:  'Yours to film',
-  filmed:  null,
-  editing: null,
-  review:  'Yours to approve',
-  ready:   null,
-  posted:  null,
 };
 
 /**
@@ -1052,8 +1035,11 @@ export function ownStageOf(
     case 'Planned':          return beforeCamera(item);
     case 'Filmed':
     case 'Footage In':       return 'filmed';
-    case 'Editing':          return 'editing';
-    case 'Ready for Review': return 'review';
+    // A cut waiting on a yes is still in the edit until it gets one.
+    // It has no column of its own here; the "Needs your review" strip
+    // above the board is where the client answers it.
+    case 'Editing':
+    case 'Ready for Review': return 'editing';
     case 'Approved':
     case 'Scheduled':        return 'ready';
     case 'Posted':           return postedRecently(item, now) ? 'posted' : null;
@@ -1062,17 +1048,15 @@ export function ownStageOf(
 }
 
 /**
- * Which of the three pre-camera columns a card starts in.
+ * Which of the two pre-camera columns a card starts in.
  *
- * All three are the same Notion status, Planned. What separates them is
- * Source, that is, whose move it is: the client films one, we make
- * another, and a card with no Source yet is nobody's until someone
- * says. A Film By date does NOT put a card in To film.
+ * Both are the same Notion status, Planned. What separates them is
+ * Source: a card the client films is in To film, and every other card,
+ * whoever makes it or nobody yet, is in Planned. A Film By date does
+ * NOT put a card in To film.
  */
 function beforeCamera(item: { source?: string | null }): OwnStage {
-  if (clientFilms(item.source ?? null)) return 'toFilm';
-  if (weMake(item.source ?? null)) return 'upNext';
-  return 'planned';
+  return clientFilms(item.source ?? null) ? 'toFilm' : 'planned';
 }
 
 /**
@@ -1080,7 +1064,7 @@ function beforeCamera(item: { source?: string | null }): OwnStage {
  * cannot go in this column at all.
  *
  * ownStageOf is many statuses to one column; this is the one status a
- * drop sets. The three pre-camera columns need the guard: they share
+ * drop sets. The two pre-camera columns need the guard: they share
  * the status Planned and differ only by Source, so a drop into the
  * wrong one of them would write Planned and then watch the card
  * reappear exactly where it was. Refusing up front is honest, where a
@@ -1089,11 +1073,9 @@ function beforeCamera(item: { source?: string | null }): OwnStage {
 export function ownDropStatus(item: { source: string | null }, stage: OwnStage): ContentStatus | null {
   switch (stage) {
     case 'toFilm':  return clientFilms(item.source) ? 'Planned' : null;
-    case 'upNext':  return weMake(item.source) ? 'Planned' : null;
-    case 'planned': return clientFilms(item.source) || weMake(item.source) ? null : 'Planned';
+    case 'planned': return clientFilms(item.source) ? null : 'Planned';
     case 'filmed':  return 'Filmed';
     case 'editing': return 'Editing';
-    case 'review':  return 'Ready for Review';
     case 'ready':   return 'Approved';
     case 'posted':  return 'Posted';
   }
