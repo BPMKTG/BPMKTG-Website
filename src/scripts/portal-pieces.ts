@@ -279,7 +279,7 @@ export function openTrims(host: PiecesHost, client: PiecesClient, month: string)
       }
       body.appendChild(el('p', 'pt-sheet-note',
         `${monthLabel(month)} has ${planned} pieces against a cap of ${cap}, so ${over} too many. `
-        + `These are the ${plural(rows.length, 'piece')} that could go, first to cut at the top, with ${plural(Math.min(over, rows.length), 'one', 'ones')} ticked. `
+        + `These are the ${plural(rows.length, 'piece')} that could go, first to cut at the top, with ${Math.min(over, rows.length)} ticked. `
         + 'Core pieces and anything already past Planned are never offered.'));
       if (stillOver) {
         body.appendChild(el('p', 'pt-pb-warn',
