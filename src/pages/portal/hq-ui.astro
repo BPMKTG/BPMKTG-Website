@@ -239,7 +239,9 @@ const NAV = [
     termProgress, HQ_LAYERS, KIND_LABEL,
     type PortalCalendarItem,
   } from '../../data/portal';
-  import { counterMonths, type PortalContentItem, type Voice } from '../../data/portal-content';
+  import {
+    contentSide, counterMonths, type PortalContentItem, type Voice,
+  } from '../../data/portal-content';
   import type { HqCalItem, HqContentItem } from '../../server/hq-data';
   import { createCalendar, type Calendar } from '../../scripts/portal-calendar';
   import { createMover, type Mover } from '../../scripts/portal-move';
@@ -251,6 +253,7 @@ const NAV = [
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { createCounter } from '../../scripts/portal-content-counter';
   import { createHqPlaybooks, type Answer as PbAnswer } from '../../scripts/portal-playbooks';
+  import { createOwnContent, type OwnContent } from '../../scripts/portal-own-content';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { clear, el, icon, q, qq, show } from '../../scripts/portal-dom';
 
@@ -1200,7 +1203,12 @@ const NAV = [
       momentKind,
       // "Your to-dos" is right in front of the client whose they are.
       // Across a roster they are somebody else's.
-      layerLabel: (l) => (l === 'todos' ? 'Client to-dos' : null),
+      layerLabel: (l) => (l === 'todos' ? 'Client to-dos'
+        : l === 'postsTheirs' ? 'Client posts'
+        // To us this is a list of work: posts a campaign calls for
+        // that nobody has made a pipeline row for yet.
+        : l === 'postsPlan' ? 'No piece yet'
+        : null),
       bucketColor: calBucketColor,
       canTick: calCanTick,
       tickBox: calTickBox,
@@ -1693,7 +1701,12 @@ const NAV = [
         momentRef: (c) => cardMoment(c, hqMomentIdx()),
         openCard: openCardDrawer,
         save: (c, patchBody, local) => saveCalCard(c.id, patchBody, local),
-        newIdea: () => hqNewIdea(scope),
+        // One client's page has both sides, the same two that client
+        // sees. Across the roster there is no "my": it is the campaign
+        // view, with a switch that lays each client's own rows in.
+        ...(scope
+          ? { own: { label: 'Their own content', board: () => hqOwn(scope) } }
+          : { ownToggle: "Client's own content" }),
         toast,
         empty: hqEmpty,
         today: () => isoToday(),
@@ -1735,6 +1748,32 @@ const NAV = [
     });
   }
 
+  /** A client's own board, as that client sees it, with our hands on
+   *  it: an admin may move any card anywhere. */
+  const HQOWN = new Map<string, OwnContent>();
+
+  function hqOwn(scope: string): OwnContent {
+    let own = HQOWN.get(scope);
+    if (!own) {
+      own = createOwnContent({
+        storeKey: `bp.hq.own.v1.${scope}`,
+        role: () => 'admin',
+        items: () => BOARD_ITEMS.filter((c) => contentSide(c) === 'own'),
+        schema: () => ({ bucket: [], format: [], platforms: [], status: [], media: [],
+                         ...(HQ?.contentSchema ?? {}) }),
+        openCard: openCardDrawer,
+        save: (c, patchBody, local) => saveCalCard(c.id, patchBody, local),
+        newIdea: (bucket) => hqNewIdea(scope, bucket),
+        toast,
+        empty: hqEmpty,
+        now: () => new Date(),
+        redraw: redrawBoard,
+      });
+      HQOWN.set(scope, own);
+    }
+    return own;
+  }
+
   function mountBoard(scope: string | null): HTMLElement {
     BOARD_SCOPE = scope;
     BOARD_ITEMS = boardItems();
@@ -1756,7 +1795,7 @@ const NAV = [
 
   /** An idea added on a client's behalf. It is still their idea: the
    *  endpoint files it as theirs to post, stamped as edited by us. */
-  function hqNewIdea(scope: string | null) {
+  function hqNewIdea(scope: string | null, bucket: string | null = null) {
     const roster = calClients();
     if (!roster.length) { toast('There is no live client to add an idea for.', true); return; }
     openSheet('New idea', (form, close) => {
@@ -1785,7 +1824,8 @@ const NAV = [
         if (!name) { title.focus(); return; }
         if (!slug) return;
         go.disabled = true;
-        const res = await hqPost(`/portal/${encodeURIComponent(slug)}/content`, { title: name });
+        const res = await hqPost(`/portal/${encodeURIComponent(slug)}/content`,
+          { title: name, ...(bucket ? { bucket } : {}) });
         go.disabled = false;
         if (!res.ok) { toast('That did not save. Check your connection and try again.', true); return; }
         close();

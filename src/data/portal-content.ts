@@ -172,21 +172,41 @@ export interface MoveWho {
   postedBy?: string | null;
   /** Source. Only a card the client films can come back out of Filmed. */
   source?: string | null;
+  /** Whether the row is linked to a campaign. A row that is not is
+   *  the client's own content, whoever is named as posting it. Left
+   *  out, the row is treated as a campaign's: forgetting to say gets
+   *  the tighter answer, never the looser one. */
+  inCampaign?: boolean;
+}
+
+/** Which side of the Content tab a row lives on. Exactly one: a row
+ *  linked to a campaign is campaign work, and everything else is the
+ *  client's own content. */
+export type ContentSide = 'own' | 'campaign';
+
+export function contentSide(item: { campaign: readonly string[] }): ContentSide {
+  return item.campaign.length ? 'campaign' : 'own';
+}
+
+/** Is this row the client's to do with as they like? Theirs if they
+ *  post it, and theirs if it belongs to no campaign. */
+export function clientOwns(who: MoveWho): boolean {
+  return who.postedBy === 'Client' || who.inCampaign === false;
 }
 
 /** May a client move this card from `from` to `to`? Staying put is
  *  always fine, which is what a save that touches other fields does.
  *
  *  Three things a client may do, and the server holds them to it:
- *    - anything at all on a row they post, because we are not in the
- *      loop on it;
+ *    - anything at all on a row that is theirs: one they post, or one
+ *      that belongs to no campaign;
  *    - answer a cut that is waiting on them, yes or no;
  *    - tick "filmed" on a card they film, and untick it.
  *  Everything else is ours, and is answered with DRAG_BLOCKED. */
 export function canClientMove(from: string | null, to: string, who: MoveWho = {}): boolean {
   if (!isContentStatus(to)) return false;
   if (from === to) return true;
-  if (who.postedBy === 'Client') return true;
+  if (clientOwns(who)) return true;
   // A row that does not exist yet: the quick-add form, which only ever
   // makes an idea or a planned card.
   if (!isContentStatus(from)) return to === 'Idea' || to === 'Planned';
@@ -593,13 +613,30 @@ export function dropStatus(
  * dimmed column is a courtesy and not a lock.
  */
 export function canDrop(
-  item: { status: string | null; source: string | null; postedBy: string | null; media?: string | null },
+  item: {
+    status: string | null; source: string | null; postedBy: string | null;
+    media?: string | null; campaign?: readonly string[];
+  },
   stage: Stage,
   role: 'client' | 'admin',
 ): boolean {
   if (role === 'admin') return true;
   const to = dropStatus(item, stage, 'client');
-  return canClientMove(item.status, to, { postedBy: item.postedBy, source: item.source });
+  return canClientMove(item.status, to, whoOf(item));
+}
+
+/** A card, as the three facts canClientMove asks about it. One place
+ *  builds this, so the board, the drawer and the server cannot each
+ *  remember a different subset. */
+export function whoOf(item: {
+  postedBy: string | null; source: string | null; campaign?: readonly string[];
+}): MoveWho {
+  return {
+    postedBy: item.postedBy,
+    source: item.source,
+    // Unknown stays unknown, which canClientMove reads as "a campaign's".
+    ...(item.campaign ? { inCampaign: item.campaign.length > 0 } : {}),
+  };
 }
 
 /* ── the next move ────────────────────────────────────────────── */
@@ -699,27 +736,6 @@ export const REVIEW_LABEL: Record<ReviewAction, string> = {
   approve: 'Approve',
   changes: 'Request changes',
 };
-
-/* ── the Ideas list ───────────────────────────────────────────── */
-
-/**
- * The client's backlog: everything that is still only an idea, plus
- * the pieces they are making on their own that have not gone out yet.
- *
- * Campaign rows are never here, with one exception that is not really
- * one: an Idea linked to a moment is still an idea, and it has to live
- * somewhere, because the board will not show it.
- */
-export function inIdeas(item: { status: string | null; campaign: readonly string[] }): boolean {
-  if (item.status === 'Idea') return true;
-  if (item.status === 'Posted' || item.status === 'Skipped') return false;
-  return originOf(item) === 'standalone';
-}
-
-/** Still only an idea, as opposed to a standalone piece on its way. */
-export function isIdea(item: { status: string | null }): boolean {
-  return item.status === 'Idea';
-}
 
 /* ── filters ──────────────────────────────────────────────────── */
 
@@ -923,4 +939,162 @@ export function monthBounds(ym: string): { first: string; last: string } {
   const next = shiftMonth(ym, 1);
   const end = new Date(Date.parse(`${next}-01T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
   return { first: `${ym}-01`, last: end };
+}
+
+/* ── the client's own pipeline ────────────────────────────────────
+   My Content: the board the client had before the rebuild, restored.
+
+   Their own content is a film schedule, and the eight columns say so:
+   what to film, what is filmed, what is in the edit. The five-stage
+   board above is for campaign work, which is every kind of piece; this
+   one is for the pieces a client shoots and posts themselves, and it
+   keeps the vocabulary they already use. Two boards, two sets of
+   rules, and a row is on exactly one of them (see contentSide).
+   ────────────────────────────────────────────────────────────── */
+
+/** We make it out of material we already hold. There is nothing for
+ *  the client to do, which is why these get a column of their own
+ *  rather than sitting in To film with a date they cannot act on. */
+export function weMake(source: string | null): boolean {
+  return source === 'Show Media' || source === 'Flyer / Graphic';
+}
+
+/** What a card says under its title: the only date on it that the
+ *  reader can act on. Film By belongs to the client and only appears
+ *  on a card they film; everything else is counting down to a post. */
+export interface CardDate { label: 'Film by' | 'Posts'; date: string }
+
+/** Statuses where the camera has already rolled, so a Film By on the
+ *  card is history rather than something anyone still has to do. */
+const SHOT_ALREADY: readonly string[] = ['Filmed', 'Footage In', 'Editing',
+  'Ready for Review', 'Approved', 'Scheduled', 'Posted'];
+
+export function cardDate(
+  item: {
+    source: string | null; filmBy: string | null; postDate: string | null;
+    status?: string | null;
+  },
+): CardDate | null {
+  if (clientFilms(item.source) && item.filmBy && !SHOT_ALREADY.includes(item.status ?? '')) {
+    return { label: 'Film by', date: item.filmBy };
+  }
+  if (item.postDate) return { label: 'Posts', date: item.postDate };
+  return null;
+}
+
+export type OwnStage = 'upNext' | 'planned' | 'toFilm' | 'filmed' | 'editing'
+  | 'review' | 'ready' | 'posted';
+
+export const OWN_STAGE_ORDER: OwnStage[] = ['upNext', 'planned', 'toFilm', 'filmed',
+  'editing', 'review', 'ready', 'posted'];
+
+export const OWN_STAGE_TITLE: Record<OwnStage, string> = {
+  upNext:  'Up next',
+  planned: 'Planned',
+  toFilm:  'To film',
+  filmed:  'Filmed',
+  editing: 'In edit',
+  review:  'Your review',
+  ready:   'Ready to post',
+  posted:  'Posted',
+};
+
+/** Said under each column heading, so a client reading the board knows
+ *  whose move it is without being told. */
+export const OWN_STAGE_NOTE: Record<OwnStage, string | null> = {
+  upNext:  'We are making these',
+  planned: null,
+  toFilm:  'Yours to film',
+  filmed:  null,
+  editing: null,
+  review:  'Yours to approve',
+  ready:   null,
+  posted:  null,
+};
+
+/**
+ * Which pipeline column a card sits in, or null when it does not
+ * belong in the pipeline at all (an undated idea, a skipped card, a
+ * post older than the window).
+ */
+export function ownStageOf(
+  item: {
+    status: string | null; filmBy: string | null; postDate: string | null;
+    source?: string | null;
+  },
+  now: Date = new Date(),
+): OwnStage | null {
+  switch (item.status) {
+    // A dated idea is not an idea any more. The Ideas board is the
+    // undated well, so without this a card someone gave a date to in
+    // Notion while leaving the status alone would appear on no board
+    // at all, which is worse than being in the wrong column.
+    case 'Idea':
+      if (!item.postDate && !item.filmBy) return null;
+      return beforeCamera(item);
+    case 'Planned':          return beforeCamera(item);
+    case 'Filmed':
+    case 'Footage In':       return 'filmed';
+    case 'Editing':          return 'editing';
+    case 'Ready for Review': return 'review';
+    case 'Approved':
+    case 'Scheduled':        return 'ready';
+    case 'Posted':           return postedRecently(item, now) ? 'posted' : null;
+    default: return null;   // Skipped, anything unrecognised
+  }
+}
+
+/**
+ * Which of the three pre-camera columns a card starts in.
+ *
+ * All three are the same Notion status, Planned. What separates them is
+ * Source, that is, whose move it is: the client films one, we make
+ * another, and a card with no Source yet is nobody's until someone
+ * says. A Film By date does NOT put a card in To film.
+ */
+function beforeCamera(item: { source?: string | null }): OwnStage {
+  if (clientFilms(item.source ?? null)) return 'toFilm';
+  if (weMake(item.source ?? null)) return 'upNext';
+  return 'planned';
+}
+
+/**
+ * The status a drop into this column means, or null when this card
+ * cannot go in this column at all.
+ *
+ * ownStageOf is many statuses to one column; this is the one status a
+ * drop sets. The three pre-camera columns need the guard: they share
+ * the status Planned and differ only by Source, so a drop into the
+ * wrong one of them would write Planned and then watch the card
+ * reappear exactly where it was. Refusing up front is honest, where a
+ * silent bounce looks like a bug.
+ */
+export function ownDropStatus(item: { source: string | null }, stage: OwnStage): ContentStatus | null {
+  switch (stage) {
+    case 'toFilm':  return clientFilms(item.source) ? 'Planned' : null;
+    case 'upNext':  return weMake(item.source) ? 'Planned' : null;
+    case 'planned': return clientFilms(item.source) || weMake(item.source) ? null : 'Planned';
+    case 'filmed':  return 'Filmed';
+    case 'editing': return 'Editing';
+    case 'review':  return 'Ready for Review';
+    case 'ready':   return 'Approved';
+    case 'posted':  return 'Posted';
+  }
+}
+
+/** May this viewer drop this card in this column of My Content? */
+export function canDropOwn(
+  item: { status: string | null; source: string | null; postedBy: string | null; campaign?: readonly string[] },
+  stage: OwnStage,
+  role: 'client' | 'admin',
+): boolean {
+  const to = ownDropStatus(item, stage);
+  if (!to) return false;
+  if (role === 'admin') return true;
+  return canClientMove(item.status, to, whoOf(item));
+}
+
+/** The Ideas board: his Asana "idea well". Undated, not yet moving. */
+export function isOwnIdea(item: { status: string | null; postDate: string | null }): boolean {
+  return (item.status === 'Idea' || item.status === 'Planned') && !item.postDate;
 }

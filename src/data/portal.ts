@@ -363,7 +363,22 @@ export function isStepDone(row: { status: string | null }): boolean {
    lean on, so the client portal and Blueprint HQ cannot drift into
    showing a client's own calendar two different ways. */
 
-export type CalendarLayer = 'moments' | 'posts' | 'films' | 'todos' | 'blueprint';
+/**
+ * The layers a calendar can show.
+ *
+ * Posts used to be one layer. It is split by who puts the piece up,
+ * because that is the question the layer was always being asked:
+ * "what is Blueprint putting out this month" and "what do I have to
+ * post myself" are different lists, and one chip could only show both
+ * or neither.
+ *
+ *   postsOurs    pieces in the Content Pipeline that we post
+ *   postsTheirs  what the client posts
+ *   postsPlan    posts of ours that are on a campaign's plan and have
+ *                no piece in the pipeline yet (see stepLayers)
+ */
+export type CalendarLayer =
+  'moments' | 'postsOurs' | 'postsTheirs' | 'postsPlan' | 'films' | 'todos' | 'blueprint';
 
 /**
  * Statuses that take a step off the calendar altogether.
@@ -567,9 +582,9 @@ export function stepFlowChip(row: {
  * Flow decides, and every flow lands somewhere:
  *
  *   Blueprint task                          → blueprint
- *   Blueprint makes + posts                 → posts
- *   Client films → Blueprint edits + posts  → posts
- *   Client makes + posts                    → posts, todos
+ *   Blueprint makes + posts                 → postsPlan
+ *   Client films → Blueprint edits + posts  → postsPlan
+ *   Client makes + posts                    → postsTheirs, todos
  *   Client film session                     → films, todos
  *   Client task                             → todos
  *
@@ -578,11 +593,30 @@ export function stepFlowChip(row: {
  * hold a camera, and putting it under Film days would read to them as
  * a job of theirs. Film days means THEIR film days, on both screens.
  *
- * Posts is about what a row IS rather than who owns it, because from
- * a client's side there is no difference between a campaign step that
- * posts something and a card off the content board: both are a thing
- * that goes out on a day, and which database it lives in is our
- * bookkeeping.
+ * Where a step of ours that posts something goes is the one rule
+ * here with a reason behind it that is not obvious.
+ *
+ * "Blueprint posts" has to be exactly the pieces in the Content
+ * Pipeline that we post: the same rows the month counter counts, so
+ * that with only that chip on, the calendar and the counter are one
+ * list. A campaign step is not a pipeline row. Most of them have one
+ * (the card is drawn and the step is not), but a step whose piece has
+ * not been made yet does not, and there are dozens of those in any
+ * month a playbook has been applied to and nobody has planned yet. In
+ * "Blueprint posts" they would make the calendar show pieces the
+ * counter does not have.
+ *
+ * They do not go in Blueprint tasks either. That layer is our admin
+ * work, and it was once swamped by exactly these rows: every post of
+ * ours in the column meant for pitches and uploads.
+ *
+ * So they have a layer of their own, "On the plan": a post a campaign
+ * calls for that has no piece behind it yet. It is also the list of
+ * what still needs a row in the pipeline, which is worth having.
+ *
+ * "You post" has no counter to agree with, so it takes both the
+ * pipeline rows the client posts and the campaign steps that are
+ * theirs to post, which also stay on their to-do list.
  *
  * An item in two layers is drawn once and shows if EITHER is on.
  */
@@ -596,9 +630,9 @@ export function stepLayers(row: {
 }): CalendarLayer[] {
   switch (flowOf(row)) {
     case 'Blueprint task': return ['blueprint'];
-    case 'Blueprint makes + posts': return ['posts'];
-    case 'Client films \u2192 Blueprint edits + posts': return ['posts'];
-    case 'Client makes + posts': return ['posts', 'todos'];
+    case 'Blueprint makes + posts': return ['postsPlan'];
+    case 'Client films \u2192 Blueprint edits + posts': return ['postsPlan'];
+    case 'Client makes + posts': return ['postsTheirs', 'todos'];
     case 'Client film session': return ['films', 'todos'];
     case 'Client task': return ['todos'];
     default: return [];
@@ -842,7 +876,25 @@ export function cardRowTitle(title: string, role: 'post' | 'film'): string {
 }
 
 export const PORTAL_LAYERS: readonly CalendarLayer[] =
-  ['moments', 'posts', 'films', 'todos', 'blueprint'];
+  ['moments', 'postsOurs', 'postsTheirs', 'postsPlan', 'films', 'todos', 'blueprint'];
+
+/**
+ * Which post layer a Content Pipeline row is in.
+ *
+ * Posted By decides, and it is the same test the month counter makes,
+ * which is the point. A row with nobody named as posting it is not one
+ * of ours to count, so it is kept out of Blueprint posts and shown
+ * with the client's, where it is at least on screen.
+ */
+export function cardPostLayer(card: { postedBy: string | null }): CalendarLayer {
+  return card.postedBy === 'Blueprint' ? 'postsOurs' : 'postsTheirs';
+}
+
+/** A layer list a browser saved before the split, brought up to date:
+ *  whoever had Posts on has every part of it on. */
+export function migrateLayers(saved: readonly string[]): string[] {
+  return saved.flatMap((l) => (l === 'posts' ? ['postsOurs', 'postsTheirs', 'postsPlan'] : [l]));
+}
 
 /** HQ draws the same five. They were different while the portal's
  *  query did not fetch our own work; it does now, so a client can see

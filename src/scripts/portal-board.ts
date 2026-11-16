@@ -39,6 +39,7 @@ import {
   nextMove,
   shortDay,
   stageOf,
+  whoOf,
   DRAG_BLOCKED,
   REVIEW_LABEL,
   STAGE_ORDER,
@@ -49,6 +50,7 @@ import {
   type Voice,
 } from '../data/portal-content';
 import { el, icon } from './portal-dom';
+import { createEdgeScroll } from './portal-edge';
 
 /** Which sprite icon stands for each Media. An unclassified row reads
  *  as a video, which is what nearly all of them are. */
@@ -107,7 +109,6 @@ export function createBoard(host: BoardHost): Board {
   let DRAG: PortalContentItem | null = null;
   /** Every column of every lane in the current draw. */
   let COLS: Col[] = [];
-  let SCROLLERS: HTMLElement[] = [];
 
   /** Picking a card up answers the question for every column at once,
    *  so the reader sees where it can go before they let go of it. */
@@ -120,60 +121,9 @@ export function createBoard(host: BoardHost): Board {
     }
   }
 
-  /* ── dragging to a column that is off screen ─────────────────── */
-  // On a narrow window five columns do not all fit. Holding the card
-  // near an edge pulls the board along under it, so the far column is
-  // one gesture away.
-  //
-  // The loop reschedules itself rather than waiting on dragover,
-  // because dragover stops firing the moment the pointer holds still,
-  // which is exactly when someone is waiting for the board to move.
-
-  /** How near an edge counts as being at it. */
-  const EDGE = 72;
-  /** Pixels per frame hard against the edge, easing to nothing at EDGE. */
-  const EDGE_RATE = 22;
-
-  let edgeFrame = 0;
-  let edgeRate = 0;
-
-  // Scroll snapping and a drag do not mix. The board snaps by the
-  // column, so a 15px nudge is rounded straight back to where it
-  // started and the board never moves at all. Snapping is turned off
-  // for the length of the drag and put back afterwards.
-  function edgeFree(on: boolean): void {
-    for (const sc of SCROLLERS) sc.classList.toggle('pt-board-free', on);
-  }
-
-  function edgeStop(): void {
-    if (edgeFrame) cancelAnimationFrame(edgeFrame);
-    edgeFrame = 0;
-    edgeRate = 0;
-  }
-
-  function edgeStep(sc: HTMLElement): void {
-    edgeFrame = 0;
-    if (!DRAG || !edgeRate) return;
-    const was = sc.scrollLeft;
-    sc.scrollLeft = was + edgeRate;
-    // Hitting the end is the one way this stops on its own.
-    if (sc.scrollLeft === was) { edgeRate = 0; return; }
-    edgeFrame = requestAnimationFrame(() => edgeStep(sc));
-  }
-
-  /** Aim the loop from where the pointer is, or call it off. */
-  function edgeAim(sc: HTMLElement, x: number): void {
-    const r = sc.getBoundingClientRect();
-    const fromLeft = x - r.left;
-    const fromRight = r.right - x;
-    let rate = 0;
-    if (fromLeft < EDGE) rate = -EDGE_RATE * (1 - Math.max(0, fromLeft) / EDGE);
-    else if (fromRight < EDGE) rate = EDGE_RATE * (1 - Math.max(0, fromRight) / EDGE);
-    rate = Math.round(rate);
-    if (!rate) { edgeStop(); return; }
-    edgeRate = rate;
-    if (!edgeFrame) edgeFrame = requestAnimationFrame(() => edgeStep(sc));
-  }
+  /** Holding a card at an edge pulls the board along. Shared with the
+   *  client's own board, so both feel the same. */
+  const edge = createEdgeScroll(() => !!DRAG);
 
   /* ── one card ─────────────────────────────────────────────────── */
 
@@ -268,7 +218,7 @@ export function createBoard(host: BoardHost): Board {
     // say they have filmed it. A button, because the other way to say
     // it is to drag the card into Make, and nobody guesses that.
     if (c.status === 'Planned' && host.role() === 'client' && isFilmJob(c)
-        && canClientMove(c.status, 'Filmed', { postedBy: c.postedBy, source: c.source })) {
+        && canClientMove(c.status, 'Filmed', whoOf(c))) {
       const acts = el('div', 'pt-ccard-acts');
       const b = el('button', 'pt-ccard-act pt-ccard-act-filmed', 'I filmed it');
       b.type = 'button';
@@ -290,7 +240,7 @@ export function createBoard(host: BoardHost): Board {
       card.appendChild(grip);
       card.addEventListener('dragstart', (ev) => {
         DRAG = c;
-        edgeFree(true);
+        edge.start();
         card.classList.add('pt-ccard-dragging');
         markDropTargets(c);
         ev.dataTransfer?.setData('text/plain', c.title);
@@ -298,8 +248,7 @@ export function createBoard(host: BoardHost): Board {
       });
       card.addEventListener('dragend', () => {
         DRAG = null;
-        edgeStop();
-        edgeFree(false);
+        edge.stop();
         card.classList.remove('pt-ccard-dragging');
         markDropTargets(null);
       });
@@ -382,8 +331,7 @@ export function createBoard(host: BoardHost): Board {
     });
     list.addEventListener('drop', (ev) => {
       ev.preventDefault();
-      edgeStop();
-      edgeFree(false);
+      edge.stop();
       list.classList.remove('pt-board-drop', 'pt-board-nodrop');
       const item = DRAG;
       DRAG = null;
@@ -408,11 +356,7 @@ export function createBoard(host: BoardHost): Board {
   function lane(items: PortalContentItem[], opts: LaneOpts = {}): HTMLElement {
     const scroller = el('div', 'pt-board');
     scroller.dataset.boardScroll = 'true';
-    SCROLLERS.push(scroller);
-    scroller.addEventListener('dragover', (ev) => {
-      if (DRAG) edgeAim(scroller, ev.clientX);
-    });
-    scroller.addEventListener('drop', edgeStop);
+    edge.watch(scroller);
     for (const stage of STAGE_ORDER) {
       scroller.appendChild(column(stage, inStage(items, stage), opts));
     }
@@ -437,7 +381,7 @@ export function createBoard(host: BoardHost): Board {
   }
 
   return {
-    begin: () => { COLS = []; SCROLLERS = []; edgeStop(); },
+    begin: () => { COLS = []; edge.reset(); },
     lane,
     list,
     card: (c, opts) => cardEl(c, opts),

@@ -16,6 +16,7 @@ import {
   MAX_TEXT,
   MAX_TITLE,
   canClientMove,
+  clientOwns,
   cleanPatchDate,
   cleanPatchMulti,
   cleanPatchRelation,
@@ -96,6 +97,12 @@ export interface BuildContext {
   postedBy?: string | null;
   source?: string | null;
   /**
+   * Whether the row is linked to a campaign, again off the page and
+   * never off the request. A row that is not is the client's own
+   * content. Absent means "a campaign's", the tighter reading.
+   */
+  inCampaign?: boolean;
+  /**
    * Who is asking. One of us moves any card to any column, which is
    * what the HQ board is for; absent means client, so a caller that
    * forgets this gets the tighter answer rather than the looser one.
@@ -151,7 +158,7 @@ export function buildContentProperties(body: Record<string, unknown>, ctx: Build
     const mayMove = typeof wanted === 'string' && (
       ctx.role === 'admin'
       || canClientMove(ctx.currentStatus, wanted,
-                       { postedBy: ctx.postedBy, source: ctx.source })
+                       { postedBy: ctx.postedBy, source: ctx.source, inCampaign: ctx.inCampaign })
     );
     if (typeof wanted === 'string' && mayMove) {
       props[CLIENT_EDITABLE.status] = selectProp(wanted);
@@ -179,7 +186,8 @@ export function buildContentProperties(body: Record<string, unknown>, ctx: Build
   // count. So a client sets it on a row they own (or one they are
   // creating, which will be theirs) and nowhere else.
   if ('media' in body) {
-    const owns = ctx.role === 'admin' || ctx.postedBy === 'Client' || ctx.currentStatus === null;
+    const owns = ctx.role === 'admin' || ctx.currentStatus === null
+      || clientOwns({ postedBy: ctx.postedBy, inCampaign: ctx.inCampaign });
     const wanted = cleanPatchSelect(body.media, names(ctx.schema.media ?? []));
     if (owns && wanted !== undefined) props[CLIENT_EDITABLE.media] = selectProp(wanted);
     else rejected.push('media');

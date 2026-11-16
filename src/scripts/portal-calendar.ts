@@ -23,6 +23,8 @@ import {
   isFilmStep,
   sameId,
   stepsCoveredByCards,
+  cardPostLayer,
+  migrateLayers,
   isStepDone,
   parseNotionDate,
   showsOnCalendar,
@@ -175,7 +177,9 @@ export function createCalendar(H: CalendarHost) {
 
   const LAYER_LABEL = new Map<Layer, string>([
     ['moments',   'Shows & releases'],
-    ['posts',     'Posts'],
+    ['postsOurs',   'Blueprint posts'],
+    ['postsTheirs', 'You post'],
+    ['postsPlan',   'On the plan'],
     ['films',     'Film days'],
     ['todos',     'Your to-dos'],
     ['blueprint', 'Blueprint tasks'],
@@ -297,7 +301,10 @@ export function createCalendar(H: CalendarHost) {
     const row = it as CalRow;
     if (row.content && row.contentRole) {
       if (row.contentRole === 'film') return ['films'];
-      return isClientPostTodo(row.content) ? ['posts', 'todos'] : ['posts'];
+      // Who posts it picks the chip, by the same test the month counter
+      // uses, so "Blueprint posts" on its own is the counter's list.
+      const layer = cardPostLayer(row.content);
+      return isClientPostTodo(row.content) ? [layer, 'todos'] : [layer];
     }
     // A moment is a moment whoever owns it: it is the thing the steps
     // are counting down to, not a task.
@@ -338,7 +345,7 @@ export function createCalendar(H: CalendarHost) {
 
   const QUICK: Array<[Quick, string, () => Layer[]]> = [
     ['everything', 'Everything',   () => H.layers()],
-    ['content',    'Content only', () => ['posts', 'films']],
+    ['content',    'Content only', () => ['postsOurs', 'postsTheirs', 'postsPlan', 'films']],
     ['week',       'My week',      () => ['todos', 'films']],
     // Campaigns means a moment and the work behind it. Here that is
     // the moment: the work behind it is ours, and the layer it sits in
@@ -404,7 +411,10 @@ export function createCalendar(H: CalendarHost) {
         // browser that remembers Blueprint tasks from before does not
         // resurrect a chip that is not there.
         const mine = H.layers();
-        const keep = v.layers.filter((l): l is Layer => mine.includes(l as Layer));
+        // "posts" was one chip when this was saved. It is split now, and
+        // whoever had it on gets every part of it.
+        const saved = migrateLayers(v.layers.filter((l): l is string => typeof l === 'string'));
+        const keep = saved.filter((l): l is Layer => mine.includes(l as Layer));
         // Every layer off is a blank calendar, which nobody meant to
         // leave behind. An empty set falls back to all of it.
         if (keep.length) CAL.layers = new Set(keep);
@@ -724,8 +734,12 @@ export function createCalendar(H: CalendarHost) {
       panel.appendChild(r);
     }
     panel.appendChild(el('p', undefined,
-      'A post with \u21b3 under it belongs to that campaign. It counts as a '
-      + 'post either way, so Posts shows it next to the ones off your board.'));
+      'A post with \u21b3 under it belongs to that campaign.'));
+    panel.appendChild(el('p', undefined,
+      `${labelOf('postsOurs')} is every piece we are putting out, the same list the `
+      + `month count is made from. ${labelOf('postsTheirs')} is what goes up from the `
+      + `client side. ${labelOf('postsPlan')} is a post a campaign calls for that has no `
+      + 'piece behind it yet.'));
     panel.appendChild(el('p', undefined,
       'A step marked \u{1F3A5} is the filming rather than the post, so it '
       + 'sits in Film days next to the shoots off your content board.'));
@@ -753,7 +767,8 @@ export function createCalendar(H: CalendarHost) {
    * only three chips to spend before the day collapses into "+N more",
    * the cut has to fall on our side of the list, not theirs.
    */
-  const DAY_ORDER: Layer[] = ['moments', 'todos', 'posts', 'films', 'blueprint'];
+  const DAY_ORDER: Layer[] =
+    ['moments', 'todos', 'postsTheirs', 'postsOurs', 'postsPlan', 'films', 'blueprint'];
 
   /**
    * Which of its layers an item is read as, when it belongs to more
@@ -773,8 +788,18 @@ export function createCalendar(H: CalendarHost) {
     return best;
   }
 
+  /** The three post layers are one thing when a day is being ordered:
+   *  a post is a post, and which chip switches it off has no bearing on
+   *  where it sits among a day's rows. They only part company in the
+   *  "+N more" popover, which is a list by kind. */
+  const POST_RANK = DAY_ORDER.indexOf('postsTheirs');
+  const cellRank = (it: PortalCalendarItem): number => {
+    const r = dayRank(it);
+    return DAY_ORDER[r]?.startsWith('posts') ? POST_RANK : r;
+  };
+
   function sortDay(items: PortalCalendarItem[]): PortalCalendarItem[] {
-    return items.slice().sort((a, b) => dayRank(a) - dayRank(b));
+    return items.slice().sort((a, b) => cellRank(a) - cellRank(b));
   }
 
   /* ── dragging onto a day ──────────────────────────────────────

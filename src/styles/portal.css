@@ -1886,7 +1886,16 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
 .pt-layer-on.pt-layer-moments   .pt-layer-key {
   background: linear-gradient(90deg, var(--pt-orange) 50%, var(--pt-navy) 50%);
 }
-.pt-layer-on.pt-layer-posts     .pt-layer-key { background: var(--pt-blue); }
+/* The two post chips wear the colours the labels on the cards already
+   do: "Blueprint posts" is the blue tag, "You post" the orange one.
+   The whole chip is tinted, not just its key, so the pair reads as a
+   pair and neither is mistaken for the orange dot of the to-dos. */
+.pt-layer-on.pt-layer-postsOurs   { background: var(--pt-tint-blue); border-color: var(--pt-blue); color: var(--pt-navy); }
+.pt-layer-on.pt-layer-postsOurs   .pt-layer-key { background: var(--pt-blue); }
+.pt-layer-on.pt-layer-postsTheirs { background: var(--pt-tint-orange); border-color: var(--pt-orange); color: var(--pt-orange-ink); }
+.pt-layer-on.pt-layer-postsTheirs .pt-layer-key { background: var(--pt-orange); }
+/* A post with no piece behind it yet: the blue of ours, hollow. */
+.pt-layer-on.pt-layer-postsPlan   .pt-layer-key { background: transparent; box-shadow: inset 0 0 0 2px var(--pt-blue); }
 .pt-layer-on.pt-layer-films     .pt-layer-key {
   background: transparent; box-shadow: inset 0 0 0 2px var(--pt-navy);
 }
@@ -3917,3 +3926,20 @@ div.pt-pb-step-editing { border: 1px solid var(--pt-line); border-radius: var(--
   .pt-pb-pills { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
   .pt-pb-pills .pt-pill { flex: none; }
 }
+
+/* ── the two sides of the Content tab ── */
+.pt-sides { margin-bottom: var(--pt-4); }
+.pt-sides button { padding-left: var(--pt-4); padding-right: var(--pt-4); font-size: .92rem; }
+.pt-own .pt-boardwrap { margin-top: var(--pt-4); }
+/* The client's own board keeps the column width it had: their titles
+   are shoot codes on one line, and eight columns scroll. */
+.pt-board-own .pt-board-col { flex: 1 1 258px; min-width: 212px; max-width: 320px; }
+.pt-board-own .pt-ccard-title { white-space: nowrap; display: block; }
+.pt-own-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border: 1px solid var(--pt-line); border-radius: var(--pt-r-sm);
+  font-size: .8rem; font-weight: 600; color: var(--pt-ink-2); cursor: pointer; background: var(--pt-surface);
+}
+.pt-own-toggle input { accent-color: var(--pt-blue); }
+.pt-lane-own { border-style: dashed; }
+.pt-filters .pt-input-search { width: 170px; padding-top: 6px; padding-bottom: 6px; font-size: .8rem; }

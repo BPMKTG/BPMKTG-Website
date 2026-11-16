@@ -1,23 +1,26 @@
 /* ──────────────────────────────────────────────────────────────
    The Content tab, on both screens.
 
-   Three ways to look at one pipeline:
+   Two sides, and a row is on exactly one of them:
 
-     Campaigns  the rows that belong to a moment, a lane per moment,
-                soonest moment first. This is how the work is sold
-                and how it is planned, so it is the default.
-     Ideas      the client's backlog: what is still only an idea, and
-                what they are making on their own. A list, because an
-                idea has no stage to be in a column of.
-     All        one board, no grouping.
+     My Content  the rows that belong to no campaign. The client's own
+                 board, in their own vocabulary: Ideas by bucket, the
+                 pipeline they film and post through, and the archive.
+                 Drawn by portal-own-content.ts.
+     Campaigns   the rows that belong to a moment, a lane per moment,
+                 soonest first, five stages, with a line on every card
+                 saying whose move it is.
 
-   Filters narrow all three and are remembered per browser. "Waiting
-   on" is not a field anywhere: it is whose move the card's next-move
-   line says it is, so the filter and the card cannot disagree.
+   The month counter and the review strip sit above both, because
+   neither is about one side.
 
-   Below 768px the board becomes a list grouped by stage with a menu
-   on each card, because five columns on a phone is five slivers and
-   there is no dragging on a touch screen worth the name.
+   HQ across clients has no My Content side: there is no "my" when the
+   page is the whole roster. It is Campaigns, with a switch that lays
+   each client's own content in as one more lane.
+
+   Below 768px a board becomes a list grouped by stage with a menu on
+   each card, because five columns on a phone is five slivers and there
+   is no dragging on a touch screen worth the name.
 
    The host supplies the cards, who is reading, and how to save. This
    file decides nothing about what may be saved.
@@ -26,35 +29,27 @@
 import type { MomentRef } from '../data/portal';
 import {
   campaignLanes,
-  inIdeas,
+  contentSide,
   isFiltering,
-  isIdea,
   matchesFilters,
   monthLabel,
-  nextMove,
-  originOf,
   postedRecently,
   postMonths,
   shortDay,
   stageOf,
   CONTENT_MEDIA,
   NO_FILTERS,
-  STAGE_TITLE,
   type CampaignLane,
   type ContentFilters,
   type PortalContentItem,
   type PortalContentSchema,
   type Voice,
 } from '../data/portal-content';
-import { isPhone, MEDIA_ICON, type Board } from './portal-board';
+import { isPhone, type Board } from './portal-board';
 import { clear, el, icon, qq } from './portal-dom';
-import { openSheet, sheetField, sheetSubmit } from './portal-sheet';
+import type { OwnContent } from './portal-own-content';
 
-export type ContentTab = 'campaigns' | 'ideas' | 'all';
-
-const TABS: Array<[ContentTab, string]> = [
-  ['campaigns', 'Campaigns'], ['ideas', 'Ideas'], ['all', 'All'],
-];
+export type ContentTab = 'own' | 'campaigns';
 
 export interface ContentViewHost {
   /** Where this screen remembers its tab and filters. */
@@ -69,8 +64,17 @@ export interface ContentViewHost {
   openCard: (c: PortalContentItem) => void;
   save: (c: PortalContentItem, patch: Record<string, unknown>,
          local: Partial<PortalContentItem>) => Promise<boolean>;
-  /** Open the "new idea" form, where this screen has one. */
-  newIdea?: () => void;
+  /**
+   * The My Content side: the rows with no campaign, drawn by the
+   * restored board. Absent on a screen that has no "my", which is HQ
+   * across the roster.
+   */
+  own?: { label: string; board: () => OwnContent };
+  /**
+   * HQ across clients: offer "Client's own content", which lays each
+   * client's own rows into the campaign view as one more lane.
+   */
+  ownToggle?: string;
   toast: (text: string, bad?: boolean) => void;
   empty: (title: string, body: string) => HTMLElement;
   /** Today as an ISO day, the host's idea of it. */
@@ -102,6 +106,8 @@ export interface ContentView {
 
 interface Saved {
   tab: ContentTab;
+  /** HQ across clients: whether client-owned rows are laid in. */
+  withOwn: boolean;
   f: ContentFilters;
   /** Lanes the reader has opened or closed by hand, by moment id. A
    *  lane not named here follows the default. */
@@ -110,15 +116,25 @@ interface Saved {
 }
 
 export function createContentView(host: ContentViewHost): ContentView {
-  const S: Saved = { tab: 'campaigns', f: { ...NO_FILTERS }, open: [], closed: [] };
+  // The client's own board comes first where there is one: it is the
+  // side they work in every day.
+  const S: Saved = {
+    tab: host.own ? 'own' : 'campaigns', withOwn: false,
+    f: { ...NO_FILTERS }, open: [], closed: [],
+  };
 
   /* ── remembering ──────────────────────────────────────────────── */
   (function load() {
     try {
       const raw = localStorage.getItem(host.storeKey);
       if (!raw) return;
-      const v = JSON.parse(raw) as Partial<Saved>;
-      if (v.tab === 'campaigns' || v.tab === 'ideas' || v.tab === 'all') S.tab = v.tab;
+      const v = JSON.parse(raw) as Partial<Saved> & { tab?: string };
+      // "ideas" and "all" were tabs of the layout this replaced. Both
+      // were where the client's own rows lived.
+      if (v.tab === 'campaigns') S.tab = 'campaigns';
+      else if (v.tab === 'own' || v.tab === 'ideas' || v.tab === 'all') S.tab = 'own';
+      if (!host.own) S.tab = 'campaigns';
+      if (typeof v.withOwn === 'boolean') S.withOwn = v.withOwn;
       for (const k of Object.keys(NO_FILTERS) as Array<keyof ContentFilters>) {
         // The search box is a thing you type into now, not a setting.
         if (k !== 'search' && typeof v.f?.[k] === 'string') S.f[k] = v.f[k] as string;
@@ -132,7 +148,7 @@ export function createContentView(host: ContentViewHost): ContentView {
   function remember() {
     try {
       localStorage.setItem(host.storeKey, JSON.stringify({
-        tab: S.tab, f: { ...S.f, search: '' }, open: S.open, closed: S.closed,
+        tab: S.tab, withOwn: S.withOwn, f: { ...S.f, search: '' }, open: S.open, closed: S.closed,
       }));
     } catch { /* same */ }
   }
@@ -140,7 +156,14 @@ export function createContentView(host: ContentViewHost): ContentView {
   const api: ContentViewApi = {
     filters: () => S.f,
     setFilter: (k, v) => { S.f[k] = v; remember(); host.redraw(); },
-    setFilters: (patch) => { S.f = { ...S.f, ...patch }; remember(); host.redraw(); },
+    // A filter is about the campaign side, so setting one from outside
+    // (a chip on the counter) goes there to show what it narrowed.
+    setFilters: (patch) => {
+      S.f = { ...S.f, ...patch };
+      if (Object.values(patch).some(Boolean)) S.tab = 'campaigns';
+      remember();
+      host.redraw();
+    },
     tab: () => S.tab,
     setTab: (t) => { S.tab = t; remember(); host.redraw(); },
   };
@@ -149,8 +172,17 @@ export function createContentView(host: ContentViewHost): ContentView {
 
   const momentId = (c: PortalContentItem) => host.momentRef(c)?.id ?? null;
 
+  const ownRows = (): PortalContentItem[] => host.items().filter((c) => contentSide(c) === 'own');
+  const campaignRows = (): PortalContentItem[] => host.items().filter((c) => contentSide(c) === 'campaign');
+
+  /** The rows the campaign side is drawing: campaign rows, plus each
+   *  client's own where the switch for that is on. */
+  function campaignSide(): PortalContentItem[] {
+    return S.withOwn && host.ownToggle ? host.items() : campaignRows();
+  }
+
   function filtered(): PortalContentItem[] {
-    return host.items().filter((c) =>
+    return campaignSide().filter((c) =>
       matchesFilters(c, S.f, { voice: host.voice(c), momentId: momentId(c) }));
   }
 
@@ -164,55 +196,31 @@ export function createContentView(host: ContentViewHost): ContentView {
     if (changed) remember();
   }
 
-  /* ── the toolbar ──────────────────────────────────────────────── */
+  /* ── the switch, and the campaign side's filters ──────────────── */
 
-  function toolbar(all: PortalContentItem[], shown: PortalContentItem[]): HTMLElement {
-    const wrap = el('div', 'pt-conbar');
-
-    const top = el('div', 'pt-toolbar');
-    const seg = el('div', 'pt-seg');
+  function switchEl(): HTMLElement | null {
+    if (!host.own) return null;
+    const seg = el('div', 'pt-seg pt-sides');
     seg.setAttribute('role', 'group');
-    seg.setAttribute('aria-label', 'Content view');
-    const counts: Record<ContentTab, number> = {
-      campaigns: shown.filter((c) => originOf(c) === 'campaign' && !!stageOf(c)).length,
-      ideas: shown.filter(inIdeas).length,
-      // What the board will actually draw, not every post there ever was.
-      all: onBoard(shown).length,
-    };
-    for (const [t, text] of TABS) {
+    seg.setAttribute('aria-label', 'Which content');
+    const live = (c: PortalContentItem) => c.status !== 'Posted' && c.status !== 'Skipped';
+    const tabs: Array<[ContentTab, string, number]> = [
+      ['own', host.own.label, ownRows().filter(live).length],
+      ['campaigns', 'Campaigns', campaignRows().filter(live).length],
+    ];
+    for (const [t, text, n] of tabs) {
       const b = el('button');
       b.type = 'button';
       b.dataset.tab = t;
       b.setAttribute('aria-pressed', String(S.tab === t));
-      b.append(el('span', undefined, text), el('span', 'pt-seg-n pt-num', String(counts[t])));
+      b.append(el('span', undefined, text), el('span', 'pt-seg-n pt-num', String(n)));
       b.addEventListener('click', () => api.setTab(t));
       seg.appendChild(b);
     }
-    top.append(seg, el('span', 'pt-toolbar-spacer'));
+    return seg;
+  }
 
-    const search = el('input', 'pt-input pt-input-search') as HTMLInputElement;
-    search.type = 'search';
-    search.placeholder = 'Search titles';
-    search.setAttribute('aria-label', 'Search content');
-    search.value = S.f.search;
-    search.addEventListener('input', () => {
-      S.f.search = search.value;
-      host.redraw();
-      const again = qq<HTMLInputElement>('.pt-conbar .pt-input-search')[0];
-      if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
-    });
-    top.appendChild(search);
-
-    if (host.newIdea) {
-      const add = el('button', 'pt-btn pt-btn-primary pt-btn-add');
-      add.type = 'button';
-      add.append(icon('plus'), el('span', undefined, 'New idea'));
-      add.addEventListener('click', () => host.newIdea!());
-      top.appendChild(add);
-    }
-    wrap.appendChild(top);
-
-    /* the filters */
+  function filterBar(all: PortalContentItem[]): HTMLElement {
     const row = el('div', 'pt-filters');
     row.setAttribute('role', 'group');
     row.setAttribute('aria-label', 'Filters');
@@ -258,14 +266,38 @@ export function createContentView(host: ContentViewHost): ContentView {
       pick('month', 'Filter by month',
         [['', 'Any month'], ...months.map((ym) => [ym, monthLabel(ym)] as [string, string])]);
     }
+
+    const search = el('input', 'pt-input pt-input-search') as HTMLInputElement;
+    search.type = 'search';
+    search.placeholder = 'Search titles';
+    search.setAttribute('aria-label', 'Search campaign content');
+    search.value = S.f.search;
+    search.addEventListener('input', () => {
+      S.f.search = search.value;
+      host.redraw();
+      const again = qq<HTMLInputElement>('.pt-filters .pt-input-search')[0];
+      if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+    });
+    row.appendChild(search);
+
+    if (host.ownToggle) {
+      const lab = el('label', 'pt-own-toggle');
+      const box = el('input') as HTMLInputElement;
+      box.type = 'checkbox';
+      box.checked = S.withOwn;
+      box.dataset.ownToggle = '1';
+      box.addEventListener('change', () => { S.withOwn = box.checked; remember(); host.redraw(); });
+      lab.append(box, el('span', undefined, host.ownToggle));
+      row.appendChild(lab);
+    }
+
     if (isFiltering(S.f)) {
       const clear = el('button', 'pt-filter-clear', 'Clear filters');
       clear.type = 'button';
       clear.addEventListener('click', () => { S.f = { ...NO_FILTERS }; remember(); host.redraw(); });
       row.appendChild(clear);
     }
-    wrap.appendChild(row);
-    return wrap;
+    return row;
   }
 
   /* ── Campaigns ────────────────────────────────────────────────── */
@@ -333,10 +365,63 @@ export function createContentView(host: ContentViewHost): ContentView {
     return sec;
   }
 
+  /**
+   * Each client's own content, as one more lane.
+   *
+   * Only on HQ across clients, and only when asked for. The same five
+   * stages as the lanes above it, so the page reads as one board: an
+   * idea is not on it, and Posted keeps to the last month, since a
+   * client's archive would otherwise bury everything else.
+   */
+  function ownLanes(shown: PortalContentItem[]): HTMLElement[] {
+    const now = new Date(`${host.today()}T00:00:00`);
+    const by = new Map<string, PortalContentItem[]>();
+    for (const c of shown) {
+      if (contentSide(c) !== 'own') continue;
+      const st = stageOf(c);
+      if (!st || (st === 'posted' && !postedRecently(c, now))) continue;
+      const who = host.clientOf?.(c) ?? '';
+      if (!by.has(who)) by.set(who, []);
+      by.get(who)!.push(c);
+    }
+    return [...by].sort((a, b) => a[0].localeCompare(b[0])).map(([who, items]) => {
+      const key = `own:${who}`;
+      const posted = items.filter((c) => c.status === 'Posted').length;
+      const open = S.open.includes(key) || !S.closed.includes(key);
+      const sec = el('section', 'pt-lane pt-lane-own');
+      sec.dataset.lane = key;
+      const head = el('button', 'pt-lane-head');
+      head.type = 'button';
+      head.setAttribute('aria-expanded', String(open));
+      head.appendChild(icon('chev', 'pt-lane-chev'));
+      const name = el('span', 'pt-lane-title');
+      if (who) name.appendChild(el('span', 'pt-lane-who', `${who} · `));
+      name.appendChild(document.createTextNode('Their own content'));
+      head.append(name, el('span', 'pt-tag pt-tag-todo', 'Not a campaign'), el('span', 'pt-toolbar-spacer'));
+      head.appendChild(el('span', 'pt-lane-tally pt-num', `${posted} of ${items.length} posted`));
+      head.addEventListener('click', () => {
+        S.open = S.open.filter((x) => x !== key);
+        S.closed = S.closed.filter((x) => x !== key);
+        (open ? S.closed : S.open).push(key);
+        remember();
+        host.redraw();
+      });
+      sec.appendChild(head);
+      if (open) {
+        const body = el('div', 'pt-lane-body');
+        const opts = { inCampaign: true };
+        body.appendChild(isPhone() ? host.board().list(items, opts) : host.board().lane(items, opts));
+        sec.appendChild(body);
+      }
+      return sec;
+    });
+  }
+
   function campaignsEl(shown: PortalContentItem[]): HTMLElement {
     const lanes = campaignLanes(
       shown.filter((c) => !!stageOf(c)), (c) => host.momentRef(c), host.today());
-    if (!lanes.length) {
+    const own = S.withOwn && host.ownToggle ? ownLanes(shown) : [];
+    if (!lanes.length && !own.length) {
       return isFiltering(S.f)
         ? host.empty('Nothing matches that', 'Try a different filter to see the rest of the campaigns.')
         : host.empty('No campaign content yet',
@@ -344,178 +429,50 @@ export function createContentView(host: ContentViewHost): ContentView {
     }
     const wrap = el('div', 'pt-lanes');
     for (const l of lanes) wrap.appendChild(laneEl(l));
-    return wrap;
-  }
-
-  /* ── All ──────────────────────────────────────────────────────── */
-
-  /** The cards the All board draws. Posted history is kept to a month
-   *  unless a month was asked for, in which case it is shown whole. */
-  function onBoard(shown: PortalContentItem[]): PortalContentItem[] {
-    const now = new Date(`${host.today()}T00:00:00`);
-    return shown.filter((c) => {
-      const st = stageOf(c);
-      return !!st && (st !== 'posted' || !!S.f.month || postedRecently(c, now));
-    });
-  }
-
-  function allEl(shown: PortalContentItem[]): HTMLElement {
-    const now = new Date(`${host.today()}T00:00:00`);
-    const live = onBoard(shown);
-    if (!live.length) {
-      return isFiltering(S.f)
-        ? host.empty('Nothing matches that', 'Try a different filter to see the rest of the board.')
-        : host.empty('Nothing is moving yet', 'A card joins the board as soon as it is planned.');
-    }
-    const wrap = el('div', 'pt-boardwrap');
-    wrap.appendChild(isPhone() ? host.board().list(live) : host.board().lane(live));
-    if (!S.f.month) {
-      const older = shown.filter((c) => stageOf(c) === 'posted' && !postedRecently(c, now)).length;
-      if (older) {
-        wrap.appendChild(el('p', 'pt-board-older',
-          `${older} older post${older === 1 ? '' : 's'} not shown. Pick a month to see them.`));
-      }
-    }
-    return wrap;
-  }
-
-  /* ── Ideas ────────────────────────────────────────────────────── */
-
-  function planSheet(c: PortalContentItem) {
-    openSheet('Plan it', (form, close) => {
-      form.appendChild(el('p', 'pt-sheet-note',
-        `Give "${c.title}" a date and it moves out of Ideas and onto the board.`));
-      const when = el('input', 'pt-input') as HTMLInputElement;
-      when.type = 'date';
-      when.required = true;
-      when.min = host.today();
-      when.value = c.postDate ?? '';
-      form.appendChild(sheetField('Post date', when));
-
-      const media = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
-      const names = host.schema().media.length ? host.schema().media.map((o) => o.name) : [...CONTENT_MEDIA];
-      for (const m of names) {
-        const o = el('option', undefined, m) as HTMLOptionElement;
-        o.value = m;
-        if ((c.media ?? 'Video') === m) o.selected = true;
-        media.appendChild(o);
-      }
-      form.appendChild(sheetField('What is it', media));
-
-      const go = sheetSubmit(form, 'Plan it');
-      form.addEventListener('submit', async (ev) => {
-        ev.preventDefault();
-        const iso = when.value;
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) { when.focus(); return; }
-        go.disabled = true;
-        const patch = { status: 'Planned', postDate: iso, media: media.value };
-        const ok = await host.save(c, patch, patch);
-        go.disabled = false;
-        if (ok) { host.toast(`Planned for ${shortDay(iso)}`); close(); }
-      });
-    });
-  }
-
-  function ideaRow(c: PortalContentItem): HTMLElement {
-    const li = el('li', 'pt-idea');
-    const open = el('button', 'pt-idea-open');
-    open.type = 'button';
-    open.setAttribute('aria-label', `Open ${c.title}`);
-    open.addEventListener('click', () => host.openCard(c));
-    open.appendChild(el('span', 'pt-idea-title', c.title));
-    const meta = el('span', 'pt-idea-meta');
-    const who = host.clientOf?.(c) ?? null;
-    if (who) meta.appendChild(el('span', 'pt-ccard-who', who));
-    const media = c.media ?? 'Video';
-    const m = el('span', 'pt-ccard-media');
-    m.append(icon(MEDIA_ICON[media] ?? 'video'), el('span', undefined, media));
-    meta.appendChild(m);
-    if (!isIdea(c)) {
-      const move = nextMove(c, host.voice(c));
-      const st = stageOf(c);
-      if (st) meta.appendChild(el('span', 'pt-tag', STAGE_TITLE[st]));
-      if (move) meta.appendChild(el('span', undefined, move.text));
-    } else if (c.notes) {
-      meta.appendChild(el('span', 'pt-idea-notes', c.notes));
-    }
-    open.appendChild(meta);
-    li.appendChild(open);
-
-    if (isIdea(c)) {
-      const plan = el('button', 'pt-btn pt-idea-plan', 'Plan it');
-      plan.type = 'button';
-      plan.addEventListener('click', () => planSheet(c));
-      li.appendChild(plan);
-    }
-    return li;
-  }
-
-  function ideasEl(shown: PortalContentItem[]): HTMLElement {
-    const mine = shown.filter(inIdeas);
-    if (!mine.length) {
-      return isFiltering(S.f)
-        ? host.empty('Nothing matches that', 'Try a different filter to see the rest of the ideas.')
-        : host.empty('The idea well is empty', 'Jot one down and it lands here, ready to plan.');
-    }
-    const wrap = el('div', 'pt-ideas');
-
-    const section = (title: string, rows: PortalContentItem[], color?: string) => {
-      if (!rows.length) return;
-      const sec = el('section', 'pt-ideas-sec');
-      const head = el('div', 'pt-ideas-head');
-      const h = el('h3', color ? `pt-bchip pt-nc-${color}` : undefined, title);
-      head.append(h, el('span', 'pt-board-count pt-num', String(rows.length)));
-      sec.appendChild(head);
-      const list = el('ul', 'pt-idealist');
-      for (const c of rows) list.appendChild(ideaRow(c));
-      sec.appendChild(list);
-      wrap.appendChild(sec);
-    };
-
-    // What is already moving comes first: it has a date on it.
-    const moving = mine.filter((c) => !isIdea(c))
-      .sort((a, b) => (a.postDate ?? '9999').localeCompare(b.postDate ?? '9999'));
-    section('Planned on their own', moving);
-
-    const ideas = mine.filter(isIdea);
-    const buckets = host.schema().bucket;
-    for (const b of buckets) section(b.name, ideas.filter((c) => c.bucket === b.name), b.color);
-    const known = new Set(buckets.map((b) => b.name));
-    section('No bucket yet', ideas.filter((c) => !c.bucket || !known.has(c.bucket)));
+    for (const node of own) wrap.appendChild(node);
     return wrap;
   }
 
   /* ── the tab ──────────────────────────────────────────────────── */
+
+  /** Which board a scroller is, so its position goes back to the same
+   *  board after a redraw and not to whichever one is drawn first. */
+  const scrollKey = (sc: HTMLElement): string =>
+    sc.closest<HTMLElement>('[data-lane]')?.dataset.lane
+    ?? `own:${sc.closest<HTMLElement>('[data-own-view]')?.dataset.ownView ?? ''}`;
 
   function draw(root: HTMLElement) {
     // Where each lane was scrolled to, so a save does not throw the
     // board back to its first column.
     const scroll = new Map<string, number>();
     for (const sc of qq('[data-board-scroll]', root)) {
-      scroll.set(sc.closest<HTMLElement>('[data-lane]')?.dataset.lane ?? '', sc.scrollLeft);
+      scroll.set(scrollKey(sc), sc.scrollLeft);
     }
     clear(root);
 
-    const all = host.items();
+    const all = campaignSide();
     pruneFilters(all);
-    const shown = filtered();
     host.board().begin();
 
     for (const block of host.above ?? []) {
       const node = block(api);
       if (node) root.appendChild(node);
     }
-    root.appendChild(toolbar(all, shown));
+    const sw = switchEl();
+    if (sw) root.appendChild(sw);
 
     const body = el('div', 'pt-conbody');
     body.dataset.tab = S.tab;
-    body.appendChild(S.tab === 'campaigns' ? campaignsEl(shown)
-      : S.tab === 'ideas' ? ideasEl(shown)
-      : allEl(shown));
+    if (S.tab === 'own' && host.own) {
+      body.appendChild(host.own.board().draw());
+    } else {
+      body.appendChild(filterBar(all));
+      body.appendChild(campaignsEl(filtered()));
+    }
     root.appendChild(body);
 
     for (const sc of qq('[data-board-scroll]', root)) {
-      const at = scroll.get(sc.closest<HTMLElement>('[data-lane]')?.dataset.lane ?? '');
+      const at = scroll.get(scrollKey(sc));
       if (at) sc.scrollLeft = at;
     }
   }

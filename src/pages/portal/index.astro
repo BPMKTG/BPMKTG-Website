@@ -301,6 +301,7 @@ const NAV = [
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { createCounter } from '../../scripts/portal-content-counter';
   import { createReviewStrip } from '../../scripts/portal-content-review';
+  import { createOwnContent, type OwnContent } from '../../scripts/portal-own-content';
   import { createClientPlaybooks, type Answer as PbAnswer } from '../../scripts/portal-playbooks';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { createCalendar, type CalRow } from '../../scripts/portal-calendar';
@@ -310,9 +311,11 @@ const NAV = [
   } from '../../scripts/portal-sheet';
   import {
     canClientMove,
+    contentSide,
     countsToward,
     normaliseId,
     postMonths,
+    whoOf,
     DRAG_BLOCKED,
     MAX_TEXT,
     MAX_TITLE,
@@ -1501,6 +1504,28 @@ const NAV = [
     reviewAct: (c, a) => { void reviewAct(c, a); },
   });
 
+  /** My Content: the client's own board, the one they had before the
+   *  rebuild. Every row that belongs to no campaign. */
+  let CONOWN: OwnContent | null = null;
+
+  function conOwn(): OwnContent {
+    CONOWN ??= createOwnContent({
+      storeKey: `bp.portal.own.v1.${SLUG}`,
+      role: () => (VIEWER.role === 'admin' ? 'admin' : 'client'),
+      items: () => CON.items.filter((c) => contentSide(c) === 'own'),
+      schema: () => CON.schema,
+      openCard: openContentDrawer,
+      save: (c, patch, local) => saveCard(c.id, patch, local),
+      newIdea: (bucket) => openQuickAdd(bucket),
+      toast,
+      empty: contentEmpty,
+      now: () => todayStart(),
+      redraw: drawContent,
+      reviewAct: (c, a) => { void reviewAct(c, a); },
+    });
+    return CONOWN;
+  }
+
   /** The Content tab: the same view HQ draws, told a client is reading. */
   let CONVIEW: ContentView | null = null;
 
@@ -1515,7 +1540,7 @@ const NAV = [
       momentRef: conMomentRef,
       openCard: openContentDrawer,
       save: (c, patch, local) => saveCard(c.id, patch, local),
-      newIdea: () => openQuickAdd(null),
+      own: { label: 'My Content', board: conOwn },
       toast,
       empty: contentEmpty,
       today: dateKeyToday,
@@ -1703,7 +1728,7 @@ const NAV = [
    *  they are the one who posts it. */
   function maySetStatus(c: PortalContentItem, status: string): boolean {
     if (VIEWER.role === 'admin') return true;
-    return canClientMove(c.status, status, { postedBy: c.postedBy, source: c.source });
+    return canClientMove(c.status, status, whoOf(c));
   }
 
   async function setStatus(c: PortalContentItem, status: string, note?: string) {
@@ -2014,7 +2039,7 @@ const NAV = [
         const local: Partial<PortalContentItem> = { footageLink: url };
         // Footage arriving is what Footage In means, so the status
         // follows the link rather than needing a second step.
-        if (canClientMove(c.status, 'Footage In', { postedBy: c.postedBy, source: c.source })) {
+        if (canClientMove(c.status, 'Footage In', whoOf(c))) {
           patch.status = 'Footage In';
           local.status = 'Footage In';
         }

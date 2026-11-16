@@ -50,6 +50,8 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
     currentStatus: owned.item.status,
     postedBy: owned.item.postedBy,
     source: owned.item.source,
+    // A row linked to no campaign is the client's own content.
+    inCampaign: owned.item.campaign.length > 0,
     role: ctx.viewer.role,
     // A note is added to the thread as Notion holds it, and dated by
     // us. Neither is the request's to say.

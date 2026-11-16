@@ -23,6 +23,8 @@ import {
   isFilmStep,
   showsOnCalendar,
   stepLayers,
+  cardPostLayer,
+  migrateLayers,
   FILM_MARK,
   HQ_LAYERS,
   PORTAL_LAYERS,
@@ -84,7 +86,18 @@ import {
   originOf,
   countsToward,
   isFilmJob,
-  inIdeas,
+  contentSide,
+  clientOwns,
+  whoOf,
+  ownStageOf,
+  ownDropStatus,
+  canDropOwn,
+  isOwnIdea,
+  cardDate,
+  weMake,
+  OWN_STAGE_ORDER,
+  OWN_STAGE_TITLE,
+  OWN_STAGE_NOTE,
   postedRecently,
   shortDay,
   parseFeedback,
@@ -138,7 +151,6 @@ import {
   cleanPatchRelation,
   normaliseId,
   stageOf,
-  isIdea,
   MAX_TITLE,
   MAX_TEXT,
   // writes
@@ -1413,17 +1425,6 @@ is('counts: undated does not', countsToward(card({ postedBy: 'Blueprint', status
 is('counts: skipped does not', countsToward(card({ postedBy: 'Blueprint', status: 'Skipped', postDate: '2026-11-09' })), false);
 is('counts: nobody named as posting it does not', countsToward(card({ status: 'Planned', postDate: '2026-11-09' })), false);
 
-is('ideas: an idea is in the list', inIdeas(card({ status: 'Idea' })), true);
-is('ideas: a standalone piece on its way is too', inIdeas(card({ status: 'Planned' })), true);
-is('ideas: a campaign row is not', inIdeas(card({ status: 'Planned', campaign: ['x'] })), false);
-is('ideas: nor a campaign row in any later stage',
-   CONTENT_STATUSES.filter((st) => st !== 'Idea' && inIdeas(card({ status: st, campaign: ['x'] }))), []);
-is('ideas: a finished standalone piece is not backlog', inIdeas(card({ status: 'Posted' })), false);
-is('ideas: a skipped one neither', inIdeas(card({ status: 'Skipped' })), false);
-is('ideas: isIdea means the status and nothing else',
-   [isIdea(card({ status: 'Idea', postDate: '2026-11-09' })), isIdea(card({ status: 'Planned' }))],
-   [true, false]);
-
 // A card links to the step it delivers; the board groups by moment.
 {
   const mom = { id: 'aaaa-1111', title: 'Faith Rave', date: '2026-11-15', momentType: 'Show' };
@@ -1788,6 +1789,218 @@ section('Content: the month counter');
   is('months: and of a thirty-one day one', monthBounds('2026-12').last, '2026-12-31');
 }
 
+section('My Content: boards and columns, as they were');
+
+const nowOwn = new Date(2026, 9, 28);   // 28 Oct 2026
+const ownCard = (o) => ({ status: null, filmBy: null, postDate: null, ...o });
+
+is('ideas: an undated idea is in the well', isOwnIdea(ownCard({ status: 'Idea' })), true);
+is('ideas: a planned card with no date is still an idea',
+   isOwnIdea(ownCard({ status: 'Planned' })), true);
+is('ideas: a date takes it out of the well',
+   isOwnIdea(ownCard({ status: 'Planned', postDate: '2026-11-02' })), false);
+is('ideas: filmed is not an idea', isOwnIdea(ownCard({ status: 'Filmed' })), false);
+
+is('pipeline: planned with no film date', ownStageOf(ownCard({ status: 'Planned' }), nowOwn), 'planned');
+// Source decides the pre-camera column now, not Film By. A flyer we
+// are drawing has a Film By too, and it used to land in the client's
+// To film pile with a date they could do nothing about.
+is('pipeline: a film date alone is not To film',
+   ownStageOf(ownCard({ status: 'Planned', filmBy: '2026-11-01' }), nowOwn), 'planned');
+is('pipeline: Client Films is To film',
+   ownStageOf(ownCard({ status: 'Planned', filmBy: '2026-11-01', source: 'Client Films' }), nowOwn), 'toFilm');
+is('pipeline: Client Films is To film even with no film date',
+   ownStageOf(ownCard({ status: 'Planned', source: 'Client Films' }), nowOwn), 'toFilm');
+is('pipeline: a flyer we draw goes to Up next, not To film',
+   ownStageOf(ownCard({ status: 'Planned', filmBy: '2026-11-01', source: 'Flyer / Graphic' }), nowOwn), 'upNext');
+is('pipeline: show media goes to Up next',
+   ownStageOf(ownCard({ status: 'Planned', source: 'Show Media' }), nowOwn), 'upNext');
+is('pipeline: filmed and footage in share a column',
+   [ownStageOf(ownCard({ status: 'Filmed' }), nowOwn), ownStageOf(ownCard({ status: 'Footage In' }), nowOwn)],
+   ['filmed', 'filmed']);
+is('pipeline: approved and scheduled share Ready to Post',
+   [ownStageOf(ownCard({ status: 'Approved' }), nowOwn), ownStageOf(ownCard({ status: 'Scheduled' }), nowOwn)],
+   ['ready', 'ready']);
+is('pipeline: skipped is hidden', ownStageOf(ownCard({ status: 'Skipped' }), nowOwn), null);
+is('pipeline: an undated idea is not on the pipeline', ownStageOf(ownCard({ status: 'Idea' }), nowOwn), null);
+is('pipeline: a dated idea lands in Planned',
+   ownStageOf(ownCard({ status: 'Idea', postDate: '2026-11-09' }), nowOwn), 'planned');
+is('pipeline: a dated idea the client films lands in To film',
+   ownStageOf(ownCard({ status: 'Idea', postDate: '2026-11-09', filmBy: '2026-11-05',
+                  source: 'Client Films' }), nowOwn), 'toFilm');
+is('pipeline: a dated idea with a shoot date but no source stays in Planned',
+   ownStageOf(ownCard({ status: 'Idea', postDate: '2026-11-09', filmBy: '2026-11-05' }), nowOwn), 'planned');
+is('pipeline: an idea with only a shoot date is still on the board',
+   ownStageOf(ownCard({ status: 'Idea', filmBy: '2026-11-05', source: 'Client Films' }), nowOwn), 'toFilm');
+is('ideas: a dated idea is off the Ideas board',
+   isOwnIdea({ status: 'Idea', postDate: '2026-11-09' }), false);
+is('pipeline: a recent post still shows',
+   ownStageOf(ownCard({ status: 'Posted', postDate: '2026-10-20' }), nowOwn), 'posted');
+is('pipeline: a post older than 30 days drops off',
+   ownStageOf(ownCard({ status: 'Posted', postDate: '2026-09-01' }), nowOwn), null);
+is('pipeline: the 30th day still counts',
+   ownStageOf(ownCard({ status: 'Posted', postDate: '2026-09-28' }), nowOwn), 'posted');
+
+section('My Content: whose move is it');
+
+const ocard = (o) => ({ status: null, source: null, postedBy: null,
+  filmBy: null, postDate: null, ...o });
+
+// ── the three pre-camera columns share one status, so a drop into the
+//    wrong one of them is refused rather than bounced ──
+is('drop: Client Films into To film writes Planned',
+   ownDropStatus(ocard({ source: 'Client Films' }), 'toFilm'), 'Planned');
+is('drop: Client Films cannot go in Up next',
+   ownDropStatus(ocard({ source: 'Client Films' }), 'upNext'), null);
+is('drop: a flyer cannot go in To film',
+   ownDropStatus(ocard({ source: 'Flyer / Graphic' }), 'toFilm'), null);
+is('drop: a flyer into Up next writes Planned',
+   ownDropStatus(ocard({ source: 'Flyer / Graphic' }), 'upNext'), 'Planned');
+is('drop: a sourceless card belongs to Planned alone',
+   [ownDropStatus(ocard({}), 'planned'), ownDropStatus(ocard({}), 'toFilm'), ownDropStatus(ocard({}), 'upNext')],
+   ['Planned', null, null]);
+is('drop: a sourced card is not allowed back into plain Planned',
+   ownDropStatus(ocard({ source: 'Client Films' }), 'planned'), null);
+is('drop: every later column maps to one status',
+   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) => ownDropStatus(ocard({}), st)),
+   ['Filmed', 'Editing', 'Ready for Review', 'Approved', 'Posted']);
+
+// ── the client's own two moves ──
+is('move: To film to Filmed is the client\u2019s',
+   canDropOwn(ocard({ status: 'Planned', source: 'Client Films' }), 'filmed', 'client'), true);
+is('move: and back out again, on a card they film',
+   canDropOwn(ocard({ status: 'Filmed', source: 'Client Films' }), 'toFilm', 'client'), true);
+is('move: but not back out of ours',
+   canClientMove('Filmed', 'Planned', { source: 'Flyer / Graphic' }), false);
+is('move: Your review, approved',
+   canDropOwn(ocard({ status: 'Ready for Review' }), 'ready', 'client'), true);
+is('move: Your review, handed back to us',
+   canClientMove('Ready for Review', 'Editing'), true);
+is('move: a client cannot reach In edit from anywhere else',
+   canClientMove('Planned', 'Editing'), false);
+
+// ── a row the client posts is theirs end to end ──
+is('move: Posted By Client goes anywhere',
+   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) =>
+     canDropOwn(ocard({ status: 'Planned', postedBy: 'Client' }), st, 'client')),
+   [true, true, true, true, true]);
+is('move: the same card, posted by us, does not',
+   canDropOwn(ocard({ status: 'Planned', postedBy: 'Blueprint' }), 'editing', 'client'), false);
+is('move: Posted By Client still cannot break the Source rule',
+   canDropOwn(ocard({ status: 'Planned', postedBy: 'Client', source: 'Client Films' }), 'upNext', 'client'),
+   false);
+
+// ── admin moves anything the column can hold ──
+is('move: admin reaches every real column',
+   ['filmed', 'editing', 'review', 'ready', 'posted'].map((st) =>
+     canDropOwn(ocard({ status: 'Planned', postedBy: 'Blueprint' }), st, 'admin')),
+   [true, true, true, true, true]);
+is('move: admin is still refused a column that would bounce',
+   canDropOwn(ocard({ status: 'Planned', source: 'Client Films' }), 'upNext', 'admin'), false);
+
+// ── no cell of the board lets a client write one of ours ──
+{
+  const statuses = ['Idea', 'Planned', 'Filmed', 'Footage In', 'Editing',
+    'Ready for Review', 'Approved', 'Scheduled', 'Posted', 'Skipped'];
+  const sources = [null, 'Client Films', 'Show Media', 'Flyer / Graphic'];
+  const stages = ['upNext', 'planned', 'toFilm', 'filmed', 'editing', 'review', 'ready', 'posted'];
+  let wrong = [];
+  for (const status of statuses) {
+    for (const source of sources) {
+      for (const stage of stages) {
+        const ours = ocard({ status, source, postedBy: 'Blueprint' });
+        if (!canDropOwn(ours, stage, 'client')) continue;
+        const to = ownDropStatus(ours, stage);
+        // Allowed by canDrop means allowed by the table the server
+        // enforces. If those two ever disagree, the board offers a
+        // move the server will refuse, which is the silent failure
+        // this whole pass exists to remove.
+        if (!canClientMove(status, to, { postedBy: 'Blueprint', source })) {
+          wrong.push(`${status}/${source}/${stage}`);
+        }
+      }
+    }
+  }
+  is('move: the board never offers a client a move the server refuses', wrong, []);
+}
+
+section('My Content: the date on the face of a card');
+
+is('card date: a film date the client owns',
+   cardDate(ocard({ source: 'Client Films', filmBy: '2026-11-10', postDate: '2026-11-14' })),
+   { label: 'Film by', date: '2026-11-10' });
+is('card date: a flyer shows when it posts, never a film date',
+   cardDate(ocard({ source: 'Flyer / Graphic', filmBy: '2026-11-10', postDate: '2026-11-14' })),
+   { label: 'Posts', date: '2026-11-14' });
+is('card date: show media the same',
+   cardDate(ocard({ source: 'Show Media', filmBy: '2026-11-10', postDate: '2026-11-14' })),
+   { label: 'Posts', date: '2026-11-14' });
+is('card date: once it is shot, the film date stops being news',
+   cardDate(ocard({ source: 'Client Films', status: 'Filmed',
+                    filmBy: '2026-11-10', postDate: '2026-11-14' })),
+   { label: 'Posts', date: '2026-11-14' });
+is('card date: nothing dated says nothing', cardDate(ocard({})), null);
+is('card date: no source and a film date is still not a film job',
+   cardDate(ocard({ filmBy: '2026-11-10' })), null);
+
+is('board: Up next comes first', OWN_STAGE_ORDER[0], 'upNext');
+is('board: every column has a title',
+   OWN_STAGE_ORDER.filter((st) => !OWN_STAGE_TITLE[st]), []);
+is('board: the two columns with an owner say so',
+   OWN_STAGE_ORDER.filter((st) => OWN_STAGE_NOTE[st]), ['upNext', 'toFilm', 'review']);
+
+section('Content: two sides, and a row on exactly one');
+
+{
+  const row = (o) => ({ status: 'Planned', source: 'Client Films', postedBy: 'Client', campaign: [], ...o });
+  is('side: no campaign is the client’s own', contentSide(row({})), 'own');
+  is('side: a campaign row is campaign work', contentSide(row({ campaign: ['step-1'], postedBy: 'Blueprint' })), 'campaign');
+  is('side: a row the client posts, linked to a campaign, is still campaign work',
+     contentSide(row({ campaign: ['step-1'], postedBy: 'Client' })), 'campaign');
+  is('side: one of ours with no campaign is on the client’s side',
+     contentSide(row({ postedBy: 'Blueprint' })), 'own');
+  is('side: every row is on exactly one',
+     [row({}), row({ campaign: ['x'] }), row({ postedBy: 'Blueprint' }), row({ postedBy: null })]
+       .every((r) => ['own', 'campaign'].includes(contentSide(r))), true);
+
+  // Ownership is what lets a client drag a card anywhere.
+  is('owns: a row they post', clientOwns({ postedBy: 'Client', inCampaign: true }), true);
+  is('owns: a row in no campaign, whoever posts it', clientOwns({ postedBy: 'Blueprint', inCampaign: false }), true);
+  is('owns: not one of ours in a campaign', clientOwns({ postedBy: 'Blueprint', inCampaign: true }), false);
+  is('owns: not when nobody said whether it is in a campaign',
+     clientOwns({ postedBy: 'Blueprint' }), false);
+  is('who: a card with a campaign list says so',
+     [whoOf(row({ campaign: [] })).inCampaign, whoOf(row({ campaign: ['x'] })).inCampaign], [false, true]);
+  is('who: a card with no campaign list at all leaves it unsaid',
+     'inCampaign' in whoOf({ postedBy: 'Client', source: null }), false);
+
+  // On My Content a client moves any card to any status.
+  is('own: every status to every status, on a row in no campaign',
+     CONTENT_STATUSES.every((from) => CONTENT_STATUSES.every((to) =>
+       canClientMove(from, to, { postedBy: 'Blueprint', source: 'Show Media', inCampaign: false }))), true);
+  is('own: the same row inside a campaign is ours again',
+     canClientMove('Planned', 'Posted', { postedBy: 'Blueprint', source: 'Show Media', inCampaign: true }), false);
+  is('own: the client drags their card into every column it can hold',
+     OWN_STAGE_ORDER.filter((st) => canDropOwn(row({}), st, 'client')),
+     ['toFilm', 'filmed', 'editing', 'review', 'ready', 'posted']);
+  is('own: the two it cannot hold are the other pre-camera columns, for anyone',
+     OWN_STAGE_ORDER.filter((st) => !canDropOwn(row({}), st, 'admin')), ['upNext', 'planned']);
+
+  // The server asks the same question with the fact read off the page.
+  const own = buildContentProperties({ status: 'Posted' },
+    ctx('Planned', { postedBy: 'Blueprint', source: 'Show Media', inCampaign: false }));
+  is('build: a client moves a row in no campaign anywhere', own.properties.Status.select.name, 'Posted');
+  is('build: and not the same row in a campaign',
+     buildContentProperties({ status: 'Posted' },
+       ctx('Planned', { postedBy: 'Blueprint', source: 'Show Media', inCampaign: true })).rejected, ['status']);
+  is('build: with the fact left out, the tighter answer',
+     buildContentProperties({ status: 'Posted' },
+       ctx('Planned', { postedBy: 'Blueprint', source: 'Show Media' })).rejected, ['status']);
+  is('build: Media is theirs to set on a row in no campaign',
+     buildContentProperties({ media: 'Carousel' },
+       ctx('Planned', { postedBy: 'Blueprint', inCampaign: false })).properties.Media.select.name, 'Carousel');
+}
+
 section('Content: the quick-add status default');
 
 // The quick-add form sends both date keys every time, empty or not, so
@@ -1918,12 +2131,17 @@ const cal = (owner, type, status = 'Not Started', title = 'A step') =>
 
 const layers = (row) => stepLayers(row).join('|');
 
-is('layer: a client content step is a post and a to-do',
-   layers(cal('Client', 'Content')), 'posts|todos');
+is('layer: a client content step is a post of theirs and a to-do',
+   layers(cal('Client', 'Content')), 'postsTheirs|todos');
 is('layer: a client admin step is only a to-do',
    layers(cal('Client', 'Admin')), 'todos');
-is('layer: a content step of ours is a post and nothing else',
-   layers(cal('Blueprint', 'Content')), 'posts');
+// A step of ours that posts something has no pipeline row behind it,
+// or the row would be drawn in its place. It is on the plan, and it is
+// neither a counted piece nor an admin task.
+is('layer: a content step of ours is on the plan and nothing else',
+   layers(cal('Blueprint', 'Content')), 'postsPlan');
+is('layer: it is not in the layer the month counter matches',
+   stepLayers(cal('Blueprint', 'Content')).includes('postsOurs'), false);
 is('layer: an admin step of ours is the only thing in Blueprint tasks',
    layers(cal('Blueprint', 'Admin')), 'blueprint');
 
@@ -1948,11 +2166,11 @@ const film = (owner, type) => cal(owner, type, 'Not Started', `${FILM_MARK} Film
 // not, because the flow says Client makes + posts; the shoot has its
 // own Admin step.
 is('layer: a clapperboard content step of theirs is still a post of theirs',
-   layers(film('Client', 'Content')), 'posts|todos');
+   layers(film('Client', 'Content')), 'postsTheirs|todos');
 is('layer: a clapperboard admin step of theirs is their film day',
    layers(film('Client', 'Admin')), 'films|todos');
 is('layer: and it is not also a post',
-   stepLayers(film('Client', 'Admin')).includes('posts'), false);
+   stepLayers(film('Client', 'Admin')).some((l) => l.startsWith('posts')), false);
 // A shoot WE run is our work and nothing else. Putting it under Film
 // days would read to a client as a day they have to hold a camera.
 is('layer: a clapperboard admin step of ours is ours alone',
@@ -1991,8 +2209,31 @@ is('layer: Done is frozen in a cascade yet still on the calendar',
 /* Both screens now draw the same five. The portal's query fetches our
    own work, so the layer is no longer an empty column there: it is
    the one the client reads and cannot touch. */
-is('layer: the portal has five layers',
-   PORTAL_LAYERS.join('|'), 'moments|posts|films|todos|blueprint');
+is('layer: the portal’s layers, Posts split by who posts',
+   PORTAL_LAYERS.join('|'), 'moments|postsOurs|postsTheirs|postsPlan|films|todos|blueprint');
+
+// A pipeline row's layer is who posts it: the month counter's own test.
+is('layer: a row we post is in Blueprint posts', cardPostLayer({ postedBy: 'Blueprint' }), 'postsOurs');
+is('layer: a row the client posts is in theirs', cardPostLayer({ postedBy: 'Client' }), 'postsTheirs');
+is('layer: a row nobody is named on is not counted as ours', cardPostLayer({ postedBy: null }), 'postsTheirs');
+{
+  // With only Blueprint posts on, the calendar is the counter's list.
+  const rows = [
+    { title: 'a', status: 'Planned', postDate: '2026-11-03', postedBy: 'Blueprint', media: 'Video' },
+    { title: 'b', status: 'Posted', postDate: '2026-11-09', postedBy: 'Blueprint', media: 'Story' },
+    { title: 'c', status: 'Skipped', postDate: '2026-11-10', postedBy: 'Blueprint', media: 'Video' },
+    { title: 'd', status: 'Planned', postDate: '2026-11-12', postedBy: 'Client', media: 'Video' },
+    { title: 'e', status: 'Planned', postDate: null, postedBy: 'Blueprint', media: 'Video' },
+    { title: 'f', status: 'Planned', postDate: '2026-12-01', postedBy: 'Blueprint', media: 'Video' },
+  ];
+  const onCalendar = rows.filter((r) => cardOnCalendar(r) && r.postDate && r.postDate.startsWith('2026-11')
+    && cardPostLayer(r) === 'postsOurs').map((r) => r.title);
+  is('layer: Blueprint posts in a month is exactly what the counter lists',
+     onCalendar, monthCount(rows, '2026-11').rows.map((r) => r.item.title));
+}
+is('layer: a browser that remembered Posts gets every part of it',
+   migrateLayers(['moments', 'posts', 'todos']), ['moments', 'postsOurs', 'postsTheirs', 'postsPlan', 'todos']);
+is('layer: and one that had it off keeps it off', migrateLayers(['moments', 'films']), ['moments', 'films']);
 is('layer: HQ has the same five',
    HQ_LAYERS.join('|'), PORTAL_LAYERS.join('|'));
 is('layer: the portal does have Blueprint\u2019s work',
@@ -3605,7 +3846,7 @@ is('card: a status we have never seen is still on the calendar',
 section('Blueprint HQ · the layers it draws');
 
 is('layers: HQ draws the portal’s layers and Blueprint tasks',
-   HQ_LAYERS.join('|'), 'moments|posts|films|todos|blueprint');
+   HQ_LAYERS.join('|'), 'moments|postsOurs|postsTheirs|postsPlan|films|todos|blueprint');
 is('layers: and the portal’s are a prefix of them, not a different list',
    HQ_LAYERS.slice(0, PORTAL_LAYERS.length).join('|'), PORTAL_LAYERS.join('|'));
 

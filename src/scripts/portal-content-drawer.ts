@@ -21,11 +21,13 @@
 
 import {
   canClientMove,
+  clientOwns,
   editPreview,
   nextMove,
   normaliseId,
   parseFeedback,
   shortDay,
+  whoOf,
   DRAG_BLOCKED,
   MAX_TEXT,
   MAX_TITLE,
@@ -148,7 +150,7 @@ export function fillContentDrawer(host: DrawerHost, c: PortalContentItem, body: 
   const admin = host.role() === 'admin';
   const schema = host.schema();
   const voice = host.voice(c);
-  const owns = admin || c.postedBy === 'Client';
+  const owns = admin || clientOwns(whoOf(c));
   const save = (patch: Record<string, unknown>, local: Partial<PortalContentItem>, tick: Tick) =>
     host.save(c, patch, local).then((ok) => { if (ok) flashTick(tick); });
 
@@ -226,7 +228,7 @@ export function fillContentDrawer(host: DrawerHost, c: PortalContentItem, body: 
   // loud; the server refuses it again either way.
   body.appendChild(selectEditor('Status', c.status, schema.status, null, (v, tick) => {
     if (!v || v === c.status) return;
-    const may = admin || canClientMove(c.status, v, { postedBy: c.postedBy, source: c.source });
+    const may = admin || canClientMove(c.status, v, whoOf(c));
     if (!may) { host.toast(DRAG_BLOCKED, true); fillContentDrawer(host, c, clearNode(body)); return; }
     void save({ status: v }, { status: v }, tick);
   }));

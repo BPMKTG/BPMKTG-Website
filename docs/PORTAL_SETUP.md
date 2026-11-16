@@ -182,12 +182,25 @@ Six things, and nothing else:
 Every one of those is re-checked on the server against the row as Notion
 currently holds it, never against anything in the request.
 
-On a content card that is OURS to post (Posted By = Blueprint) a client
-may do exactly two things: answer a cut that is Ready for Review, by
-approving it or sending it back with a note, and tick Filmed on a card
-they film (Source = Client Films), and untick it. A card they post is
-theirs end to end. Everything else is refused, and the board says
+The Content tab has two sides, and a row is on exactly one of them:
+
+- **My Content**: every row with no **Campaign** relation. The client's
+  own board (Ideas by bucket, the eight-column pipeline, the Posted
+  archive). These rows are theirs: they move any card to any column.
+- **Campaigns**: every row with a Campaign relation, whoever posts it.
+
+A row is the client's to do with as they like if they post it (Posted
+By = Client) **or** it is in no campaign. On any other row, which is to
+say one of ours inside a campaign, a client may do exactly two things:
+answer a cut that is Ready for Review, by approving it or sending it
+back with a note, and tick Filmed on a card they film (Source = Client
+Films), and untick it. Everything else is refused, and the board says
 "Blueprint moves this one".
+
+One consequence worth knowing: a piece of ours that is linked to no
+campaign (for example one added with "Add a piece" on the month
+counter and not yet linked) is on the client's side and they can move
+it. Link it to a campaign step to make it ours again.
 
 **Offset (days) is never written by the portal.** It is the playbook's default
 position for a step, and a dragged date is an override of that default,
