@@ -53,6 +53,9 @@ export interface MasterStep {
   priority?: string | null;
   defaultMedia?: string | null;
   pieces?: number | null;
+  /** How to make it: the creative brief for the piece or the job.
+   *  Shown to the client on the step and on the piece it delivers. */
+  brief?: string | null;
 }
 
 export const OVERRIDE_STATUSES = ['Draft', 'Requested', 'Approved', 'Declined'] as const;
@@ -98,6 +101,7 @@ export interface EffectiveStep {
   priority: string | null;
   defaultMedia: string | null;
   pieces: number | null;
+  brief: string | null;
   /** What the master says, for each thing an override changed. Absent
    *  means unchanged. */
   was: { title?: string; offset?: number | null; flow?: string | null };
@@ -205,6 +209,7 @@ export function effectivePlaybook(
     offset: m.offset, flow: m.flow, owner: m.owner, type: m.type,
     notes: m.notes, where: m.where, why: m.why,
     priority: m.priority ?? null, defaultMedia: m.defaultMedia ?? null, pieces: m.pieces ?? null,
+    brief: m.brief ?? null,
     was: {}, skipped: false, added: false, overrideIds: [],
   }]));
   const added: EffectiveStep[] = [];
@@ -226,7 +231,7 @@ export function effectivePlaybook(
         // A step that makes a post is content; anything else is a job.
         type: /posts/.test(flow) ? 'Content' : 'Admin',
         notes: o.reason, where: null, why: null,
-        priority: null, defaultMedia: null, pieces: null,
+        priority: null, defaultMedia: null, pieces: null, brief: null,
         was: {}, skipped: false, added: true, overrideIds: [o.id],
       });
       continue;
@@ -292,14 +297,45 @@ export function isRetiredPlaybook(name: string | null | undefined): boolean {
   return (name ?? '').trim().toLowerCase() === RETIRED_PLAYBOOK.toLowerCase();
 }
 
+/** The playbooks there are. Retired is not one of them: its steps are
+ *  listed apart, by retiredMasters, and never inside a playbook. */
 export function playbookNames(masters: readonly MasterStep[]): string[] {
-  const rank = (n: string) => {
-    if (isRetiredPlaybook(n)) return 999;
-    const i = PLAYBOOK_ORDER.indexOf(n);
+  const rank = (n: string) => { const i = PLAYBOOK_ORDER.indexOf(n); return i === -1 ? 99 : i; };
+  return [...new Set(masters.map((m) => m.playbook))]
+    .filter((n) => !isRetiredPlaybook(n))
+    .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
+/**
+ * The playbook a phase belongs to, read off its name.
+ *
+ * A retired master has lost its Playbook (that is what retiring it
+ * is) but keeps its Phase, and every phase is named for its playbook.
+ * "Release Day" is the one phase two playbooks share, so it answers
+ * with both and the caller has to say which.
+ */
+export function playbooksOfPhase(phase: string | null | undefined): string[] {
+  const p = (phase ?? '').trim();
+  if (!p) return [];
+  if (/^sprint\b/i.test(p)) return ['Release Sprint'];
+  if (/^remix\b/i.test(p)) return ['Remix Drop'];
+  if (/^pre-show\b/i.test(p)) return ['Pre-Show'];
+  if (/^show night\b/i.test(p)) return ['Show Night'];
+  if (/^post-show\b/i.test(p)) return ['Post-Show'];
+  if (/^release day\b/i.test(p)) return ['Release Rollout', 'Release Sprint'];
+  if (/^(wk\b|release week\b)/i.test(p)) return ['Release Rollout'];
+  return [];
+}
+
+/** The retired masters, in the order of the playbook they came from
+ *  and then by day. */
+export function retiredMasters(masters: readonly MasterStep[]): MasterStep[] {
+  const rank = (m: MasterStep) => {
+    const i = PLAYBOOK_ORDER.indexOf(playbooksOfPhase(m.phase)[0] ?? '');
     return i === -1 ? 99 : i;
   };
-  return [...new Set(masters.map((m) => m.playbook))]
-    .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  return masters.filter((m) => isRetiredPlaybook(m.playbook))
+    .sort((a, b) => rank(a) - rank(b) || (a.offset ?? 9999) - (b.offset ?? 9999) || a.title.localeCompare(b.title));
 }
 
 /* ── applying a playbook to a moment ──────────────────────────── */
@@ -328,6 +364,7 @@ export interface PlannedStep {
   priority?: string | null;
   defaultMedia?: string | null;
   pieces?: number | null;
+  brief?: string | null;
 }
 
 /**
@@ -353,7 +390,7 @@ export function planApply(
       date: momentDate && s.offset !== null ? addDaysIso(momentDate, s.offset) : null,
       flow: s.flow, owner: s.owner, type: s.type,
       notes: s.notes, where: s.where, why: s.why,
-      priority: s.priority, defaultMedia: s.defaultMedia, pieces: s.pieces,
+      priority: s.priority, defaultMedia: s.defaultMedia, pieces: s.pieces, brief: s.brief,
     }));
 }
 
@@ -521,7 +558,7 @@ export function clientPlaybooks(
   masters: readonly MasterStep[], overrides: readonly PlaybookOverride[], clientId: string,
 ): ClientPlaybook[] {
   const hidden = new Set(masters.filter((m) => m.hideFromClient).map((m) => m.id));
-  return playbookNames(masters).filter((name) => !isRetiredPlaybook(name)).map((name) => {
+  return playbookNames(masters).map((name) => {
     const steps = effectivePlaybook(masters, overrides, name, clientId)
       .filter((s) => !s.skipped && !(s.masterId && hidden.has(s.masterId)));
     return {

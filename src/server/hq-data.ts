@@ -54,7 +54,7 @@ export const HQ_TTL_SECONDS = 90;
 
 /** Bumped whenever the shape below changes, so a deploy cannot serve
  *  a cached payload the new UI does not understand. */
-export const HQ_CACHE_KEY = 'hq:v2';
+export const HQ_CACHE_KEY = 'hq:v3';
 
 /** How far back and forward the calendar is read. Today needs the
  *  overdue tail, the fourteen-day strip needs the near future, and a
@@ -128,6 +128,8 @@ export interface HqCalItem {
   /** Why a step moved, usually. This is where the rescheduling
    *  reasons get written, so HQ puts it under the title. */
   notes: string | null;
+  /** How to make it: the creative brief copied from the master. */
+  brief: string | null;
 }
 
 export interface HqContentItem {
@@ -314,6 +316,7 @@ async function readCalendar(token: string, now: Date): Promise<HqCalItem[]> {
       flow: readSelect(p['Flow']),
       tentative,
       notes: readText(p['Notes']),
+      brief: readText(p['Brief']),
     });
   }
   return out;

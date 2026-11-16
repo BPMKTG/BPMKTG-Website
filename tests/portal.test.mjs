@@ -276,7 +276,12 @@ import {
   STEP_FLOWS,
   KIND_LABEL,
 } from '../.tmp-portal-lib.mjs';
-import { isRetiredPlaybook } from '../.tmp-portal-lib.mjs';
+import {
+  AUDIT_ALIASES, applyPlan, baselineOf, buildSnapshot, checkUpdate, duplicateMasters, getSnapshot, handDated,
+  isSnapshotKey, latestSnapshotKey, matchMaster, pieceRestore, pieceWrite, planUpdate, putSnapshot, renameFor,
+  snapshotKey, snapshotPrefix, stepRestore, stepWrite,
+} from '../.tmp-portal-lib.mjs';
+import { isRetiredPlaybook, playbooksOfPhase, retiredMasters, CALENDAR_FIELDS } from '../.tmp-portal-lib.mjs';
 import {
   CLIENT_FILMS_FLOW, FILM_SESSION_FLOW, FLYER_SET, MAX_PIECES, PIECE_WRITE_BUDGET,
   appendNote, canMoveToNextMonth, filmByFor, isDeliverableFlow, isPieceMedia, isPriority,
@@ -4342,6 +4347,21 @@ const NP = {
   is('step: a value Notion has no option for is not sent',
      stepProperties({ ...pa, priority: 'Vital', defaultMedia: 'Hologram', pieces: 30 }, 'c', 'm').Priority.select, null);
 
+  // The brief: on the master, copied to the step, never trimmed away.
+  const briefed = shapeMaster(page({ Brief: { type: 'rich_text', rich_text: [{ plain_text: 'Open on the crowd. End on the flyer.' }] } }));
+  is('brief: read off the master', briefed.brief, 'Open on the crowd. End on the flyer.');
+  const withBrief = planApply(effectivePlaybook([{ ...masters[0], brief: 'Open on the crowd.' }, masters[1]], [], 'Pre-Show', SEAN_ID), '2026-12-13');
+  is('brief: applying a playbook copies it onto the step',
+     stepProperties(withBrief.find((s2) => s2.title.startsWith('Announce')), 'c', 'm').Brief.rich_text[0].text.content, 'Open on the crowd.');
+  is('brief: a step whose master has none is written with none',
+     stepProperties(withBrief.find((s2) => s2.title === 'Lock show details'), 'c', 'm').Brief.rich_text, []);
+  is('brief: editable on a master, and clearable',
+     [buildMasterProperties({ brief: ' New brief ' }, vocabularyOf(MASTERS)).properties.Brief.rich_text[0].text.content,
+      buildMasterProperties({ brief: null }, vocabularyOf(MASTERS)).properties.Brief.rich_text,
+      buildMasterProperties({ brief: 7 }, vocabularyOf(MASTERS)).rejected], ['New brief', [], ['brief']]);
+  is('brief: it is on the list of fields a client is sent, and Notes still is not',
+     [CALENDAR_FIELDS.includes('Brief'), CALENDAR_FIELDS[18], CALENDAR_NEVER_SEND.includes('Notes')], [true, 'Brief', true]);
+
   const vocab = vocabularyOf(MASTERS);
   const edit = buildMasterProperties({ priority: 'Filler', defaultMedia: 'Story', pieces: 2 }, vocab);
   is('master edit: each lands on its own property',
@@ -4424,14 +4444,17 @@ const PC_REMIX = { id: 'mo-remix', title: 'Christmas Remix', date: '2026-12-11',
   const flyer = piecesForStep(pstep('f', 'Announce: flyer, date, ticket link', '2026-11-22',
     { phase: 'Pre-Show · Announce', defaultMedia: 'Graphic', pieces: 3, priority: 'Core' }), PC_SHOW, sessions);
   is('flyer: three rows, suffixed', flyer.map((p2) => p2.title),
-     ['Christmas Show Announce: flyer, date, ticket link · IG post',
+     ['Christmas Show Announce: flyer, date, ticket link · Feed clip',
       'Christmas Show Announce: flyer, date, ticket link · IG story',
       'Christmas Show Announce: flyer, date, ticket link · Event banner']);
-  is('flyer: a graphic, a story and a graphic', flyer.map((p2) => p2.media), ['Graphic', 'Story', 'Graphic']);
-  is('flyer: all drawn, all in the Flyer bucket',
-     [flyer.every((p2) => p2.source === 'Flyer / Graphic'), flyer.every((p2) => p2.bucket === 'Flyer')], [true, true]);
-  is('flyer: the story goes to Instagram alone', flyer.map((p2) => p2.platforms.length), [2, 1, 2]);
-  is('flyer: the set is the three in the spec', FLYER_SET.map((v) => v.suffix), [' · IG post', ' · IG story', ' · Event banner']);
+  is('flyer: a feed clip, a story and a banner', flyer.map((p2) => p2.media), ['Video', 'Story', 'Graphic']);
+  is('flyer: the clip is cut from footage, the other two are drawn, and all three are in the Flyer bucket',
+     [flyer.map((p2) => p2.source), flyer.every((p2) => p2.bucket === 'Flyer')],
+     [['Show Media', 'Flyer / Graphic', 'Flyer / Graphic'], true]);
+  is('flyer: the clip goes three places, the story to Instagram alone, the banner two',
+     flyer.map((p2) => p2.platforms.length), [3, 1, 2]);
+  is('flyer: the set is the three in the spec', FLYER_SET.map((v) => [v.suffix, v.media]),
+     [[' · Feed clip', 'Video'], [' · IG story', 'Story'], [' · Event banner', 'Graphic']]);
   is('rows: any other number is that many of its own media, numbered',
      piecesForStep(pstep('n', 'Clips', '2026-12-01', { pieces: 2 }), PC_SHOW, []).map((p2) => [p2.title, p2.media]),
      [['Christmas Show Clips · 1 of 2', 'Video'], ['Christmas Show Clips · 2 of 2', 'Video']]);
@@ -4505,7 +4528,7 @@ section('Pieces · creating the ones that are missing');
   const banner = made.find((m) => m.title.endsWith('Event banner'));
   const half = planMissingPieces(steps, [PC_SHOW], [...have, banner], { stepIds: ['a'] });
   is('missing: a flyer left one row in is finished, not started again',
-     half.map((p2) => p2.title.split(' \u00b7 ').pop()), ['IG post', 'IG story']);
+     half.map((p2) => p2.title.split(' · ').pop()), ['Feed clip', 'IG story']);
   is('missing: a flyer step covered by one row made by hand is not added to',
      planMissingPieces(steps, [PC_SHOW], [{ id: 'x', title: 'Christmas flyer', status: 'Planned', postDate: null, campaign: ['a'] }], { stepIds: ['a'] }), []);
   is('missing: a skipped row still covers its step, so nothing is recreated behind a trim',
@@ -4706,11 +4729,330 @@ section('Playbooks · steps retired from a playbook');
   ];
   is('retired: it is the name Notion gives the pile, however it is cased', [isRetiredPlaybook('Retired'), isRetiredPlaybook(' retired '), isRetiredPlaybook('Pre-Show'), isRetiredPlaybook(null)],
      [true, true, false, false]);
-  is('retired: HQ still lists it, after every real playbook', playbookNames(withRetired), ['Release Sprint', 'Remix Drop', 'Retired']);
+  is('retired: it is not one of the playbooks', playbookNames(withRetired), ['Release Sprint', 'Remix Drop']);
+  is('retired: HQ lists its steps apart, by where they came from and then by day',
+     retiredMasters(withRetired.map((m) => (m.id === 'r-1' ? { ...m, phase: 'Pre-Show · Build' } : m.id === 'r-2' ? { ...m, phase: 'Sprint · Follow-Through' } : m))).map((m) => m.id),
+     ['r-2', 'r-1']);
+  is('retired: a phase says which playbook a step came from',
+     ['Sprint · Test', 'Remix · Drop Day', 'Pre-Show · Build', 'Show Night', 'Post-Show · Week Two', 'Wk −4 · Announce', 'Release Week', 'Wk 3–4 · Long Tail']
+       .map((ph) => playbooksOfPhase(ph)[0]),
+     ['Release Sprint', 'Remix Drop', 'Pre-Show', 'Show Night', 'Post-Show', 'Release Rollout', 'Release Rollout', 'Release Rollout']);
+  is('retired: Release Day is the one phase two playbooks share, and it says so',
+     [playbooksOfPhase('Release Day'), playbooksOfPhase(null), playbooksOfPhase('Something else')],
+     [['Release Rollout', 'Release Sprint'], [], []]);
+  const vocabR = vocabularyOf(withRetired);
+  is('retired: restoring is a move to a playbook that exists',
+     [buildMasterProperties({ playbook: 'Release Sprint' }, vocabR).properties.Playbook.select.name,
+      buildMasterProperties({ playbook: 'Retired' }, vocabR).properties.Playbook.select.name,
+      buildMasterProperties({ playbook: 'A New One' }, vocabR).rejected],
+     ['Release Sprint', 'Retired', ['playbook']]);
   is('retired: a client is never shown it', clientPlaybooks(withRetired, [], SEAN_ID).map((p2) => p2.name), ['Release Sprint', 'Remix Drop']);
   is('retired: and none of its steps reach them under another name',
      clientPlaybooks(withRetired, [], SEAN_ID).flatMap((p2) => p2.phases.flatMap((g) => g.steps.map((s2) => s2.title))).some((t) => /Energy clip|Quote graphic/.test(t)), false);
   is('retired: a real playbook does not pick up a retired step', effectivePlaybook(withRetired, [], 'Release Sprint', SEAN_ID).length, 4);
+}
+
+/* ══ Update campaigns to current playbook ════════════════════════ */
+
+section('Update · which master a step came from');
+
+const UM = (id, title, o = {}) => ({ id, title, playbook: 'Pre-Show', phase: 'Pre-Show · Build', offset: -14,
+  flow: 'Blueprint makes + posts', owner: 'Blueprint', type: 'Content', notes: null, where: null, why: null,
+  momentId: 'pb', priority: 'Standard', defaultMedia: 'Video', pieces: null, brief: null, ...o });
+const UP_MASTERS = [
+  UM('m1', 'Announce: crowd clip ending on the flyer, flyer story, event banner', { phase: 'Pre-Show · Announce', offset: -28, priority: 'Core', defaultMedia: 'Graphic', pieces: 3, brief: 'Open on the crowd.', where: 'Feed, story, event page' }),
+  UM('m2', 'Short-form: catch me in [city], using past show footage', { phase: 'Pre-Show · Announce', offset: -27, brief: 'Name the city.' }),
+  UM('m3', 'Ticket giveaway: artist talks to camera, send it to who you’re bringing, comment to enter (comps from the promoter)', { flow: CLIENT_FILMS_FLOW, brief: 'Straight to camera.' }),
+  UM('m4', '🎥 Film: ticket giveaway talk-to-camera + set preview snippet', { offset: -17, flow: FILM_SESSION_FLOW, priority: null, defaultMedia: null }),
+  UM('m5', '"This week" hype clip', { phase: 'Pre-Show · Final Week', offset: -3, priority: 'Core', brief: 'Fast cuts.' }),
+  UM('m6', 'Full set upload (only if the full set was recorded)', { playbook: 'Post-Show', phase: 'Post-Show · Week Two', offset: 14, brief: 'Long form.' }),
+  UM('m7', 'Sound design breakdown: how the drop was built', { playbook: 'Release Rollout', phase: 'Release Week', offset: 4, flow: CLIENT_FILMS_FLOW }),
+  UM('m8', '🎥 Film: vibing to the drop (vertical, 2–3 takes, different spots)', { playbook: 'Release Rollout', phase: 'Wk −4 · Announce', offset: -24, flow: FILM_SESSION_FLOW, priority: null, defaultMedia: null }),
+  UM('m9', '🎥 Film: studio session (making-of, hook snippet, jamming to the track)', { playbook: 'Release Rollout', phase: 'Wk −6 · Lock the Release', offset: -40, flow: FILM_SESSION_FLOW, priority: null, defaultMedia: null }),
+  UM('m10', 'Play it as an ID at every show until release, and tell the shooter which drop', { playbook: 'Release Rollout', phase: 'Wk −6 · Lock the Release', offset: -40, flow: 'Client task', owner: 'Client', type: 'Admin', priority: null, defaultMedia: null, why: 'A crowd reaction sells the drop.' }),
+  UM('m11', 'Clear the remix: written permission from the original artist’s team', { playbook: 'Remix Drop', phase: 'Remix · Setup', offset: -21, flow: 'Blueprint task', type: 'Admin', priority: null, defaultMedia: null }),
+  UM('m12', 'Drop day post with the link', { playbook: 'Remix Drop', phase: 'Remix · Drop Day', offset: 0, priority: 'Core' }),
+  // Retired: they keep their title and phase, and lose their playbook.
+  UM('r1', 'Energy clip from a past show with a city callout', { playbook: 'Retired', offset: -18, priority: 'Filler' }),
+  UM('r2', 'Sound design breakdown: how the drop was built', { playbook: 'Retired', phase: 'Sprint · Test', offset: -10, priority: 'Filler' }),
+  UM('r3', 'Release day post', { playbook: 'Retired', phase: 'Release Day', offset: 0, priority: 'Core' }),
+];
+
+{
+  const m = (title, playbook = 'Pre-Show') => matchMaster({ title, playbook }, UP_MASTERS);
+  is('match: a master’s own title, whatever the case or the quotes',
+     [m('"This week" hype clip').master.id, m('“THIS WEEK”  hype clip').by], ['m5', 'title']);
+  const city = m('Short-form: catch me in Austin, using past show footage');
+  is('match: a city standing in the master’s [city]', [city.master.id, city.by, city.city], ['m2', 'placeholder', 'Austin']);
+  is('match: a wording it had before the audit', [m('Announce: flyer, date, ticket link').master.id, m('Announce: flyer, date, ticket link').by], ['m1', 'alias']);
+  is('match: a wording with the client’s name in it',
+     [m('Ticket giveaway: Sean talks to camera, tag a friend to win').master.id, m('Ticket giveaway: Sean talks to camera, tag a friend to win').artist], ['m3', 'Sean']);
+  is('match: a wording with the track in it',
+     [m('🎥 Film: vibing to the Every Season drop (vertical, 2–3 takes, different spots)', 'Release Rollout').master.id,
+      m('🎥 Film: vibing to the Every Season drop (vertical, 2–3 takes, different spots)', 'Release Rollout').moment], ['m8', 'Every Season']);
+  const ret = m('Energy clip from a past show with a city callout');
+  is('match: a retired master, by its title and the playbook its phase names', [ret.master.id, ret.retired, ret.by], ['r1', true, 'retired']);
+  is('match: the same title can be live in one playbook and retired from another',
+     [m('Sound design breakdown: how the drop was built', 'Release Rollout').retired,
+      m('Sound design breakdown: how the drop was built', 'Release Sprint').retired], [false, true]);
+  is('match: Release Day is two playbooks’ phase, so a step retired there is found from either',
+     [m('Release day post', 'Release Rollout').retired, m('Release day post', 'Release Sprint').retired], [true, true]);
+  is('match: a retired title is not found from a playbook it was never in', m('Energy clip from a past show with a city callout', 'Post-Show'), null);
+  is('match: a title nobody knows is not guessed at',
+     [m('🎥 Shoot: artwork + clips'), m('Announce something'), matchMaster({ title: 'x', playbook: null }, UP_MASTERS)], [null, null, null]);
+  is('match: an old title that must keep its wording says why',
+     /ID/.test(m('Capture studio footage and test the track as an ID at shows (film the drop reaction)', 'Release Rollout').keep), true);
+  const named = m('Ticket giveaway: Sean talks to camera, send it to who you\u2019re bringing, comment to enter (comps from the promoter)');
+  is('match: a name standing where the master says "artist", so a step already updated is still recognised',
+     [named.master.id, named.by, named.artist], ['m3', 'placeholder', 'Sean']);
+  is('match: and then there is nothing to rename',
+     renameFor({ title: 'Ticket giveaway: Sean talks to camera, send it to who you\u2019re bringing, comment to enter (comps from the promoter)' }, named, 'Christmas Show', 'Sean Comma').title, null);
+  is('aliases: every one names a playbook and how its master starts', AUDIT_ALIASES.every((a) => a.playbook && a.master && (a.was || a.like || a.keep)), true);
+
+  const rn = (title, playbook, moment = 'Christmas Show') => renameFor({ title }, m(title, playbook), moment, 'Sean Comma');
+  is('rename: the city is kept, so a step already in the new wording is not renamed',
+     rn('Short-form: catch me in Austin, using past show footage', 'Pre-Show').title, null);
+  is('rename: to the master’s new title', rn('Announce: flyer, date, ticket link', 'Pre-Show').title,
+     'Announce: crowd clip ending on the flyer, flyer story, event banner');
+  is('rename: their name stays where the master says "artist"',
+     rn('Ticket giveaway: Sean talks to camera, tag a friend to win', 'Pre-Show').title.startsWith('Ticket giveaway: Sean talks to camera, send it to'), true);
+  is('rename: and a step that never named them gets the master’s word',
+     rn('Ticket giveaway: tag a friend to win', 'Pre-Show').title.startsWith('Ticket giveaway: artist talks to camera'), true);
+  is('rename: the track stays in a title that named it',
+     rn('🎥 Film: Every Season studio session (texture shots, hook snippet)', 'Release Rollout', 'Every Season').title,
+     '🎥 Film: Every Season studio session (making-of, hook snippet, jamming to the track)');
+  is('rename: a title already in the new wording, track and all, is left',
+     rn('🎥 Film: vibing to the Every Season drop (vertical, 2–3 takes, different spots)', 'Release Rollout', 'Every Season').title, null);
+  const kept = rn('Capture studio footage and test the track as an ID at shows (film the drop reaction)', 'Release Rollout', 'What If I Told You');
+  is('rename: a title that carries a second job is left, and says so', [kept.title, /Title left as it is/.test(kept.flag)], [null, true]);
+  is('rename: a retired step is never renamed', rn('Energy clip from a past show with a city callout', 'Pre-Show').title, null);
+}
+
+section('Update · what is frozen, retired, updated and added');
+
+const ustep = (id, title, date, o = {}) => ({ id, title, playbook: 'Pre-Show', phase: 'Pre-Show · Build', flow: 'Blueprint makes + posts',
+  status: 'Not Started', date, momentId: 'mo-show', priority: 'Standard', defaultMedia: 'Video', pieces: null,
+  offset: null, brief: null, where: null, why: null, notes: null, ...o });
+const upiece = (id, stepId, status, postDate, o = {}) => ({ id, title: `Piece of ${stepId}`, status, postDate, campaign: [stepId],
+  media: 'Video', postedBy: 'Blueprint', notes: null, ...o });
+const UP_MOMENTS = [
+  { id: 'mo-show', title: 'Christmas Show', date: '2026-12-13', momentType: 'Show' },
+  { id: 'mo-rel', title: 'Every Season', date: '2027-01-08', momentType: 'Release' },
+  { id: 'mo-old', title: 'If The Devil Had His Way', date: '2026-12-04', momentType: 'Release' },
+  { id: 'mo-remix', title: 'Christmas Remix', date: '2026-12-11', momentType: 'Release' },
+];
+const UP_OPTS = { today: '2026-11-16', artist: 'Sean Comma' };
+
+{
+  const steps = [
+    ustep('done', '"This week" hype clip', '2026-12-10', { status: 'Done', offset: -3 }),
+    ustep('skipped', 'Announce: flyer, date, ticket link', '2026-11-20', { status: 'Skipped' }),
+    ustep('moved', 'Announce: flyer, date, ticket link', '2026-11-21', { status: 'Moved' }),
+    ustep('past', 'Announce: flyer, date, ticket link', '2026-11-15', { offset: -28 }),
+    ustep('today', 'Announce: flyer, date, ticket link', '2026-11-16', { offset: -27 }),
+    ustep('making', 'Energy clip from a past show with a city callout', '2026-11-25', { offset: -18 }),
+    ustep('retire', 'Energy clip from a past show with a city callout', '2026-11-26', { offset: -17 }),
+    ustep('nobody', '🎥 Shoot: artwork + clips', '2026-11-27'),
+    ustep('held', 'Energy clip from a past show with a city callout', '2026-11-28'),
+    ustep('fine', '"This week" hype clip', '2026-12-10', { offset: -3, priority: 'Core', brief: 'Fast cuts.' }),
+  ];
+  const pieces = [
+    upiece('p-making', 'making', 'Editing', '2026-11-25'),
+    upiece('p-making2', 'making', 'Planned', '2026-11-25'),
+    upiece('p-retire', 'retire', 'Planned', '2026-11-26'),
+    upiece('p-retire-idea', 'retire', 'Skipped', '2026-11-26'),
+  ];
+  const plan = planUpdate(steps, UP_MOMENTS, UP_MASTERS, pieces, { ...UP_OPTS, exclude: ['held'] }, ['2026-11']);
+  const row = (id) => plan.rows.find((r) => r.stepId === id);
+  is('frozen: done, skipped and moved steps are never touched',
+     ['done', 'skipped', 'moved'].map((id) => [row(id).action, row(id).changes.length]), [['frozen', 0], ['frozen', 0], ['frozen', 0]]);
+  is('frozen: a step whose date has passed', [row('past').action, row('past').why], ['frozen', 'Its date, 2026-11-15, has passed.']);
+  is('frozen: today is not the past', row('today').action, 'update');
+  is('frozen: a step whose piece is already being made, and every piece it has',
+     [row('making').action, row('making').pieces, row('making').why], ['frozen', [], 'Its piece is already Editing.']);
+  is('retired: the step is skipped, with the audit’s name on it',
+     [row('retire').action, row('retire').changes, row('retire').note],
+     ['skip', [{ field: 'Status', from: 'Not Started', to: 'Skipped' }], 'Retired in playbook audit Nov 16']);
+  is('retired: its Planned pieces go with it, and only those',
+     row('retire').pieces.map((p2) => [p2.id, p2.status, p2.note]), [['p-retire', 'Skipped', 'Retired in playbook audit Nov 16']]);
+  is('unmatched: reported, and nothing is changed', [row('nobody').action, row('nobody').master, row('nobody').changes], ['unmatched', null, []]);
+  is('kept: a step left out on purpose is left out', [row('held').action, row('held').changes], ['kept', []]);
+  is('current: a step that already matches its master is not written', [row('fine').action, row('fine').changes], ['current', []]);
+  is('counts: one of each, and writes are a step plus its pieces',
+     [plan.counts.frozen, plan.counts.skip, plan.counts.update, plan.counts.unmatched, plan.counts.kept, plan.counts.current, plan.writes],
+     [5, 1, 1, 1, 1, 1, 3]);
+  is('months: a skipped Planned piece leaves the count, a piece being made does not',
+     plan.months[0].pieces, { before: 3, after: 2 });
+}
+
+{
+  // Updates: title, the fields, and the date.
+  const steps = [
+    ustep('ann', 'Announce: flyer, date, ticket link', '2026-11-18', { phase: 'Pre-Show · Announce', offset: -28, priority: 'Core', defaultMedia: 'Graphic', pieces: 3,
+      where: 'Old channel', why: 'Old reason', notes: 'Rescheduled Nov 9 (was Nov 15).' }),
+    ustep('give', 'Ticket giveaway: tag a friend to win', '2026-11-29', { offset: -14, priority: null, defaultMedia: null }),
+    ustep('set', 'Full set upload or long-form recap', '2027-01-09', { playbook: 'Post-Show', phase: 'Post-Show · Weeks 3–4', offset: 27 }),
+    ustep('set-hand', 'Full set upload or long-form recap', '2027-01-16', { playbook: 'Post-Show', offset: 27 }),
+    ustep('set-note', 'Full set upload or long-form recap', '2027-01-09', { playbook: 'Post-Show', offset: 27, notes: 'Hard deadline. Moved to Jan 9.' }),
+    ustep('set-none', 'Full set upload or long-form recap', '2027-01-09', { playbook: 'Post-Show', offset: null }),
+    ustep('set-old', 'Full set upload or long-form recap', '2026-12-31', { playbook: 'Post-Show', offset: 27, momentId: 'mo-old' }),
+    ustep('set-early', 'Full set upload or long-form recap', '2026-11-19', { playbook: 'Post-Show', offset: 18, momentId: 'mo-early' }),
+  ];
+  const moments = [...UP_MOMENTS, { id: 'mo-early', title: 'Early Show', date: '2026-11-01', momentType: 'Show' }];
+  const pieces = [
+    upiece('p-set', 'set', 'Planned', '2027-01-09'),
+    upiece('p-set-skipped', 'set', 'Skipped', '2027-01-09'),
+    upiece('p-set-hand', 'set-hand', 'Planned', '2027-01-16'),
+  ];
+  const plan = planUpdate(steps, moments, UP_MASTERS, pieces, { ...UP_OPTS, noDates: ['mo-old'] }, ['2026-12', '2027-01']);
+  const row = (id) => plan.rows.find((r) => r.stepId === id);
+  const changed = (id) => Object.fromEntries(row(id).changes.map((c) => [c.field, c.to]));
+  is('update: renamed to the master’s title', changed('ann').Item, 'Announce: crowd clip ending on the flyer, flyer story, event banner');
+  is('update: Brief, Where and the rest are copied from the master', [changed('ann').Brief, changed('ann').Where], ['Open on the crowd.', 'Feed, story, event page']);
+  is('update: a field the master leaves empty does not empty the step’s', 'Why It Matters' in changed('ann'), false);
+  is('update: a field that already agrees is not written', ['Priority', 'Default Media', 'Pieces'].filter((f) => f in changed('ann')), []);
+  is('update: it says what kind of update it is', [row('ann').why, row('give').why, row('set').why], ['rename + brief', 'rename + brief', 'rename + re-date + brief']);
+  is('update: Priority and Default Media are filled where the step had none', [changed('give').Priority, changed('give')['Default Media']], ['Standard', 'Video']);
+  is('update: Flow is never changed, only pointed out',
+     ['Flow' in changed('give'), row('give').flags.some((f) => /Flow is "Blueprint makes \+ posts"/.test(f))], [false, true]);
+
+  is('re-date: the master’s offset moved, so the date is the moment plus the new one',
+     [changed('set')['Offset (days)'], changed('set').Date], ['14', '2026-12-27']);
+  is('re-date: its Planned piece moves with it, and a Skipped one does not',
+     row('set').pieces.map((p2) => [p2.id, p2.postDate]), [['p-set', '2026-12-27']]);
+  is('re-date: a step that is not where its own offset puts it was placed by hand, and is left',
+     ['Date' in changed('set-hand'), row('set-hand').pieces, row('set-hand').flags.some((f) => /it sits on 2027-01-16, not the 2027-01-09/.test(f))], [false, [], true]);
+  is('re-date: Notes that say the date was set by hand leave it too',
+     ['Date' in changed('set-note'), row('set-note').flags.some((f) => /Notes say the date was set by hand/.test(f))], [false, true]);
+  is('re-date: a step with no offset has nothing to compare, so nothing is flagged or moved',
+     ['Date' in changed('set-none'), row('set-none').flags], [false, []]);
+  is('re-date: on a moment scheduled by hand the date is left and the rest still happens',
+     ['Date' in changed('set-old'), 'Item' in changed('set-old'), row('set-old').flags.some((f) => /scheduled by hand/.test(f))], [false, true, true]);
+  is('re-date: a new date that has already passed is flagged, and the date left',
+     ['Date' in changed('set-early'), row('set-early').flags.some((f) => /already past/.test(f))], [false, true]);
+  is('hand-dated: the three ways a date says a person chose it',
+     [handDated({ notes: 'Rescheduled Nov 9 (was Nov 15).', date: '2026-11-18', offset: -28 }, '2026-12-13') !== null,
+      handDated({ notes: null, date: '2026-11-18', offset: null }, '2026-12-13') !== null,
+      handDated({ notes: null, date: '2026-11-18', offset: -28 }, '2026-12-13') !== null,
+      handDated({ notes: 'Footage from the Nov 26 film session.', date: '2026-11-15', offset: -28 }, '2026-12-13')], [true, true, true, null]);
+
+  // Month counts: what exists, and what the month comes to once every open step has its piece.
+  const jan = plan.months.find((m) => m.month === '2027-01'), dec = plan.months.find((m) => m.month === '2026-12');
+  is('months: a re-dated piece leaves one month and joins another', [jan.pieces, dec.pieces], [{ before: 2, after: 1 }, { before: 0, after: 1 }]);
+  is('months: the projection adds the pieces open steps still owe', [jan.projected.before > jan.pieces.before, dec.projected.after >= dec.pieces.after], [true, true]);
+
+  // Written, then planned again: nothing left to do.
+  const after = applyPlan(steps, pieces, plan.rows);
+  const again = planUpdate(after.steps, moments, UP_MASTERS, after.pieces, { ...UP_OPTS, noDates: ['mo-old'] });
+  is('idempotent: run on its own result, it changes nothing', [again.counts.update, again.counts.skip, again.counts.add, again.writes], [0, 0, 0, 0]);
+  is('idempotent: the flags it could not act on are still said', again.rows.some((r) => r.flags.length), true);
+}
+
+{
+  // Adds: once per moment, only where nothing like it exists.
+  const steps = [
+    ustep('r-a', 'Full hook clip', '2027-01-08', { playbook: 'Release Rollout', momentId: 'mo-rel' }),
+    ustep('o-a', 'Full hook clip', '2026-12-04', { playbook: 'Release Rollout', momentId: 'mo-old' }),
+    ustep('x-a', 'Drop day post with the link', '2026-12-11', { playbook: 'Remix Drop', momentId: 'mo-remix' }),
+    ustep('s-a', '"This week" hype clip', '2026-12-10', { offset: -3, priority: 'Core', brief: 'Fast cuts.' }),
+  ];
+  const plan = planUpdate(steps, UP_MOMENTS, UP_MASTERS, [], UP_OPTS);
+  const adds = plan.rows.filter((r) => r.action === 'add');
+  is('add: the step the playbook gained, on each campaign that runs it and has nothing like it',
+     adds.map((r) => [r.momentId, r.date, r.add.flow]), [['mo-rel', '2026-11-29', 'Client task'], ['mo-remix', '2026-11-20', 'Blueprint task']]);
+  is('add: not when its day has already passed', adds.some((r) => r.momentId === 'mo-old'), false);
+  is('add: it brings the master’s offset, phase and reason', [adds[0].add.offset, adds[0].add.phase, adds[0].add.why], [-40, 'Wk −6 · Lock the Release', 'A crowd reaction sells the drop.']);
+  is('add: a campaign on another playbook gets nothing', adds.some((r) => r.momentId === 'mo-show'), false);
+  const has = planUpdate([...steps,
+    ustep('r-b', 'Capture studio footage and test the track as an ID at shows (film the drop reaction)', '2026-11-29', { playbook: 'Release Rollout', momentId: 'mo-rel', flow: FILM_SESSION_FLOW }),
+    ustep('x-b', 'Clear the remix: written permission from the original artist’s team', '2026-11-20', { playbook: 'Remix Drop', momentId: 'mo-remix', status: 'Done', flow: 'Blueprint task' }),
+  ], UP_MOMENTS, UP_MASTERS, [], UP_OPTS);
+  is('add: skipped when the campaign already has a step about playing the track as an ID, or the step itself in any status',
+     has.rows.filter((r) => r.action === 'add'), []);
+  is('add: never on a moment that is scheduled by hand',
+     planUpdate(steps, UP_MOMENTS, UP_MASTERS, [], { ...UP_OPTS, noDates: ['mo-rel', 'mo-remix'] }).rows.filter((r) => r.action === 'add'), []);
+  const after = applyPlan(steps, [], plan.rows);
+  is('add: once added, it is not added again',
+     planUpdate(after.steps, UP_MOMENTS, UP_MASTERS, [], UP_OPTS).rows.filter((r) => r.action === 'add'), []);
+  is('scope: only the moments asked for',
+     [...new Set(planUpdate(steps, UP_MOMENTS, UP_MASTERS, [], { ...UP_OPTS, moments: ['mo-remix'] }).rows.map((r) => r.momentId))], ['mo-remix']);
+}
+
+section('Update · the snapshot, and the checks after writing');
+
+{
+  const steps = [
+    ustep('a', 'Announce: flyer, date, ticket link', '2026-11-18', { phase: 'Pre-Show · Announce', offset: -28, notes: 'Keep me.', brief: 'Old brief' }),
+    ustep('b', 'Energy clip from a past show with a city callout', '2026-11-26', { offset: -17, notes: 'First line.' }),
+    ustep('c', 'Full set upload or long-form recap', '2027-01-09', { playbook: 'Post-Show', offset: 27 }),
+    ustep('d', '"This week" hype clip', '2026-12-10', { status: 'Done', offset: -3 }),
+  ];
+  const pieces = [upiece('pb', 'b', 'Planned', '2026-11-26', { notes: 'Piece note.' }), upiece('pc', 'c', 'Planned', '2027-01-09'),
+                  upiece('pd', 'd', 'Posted', '2026-12-10')];
+  const plan = planUpdate(steps, UP_MOMENTS, UP_MASTERS, pieces, UP_OPTS);
+  const row = (id) => plan.rows.find((r) => r.stepId === id);
+  const wa = stepWrite(row('a'), steps[0]);
+  is('write: a rename and a brief, stamped as ours, and Notes left alone',
+     [wa.Item.title[0].text.content, wa.Brief.rich_text[0].text.content, wa['Last Edited By'].select.name, 'Notes' in wa],
+     ['Announce: crowd clip ending on the flyer, flyer story, event banner', 'Open on the crowd.', 'Blueprint', false]);
+  const wb = stepWrite(row('b'), steps[1]);
+  is('write: a skip appends the note under what was there', [wb.Status.select.name, wb.Notes.rich_text[0].text.content],
+     ['Skipped', 'First line.\nRetired in playbook audit Nov 16']);
+  is('write: the note is not written twice',
+     stepWrite(row('b'), { ...steps[1], notes: 'First line.\nRetired in playbook audit Nov 16' }).Notes.rich_text[0].text.content, 'First line.\nRetired in playbook audit Nov 16');
+  const wc = stepWrite(row('c'), steps[2]);
+  is('write: a re-date sets the day and the offset together', [wc.Date.date.start, wc['Offset (days)'].number], ['2026-12-27', 14]);
+  is('write: a piece follows its step', [pieceWrite(row('b').pieces[0], pieces[0]).Status.select.name, pieceWrite(row('c').pieces[0], pieces[1])['Post Date'].date.start],
+     ['Skipped', '2026-12-27']);
+
+  const ra = stepRestore(row('a'), steps[0]);
+  is('restore: exactly the fields that were changed, as they were',
+     [Object.keys(ra).sort(), ra.Item.title[0].text.content, ra.Brief.rich_text[0].text.content],
+     [Object.keys(wa).filter((k) => k !== 'Last Edited By').sort(), 'Announce: flyer, date, ticket link', 'Old brief']);
+  const rb = stepRestore(row('b'), steps[1]);
+  is('restore: a skipped step gets its status and its Notes back', [rb.Status.select.name, rb.Notes.rich_text[0].text.content], ['Not Started', 'First line.']);
+  is('restore: a re-dated step gets its day and offset back', [stepRestore(row('c'), steps[2]).Date.date.start, stepRestore(row('c'), steps[2])['Offset (days)'].number], ['2027-01-09', 27]);
+  is('restore: a piece gets back what it held',
+     [pieceRestore(row('b').pieces[0], pieces[0]).Status.select.name, pieceRestore(row('b').pieces[0], pieces[0]).Notes.rich_text[0].text.content,
+      pieceRestore(row('c').pieces[0], pieces[1])['Post Date'].date.start], ['Planned', 'Piece note.', '2027-01-09']);
+
+  const snap = buildSnapshot('3f7c8be8-be72-8123-a420-fb9aef6bc0e9', '2026-11-16T21:00:00.000Z', 'hq', plan.rows, { steps, pieces });
+  is('snapshot: every row the run will touch, steps and pieces, and none it will not',
+     snap.rows.map((r) => `${r.kind}:${r.id}`), ['step:a', 'step:b', 'piece:pb', 'step:c', 'piece:pc']);
+  is('snapshot: it carries how things stood, for the checks', [snap.baseline.pastPlanned, Object.keys(snap.baseline.done)], [{ '2026-12': 1 }, ['d']]);
+  const key = snapshotKey(snap.clientId, snap.at);
+  is('snapshot: kept under the client, named for when it ran', key, 'hq/playbook-updates/3f7c8be8-be72-8123-a420-fb9aef6bc0e9/2026-11-16T21-00-00-000Z.json'.replace(/3f7c8be8-be72-8123-a420-fb9aef6bc0e9/, snapshotPrefix(snap.clientId).split('/')[2]));
+  is('snapshot: a key is only ever one of this client’s runs',
+     [isSnapshotKey(key, snap.clientId), isSnapshotKey(key, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+      isSnapshotKey(`${snapshotPrefix(snap.clientId)}../../reports/x.json`, snap.clientId), isSnapshotKey(`reports/sean-comma/2026-11.pdf`, snap.clientId), isSnapshotKey(7, snap.clientId)],
+     [true, false, false, false, false]);
+  is('snapshot: not under any prefix a client’s session may read', /^(reports|audits|briefs)\//.test(key), false);
+
+  // A bucket that is an object in memory.
+  const store = new Map();
+  const bucket = { put: async (k, v) => { store.set(k, v); }, get: async (k) => (store.has(k) ? { text: async () => store.get(k) } : null),
+    list: async ({ prefix }) => ({ objects: [...store.keys()].filter((k) => k.startsWith(prefix)).map((k) => ({ key: k })), truncated: false }) };
+  const k1 = await putSnapshot(bucket, snap);
+  const k2 = await putSnapshot(bucket, { ...snap, at: '2026-11-17T09:00:00.000Z' });
+  await putSnapshot(bucket, { ...snap, clientId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', at: '2026-12-01T00:00:00.000Z' });
+  is('snapshot: read back whole', (await getSnapshot(bucket, k1)).rows.length, 5);
+  is('snapshot: the newest run is this client’s newest, not anybody’s', await latestSnapshotKey(bucket, snap.clientId), k2);
+  is('snapshot: a key with nothing behind it is nothing', await getSnapshot(bucket, 'hq/playbook-updates/none.json'), null);
+
+  // The checks.
+  const base = baselineOf(steps, pieces);
+  const after = applyPlan(steps, pieces, plan.rows);
+  is('checks: a clean run passes all three', checkUpdate(base, after.steps, after.pieces, UP_MOMENTS, UP_MASTERS), []);
+  is('checks: a piece past Planned that moved or vanished is a failure',
+     checkUpdate(base, after.steps, after.pieces.map((p2) => (p2.id === 'pd' ? { ...p2, status: 'Skipped' } : p2)), UP_MOMENTS, UP_MASTERS),
+     ['Pieces past Planned in 2026-12 went from 1 to 0']);
+  is('checks: a Done step that changed is a failure',
+     checkUpdate(base, after.steps.map((s2) => (s2.id === 'd' ? { ...s2, brief: 'Touched' } : s2)), after.pieces, UP_MOMENTS, UP_MASTERS),
+     ['A Done step changed: ""This week" hype clip"']);
+  is('checks: two open steps from one master on one moment is a failure',
+     checkUpdate(base, [...after.steps, ustep('dup', 'Announce: flyer, date, ticket link', '2026-11-19')], after.pieces, UP_MOMENTS, UP_MASTERS),
+     ['Christmas Show has 2 open steps from "Announce: crowd clip ending on the flyer, flyer story, event banner"']);
+  is('checks: a closed duplicate is not one', duplicateMasters([...after.steps, ustep('dup', 'Announce: flyer, date, ticket link', '2026-11-19', { status: 'Skipped' })], UP_MOMENTS, UP_MASTERS), []);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

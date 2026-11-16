@@ -59,6 +59,9 @@ export interface DrawerHost {
   reviewAct?: (c: PortalContentItem, action: ReviewAction) => void;
   /** HQ only: whose card this is. */
   clientOf?: (c: PortalContentItem) => string | null;
+  /** The brief on the campaign step this card delivers, when it has
+   *  one. It is written on the step, so the card borrows it. */
+  briefOf?: (c: PortalContentItem) => string | null;
 }
 
 /** A read-only line: a label and what it says. */
@@ -201,6 +204,15 @@ export function fillContentDrawer(host: DrawerHost, c: PortalContentItem, body: 
       row.appendChild(b);
     }
     box.appendChild(row);
+    body.appendChild(box);
+  }
+
+  /* the brief: what this piece is meant to be */
+  const brief = (host.briefOf?.(c) ?? '').trim();
+  if (brief) {
+    const box = el('div', 'pt-brief');
+    box.dataset.brief = '1';
+    box.append(el('strong', undefined, 'Brief'), el('span', undefined, brief));
     body.appendChild(box);
   }
 

@@ -22,6 +22,8 @@ import { isDeliverableFlow, isPieceMedia, isPriority, MAX_PIECES } from '../data
 import {
   CHANGE_TYPES,
   OVERRIDE_STATUSES,
+  RETIRED_PLAYBOOK,
+  isRetiredPlaybook,
   type MasterStep,
   type OpenStep,
   type PlannedStep,
@@ -83,6 +85,7 @@ export function shapeMaster(page: any): MasterStep | null {
     priority: readSelect(p['Priority']),
     defaultMedia: readSelect(p['Default Media']),
     pieces: readNumber(p['Pieces']),
+    brief: readText(p['Brief']),
   };
 }
 
@@ -258,6 +261,20 @@ export function buildMasterProperties(body: Record<string, unknown>, vocab: Mast
     if (v !== undefined) props['Notes'] = richText(v);
     else rejected.push('notes');
   }
+  if ('brief' in body) {
+    const v = text(body.brief, MAX_STEP_NOTES);
+    if (v !== undefined) props['Brief'] = richText(v);
+    else rejected.push('brief');
+  }
+  // Moving a step between playbooks is how one is retired and how one
+  // is restored. Only to a playbook some master is already in, or to
+  // Retired, so a typo cannot found a new playbook.
+  if ('playbook' in body) {
+    const to = body.playbook;
+    if (typeof to === 'string' && (vocab.playbooks.includes(to) || isRetiredPlaybook(to))) {
+      props['Playbook'] = selectOf(isRetiredPlaybook(to) ? RETIRED_PLAYBOOK : to);
+    } else rejected.push('playbook');
+  }
   // What the step says about the piece it owes. Each can be cleared
   // with null. Nothing is sent that Notion does not already have an
   // option for, and Pieces is a small whole number or nothing.
@@ -293,7 +310,7 @@ export function buildNewMaster(
   for (const need of ['Item', 'Offset (days)', 'Flow', 'Phase']) {
     if (!built.properties[need]) built.rejected.push(`missing:${need}`);
   }
-  if (!playbook) built.rejected.push('playbook');
+  if (!playbook && !built.rejected.includes('playbook')) built.rejected.push('playbook');
   if (!playbook) return { ...built, playbook };
 
   const sibling = masters.find((m) => m.playbook === playbook && m.momentId);
@@ -419,6 +436,7 @@ export function stepProperties(
     Type: selectOf(step.type === 'Content' || step.type === 'Admin' ? step.type : null),
     Status: selectOf('Not Started'),
     Notes: richText(step.notes ? step.notes.slice(0, MAX_STEP_NOTES) : null),
+    Brief: richText(step.brief ? step.brief.slice(0, MAX_STEP_NOTES) : null),
     Where: richText(step.where ? step.where.slice(0, MAX_STEP_NOTES) : null),
     'Why It Matters': richText(step.why ? step.why.slice(0, MAX_STEP_NOTES) : null),
     'Last Edited By': selectOf('Blueprint'),

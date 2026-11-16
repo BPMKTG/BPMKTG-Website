@@ -1055,6 +1055,7 @@ const NAV = [
         owner: r.owner,
         flow: r.flow,
         notes: r.notes,
+        brief: r.brief ?? null,
         playbook: null,
         phase: null,
         where: null,
@@ -1459,6 +1460,14 @@ const NAV = [
       list.append(el('dt', undefined, k2), el('dd', undefined, v));
     }
     body.appendChild(list);
+
+    const brief = String((it as any).brief ?? '').trim();
+    if (brief) {
+      const box = el('div', 'pt-brief');
+      box.dataset.brief = '1';
+      box.append(el('h3', undefined, 'Brief'), el('p', undefined, brief));
+      body.appendChild(box);
+    }
 
     const note = oneLine((it as any).notes);
     if (note) {
@@ -1894,6 +1903,14 @@ const NAV = [
                        ...(HQ?.contentSchema ?? {}) }),
       voice: hqVoice,
       momentOf: hqMomentOf,
+      // The brief is on the step the card delivers.
+      briefOf: (card) => {
+        const ids = card.campaign.map((id) => id.replace(/-/g, ''));
+        if (!ids.length) return null;
+        const step = ((HQ?.calendar ?? []) as Array<{ id: string; brief?: string | null }>)
+          .find((r) => ids.includes(r.id.replace(/-/g, '')));
+        return step?.brief ?? null;
+      },
       campaigns: (card) => [...momentsNow().values()]
         .filter((m) => m.clientSlug === (card as any).clientSlug)
         .map((m) => ({ id: m.id, title: m.title })),

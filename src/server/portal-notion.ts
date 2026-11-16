@@ -367,6 +367,7 @@ export async function fetchCalendar(
         ticketsSold: readNumber(p[CALENDAR_FIELDS[15]]),
         capacity: readNumber(p[CALENDAR_FIELDS[16]]),
         flow: readSelect(p[CALENDAR_FIELDS[17]]),
+        brief: readText(p[CALENDAR_FIELDS[18]]),
       },
     });
   }

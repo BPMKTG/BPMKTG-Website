@@ -26,6 +26,8 @@ import {
   byPhase,
   effectivePlaybook,
   isRetiredPlaybook,
+  playbooksOfPhase,
+  retiredMasters,
   offsetLabel,
   overrideProblem,
   playbookNames,
@@ -41,6 +43,7 @@ import { shortDay, CONTENT_MEDIA } from '../data/portal-content';
 import { isDeliverableFlow, pieceCount, MAX_PIECES, PRIORITIES } from '../data/pieces';
 import { clear, el, icon } from './portal-dom';
 import { openSheet, sheetField, sheetSubmit } from './portal-sheet';
+import { openPlaybookUpdate } from './portal-playbook-update';
 
 export interface Answer { ok: boolean; status: number; json: Record<string, any> | null }
 export type Send = (method: 'GET' | 'POST' | 'PATCH', url: string, body?: unknown) => Promise<Answer>;
@@ -111,6 +114,8 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
   let clientId = '';
   /** The master step being edited in place, or 'new'. */
   let editing = '';
+  /** Whether the Retired section is open. It starts closed. */
+  let retiredOpen = false;
 
   const redraw = () => { if (ROOT?.isConnected) draw(ROOT); };
 
@@ -222,7 +227,7 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     const ctSaid = el('span', 'pt-pb-said');
     const sayCount = () => {
       const n = count.value === '' ? 1 : Number(count.value);
-      ctSaid.textContent = n === 3 ? 'IG post, IG story, event banner' : n > 1 ? `${n} rows, numbered` : 'blank is one';
+      ctSaid.textContent = n === 3 ? 'feed clip, IG story, event banner' : n > 1 ? `${n} rows, numbered` : 'blank is one';
     };
     count.addEventListener('input', sayCount);
     sayCount();
@@ -232,6 +237,13 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     const showOwes = () => { owes.hidden = !isDeliverableFlow(flow.value); };
     flow.addEventListener('change', showOwes);
     showOwes();
+
+    const brief = el('textarea', 'pt-input pt-textarea') as HTMLTextAreaElement;
+    brief.rows = 3;
+    brief.maxLength = 2000;
+    brief.value = step?.brief ?? '';
+    brief.placeholder = 'How to make it. The client reads this on the step and on the piece.';
+    form.appendChild(sheetField('Brief', brief));
 
     const notes = el('textarea', 'pt-input pt-textarea') as HTMLTextAreaElement;
     notes.rows = 2;
@@ -277,6 +289,7 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
       const next = {
         title: title.value.trim(), offset: Number(offset.value), flow: flow.value,
         phase: phase.value, notes: notes.value.trim() || null,
+        brief: brief.value.trim() || null,
         priority: delivers ? priority.value || null : null,
         defaultMedia: delivers ? media.value || null : null,
         pieces: delivers ? nPieces : null,
@@ -307,6 +320,7 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
       if (next.flow !== step.flow) { patch.flow = next.flow; lines.push(`Flow: ${step.flow ?? 'none'} becomes ${next.flow}. Owner follows it.`); }
       if (next.phase !== step.phase) { patch.phase = next.phase; lines.push(`Phase: ${step.phase ?? 'none'} becomes ${next.phase}.`); }
       if ((next.notes ?? '') !== (step.notes ?? '')) { patch.notes = next.notes; lines.push('Notes are updated.'); }
+      if ((next.brief ?? '') !== (step.brief ?? '')) { patch.brief = next.brief; lines.push('The brief is updated. Clients see it on new campaigns.'); }
       if (next.priority !== (step.priority ?? null)) { patch.priority = next.priority; lines.push(`Priority: ${step.priority ?? 'not set'} becomes ${next.priority ?? 'not set'}.`); }
       if (next.defaultMedia !== (step.defaultMedia ?? null)) { patch.defaultMedia = next.defaultMedia; lines.push(`Default media: ${step.defaultMedia ?? 'not set'} becomes ${next.defaultMedia ?? 'not set'}.`); }
       if (next.pieces !== (step.pieces ?? null)) { patch.pieces = next.pieces; lines.push(`Pieces: ${pieceCount(step.pieces ?? null)} becomes ${pieceCount(next.pieces)}.`); }
@@ -677,6 +691,15 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     apply.addEventListener('click', applyToMoment);
     // Retired steps are kept to be read, not run.
     apply.hidden = isRetiredPlaybook(playbook);
+    // The other direction: campaigns already running, brought up to
+    // the playbooks as they are now. A dry run first, always.
+    const update = el('button', 'pt-btn', 'Update campaigns to current playbook');
+    update.type = 'button';
+    update.dataset.updateCampaigns = '1';
+    update.addEventListener('click', () => openPlaybookUpdate(
+      { send: host.send, toast: host.toast, changed: () => host.calendarChanged() },
+      { pageId: clientId, name: clientName() }));
+    head.appendChild(update);
     const add = el('button', 'pt-btn pt-btn-primary');
     add.type = 'button';
     add.append(icon('plus'), el('span', undefined, 'Override'));
@@ -734,6 +757,7 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
 
     const main = el('div', 'pt-pb-main');
     main.appendChild(mark(el('span', 'pt-pb-title', s.title), s.was.title, 'Title'));
+    if (s.brief) main.appendChild(el('span', 'pt-pb-brief', s.brief));
     if (s.notes) main.appendChild(el('span', 'pt-pb-notes', s.notes));
     li.appendChild(main);
 
@@ -846,6 +870,79 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     body.appendChild(timeline());
     if (clientId) body.appendChild(overridesPanel());
     root.appendChild(body);
+    // The masters as they are, and only there: a client's version of
+    // a playbook has nothing retired in it to show.
+    if (!clientId) {
+      const menu = retiredSection();
+      if (menu) root.appendChild(menu);
+    }
+  }
+
+  /**
+   * Retired / menu.
+   *
+   * Steps taken out of a playbook without being thrown away: never
+   * applied, never shown inside a playbook, and here to be read and
+   * put back. Closed until asked for, because it is a cupboard and
+   * not part of the plan.
+   */
+  function retiredSection(): HTMLElement | null {
+    const retired = retiredMasters(masters ?? []);
+    if (!retired.length) return null;
+    const names = playbookNames(masters ?? []);
+    const box = el('details', 'pt-pb-retired') as HTMLDetailsElement;
+    box.dataset.retired = '1';
+    box.open = retiredOpen;
+    box.addEventListener('toggle', () => { retiredOpen = box.open; });
+    const sum = el('summary', 'pt-pb-retired-head');
+    sum.append(el('span', undefined, 'Retired / menu'),
+      el('span', 'pt-board-count pt-num', String(retired.length)),
+      el('span', 'pt-pb-retired-note', 'Kept to pick from. Never applied to a campaign.'));
+    box.appendChild(sum);
+    const list = el('ol', 'pt-pb-steps');
+    for (const m of retired) {
+      const li = el('li', 'pt-pb-step pt-pb-step-retired');
+      li.dataset.step = m.id;
+      li.appendChild(el('span', 'pt-pb-when pt-num', offsetLabel(m.offset)));
+      const main = el('div', 'pt-pb-main');
+      main.appendChild(el('span', 'pt-pb-title', m.title));
+      main.appendChild(el('span', 'pt-pb-notes', m.phase ?? 'No phase'));
+      li.appendChild(main);
+      const tags = el('div', 'pt-pb-tags');
+      if (m.flow) tags.appendChild(el('span', 'pt-tag pt-tag-flow', m.flow));
+      if (m.priority) {
+        const pr = el('span', 'pt-tag pt-pb-priority', m.priority);
+        pr.dataset.priority = m.priority;
+        tags.appendChild(pr);
+      }
+      li.appendChild(tags);
+      // Where it came from is written in its phase. One phase belongs
+      // to two playbooks, and then both are offered.
+      const homes = playbooksOfPhase(m.phase).filter((n) => names.includes(n));
+      const acts = el('div', 'pt-pb-restore');
+      for (const home of homes.length ? homes : names) {
+        const b = el('button', 'pt-pb-act', `Restore to ${home}`);
+        b.type = 'button';
+        b.addEventListener('click', () => {
+          confirmMaster('Restore this step?',
+            [`"${m.title}" goes back into ${home}, ${offsetLabel(m.offset).toLowerCase()}.`,
+             'Campaigns already running are not changed.'], `Restore to ${home}`, async () => {
+              const res = await host.send('PATCH', `/portal/hq/playbooks/step/${m.id}`, { playbook: home });
+              if (!res.ok || !res.json?.step) { host.toast(why(res, 'That did not save.'), true); return false; }
+              masters = (masters ?? []).map((x) => (x.id === m.id ? res.json!.step as MasterStep : x));
+              playbook = home;
+              host.toast(`Restored to ${home}`);
+              redraw();
+              return true;
+            });
+        });
+        acts.appendChild(b);
+      }
+      li.appendChild(acts);
+      list.appendChild(li);
+    }
+    box.appendChild(list);
+    return box;
   }
 
   return { draw };

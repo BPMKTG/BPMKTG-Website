@@ -33,3 +33,10 @@ export * from '../src/server/playbooks';
 // two in step, and what to trim from a month that is over.
 export * from '../src/data/pieces';
 export { pieceProperties, shapeStep, shapePiece, PIECE_WRITE_BUDGET } from '../src/server/pieces';
+// "Update campaigns to current playbook": the plan, and the snapshot
+// that makes it undoable.
+export * from '../src/data/playbook-update';
+export {
+  buildSnapshot, isSnapshotKey, pieceRestore, pieceWrite, snapshotKey, snapshotPrefix,
+  stepRestore, stepWrite, latestSnapshotKey, getSnapshot, putSnapshot,
+} from '../src/server/playbook-update';

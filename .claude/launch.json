@@ -22,7 +22,9 @@
         "8788",
         "--compatibility-date=2025-01-01",
         "--kv",
-        "PORTAL_KV"
+        "PORTAL_KV",
+        "--r2",
+        "REPORTS_BUCKET"
       ],
       "port": 8788
     }

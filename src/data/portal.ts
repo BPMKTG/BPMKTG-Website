@@ -89,6 +89,9 @@ export const CALENDAR_FIELDS = [
   'Tickets Sold',
   'Capacity',
   'Flow',
+  // How to make it. Written for the client to read: it is on the step
+  // they open and on the piece that step delivers.
+  'Brief',
 ] as const;
 
 export const CALENDAR_NEVER_SEND = ['Notes', 'Offset (days)', 'Is Playbook', 'Hide from Client'] as const;
@@ -1031,6 +1034,8 @@ export interface PortalCalendarItem {
   phase: string | null;
   where: string | null;
   whyItMatters: string | null;
+  /** The creative brief. Absent on rows read before the field existed. */
+  brief?: string | null;
   venueCity: string | null;
   ticketLink: string | null;
   /** Who makes it and who posts it, as Notion's Flow select says it.

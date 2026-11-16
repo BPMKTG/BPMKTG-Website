@@ -120,10 +120,10 @@ export interface PlannedPiece {
 
 /* ── plan: what a step's rows say ─────────────────────────────── */
 
-/** The three rows a flyer announce is: the same artwork, cut for the
- *  feed, for a story, and as the event page banner. */
+/** The three rows a show announce is: a crowd clip for the feed that
+ *  ends on the flyer, the flyer as a story, and the event page banner. */
 export const FLYER_SET: ReadonlyArray<{ suffix: string; media: string }> = [
-  { suffix: ' · IG post', media: 'Graphic' },
+  { suffix: ' · Feed clip', media: 'Video' },
   { suffix: ' · IG story', media: 'Story' },
   { suffix: ' · Event banner', media: 'Graphic' },
 ];

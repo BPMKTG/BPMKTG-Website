@@ -371,8 +371,63 @@ page repeats the request until nothing is. If one is interrupted,
 running it again finishes it.
 
 **Retired.** A master whose Playbook is "Retired" is kept to be read and
-is not a playbook: it is not shown to clients and cannot be applied to
-a moment. HQ → Playbooks lists it last.
+is not a playbook: it is not shown to clients, never appears inside one
+of the six playbooks, and cannot be applied to a moment. HQ → Playbooks
+lists these in a closed "Retired / menu" section, each with "Restore to
+[playbook]". The playbook it came from is read off its Phase.
+
+**Brief.** A text property on Campaign Calendar: how to make the piece
+or do the job. It is edited on masters in HQ, copied to steps when a
+playbook is applied, and shown to the client on the step and on the
+piece that step delivers (the piece borrows it through Campaign; the
+Content Pipeline has no Brief of its own). It is on the client
+whitelist in `CALENDAR_FIELDS`. Notes are still ours only.
+
+## Updating running campaigns to the current playbook
+
+When the masters change, campaigns already on a calendar do not: they
+were copied, and nothing links a copy to its master. HQ → Playbooks →
+pick a client → **Update campaigns to current playbook** brings them up
+to date in place. It never applies a playbook. The plan is made in
+`src/data/playbook-update.ts`; the endpoint is
+`POST /portal/hq/playbooks/update`.
+
+It opens on a dry run and writes only when the button is pressed.
+
+- **Match.** Each step is matched to a master by Playbook and title: the
+  master's own title, the master's with a city or the client's name
+  where it says `[city]` or "artist", a retired master's title (found
+  through its Phase), or an old wording listed in `AUDIT_ALIASES`. A
+  step that matches none of those is reported as unmatched and left
+  alone. Add to `AUDIT_ALIASES` when a master is renamed again.
+- **Frozen, never changed.** Done, Skipped or Moved; dated before
+  today; or with a linked piece past Planned (the step and its pieces).
+- **Retired master.** The step is Skipped with "Retired in playbook
+  audit Nov 16" added to Notes, and so are its Planned pieces.
+- **Otherwise.** The title becomes the master's, keeping a city, a
+  track name or the client's name that was already in it. Brief,
+  Priority, Default Media, Pieces, Where and Why It Matters are copied
+  where the master has them. If the master's offset changed, the date
+  becomes the moment's date plus the new offset and Planned pieces move
+  with it, unless the new date is past or the date was set by hand.
+  Flow and Owner are never changed.
+- **Set by hand** means: Notes mention a reschedule or a hard deadline,
+  the step has no offset, or it is not on the day its own offset gives.
+  Those keep their date and are flagged with what it would have been.
+- **Adds.** Only the steps named in `AUDIT_ADDS`, once per moment, when
+  the campaign has nothing like them and the date is today or later.
+
+Two switches on the sheet change the plan: "Scheduled by hand: no date
+changes" on a moment, and unticking a step to leave it out.
+
+Before the first write, every row the run will touch is saved to R2
+under `hq/playbook-updates/<client>/<timestamp>.json`, which is not a
+prefix any client session can read. With no bucket bound it refuses to
+write. "Undo last update" restores every row from that file and
+archives any step the run added. After writing, three things are
+checked against Notion and shown as a failure if any is false: no
+moment has two open steps from one master, every month has as many
+pieces past Planned as before, and no Done step changed.
 
 ---
 
@@ -503,7 +558,7 @@ one:
 
 ```bash
 npx wrangler kv namespace create PORTAL_KV --preview
-npx wrangler pages dev dist --kv PORTAL_KV --port 8788 --compatibility-date=2026-01-01
+npx wrangler pages dev dist --kv PORTAL_KV --r2 REPORTS_BUCKET --port 8788 --compatibility-date=2026-01-01
 ```
 
 or leave it unbound and accept that `/portal/login/start` will log

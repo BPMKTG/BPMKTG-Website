@@ -1320,6 +1320,13 @@ const NAV = [
       body.appendChild(mv);
     }
 
+    if (it.brief) {
+      const brief = el('div', 'pt-brief');
+      brief.dataset.brief = '1';
+      brief.append(el('strong', undefined, 'Brief'), el('span', undefined, it.brief));
+      body.appendChild(brief);
+    }
+
     if (it.whyItMatters) {
       const why = el('div', 'pt-why');
       why.appendChild(el('strong', undefined, 'Why it matters'));
@@ -1426,6 +1433,14 @@ const NAV = [
     return cardMoment(c, conMomentIndex());
   }
   const conMoment = (c: PortalContentItem): string | null => conMomentRef(c)?.title ?? null;
+  /** The brief on the step a card delivers. The card is linked to the
+   *  step through Campaign, and the step is in the same payload. */
+  function conBrief(c: PortalContentItem): string | null {
+    if (!c.campaign.length) return null;
+    const ids = c.campaign.map((id) => id.replace(/-/g, ''));
+    const step = (DATA?.calendar ?? []).find((it) => ids.includes(it.id.replace(/-/g, '')));
+    return step?.brief ?? null;
+  }
 
   /** Built once per calendar payload, not once per card. */
   let MOMENT_IDX: { of: unknown; idx: ReturnType<typeof cardMomentIndex> } | null = null;
@@ -1806,6 +1821,7 @@ const NAV = [
       schema: () => CON.schema,
       voice: conVoice,
       momentOf: conMoment,
+      briefOf: conBrief,
       campaigns: () => campaigns().map((m) => ({ id: m.id, title: m.title })),
       save: (card, patch, local) => saveCard(card.id, patch, local),
       toast,
