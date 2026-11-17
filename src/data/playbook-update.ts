@@ -55,6 +55,11 @@ export interface UpdateOptions {
    *  briefs are still brought up to date, no date is changed, and
    *  nothing is added. */
   noDates?: readonly string[];
+  /** Moments where a date set by hand may be moved all the same. For
+   *  a campaign that is being brought into line on purpose: a step
+   *  goes to the day the playbook now gives it, unless that day has
+   *  already passed. `noDates` wins if a moment is in both. */
+  redate?: readonly string[];
   /** Steps to leave exactly as they are, whatever the plan says. */
   exclude?: readonly string[];
   /** Only these moments. Absent means every moment the client has. */
@@ -246,6 +251,15 @@ export const AUDIT_ADDS: ReadonlyArray<{ playbook: string; master: string; skipI
   { playbook: 'Release Rollout', master: 'Play it as an ID at every show',
     skipIf: /\bID\b[^.]*\b(?:show|shows|rave)\b|\b(?:play|test)\w*\b[^.]*\bas an ID\b/i },
   { playbook: 'Remix Drop', master: 'Clear the remix', skipIf: /^clear the remix\b/i },
+  // The hit checks, added to the masters on 17 November. Release
+  // Rollout has two steps that start "Hit check": the older one picks
+  // the cut for the announce and is a rename, not an add, so each
+  // pattern here is the opening of one master and no other.
+  { playbook: 'Release Rollout', master: 'Hit check: if a clip is at', skipIf: /^hit check: if a clip is at\b/i },
+  { playbook: 'Release Sprint', master: 'Hit check: if a clip is at', skipIf: /^hit check: if a clip is at\b/i },
+  { playbook: 'Remix Drop', master: 'Hit check: if the tease is at', skipIf: /^hit check: if the tease is at\b/i },
+  { playbook: 'Pre-Show', master: 'Hit check: if a show clip is at', skipIf: /^hit check: if a show clip is at\b/i },
+  { playbook: 'Post-Show', master: 'Hit check: if a show clip is at', skipIf: /^hit check: if a show clip is at\b/i },
 ];
 
 /* ── match ────────────────────────────────────────────────────── */
@@ -387,6 +401,7 @@ export function planUpdate(
 ): UpdatePlan {
   const { today } = opts;
   const noDates = new Set((opts.noDates ?? []).map(sameId));
+  const redate = new Set((opts.redate ?? []).map(sameId));
   const excluded = new Set((opts.exclude ?? []).map(sameId));
   const only = opts.moments ? new Set(opts.moments.map(sameId)) : null;
   const momentOf = new Map(moments.map((m) => [sameId(m.id), m]));
@@ -469,7 +484,9 @@ export function planUpdate(
     if (typeof step.offset === 'number' && typeof m.offset === 'number' && step.offset !== m.offset) {
       const due = moment?.date ? addDaysIso(moment.date, m.offset) : null;
       const moved = `The master moved from ${step.offset} to ${m.offset} days`;
-      const hand = handDated(step, moment?.date ?? null);
+      // On a moment being brought into line on purpose, a date set by
+      // hand does not hold the step back.
+      const hand = redate.has(sameId(step.momentId)) ? null : handDated(step, moment?.date ?? null);
       if (noDates.has(sameId(step.momentId))) {
         row.flags.push(`${moved}. This moment is scheduled by hand, so the date is left${due ? ` (it would be ${due})` : ''}.`);
       } else if (hand) {
@@ -513,7 +530,9 @@ export function planUpdate(
     if (noDates.has(sameId(moment.id)) || !moment.date) continue;
     const here = steps.filter((s) => sameId(s.momentId) === sameId(moment.id));
     for (const add of AUDIT_ADDS) {
-      if (!here.some((s) => s.playbook === add.playbook)) continue;
+      // Only a campaign that is still running this playbook: one with
+      // a step of it that is not done, skipped or moved.
+      if (!here.some((s) => s.playbook === add.playbook && !CLOSED.includes(s.status ?? ''))) continue;
       const master = masters.find((m) => m.playbook === add.playbook
         && normTitle(m.title).startsWith(normTitle(add.master)));
       if (!master || typeof master.offset !== 'number') continue;

@@ -28,7 +28,8 @@
          `run` names another.
 
    The options are the same on every call, so the plan is the same
-   plan: `noDates` (moments scheduled by hand), `exclude` (steps to
+   plan: `noDates` (moments scheduled by hand: change no date),
+   `redate` (moments where a hand-set date may be moved), `exclude` (steps to
    leave alone) and `moments` (only these).
 
    Every write is to a row that came back from a query filtered on
@@ -64,9 +65,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const clientId = typeof body.clientId === 'string' && isNotionId(body.clientId) ? body.clientId : null;
   if (!clientId) return hqJson({ ok: false, error: 'invalid' }, 400);
   const noDates = idList(body.noDates);
+  const redate = idList(body.redate);
   const exclude = idList(body.exclude);
   const only = body.moments === undefined ? undefined : idList(body.moments);
-  if (!noDates || !exclude || only === null) return hqJson({ ok: false, error: 'invalid' }, 400);
+  if (!noDates || !redate || !exclude || only === null) return hqJson({ ok: false, error: 'invalid' }, 400);
 
   const facts = await clientFacts(env.NOTION_TOKEN, clientId);
   if (!facts) return portalNotFound();
@@ -120,7 +122,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return hqJson({ ok: failures.length === 0, verified: true, failures });
   }
 
-  const opts: UpdateOptions = { today, artist: facts.artist, noDates, exclude, ...(only ? { moments: only } : {}) };
+  const opts: UpdateOptions = { today, artist: facts.artist, noDates, redate, exclude, ...(only ? { moments: only } : {}) };
   // Last month through four months on: the months a running campaign
   // can still change.
   const first = shiftMonth(today.slice(0, 7), 0);
@@ -141,7 +143,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       moments: state.moments
         .filter((m) => plan.rows.some((r) => normaliseNotionId(r.momentId ?? '') === normaliseNotionId(m.id)))
         .sort((a, b) => (a.date ?? '9999').localeCompare(b.date ?? '9999'))
-        .map((m) => ({ id: m.id, title: m.title, date: m.date, noDates: noDates.some((id) => normaliseNotionId(id) === normaliseNotionId(m.id)) })),
+        .map((m) => ({
+          id: m.id, title: m.title, date: m.date,
+          noDates: noDates.some((id) => normaliseNotionId(id) === normaliseNotionId(m.id)),
+          redate: redate.some((id) => normaliseNotionId(id) === normaliseNotionId(m.id)),
+        })),
       rows: plan.rows,
     });
   }

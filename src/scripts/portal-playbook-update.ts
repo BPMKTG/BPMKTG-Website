@@ -78,12 +78,14 @@ export function openPlaybookUpdate(host: UpdateHost, client: { pageId: string; n
 
     /** Moments scheduled by hand, and steps left out. */
     const noDates = new Set<string>();
+    /** Moments where dates set by hand may be moved. */
+    const redate = new Set<string>();
     const exclude = new Set<string>();
     const openMoments = new Set<string>();
     let plan: Record<string, any> | null = null;
     let busy = false;
 
-    const options = () => ({ clientId: client.pageId, noDates: [...noDates], exclude: [...exclude] });
+    const options = () => ({ clientId: client.pageId, noDates: [...noDates], redate: [...redate], exclude: [...exclude] });
 
     async function load() {
       busy = true;
@@ -188,9 +190,27 @@ export function openPlaybookUpdate(host: UpdateHost, client: { pageId: string; n
       box.checked = noDates.has(m.id);
       box.disabled = busy;
       box.dataset.noDates = '1';
-      box.addEventListener('change', () => { if (box.checked) noDates.add(m.id); else noDates.delete(m.id); void load(); });
+      box.addEventListener('change', () => {
+        if (box.checked) { noDates.add(m.id); redate.delete(m.id); } else noDates.delete(m.id);
+        void load();
+      });
       hand.append(box, el('span', undefined, 'Scheduled by hand: no date changes'));
       head.appendChild(hand);
+      // The opposite switch: bring this campaign into line on purpose,
+      // so a date somebody set by hand moves to where the playbook now
+      // puts the step. A day that has already passed is still left.
+      const force = el('label', 'pt-up-hand');
+      const fbox = el('input') as HTMLInputElement;
+      fbox.type = 'checkbox';
+      fbox.checked = redate.has(m.id);
+      fbox.disabled = busy;
+      fbox.dataset.redate = '1';
+      fbox.addEventListener('change', () => {
+        if (fbox.checked) { redate.add(m.id); noDates.delete(m.id); } else redate.delete(m.id);
+        void load();
+      });
+      force.append(fbox, el('span', undefined, 'Move hand-set dates too'));
+      head.appendChild(force);
       sec.appendChild(head);
       if (isOpen) {
         if (!shown.length) sec.appendChild(el('p', 'pt-sheet-note', 'Nothing to do here.'));

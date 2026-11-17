@@ -276,6 +276,7 @@ import {
   STEP_FLOWS,
   KIND_LABEL,
 } from '../.tmp-portal-lib.mjs';
+import { AUDIT_ADDS, normTitle } from '../.tmp-portal-lib.mjs';
 import {
   AUDIT_ALIASES, applyPlan, baselineOf, buildSnapshot, checkUpdate, duplicateMasters, getSnapshot, handDated,
   isSnapshotKey, latestSnapshotKey, matchMaster, pieceRestore, pieceWrite, planUpdate, putSnapshot, renameFor,
@@ -4934,6 +4935,17 @@ const UP_OPTS = { today: '2026-11-16', artist: 'Sean Comma' };
      ['Date' in changed('set-old'), 'Item' in changed('set-old'), row('set-old').flags.some((f) => /scheduled by hand/.test(f))], [false, true, true]);
   is('re-date: a new date that has already passed is flagged, and the date left',
      ['Date' in changed('set-early'), row('set-early').flags.some((f) => /already past/.test(f))], [false, true]);
+  // A campaign being brought into line on purpose.
+  const forced = planUpdate(steps, moments, UP_MASTERS, pieces, { ...UP_OPTS, redate: ['mo-show', 'mo-early'] });
+  const fr = (id) => forced.rows.find((r) => r.stepId === id);
+  is('redate: on a moment marked for it, a hand-set date moves to where the playbook puts the step, and its piece with it',
+     [fr('set-hand').changes.find((c) => c.field === 'Date').to, fr('set-hand').pieces.map((p2) => p2.postDate), fr('set-note').changes.some((c) => c.field === 'Date')],
+     ['2026-12-27', ['2026-12-27'], true]);
+  is('redate: a day the playbook would already have passed is still left as it is',
+     [fr('set-early').changes.some((c) => c.field === 'Date'), fr('set-early').flags.some((f) => /already past/.test(f))], [false, true]);
+  is('redate: "no date changes" wins when a moment is marked both ways',
+     planUpdate(steps, moments, UP_MASTERS, pieces, { ...UP_OPTS, redate: ['mo-show'], noDates: ['mo-show'] })
+       .rows.find((r) => r.stepId === 'set-hand').changes.some((c) => c.field === 'Date'), false);
   is('hand-dated: the three ways a date says a person chose it',
      [handDated({ notes: 'Rescheduled Nov 9 (was Nov 15).', date: '2026-11-18', offset: -28 }, '2026-12-13') !== null,
       handDated({ notes: null, date: '2026-11-18', offset: null }, '2026-12-13') !== null,
@@ -4975,6 +4987,36 @@ const UP_OPTS = { today: '2026-11-16', artist: 'Sean Comma' };
      has.rows.filter((r) => r.action === 'add'), []);
   is('add: never on a moment that is scheduled by hand',
      planUpdate(steps, UP_MOMENTS, UP_MASTERS, [], { ...UP_OPTS, noDates: ['mo-rel', 'mo-remix'] }).rows.filter((r) => r.action === 'add'), []);
+  // The hit checks: one per playbook, and two different ones in Release Rollout.
+  const HIT = [
+    UM('h-roll', 'Hit check: if a clip is at 3\u00d7 the account\u2019s usual views, post a follow-up within 72 hours', { playbook: 'Release Rollout', phase: 'Release Week', offset: 3, flow: 'Blueprint task', type: 'Admin', priority: null, defaultMedia: null }),
+    UM('h-pick', 'Hit check: pick the best cut for the announce. If a clip is at 3\u00d7 the account\u2019s usual views, post a follow-up within 72 hours', { playbook: 'Release Rollout', phase: 'Wk \u22122 · Seed and Test', offset: -10, flow: 'Blueprint task', type: 'Admin', priority: null, defaultMedia: null }),
+    UM('h-pre', 'Hit check: if a show clip is at 3\u00d7 the account\u2019s usual views, post the same line on new footage within 72 hours', { phase: 'Pre-Show · Build', offset: -20, flow: 'Blueprint task', type: 'Admin', priority: null, defaultMedia: null }),
+    UM('h-post', 'Hit check: if a show clip is at 3\u00d7 the account\u2019s usual views, post a follow-up within 72 hours', { playbook: 'Post-Show', phase: 'Post-Show · Week One', offset: 5, flow: 'Blueprint task', type: 'Admin', priority: null, defaultMedia: null }),
+  ];
+  const hitSteps = [
+    ...steps,
+    ustep('pick', 'Check which cut performed best', '2026-12-29', { playbook: 'Release Rollout', momentId: 'mo-rel', flow: 'Blueprint task', offset: -10 }),
+    ustep('ps-a', 'Full set upload or long-form recap', '2027-01-09', { playbook: 'Post-Show', offset: 27 }),
+    ustep('gone', 'Full hook clip', '2026-12-04', { playbook: 'Release Rollout', momentId: 'mo-done', status: 'Done' }),
+  ];
+  const hitMoments = [...UP_MOMENTS, { id: 'mo-done', title: 'Finished Release', date: '2027-02-01', momentType: 'Release' }];
+  const hit = planUpdate(hitSteps, hitMoments, [...UP_MASTERS, ...HIT], [], UP_OPTS);
+  const hitAdds = hit.rows.filter((r) => r.action === 'add' && /^Hit check/.test(r.title));
+  is('hit checks: one on each open campaign, on the day its playbook gives it',
+     hitAdds.map((r) => [r.momentId, r.playbook, r.date]).sort(),
+     [['mo-old', 'Release Rollout', '2026-12-07'], ['mo-rel', 'Release Rollout', '2027-01-11'],
+      ['mo-show', 'Post-Show', '2026-12-18'], ['mo-show', 'Pre-Show', '2026-11-23']]);
+  is('hit checks: the older Rollout hit check is a rename of the cut check, and does not stand in for the new one',
+     [hit.rows.find((r) => r.stepId === 'pick').changes.some((c) => c.field === 'Item' && /^Hit check: pick the best cut/.test(c.to)),
+      hitAdds.some((r) => r.momentId === 'mo-rel')], [true, true]);
+  is('hit checks: a campaign with nothing still open gets none', hitAdds.some((r) => r.momentId === 'mo-done'), false);
+  const hitAfter = applyPlan(hitSteps, [], hit.rows);
+  is('hit checks: once added, not added again',
+     planUpdate(hitAfter.steps, hitMoments, [...UP_MASTERS, ...HIT], [], UP_OPTS).rows.filter((r) => r.action === 'add'), []);
+  is('hit checks: every add names one master and no other',
+     AUDIT_ADDS.map((a2) => [...UP_MASTERS, ...HIT].filter((m2) => m2.playbook === a2.playbook && normTitle(m2.title).startsWith(normTitle(a2.master))).length <= 1).every(Boolean), true);
+
   const after = applyPlan(steps, [], plan.rows);
   is('add: once added, it is not added again',
      planUpdate(after.steps, UP_MOMENTS, UP_MASTERS, [], UP_OPTS).rows.filter((r) => r.action === 'add'), []);

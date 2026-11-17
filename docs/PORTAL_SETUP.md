@@ -417,8 +417,12 @@ It opens on a dry run and writes only when the button is pressed.
 - **Adds.** Only the steps named in `AUDIT_ADDS`, once per moment, when
   the campaign has nothing like them and the date is today or later.
 
-Two switches on the sheet change the plan: "Scheduled by hand: no date
-changes" on a moment, and unticking a step to leave it out.
+Three switches on the sheet change the plan: "Scheduled by hand: no
+date changes" on a moment; "Move hand-set dates too" on a moment, for a
+campaign being brought into line on purpose (a day the playbook would
+already have passed is still left); and unticking a step to leave it
+out. Adds only go to a campaign that still has an open step from that
+playbook.
 
 Before the first write, every row the run will touch is saved to R2
 under `hq/playbook-updates/<client>/<timestamp>.json`, which is not a
