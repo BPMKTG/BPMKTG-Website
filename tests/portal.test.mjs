@@ -278,6 +278,11 @@ import {
 } from '../.tmp-portal-lib.mjs';
 import { AUDIT_ADDS, normTitle, foldLayer, ALL_LAYERS } from '../.tmp-portal-lib.mjs';
 import {
+  GENERAL_AUDIT_KEY, HQ_GENERAL_AUDIT_URL, MAX_AUDIT_BYTES, SITE_ORIGIN, clientAuditKey, clientAuditPrefix,
+  clientAuditUrl, generalAuditUrl, isOurAuditUrl, putClientAudit, putGeneralAudit, readAuditPointer,
+  readClientAudit, readGeneralAudit, readOwnAudit, readPdfUpload,
+} from '../.tmp-portal-lib.mjs';
+import {
   AUDIT_ALIASES, applyPlan, baselineOf, buildSnapshot, checkUpdate, duplicateMasters, getSnapshot, handDated,
   isSnapshotKey, latestSnapshotKey, matchMaster, pieceRestore, pieceWrite, planUpdate, putSnapshot, renameFor,
   snapshotKey, snapshotPrefix, stepRestore, stepWrite,
@@ -5105,6 +5110,91 @@ section('Update · the snapshot, and the checks after writing');
      checkUpdate(base, [...after.steps, ustep('dup', 'Announce: flyer, date, ticket link', '2026-11-19')], after.pieces, UP_MOMENTS, UP_MASTERS),
      ['Christmas Show has 2 open steps from "Announce: crowd clip ending on the flyer, flyer story, event banner"']);
   is('checks: a closed duplicate is not one', duplicateMasters([...after.steps, ustep('dup', 'Announce: flyer, date, ticket link', '2026-11-19', { status: 'Skipped' })], UP_MOMENTS, UP_MASTERS), []);
+}
+
+/* ══ The Playbook Audit ══════════════════════════════════════════ */
+
+section('Playbook Audit · where it is kept and who may read it');
+
+{
+  is('keys: the general one is shared, a client’s own is under their slug',
+     [GENERAL_AUDIT_KEY, clientAuditKey('sean-comma'), clientAuditPrefix('sean-comma')],
+     ['shared/playbook-audit.pdf', 'playbook-audits/sean-comma/playbook-audit.pdf', 'playbook-audits/sean-comma/']);
+  is('keys: a slug cannot climb out of its folder', clientAuditKey('../Other Client'), 'playbook-audits/other-client/playbook-audit.pdf');
+  is('keys: both pass the files route’s own test for a key',
+     [GENERAL_AUDIT_KEY, clientAuditKey('sean-comma')].every((k) => /^[a-z0-9/-]+\.pdf$/.test(k) && !k.includes('//')), true);
+  is('urls: a client reads both through their own files route, behind their session',
+     [clientAuditUrl('sean-comma'), generalAuditUrl('sean-comma')],
+     ['/portal/sean-comma/files/playbook-audits/sean-comma/playbook-audit.pdf', '/portal/sean-comma/files/shared/playbook-audit.pdf']);
+  is('urls: HQ has its own address for the general one, and none of them is a public file',
+     [HQ_GENERAL_AUDIT_URL, [clientAuditUrl('x'), generalAuditUrl('x'), HQ_GENERAL_AUDIT_URL].every((u) => u.startsWith('/portal/'))],
+     ['/portal/hq/playbook-audit', true]);
+  is('ours: the whole address and the bare path are the same file',
+     [isOurAuditUrl(`${SITE_ORIGIN}${clientAuditUrl('sean-comma')}`, 'sean-comma'), isOurAuditUrl(clientAuditUrl('sean-comma'), 'sean-comma')], [true, true]);
+  is('ours: another client’s file, the general file and a look-alike are not',
+     [isOurAuditUrl(clientAuditUrl('someone-else'), 'sean-comma'), isOurAuditUrl(generalAuditUrl('sean-comma'), 'sean-comma'),
+      isOurAuditUrl('https://example.com/files/playbook-audit.pdf', 'sean-comma'), isOurAuditUrl('not a url at all ::', 'sean-comma')],
+     [false, false, false, false]);
+  is('pointer: read as typed, path or address, and blank is nothing',
+     [readAuditPointer({ type: 'url', url: ' /portal/x/files/a.pdf ' }), readAuditPointer({ type: 'url', url: '' }), readAuditPointer({ type: 'url', url: null }), readAuditPointer(undefined)],
+     ['/portal/x/files/a.pdf', null, null, null]);
+}
+
+section('Playbook Audit · which one a client is shown');
+
+{
+  const bucket = (keys) => {
+    const store = new Map(Object.entries(keys));
+    return { REPORTS_BUCKET: {
+      head: async (k) => (store.has(k) ? { size: store.get(k), uploaded: new Date('2026-11-17T12:00:00Z') } : null),
+      get: async () => null, put: async (k, body) => { store.set(k, body.byteLength); }, delete: async (k) => { store.delete(k); },
+      _store: store,
+    } };
+  };
+  const both = bucket({ [GENERAL_AUDIT_KEY]: 780058, [clientAuditKey('sean-comma')]: 845013 });
+  const pointer = `${SITE_ORIGIN}${clientAuditUrl('sean-comma')}`;
+  const own = await readClientAudit(both, 'sean-comma', pointer);
+  is('shown: their own, when their row points at one',
+     [own.own, own.kind, own.url, own.size, own.uploaded], [true, 'pdf', clientAuditUrl('sean-comma'), 845013, '2026-11-17T12:00:00.000Z']);
+  const general = await readClientAudit(both, 'sean-comma', null);
+  is('shown: the general one when the row is blank, through their own files route',
+     [general.own, general.url, general.size], [false, generalAuditUrl('sean-comma'), 780058]);
+  is('shown: a file in the bucket is not theirs until the row says so',
+     (await readClientAudit(both, 'sean-comma', '')).own, false);
+  is('shown: a row pointing at a file that was never uploaded falls back to the general one',
+     (await readClientAudit(bucket({ [GENERAL_AUDIT_KEY]: 780058 }), 'sean-comma', pointer)).own, false);
+  is('shown: nothing at all when there is neither', await readClientAudit(bucket({}), 'sean-comma', null), null);
+  is('shown: no bucket bound reads as nothing, not as an error', await readClientAudit({}, 'sean-comma', pointer), null);
+  const link = await readClientAudit(both, 'sean-comma', 'https://docs.google.com/document/d/abc');
+  is('shown: a link to a document elsewhere is theirs, and says where it goes',
+     [link.own, link.kind, link.host, link.size], [true, 'link', 'docs.google.com', null]);
+  is('shown: a link that is not a web link is dropped, and they get the general one',
+     (await readClientAudit(both, 'sean-comma', 'javascript:alert(1)')).own, false);
+  is('roster: a client’s own audit is null when they read the general one',
+     [await readOwnAudit(both, 'sean-comma', null), (await readOwnAudit(both, 'sean-comma', pointer)).own], [null, true]);
+  is('hq: the general one, at HQ’s own address', (await readGeneralAudit(both)).url, '/portal/hq/playbook-audit');
+
+  const empty = bucket({});
+  const stored = await putClientAudit(empty, 'sean-comma', new Uint8Array(1200));
+  is('upload: a client’s lands on their key and nowhere else',
+     [[...empty.REPORTS_BUCKET._store.keys()], stored.own, stored.url], [[clientAuditKey('sean-comma')], true, clientAuditUrl('sean-comma')]);
+  await putGeneralAudit(empty, new Uint8Array(900));
+  is('upload: the general one lands on the shared key', empty.REPORTS_BUCKET._store.has(GENERAL_AUDIT_KEY), true);
+}
+
+section('Playbook Audit · what an upload has to be');
+
+{
+  const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
+  const post = (body, headers = {}) => new Request('https://x.test/upload', { method: 'POST', body, headers });
+  const good = await readPdfUpload(post(pdf));
+  is('upload: a PDF is taken, byte for byte', [good.ok, good.bytes.byteLength], [true, 8]);
+  const fake = await readPdfUpload(post(new TextEncoder().encode('<html>not a pdf</html>'), { 'Content-Type': 'application/pdf' }));
+  is('upload: a file that only says it is a PDF is refused', [fake.ok, fake.error, fake.status], [false, 'not_pdf', 400]);
+  const none = await readPdfUpload(post(new Uint8Array(0)));
+  is('upload: an empty file is refused', [none.ok, none.error], [false, 'empty']);
+  const huge = await readPdfUpload(post(pdf, { 'Content-Length': String(MAX_AUDIT_BYTES + 1) }));
+  is('upload: one that declares itself over the cap is refused before it is read', [huge.ok, huge.error, huge.status], [false, 'too_big', 413]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -383,6 +383,28 @@ piece that step delivers (the piece borrows it through Campaign; the
 Content Pipeline has no Brief of its own). It is on the client
 whitelist in `CALENDAR_FIELDS`. Notes are still ours only.
 
+## The Playbook Audit
+
+A card at the top of the Playbooks tab, in the client portal and in HQ:
+"why they are built this way", with View and Download. It is a
+reference; nothing below it on the tab depends on it.
+
+- **Two PDFs, both in R2.** The general one is at
+  `shared/playbook-audit.pdf`. A client's own, when there is one, is at
+  `playbook-audits/<slug>/playbook-audit.pdf`.
+- **Which a client sees.** Their own if the Clients row's **Playbook
+  Audit** (URL) points at one; otherwise the general one; otherwise no
+  card. The property can also hold a link to a document elsewhere.
+- **Uploading.** HQ → Playbooks. "Replace PDF" on the card is the
+  general audit. Under it, "Custom audits" lists every client with a
+  portal, with Upload, Replace and Remove for each. An upload stores the
+  file and writes the Playbook Audit address on the client's row.
+- **Auth.** There is no public address. A client reads a PDF through
+  `/portal/<slug>/files/<key>`, which checks their session and only
+  hands over their own prefixes plus `shared/`. HQ reads the general one
+  at `/portal/hq/playbook-audit`, admin only. `shared/` is readable by
+  every signed-in client, so only put there what all of them may see.
+
 ## Updating running campaigns to the current playbook
 
 When the masters change, campaigns already on a calendar do not: they

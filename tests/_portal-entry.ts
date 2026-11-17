@@ -40,3 +40,10 @@ export {
   buildSnapshot, isSnapshotKey, pieceRestore, pieceWrite, snapshotKey, snapshotPrefix,
   stepRestore, stepWrite, latestSnapshotKey, getSnapshot, putSnapshot,
 } from '../src/server/playbook-update';
+// The Playbook Audit: which PDF a client is shown, where it is kept,
+// and what an upload has to be before it is stored.
+export {
+  AUDIT_FILE, GENERAL_AUDIT_KEY, HQ_GENERAL_AUDIT_URL, MAX_AUDIT_BYTES, SHARED_PREFIX, SITE_ORIGIN,
+  clientAuditKey, clientAuditPrefix, clientAuditUrl, generalAuditUrl, isOurAuditUrl, putClientAudit,
+  putGeneralAudit, readAuditPointer, readClientAudit, readGeneralAudit, readOwnAudit, readPdfUpload,
+} from '../src/server/playbook-audit';

@@ -4026,6 +4026,44 @@ div.pt-pb-step-editing { border: 1px solid var(--pt-line); border-radius: var(--
   .pt-trim-move { grid-column: 1 / -1; justify-self: start; }
 }
 
+/* ── the Playbook Audit card, above the playbooks ── */
+.pt-audit {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--pt-4);
+  margin: 0 0 var(--pt-5); padding: var(--pt-4) var(--pt-5);
+  border: 1px solid var(--pt-line); border-left: 4px solid var(--pt-navy); border-radius: var(--pt-r);
+  background: var(--pt-surface); box-shadow: var(--pt-shadow);
+}
+.pt-audit-mark {
+  width: 44px; height: 44px; display: grid; place-items: center; flex: none;
+  border-radius: var(--pt-r-sm); background: var(--pt-tint-navy); color: var(--pt-navy);
+}
+.pt-audit-mark svg { width: 22px; height: 22px; }
+.pt-audit-text h2 { margin: 0; font-size: 1.02rem; font-weight: 700; line-height: 1.3; color: var(--pt-ink); }
+.pt-audit-sum { margin: 3px 0 0; font-size: .9rem; color: var(--pt-ink-2); }
+.pt-audit-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 0; font-size: .78rem; color: var(--pt-muted); }
+.pt-audit-own { background: var(--pt-tint-navy); color: var(--pt-navy-deep); }
+.pt-audit-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--pt-2); }
+.pt-audit-acts .pt-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.pt-audit-acts .pt-btn svg { width: 15px; height: 15px; }
+.pt-audit-hq { margin-bottom: var(--pt-5); }
+.pt-audit-hq .pt-audit { margin-bottom: var(--pt-2); }
+.pt-audit-roster { border: 1px solid var(--pt-line); border-radius: var(--pt-r); background: var(--pt-surface-2); }
+.pt-audit-roster-head {
+  display: flex; align-items: center; gap: var(--pt-2); padding: 9px var(--pt-4); cursor: pointer;
+  font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--pt-muted);
+}
+.pt-audit-rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--pt-line); background: var(--pt-surface); border-radius: 0 0 var(--pt-r) var(--pt-r); }
+.pt-audit-row { display: flex; align-items: center; justify-content: space-between; gap: var(--pt-3); padding: 9px var(--pt-4); }
+.pt-audit-row + .pt-audit-row { border-top: 1px solid var(--pt-line-soft); }
+.pt-audit-who { display: flex; flex-direction: column; min-width: 0; }
+.pt-audit-who strong { font-size: .88rem; color: var(--pt-ink); }
+.pt-audit-who span { font-size: .78rem; color: var(--pt-muted); }
+@media (max-width: 767px) {
+  .pt-audit { grid-template-columns: auto minmax(0, 1fr); }
+  .pt-audit-acts { grid-column: 1 / -1; justify-content: flex-start; }
+  .pt-audit-row { flex-direction: column; align-items: flex-start; }
+}
+
 /* ── HQ: update campaigns to current playbook ── */
 .pt-up[data-stale='true'] { opacity: .55; pointer-events: none; }
 .pt-up-sum { margin: var(--pt-3) 0; font-size: .86rem; font-weight: 600; color: var(--pt-ink); }

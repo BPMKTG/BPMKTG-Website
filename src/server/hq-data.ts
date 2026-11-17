@@ -54,7 +54,7 @@ export const HQ_TTL_SECONDS = 90;
 
 /** Bumped whenever the shape below changes, so a deploy cannot serve
  *  a cached payload the new UI does not understand. */
-export const HQ_CACHE_KEY = 'hq:v3';
+export const HQ_CACHE_KEY = 'hq:v4';
 
 /** How far back and forward the calendar is read. Today needs the
  *  overdue tail, the fourteen-day strip needs the near future, and a
@@ -95,6 +95,8 @@ export interface HqClient {
   instagram: string | null;
   tiktok: string | null;
   brandBriefPdf: string | null;
+  /** The `Playbook Audit` pointer as typed, or null. */
+  playbookAudit: string | null;
 }
 
 /** A calendar row, flattened. HQ does not resolve moment relations
@@ -263,6 +265,8 @@ function shapeClient(page: any): HqClient {
     instagram: readUrl(p['Instagram']),
     tiktok: readUrl(p['TikTok']),
     brandBriefPdf: readUrl(p['Brand Brief PDF']),
+    playbookAudit: typeof p['Playbook Audit']?.url === 'string' && p['Playbook Audit'].url.trim()
+      ? p['Playbook Audit'].url.trim() : null,
   };
 }
 

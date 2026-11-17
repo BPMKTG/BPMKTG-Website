@@ -17,8 +17,9 @@ import {
 import { findClientBySlug } from '../../../../src/server/portal-notion';
 import { fetchMasters, fetchOverrides } from '../../../../src/server/playbooks';
 import { clientPlaybooks, clientRequests } from '../../../../src/data/playbooks';
+import { readClientAudit, type AuditEnv } from '../../../../src/server/playbook-audit';
 
-interface Env { NOTION_TOKEN: string; PORTAL_SECRET?: string }
+interface Env extends AuditEnv { NOTION_TOKEN: string; PORTAL_SECRET?: string }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, params }) => {
   if (!env.NOTION_TOKEN) return portalNotFound();
@@ -30,13 +31,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
   if (!record || !record.portalEnabled) return portalNotFound();
 
   try {
-    const [masters, overrides] = await Promise.all([
+    const [masters, overrides, audit] = await Promise.all([
       fetchMasters(env.NOTION_TOKEN), fetchOverrides(env.NOTION_TOKEN, record.pageId),
+      // Their own audit if they have one, the general one if not.
+      readClientAudit(env, record.slug, record.playbookAuditUrl),
     ]);
     return new Response(JSON.stringify({
       ok: true,
       playbooks: clientPlaybooks(masters, overrides, record.pageId),
       requests: clientRequests(masters, overrides, record.pageId),
+      audit,
     }), { status: 200, headers: {
       'Content-Type': 'application/json', 'Cache-Control': 'no-store, private',
       'X-Robots-Tag': 'noindex, nofollow, noarchive', 'Referrer-Policy': 'no-referrer',

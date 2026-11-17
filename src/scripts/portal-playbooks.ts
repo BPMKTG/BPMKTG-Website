@@ -44,6 +44,7 @@ import { isDeliverableFlow, pieceCount, MAX_PIECES, PRIORITIES } from '../data/p
 import { clear, el, icon } from './portal-dom';
 import { openSheet, sheetField, sheetSubmit } from './portal-sheet';
 import { openPlaybookUpdate } from './portal-playbook-update';
+import { clientAuditCard, hqAuditPanel, type AuditInfo, type AuditRosterRow } from './portal-playbook-audit';
 
 export interface Answer { ok: boolean; status: number; json: Record<string, any> | null }
 export type Send = (method: 'GET' | 'POST' | 'PATCH', url: string, body?: unknown) => Promise<Answer>;
@@ -107,6 +108,8 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
   let ROOT: HTMLElement | null = null;
   let masters: MasterStep[] | null = null;
   let overrides: PlaybookOverride[] = [];
+  /** The Playbook Audit: the general PDF and who has their own. */
+  let audit: { general: AuditInfo | null; clients: AuditRosterRow[] } | null = null;
   let failed = false;
   let loading = false;
   let playbook = '';
@@ -127,6 +130,7 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     if (res.ok && Array.isArray(res.json?.masters)) {
       masters = res.json!.masters as MasterStep[];
       overrides = (res.json!.overrides ?? []) as PlaybookOverride[];
+      audit = (res.json!.audit ?? null) as typeof audit;
       failed = false;
     } else {
       failed = true;
@@ -845,6 +849,11 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
       return;
     }
 
+    // The reference card: why the playbooks are built this way. It
+    // sits above the playbooks and changes nothing below it.
+    root.appendChild(hqAuditPanel(audit?.general ?? null, audit?.clients ?? [],
+      { toast: host.toast, changed: () => { void load(true); } }));
+
     const names = playbookNames(masters);
     if (!names.includes(playbook)) playbook = names[0] ?? '';
 
@@ -964,6 +973,8 @@ export function createClientPlaybooks(host: ClientPlaybooksHost): { draw: (root:
   let ROOT: HTMLElement | null = null;
   let playbooks: ClientPlaybook[] | null = null;
   let requests: ClientRequest[] = [];
+  /** The audit this client is shown, or null. */
+  let audit: AuditInfo | null = null;
   let failed = false;
   let loading = false;
   let current = '';
@@ -978,6 +989,7 @@ export function createClientPlaybooks(host: ClientPlaybooksHost): { draw: (root:
     if (res.ok && Array.isArray(res.json?.playbooks)) {
       playbooks = res.json!.playbooks as ClientPlaybook[];
       requests = (res.json!.requests ?? []) as ClientRequest[];
+      audit = (res.json!.audit ?? null) as AuditInfo | null;
       failed = false;
     } else failed = true;
     redraw();
@@ -1030,6 +1042,11 @@ export function createClientPlaybooks(host: ClientPlaybooksHost): { draw: (root:
       else failed = false;
       return;
     }
+    // Why they are built this way: their own audit, or the general
+    // one. No card when there is neither.
+    const auditCard = clientAuditCard(audit, host.slug());
+    if (auditCard) root.appendChild(auditCard);
+
     if (!playbooks.length) {
       root.appendChild(el('p', 'pt-pb-none', 'There are no playbooks to show yet.'));
       return;

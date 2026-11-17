@@ -223,6 +223,10 @@ export interface ClientRecord {
    *  route hands it to readBrief() and what reaches the browser is the
    *  shaped `brief` object, which a link and a PDF both fit. */
   brandBriefUrl: string | null;
+  /** The Clients row's `Playbook Audit`, as typed: the address of
+   *  this client's own audit PDF, a link to one elsewhere, or null.
+   *  Never ships raw: readClientAudit() turns it into what is shown. */
+  playbookAuditUrl: string | null;
   client: PortalClient;
 }
 
@@ -266,6 +270,8 @@ function shapeClient(page: any): ClientRecord {
     portalEnabled: readCheckbox(p['Portal Enabled']),
     portalEmails: parseEmailList(readText(p['Portal Emails'])),
     brandBriefUrl: readUrl(p['Brand Brief PDF']),
+    playbookAuditUrl: typeof p['Playbook Audit']?.url === 'string' && p['Playbook Audit'].url.trim()
+      ? p['Playbook Audit'].url.trim() : null,
     // Built field by field from CLIENT_FIELDS. Nothing else on the page
     // is read, so nothing else can ship.
     client: {

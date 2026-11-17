@@ -22,6 +22,7 @@ import {
   sessionSecret,
 } from '../../../../src/server/portal-auth';
 import { findClientBySlug } from '../../../../src/server/portal-notion';
+import { clientAuditPrefix, SHARED_PREFIX } from '../../../../src/server/playbook-audit';
 
 interface Env {
   NOTION_TOKEN: string;
@@ -34,6 +35,9 @@ interface Env {
  *  key is the whole record that it exists. */
 const ownedPrefixes = (slug: string) => [
   `reports/${slug}/`, `audits/${slug}/`, `briefs/${slug}/`,
+  // Their own playbook audit, and the files every client reads: the
+  // general playbook audit is one PDF for all of them.
+  clientAuditPrefix(slug), SHARED_PREFIX,
 ];
 
 /**
