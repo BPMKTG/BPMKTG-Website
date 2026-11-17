@@ -276,7 +276,7 @@ import {
   STEP_FLOWS,
   KIND_LABEL,
 } from '../.tmp-portal-lib.mjs';
-import { AUDIT_ADDS, normTitle } from '../.tmp-portal-lib.mjs';
+import { AUDIT_ADDS, normTitle, foldLayer, ALL_LAYERS } from '../.tmp-portal-lib.mjs';
 import {
   AUDIT_ALIASES, applyPlan, baselineOf, buildSnapshot, checkUpdate, duplicateMasters, getSnapshot, handDated,
   isSnapshotKey, latestSnapshotKey, matchMaster, pieceRestore, pieceWrite, planUpdate, putSnapshot, renameFor,
@@ -2345,8 +2345,14 @@ is('layer: Done is frozen in a cascade yet still on the calendar',
 /* Both screens now draw the same five. The portal's query fetches our
    own work, so the layer is no longer an empty column there: it is
    the one the client reads and cannot touch. */
-is('layer: the portal’s layers, Posts split by who posts',
-   PORTAL_LAYERS.join('|'), 'moments|postsOurs|postsTheirs|postsPlan|films|todos|blueprint');
+is('layer: the portal’s layers, Posts split by who posts, and no chip for a list that is always empty',
+   PORTAL_LAYERS.join('|'), 'moments|postsOurs|postsTheirs|films|todos|blueprint');
+is('layer: a post of ours with no piece yet is still drawn in the portal, with Blueprint posts',
+   [foldLayer('postsPlan', PORTAL_LAYERS), foldLayer('postsPlan', HQ_LAYERS), foldLayer('films', PORTAL_LAYERS)],
+   ['postsOurs', 'postsPlan', 'films']);
+is('layer: every layer a step can be in has a chip that turns it on, on both screens',
+   [ALL_LAYERS.every((l) => PORTAL_LAYERS.includes(foldLayer(l, PORTAL_LAYERS))),
+    ALL_LAYERS.every((l) => HQ_LAYERS.includes(foldLayer(l, HQ_LAYERS)))], [true, true]);
 
 // A pipeline row's layer is who posts it: the month counter's own test.
 is('layer: a row we post is in Blueprint posts', cardPostLayer({ postedBy: 'Blueprint' }), 'postsOurs');
@@ -2370,12 +2376,12 @@ is('layer: a row nobody is named on is not counted as ours', cardPostLayer({ pos
 is('layer: a browser that remembered Posts gets every part of it',
    migrateLayers(['moments', 'posts', 'todos']), ['moments', 'postsOurs', 'postsTheirs', 'postsPlan', 'todos']);
 is('layer: and one that had it off keeps it off', migrateLayers(['moments', 'films']), ['moments', 'films']);
-is('layer: HQ has the same five',
-   HQ_LAYERS.join('|'), PORTAL_LAYERS.join('|'));
+is('layer: HQ has every layer',
+   HQ_LAYERS.join('|'), ALL_LAYERS.join('|'));
 is('layer: the portal does have Blueprint\u2019s work',
    PORTAL_LAYERS.includes('blueprint'), true);
-is('layer: neither screen has a layer the other lacks',
-   HQ_LAYERS.length - PORTAL_LAYERS.length, 0);
+is('layer: the one layer HQ has and the portal does not is "No piece yet"',
+   HQ_LAYERS.filter((l) => !PORTAL_LAYERS.includes(l)), ['postsPlan']);
 
 /* Our own work lands in a layer both screens have. What keeps the
    client from changing it is not the layer but the permission rule,
@@ -3817,7 +3823,7 @@ for (const owner of OWNERS) {
           const f = flowOf(row);
 
           // Every layer is a real layer, and no duplicates.
-          if (ls.some((l) => !PORTAL_LAYERS.includes(l))) broke.push(['layer not on a screen', row, ls]);
+          if (ls.some((l) => !PORTAL_LAYERS.includes(foldLayer(l, PORTAL_LAYERS)) || !HQ_LAYERS.includes(l))) broke.push(['layer not on a screen', row, ls]);
           if (new Set(ls).size !== ls.length) broke.push(['a layer twice', row, ls]);
 
           // A flow is one of Notion's, or nothing at all.
@@ -3983,8 +3989,8 @@ section('Blueprint HQ · the layers it draws');
 
 is('layers: HQ draws the portal’s layers and Blueprint tasks',
    HQ_LAYERS.join('|'), 'moments|postsOurs|postsTheirs|postsPlan|films|todos|blueprint');
-is('layers: and the portal’s are a prefix of them, not a different list',
-   HQ_LAYERS.slice(0, PORTAL_LAYERS.length).join('|'), PORTAL_LAYERS.join('|'));
+is('layers: and the portal’s are the same list with that one left out, in the same order',
+   HQ_LAYERS.filter((l) => l !== 'postsPlan').join('|'), PORTAL_LAYERS.join('|'));
 
 section('Playbooks · saying an offset, and who does a step');
 

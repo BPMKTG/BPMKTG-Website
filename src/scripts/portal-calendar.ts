@@ -28,6 +28,7 @@ import {
   isStepDone,
   parseNotionDate,
   showsOnCalendar,
+  foldLayer,
   stepLayers,
   type CalendarLayer,
   type PortalCalendarItem,
@@ -311,8 +312,10 @@ export function createCalendar(H: CalendarHost) {
     if (it.momentType) return ['moments'];
 
     // Owner and Type are each two-valued, so every step lands in at
-    // least one layer and there is nothing to catch.
-    return stepLayers(it);
+    // least one layer and there is nothing to catch. A layer this
+    // screen has no chip for is drawn with the chip it belongs under.
+    const shown = H.layers();
+    return [...new Set(stepLayers(it).map((l) => foldLayer(l, shown)))];
   }
 
   function passesFilter(it: PortalCalendarItem): boolean {
@@ -345,7 +348,8 @@ export function createCalendar(H: CalendarHost) {
 
   const QUICK: Array<[Quick, string, () => Layer[]]> = [
     ['everything', 'Everything',   () => H.layers()],
-    ['content',    'Content only', () => ['postsOurs', 'postsTheirs', 'postsPlan', 'films']],
+    ['content',    'Content only', () => (['postsOurs', 'postsTheirs', 'postsPlan', 'films'] as Layer[])
+      .filter((l) => H.layers().includes(l))],
     ['week',       'My week',      () => ['todos', 'films']],
     // Campaigns means a moment and the work behind it. Here that is
     // the moment: the work behind it is ours, and the layer it sits in
@@ -738,8 +742,10 @@ export function createCalendar(H: CalendarHost) {
     panel.appendChild(el('p', undefined,
       `${labelOf('postsOurs')} is every piece we are putting out, the same list the `
       + `month count is made from. ${labelOf('postsTheirs')} is what goes up from the `
-      + `client side. ${labelOf('postsPlan')} is a post a campaign calls for that has no `
-      + 'piece behind it yet.'));
+      + 'client side.'
+      + (H.layers().includes('postsPlan')
+        ? ` ${labelOf('postsPlan')} is a post a campaign calls for that has no piece behind it yet.`
+        : '')));
     panel.appendChild(el('p', undefined,
       'A step marked \u{1F3A5} is the filming rather than the post, so it '
       + 'sits in Film days next to the shoots off your content board.'));

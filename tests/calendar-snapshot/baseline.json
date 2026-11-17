@@ -21,7 +21,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -425,7 +424,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -532,7 +530,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -639,7 +636,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -1043,7 +1039,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -1291,7 +1286,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -1509,7 +1503,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -1705,7 +1698,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -2109,7 +2101,6 @@
     "Shows & releases:false",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:false",
     "Blueprint’s work:false"
@@ -2417,7 +2408,6 @@
     "Shows & releases:false",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:false"
@@ -2577,7 +2567,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:false",
     "Blueprint’s work:false"
@@ -2737,7 +2726,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -3141,7 +3129,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -3545,7 +3532,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -3636,32 +3622,9 @@
      "more": ""
     },
     {
-     "date": "8",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-edge-show pt-nc-default",
-       "text": "Cut the announce reelThe Echo",
-       "title": "Content: Cut the announce reel — part of The Echo\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
      "date": "9",
      "cls": "pt-cal-cell pt-cal-cell-today",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-edge-show pt-nc-default",
-       "text": "Schedule the announce postThe Echo",
-       "title": "Content: Schedule the announce post — part of The Echo\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
+     "chips": [],
      "dots": [],
      "more": ""
     },
@@ -3714,15 +3677,15 @@
        "locked": false
       },
       {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-nc-default",
-       "text": "Layer: ours, content",
-       "title": "Content: Layer: ours, content\nBlueprint handles this one",
+       "cls": "pt-chip pt-chip-locked pt-chip-task pt-chip-theirs",
+       "text": "Layer: ours, admin",
+       "title": "Task: Layer: ours, admin\nBlueprint handles this one",
        "draggable": false,
        "locked": true
       }
      ],
      "dots": [],
-     "more": "+1 more"
+     "more": ""
     },
     {
      "date": "13",
@@ -3734,21 +3697,6 @@
        "title": "Show: The Echo",
        "draggable": true,
        "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "14",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-chip-tentative pt-nc-default",
-       "text": "Tentative studio hold",
-       "title": "Content: Tentative studio hold\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
       }
      ],
      "dots": [],
@@ -3793,17 +3741,10 @@
        "title": "",
        "draggable": true,
        "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-nc-default",
-       "text": "Pile item 1",
-       "title": "Content: Pile item 1\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
       }
      ],
      "dots": [],
-     "more": "+2 more"
+     "more": ""
     },
     {
      "date": "17",
@@ -3892,9 +3833,9 @@
    "dayCard": null,
    "empty": null,
    "counts": {
-    "chips": 21,
+    "chips": 17,
     "cells": 35,
-    "more": 2,
+    "more": 0,
     "tray": 3,
     "agendaRows": 0
    }
@@ -3920,382 +3861,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:true",
-    "Film days:true",
-    "Your to-dos:true",
-    "Blueprint’s work:true"
-   ],
-   "bucketSummary": "Every bucket",
-   "bucketOpts": [
-    "pt-multi-opt pt-nc-blue|Behind the scenes|false",
-    "pt-multi-opt pt-nc-purple|Story|false",
-    "pt-multi-opt pt-nc-green|Recap|false",
-    "pt-multi-opt pt-nc-orange|Announce|false",
-    "pt-multi-opt pt-nc-yellow|Community|false"
-   ],
-   "selects": [
-    {
-     "label": "Filter by campaign",
-     "value": "",
-     "options": [
-      "=Every campaign",
-      "m-show=The Echo · Nov 13",
-      "m-rel=Paper Hearts · Nov 20",
-      "m-soon=Rooftop Remix · Nov 3"
-     ]
-    },
-    {
-     "label": "Filter by status",
-     "value": "",
-     "options": [
-      "=Any status",
-      "planned=Planned",
-      "progress=In progress",
-      "posted=Posted"
-     ]
-    }
-   ],
-   "trayBtn": "Unscheduled · 3:true",
-   "filterChip": "",
-   "cells": [
-    {
-     "date": "3",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-show pt-chip-tentative",
-       "text": "Rooftop Remix",
-       "title": "Show: Rooftop Remix",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "6",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-post pt-chip-tick-row pt-edge-show pt-nc-default",
-       "text": "Send the show photosThe Echo",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "7",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-post pt-nc-purple",
-       "text": "Lyric pull quote",
-       "title": "Posts: Lyric pull quote · Story",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-task pt-chip-theirs pt-edge-show",
-       "text": "Ticket link liveThe Echo",
-       "title": "Task: Ticket link live — part of The Echo\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "8",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-edge-show pt-nc-default",
-       "text": "Cut the announce reelThe Echo",
-       "title": "Content: Cut the announce reel — part of The Echo\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "9",
-     "cls": "pt-cal-cell pt-cal-cell-today",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-edge-show pt-nc-default",
-       "text": "Schedule the announce postThe Echo",
-       "title": "Content: Schedule the announce post — part of The Echo\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "10",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-done pt-chip-post pt-chip-tick-row pt-nc-default",
-       "text": "Stays: done",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "11",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-tick-row pt-chip-todo",
-       "text": "Grant Meta access",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "12",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-post pt-chip-tick-row pt-nc-default",
-       "text": "Layer: theirs, content",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-tick-row pt-chip-todo",
-       "text": "Layer: theirs, admin",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-nc-default",
-       "text": "Layer: ours, content",
-       "title": "Content: Layer: ours, content\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": "+1 more"
-    },
-    {
-     "date": "13",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-show",
-       "text": "The Echo",
-       "title": "Show: The Echo",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "14",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-chip-tentative pt-nc-default",
-       "text": "Tentative studio hold",
-       "title": "Content: Tentative studio hold\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "15",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-film pt-chip-tick-row pt-nc-default",
-       "text": "🎥 Film: theirs, content",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-film pt-chip-locked pt-chip-theirs pt-nc-default",
-       "text": "🎥 Film: ours, admin",
-       "title": "Task: 🎥 Film: ours, admin\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "16",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-post pt-chip-tick-row pt-nc-default",
-       "text": "Pile item 2",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-post pt-chip-tick-row pt-nc-default",
-       "text": "Pile item 4",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-nc-default",
-       "text": "Pile item 1",
-       "title": "Content: Pile item 1\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": "+2 more"
-    },
-    {
-     "date": "17",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-post pt-nc-orange",
-       "text": "Tour poster drop",
-       "title": "Posts: Tour poster drop · Announce",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "18",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-task pt-chip-theirs pt-edge-release",
-       "text": "Pull the pre-release numbersPaper Hearts",
-       "title": "Task: Pull the pre-release numbers — part of Paper Hearts\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "20",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-release",
-       "text": "Paper Hearts",
-       "title": "Release: Paper Hearts",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    }
-   ],
-   "dow": [
-    "Sun",
-    "Mon",
-    "Tue",
-    "Wed",
-    "Thu",
-    "Fri",
-    "Sat"
-   ],
-   "agenda": [],
-   "tray": {
-    "head": "Unscheduled3",
-    "cards": [
-     {
-      "cls": "pt-traycard",
-      "text": "Hook idea: the bridge",
-      "draggable": true,
-      "title": ""
-     },
-     {
-      "cls": "pt-traycard",
-      "text": "Merch tease",
-      "draggable": true,
-      "title": ""
-     },
-     {
-      "cls": "pt-traycard pt-traycard-locked",
-      "text": "Fan question series",
-      "draggable": false,
-      "title": "We put this one out, so we schedule it."
-     }
-    ],
-    "groups": [
-     "Story1Hook idea: the bridge",
-     "Announce1Merch tease",
-     "Community1Fan question series"
-    ]
-   },
-   "dayCard": null,
-   "empty": null,
-   "counts": {
-    "chips": 21,
-    "cells": 35,
-    "more": 2,
-    "tray": 3,
-    "agendaRows": 0
-   }
-  },
-  "layer.off.On the plan": {
-   "monthLabel": "November 2026",
-   "nav": [
-    "Previous month",
-    "Next month"
-   ],
-   "views": [
-    "Month:true",
-    "Week:false",
-    "Agenda:false"
-   ],
-   "quick": [
-    "Everything:false",
-    "Content only:false",
-    "My week:false",
-    "Campaigns:false"
-   ],
-   "layers": [
-    "Shows & releases:true",
-    "Blueprint posts:false",
-    "You post:false",
-    "On the plan:false",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -4625,7 +4190,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -4955,7 +4519,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:false",
     "Blueprint’s work:true"
@@ -5175,7 +4738,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:false",
     "Blueprint’s work:false"
@@ -5335,7 +4897,6 @@
     "Shows & releases:false",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:false",
     "Blueprint’s work:false"
@@ -5407,7 +4968,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -5767,7 +5327,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -6171,7 +5730,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -6539,7 +6097,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -6928,7 +6485,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -7332,7 +6888,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -7515,7 +7070,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -7919,7 +7473,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -8296,7 +7849,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -8700,7 +8252,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -9090,7 +8641,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -9473,7 +9023,7 @@
     "agendaRows": 0
    }
   },
-  "prefs.stored": "{\"layers\":[\"moments\",\"postsOurs\",\"postsTheirs\",\"postsPlan\",\"films\",\"todos\",\"blueprint\"],\"view\":\"month\",\"tray\":true}",
+  "prefs.stored": "{\"layers\":[\"moments\",\"postsOurs\",\"postsTheirs\",\"films\",\"todos\",\"blueprint\"],\"view\":\"month\",\"tray\":true}",
   "prefs.restored": {
    "monthLabel": "November 2026",
    "nav": [
@@ -9495,7 +9045,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -9671,7 +9220,7 @@
    }
   },
   "popover": {
-   "text": "Thu, Nov 12Your to-dosLayer: theirs, contentLayer: theirs, adminOn the planLayer: ours, contentBlueprint’s workLayer: ours, admin",
+   "text": "Thu, Nov 12Your to-dosLayer: theirs, contentLayer: theirs, adminBlueprint postsLayer: ours, contentBlueprint’s workLayer: ours, admin",
    "rows": [
     "",
     "Layer: theirs, content",
@@ -9735,7 +9284,6 @@
      "Shows & releases:true",
      "Blueprint posts:true",
      "You post:true",
-     "On the plan:true",
      "Film days:true",
      "Your to-dos:true",
      "Blueprint’s work:true"
@@ -10177,7 +9725,6 @@
      "Shows & releases:true",
      "Blueprint posts:true",
      "You post:true",
-     "On the plan:true",
      "Film days:true",
      "Your to-dos:true",
      "Blueprint’s work:true"
@@ -10588,7 +10135,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -10992,7 +10538,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:false",
     "Blueprint’s work:false"
@@ -11152,7 +10697,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -11556,7 +11100,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -11752,7 +11295,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -11987,7 +11529,6 @@
     "Shows & releases:false",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:false"
@@ -12126,7 +11667,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -12530,7 +12070,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -12637,7 +12176,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -12744,7 +12282,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -13148,7 +12685,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -13396,7 +12932,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -13614,7 +13149,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -13810,7 +13344,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -14214,7 +13747,6 @@
     "Shows & releases:false",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:false",
     "Blueprint’s work:false"
@@ -14522,7 +14054,6 @@
     "Shows & releases:false",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:false"
@@ -14682,7 +14213,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:false",
     "Blueprint’s work:false"
@@ -14842,7 +14372,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -15246,7 +14775,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -15650,7 +15178,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -15741,32 +15268,9 @@
      "more": ""
     },
     {
-     "date": "8",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-edge-show pt-nc-default",
-       "text": "Cut the announce reelThe Echo",
-       "title": "Content: Cut the announce reel — part of The Echo\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
      "date": "9",
      "cls": "pt-cal-cell pt-cal-cell-today",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-edge-show pt-nc-default",
-       "text": "Schedule the announce postThe Echo",
-       "title": "Content: Schedule the announce post — part of The Echo\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
+     "chips": [],
      "dots": [],
      "more": ""
     },
@@ -15819,15 +15323,15 @@
        "locked": false
       },
       {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-nc-default",
-       "text": "Layer: ours, content",
-       "title": "Content: Layer: ours, content\nBlueprint handles this one",
+       "cls": "pt-chip pt-chip-locked pt-chip-task pt-chip-theirs",
+       "text": "Layer: ours, admin",
+       "title": "Task: Layer: ours, admin\nBlueprint handles this one",
        "draggable": false,
        "locked": true
       }
      ],
      "dots": [],
-     "more": "+1 more"
+     "more": ""
     },
     {
      "date": "13",
@@ -15839,21 +15343,6 @@
        "title": "Show: The Echo",
        "draggable": true,
        "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "14",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-chip-tentative pt-nc-default",
-       "text": "Tentative studio hold",
-       "title": "Content: Tentative studio hold\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
       }
      ],
      "dots": [],
@@ -15898,17 +15387,10 @@
        "title": "",
        "draggable": true,
        "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-nc-default",
-       "text": "Pile item 1",
-       "title": "Content: Pile item 1\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
       }
      ],
      "dots": [],
-     "more": "+2 more"
+     "more": ""
     },
     {
      "date": "17",
@@ -15997,9 +15479,9 @@
    "dayCard": null,
    "empty": null,
    "counts": {
-    "chips": 21,
+    "chips": 17,
     "cells": 35,
-    "more": 2,
+    "more": 0,
     "tray": 3,
     "agendaRows": 0
    }
@@ -16025,382 +15507,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:true",
-    "Film days:true",
-    "Your to-dos:true",
-    "Blueprint’s work:true"
-   ],
-   "bucketSummary": "Every bucket",
-   "bucketOpts": [
-    "pt-multi-opt pt-nc-blue|Behind the scenes|false",
-    "pt-multi-opt pt-nc-purple|Story|false",
-    "pt-multi-opt pt-nc-green|Recap|false",
-    "pt-multi-opt pt-nc-orange|Announce|false",
-    "pt-multi-opt pt-nc-yellow|Community|false"
-   ],
-   "selects": [
-    {
-     "label": "Filter by campaign",
-     "value": "",
-     "options": [
-      "=Every campaign",
-      "m-show=The Echo · Nov 13",
-      "m-rel=Paper Hearts · Nov 20",
-      "m-soon=Rooftop Remix · Nov 3"
-     ]
-    },
-    {
-     "label": "Filter by status",
-     "value": "",
-     "options": [
-      "=Any status",
-      "planned=Planned",
-      "progress=In progress",
-      "posted=Posted"
-     ]
-    }
-   ],
-   "trayBtn": "Unscheduled · 3:true",
-   "filterChip": "",
-   "cells": [
-    {
-     "date": "3",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-show pt-chip-tentative",
-       "text": "Rooftop Remix",
-       "title": "Show: Rooftop Remix",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "6",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-post pt-chip-tick-row pt-edge-show pt-nc-default",
-       "text": "Send the show photosThe Echo",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "7",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-post pt-nc-purple",
-       "text": "Lyric pull quote",
-       "title": "Posts: Lyric pull quote · Story",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-task pt-chip-theirs pt-edge-show",
-       "text": "Ticket link liveThe Echo",
-       "title": "Task: Ticket link live — part of The Echo\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "8",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-edge-show pt-nc-default",
-       "text": "Cut the announce reelThe Echo",
-       "title": "Content: Cut the announce reel — part of The Echo\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "9",
-     "cls": "pt-cal-cell pt-cal-cell-today",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-edge-show pt-nc-default",
-       "text": "Schedule the announce postThe Echo",
-       "title": "Content: Schedule the announce post — part of The Echo\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "10",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-done pt-chip-post pt-chip-tick-row pt-nc-default",
-       "text": "Stays: done",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "11",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-tick-row pt-chip-todo",
-       "text": "Grant Meta access",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "12",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-post pt-chip-tick-row pt-nc-default",
-       "text": "Layer: theirs, content",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-tick-row pt-chip-todo",
-       "text": "Layer: theirs, admin",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-nc-default",
-       "text": "Layer: ours, content",
-       "title": "Content: Layer: ours, content\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": "+1 more"
-    },
-    {
-     "date": "13",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-show",
-       "text": "The Echo",
-       "title": "Show: The Echo",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "14",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-chip-tentative pt-nc-default",
-       "text": "Tentative studio hold",
-       "title": "Content: Tentative studio hold\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "15",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-film pt-chip-tick-row pt-nc-default",
-       "text": "🎥 Film: theirs, content",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-film pt-chip-locked pt-chip-theirs pt-nc-default",
-       "text": "🎥 Film: ours, admin",
-       "title": "Task: 🎥 Film: ours, admin\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "16",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-post pt-chip-tick-row pt-nc-default",
-       "text": "Pile item 2",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-post pt-chip-tick-row pt-nc-default",
-       "text": "Pile item 4",
-       "title": "",
-       "draggable": true,
-       "locked": false
-      },
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-post pt-nc-default",
-       "text": "Pile item 1",
-       "title": "Content: Pile item 1\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": "+2 more"
-    },
-    {
-     "date": "17",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-post pt-nc-orange",
-       "text": "Tour poster drop",
-       "title": "Posts: Tour poster drop · Announce",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "18",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-locked pt-chip-task pt-chip-theirs pt-edge-release",
-       "text": "Pull the pre-release numbersPaper Hearts",
-       "title": "Task: Pull the pre-release numbers — part of Paper Hearts\nBlueprint handles this one",
-       "draggable": false,
-       "locked": true
-      }
-     ],
-     "dots": [],
-     "more": ""
-    },
-    {
-     "date": "20",
-     "cls": "pt-cal-cell",
-     "chips": [
-      {
-       "cls": "pt-chip pt-chip-release",
-       "text": "Paper Hearts",
-       "title": "Release: Paper Hearts",
-       "draggable": true,
-       "locked": false
-      }
-     ],
-     "dots": [],
-     "more": ""
-    }
-   ],
-   "dow": [
-    "Sun",
-    "Mon",
-    "Tue",
-    "Wed",
-    "Thu",
-    "Fri",
-    "Sat"
-   ],
-   "agenda": [],
-   "tray": {
-    "head": "Unscheduled3",
-    "cards": [
-     {
-      "cls": "pt-traycard",
-      "text": "Hook idea: the bridge",
-      "draggable": true,
-      "title": ""
-     },
-     {
-      "cls": "pt-traycard",
-      "text": "Merch tease",
-      "draggable": true,
-      "title": ""
-     },
-     {
-      "cls": "pt-traycard pt-traycard-locked",
-      "text": "Fan question series",
-      "draggable": false,
-      "title": "We put this one out, so we schedule it."
-     }
-    ],
-    "groups": [
-     "Story1Hook idea: the bridge",
-     "Announce1Merch tease",
-     "Community1Fan question series"
-    ]
-   },
-   "dayCard": null,
-   "empty": null,
-   "counts": {
-    "chips": 21,
-    "cells": 35,
-    "more": 2,
-    "tray": 3,
-    "agendaRows": 0
-   }
-  },
-  "layer.off.On the plan": {
-   "monthLabel": "November 2026",
-   "nav": [
-    "Previous month",
-    "Next month"
-   ],
-   "views": [
-    "Month:true",
-    "Week:false",
-    "Agenda:false"
-   ],
-   "quick": [
-    "Everything:false",
-    "Content only:false",
-    "My week:false",
-    "Campaigns:false"
-   ],
-   "layers": [
-    "Shows & releases:true",
-    "Blueprint posts:false",
-    "You post:false",
-    "On the plan:false",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -16730,7 +15836,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -17060,7 +16165,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:false",
     "Blueprint’s work:true"
@@ -17280,7 +16384,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:false",
     "Blueprint’s work:false"
@@ -17440,7 +16543,6 @@
     "Shows & releases:false",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:false",
     "Blueprint’s work:false"
@@ -17512,7 +16614,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -17872,7 +16973,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -18276,7 +17376,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -18644,7 +17743,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -19033,7 +18131,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -19437,7 +18534,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -19620,7 +18716,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -20024,7 +19119,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -20401,7 +19495,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -20805,7 +19898,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -21195,7 +20287,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -21578,7 +20669,7 @@
     "agendaRows": 0
    }
   },
-  "prefs.stored": "{\"layers\":[\"moments\",\"postsOurs\",\"postsTheirs\",\"postsPlan\",\"films\",\"todos\",\"blueprint\"],\"view\":\"month\",\"tray\":true}",
+  "prefs.stored": "{\"layers\":[\"moments\",\"postsOurs\",\"postsTheirs\",\"films\",\"todos\",\"blueprint\"],\"view\":\"month\",\"tray\":true}",
   "prefs.restored": {
    "monthLabel": "November 2026",
    "nav": [
@@ -21600,7 +20691,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -21776,7 +20866,7 @@
    }
   },
   "popover": {
-   "text": "Thu, Nov 12Your to-dosLayer: theirs, contentLayer: theirs, adminOn the planLayer: ours, contentBlueprint’s workLayer: ours, admin",
+   "text": "Thu, Nov 12Your to-dosLayer: theirs, contentLayer: theirs, adminBlueprint postsLayer: ours, contentBlueprint’s workLayer: ours, admin",
    "rows": [
     "",
     "Layer: theirs, content",
@@ -21840,7 +20930,6 @@
      "Shows & releases:true",
      "Blueprint posts:true",
      "You post:true",
-     "On the plan:true",
      "Film days:true",
      "Your to-dos:true",
      "Blueprint’s work:true"
@@ -22282,7 +21371,6 @@
      "Shows & releases:true",
      "Blueprint posts:true",
      "You post:true",
-     "On the plan:true",
      "Film days:true",
      "Your to-dos:true",
      "Blueprint’s work:true"
@@ -22693,7 +21781,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -23097,7 +22184,6 @@
     "Shows & releases:true",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:false",
     "Your to-dos:false",
     "Blueprint’s work:false"
@@ -23257,7 +22343,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -23661,7 +22746,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -23857,7 +22941,6 @@
     "Shows & releases:true",
     "Blueprint posts:true",
     "You post:true",
-    "On the plan:true",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:true"
@@ -24092,7 +23175,6 @@
     "Shows & releases:false",
     "Blueprint posts:false",
     "You post:false",
-    "On the plan:false",
     "Film days:true",
     "Your to-dos:true",
     "Blueprint’s work:false"

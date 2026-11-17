@@ -878,8 +878,34 @@ export function cardRowTitle(title: string, role: 'post' | 'film'): string {
   return role === 'film' ? `Film \u00b7 ${title}` : title;
 }
 
-export const PORTAL_LAYERS: readonly CalendarLayer[] =
+/** Every layer there is. HQ draws all of them. */
+export const ALL_LAYERS: readonly CalendarLayer[] =
   ['moments', 'postsOurs', 'postsTheirs', 'postsPlan', 'films', 'todos', 'blueprint'];
+
+/**
+ * The layers the client's portal has a chip for.
+ *
+ * postsPlan is not one of them. It is the layer for a post a campaign
+ * calls for that has no piece in the pipeline yet, and pieces are now
+ * made with their steps, so on a client's calendar the chip was a
+ * switch for an empty list. A step that does turn up there is still
+ * drawn: it is shown with Blueprint posts (see foldLayer). HQ keeps
+ * the chip, as "No piece yet", because to us an entry in it is a job.
+ */
+export const PORTAL_LAYERS: readonly CalendarLayer[] = ALL_LAYERS.filter((l) => l !== 'postsPlan');
+
+/**
+ * The chip a layer is switched by, on a screen that has these chips.
+ *
+ * A layer the screen has is its own chip. postsPlan on a screen
+ * without it rides with Blueprint posts, which is what it is: a post
+ * of ours that is coming. Nothing is ever left in a layer no chip can
+ * turn on.
+ */
+export function foldLayer(layer: CalendarLayer, shown: readonly CalendarLayer[]): CalendarLayer {
+  if (shown.includes(layer)) return layer;
+  return layer === 'postsPlan' ? 'postsOurs' : layer;
+}
 
 /**
  * Which post layer a Content Pipeline row is in.
@@ -899,11 +925,9 @@ export function migrateLayers(saved: readonly string[]): string[] {
   return saved.flatMap((l) => (l === 'posts' ? ['postsOurs', 'postsTheirs', 'postsPlan'] : [l]));
 }
 
-/** HQ draws the same five. They were different while the portal's
- *  query did not fetch our own work; it does now, so a client can see
- *  what we are doing for them and neither screen has a layer the
- *  other lacks. */
-export const HQ_LAYERS: readonly CalendarLayer[] = [...PORTAL_LAYERS];
+/** HQ draws every layer: the portal's, and "No piece yet", which is
+ *  a list of work for us and nothing a client needs a switch for. */
+export const HQ_LAYERS: readonly CalendarLayer[] = [...ALL_LAYERS];
 
 /* ── Moving things on the calendar ────────────────────────────── */
 

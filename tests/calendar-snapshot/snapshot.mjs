@@ -189,7 +189,7 @@ for (const [engine, ename] of [[chromium, 'chromium'], [webkit, 'webkit']]) {
   }
   await visit('quick.back.month', () => view('Month'));
 
-  for (const l of ['Blueprint posts', 'You post', 'On the plan', 'Film days', 'Your to-dos', 'Blueprint\u2019s work']) {
+  for (const l of ['Blueprint posts', 'You post', 'Film days', 'Your to-dos', 'Blueprint\u2019s work']) {
     await visit(`layer.off.${l}`, () => page.locator('.pt-layer', { hasText: l }).first().click());
   }
   // Named for what it is, so it has to actually be it: every chip on
