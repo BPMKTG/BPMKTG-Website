@@ -57,6 +57,7 @@ const ACTION_LABEL: Record<Row['action'], string> = {
 function sayChange(c: Change): string {
   const long = ['Brief', 'Where', 'Why It Matters'].includes(c.field);
   if (long) return `${c.field} ${c.from ? 'replaced' : 'added'}`;
+  if (c.field === 'Ask for Notes') return 'Note box for the client switched on';
   if (c.field === 'Item') return `Renamed to “${c.to}”`;
   if (c.field === 'Date') return `Date ${c.from ? shortDay(c.from) : 'none'} → ${c.to ? shortDay(c.to) : 'none'}`;
   return `${c.field} ${c.from ?? 'none'} → ${c.to ?? 'none'}`;

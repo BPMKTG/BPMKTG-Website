@@ -1056,6 +1056,8 @@ const NAV = [
         flow: r.flow,
         notes: r.notes,
         brief: r.brief ?? null,
+        asksNotes: !!r.asksNotes,
+        clientNotes: r.clientNotes ?? null,
         playbook: null,
         phase: null,
         where: null,
@@ -1466,6 +1468,19 @@ const NAV = [
       const box = el('div', 'pt-brief');
       box.dataset.brief = '1';
       box.append(el('h3', undefined, 'Brief'), el('p', undefined, brief));
+      body.appendChild(box);
+    }
+
+    // What the client wrote on a step that asks for it. Shown whole
+    // and with its line breaks: it is a list more often than a line.
+    const theirs = String((it as any).clientNotes ?? '').trim();
+    if (theirs || (it as any).asksNotes) {
+      const box = el('div', 'pt-stepnote');
+      box.dataset.stepNote = it.id;
+      box.append(
+        el('h3', 'pt-stepnote-label', 'Client notes'),
+        el('p', 'pt-stepnote-read', theirs || 'Nothing written yet.'),
+      );
       body.appendChild(box);
     }
 

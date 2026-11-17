@@ -164,7 +164,7 @@ databases carry the column and both writes stamp it.
 
 ### What a client may write
 
-Six things, and nothing else:
+Seven things, and nothing else:
 
 - their own content cards (the whitelist in `src/data/portal-content.ts`),
 - a new idea,
@@ -173,6 +173,8 @@ Six things, and nothing else:
   not Moved, and never one of our steps or a moment,
 - the **Date** of one of those same steps, by dragging it to another day
   or picking one in the drawer,
+- the **Client Notes** of one of those same steps, and only when the
+  step has **Ask for Notes** ticked. See "Notes a step asks for" below,
 - the **Date** of a moment, which takes its campaign with it. See below.
 
 - a request for a change to a playbook step, which creates one Playbook
@@ -382,6 +384,28 @@ playbook is applied, and shown to the client on the step and on the
 piece that step delivers (the piece borrows it through Campaign; the
 Content Pipeline has no Brief of its own). It is on the client
 whitelist in `CALENDAR_FIELDS`. Notes are still ours only.
+
+**Notes a step asks for.** Two properties on Campaign Calendar: **Ask
+for Notes** (checkbox) and **Client Notes** (text). Some steps are a
+question, such as "Log biggest crowd reaction moments". Tick Ask for
+Notes on the master (in HQ, on the step's edit form) and every step
+made from it carries the tick. The client's card for that step then has
+a "Your notes" box above its tick box. What they type saves itself a
+moment after they stop, when they leave the box, and on "Save notes",
+and goes to Client Notes on their step. HQ shows it on the step's card
+as "Client notes".
+
+- Only a step with the tick takes a note, and only from the client who
+  owns it (Owner = Client) or from one of us. Not a hidden step, and
+  not one that is Skipped or Moved.
+- A note is plain text, at most 2,000 characters. One that is longer is
+  refused, never cut short. An empty note clears the box.
+- It can still be added to after the step is ticked Done.
+- Client Notes is never the same field as Notes. Notes stays ours and
+  is never sent to a client; a client's note never lands in it.
+- "Update campaigns to current playbook" switches the box on for steps
+  already on a calendar whose master now asks. It never switches one
+  off, so a note that was written keeps the box it was written in.
 
 ## The Playbook Audit
 

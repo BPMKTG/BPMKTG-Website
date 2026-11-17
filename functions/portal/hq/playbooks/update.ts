@@ -185,6 +185,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         title: row.add.title, playbook: row.add.playbook, phase: row.add.phase, offset: row.add.offset,
         date: row.add.date, flow: row.add.flow, owner: row.add.owner, type: row.add.type,
         notes: row.add.notes, where: row.add.where, why: row.add.why, brief: row.add.brief,
+        asksNotes: !!row.add.asksNotes,
       }, clientId, row.momentId as string, { hidden: !!moment?.hidden }), 'a step the playbook gained');
       budget--;
       if (!page) { stopped = true; break; }

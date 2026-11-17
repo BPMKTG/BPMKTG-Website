@@ -19,7 +19,7 @@ import { cleanItemTitle } from '../data/portal';
 import type { MasterStep } from '../data/playbooks';
 import type { PieceMoment } from '../data/pieces';
 import {
-  baselineOf,
+  ASKS_FIELD, baselineOf,
   type UpPiece, type UpStep, type UpdateBaseline, type UpdateRow,
 } from '../data/playbook-update';
 import {
@@ -49,6 +49,7 @@ export function shapeUpStep(page: any): UpStep {
     brief: readText(p['Brief']),
     where: readText(p['Where']),
     why: readText(p['Why It Matters']),
+    asksNotes: readCheckbox(p[ASKS_FIELD]),
   };
 }
 
@@ -121,6 +122,7 @@ function stepProp(field: string, to: string | null): Record<string, unknown> {
     case 'Brief': return { Brief: text(to) };
     case 'Where': return { Where: text(to) };
     case 'Why It Matters': return { 'Why It Matters': text(to) };
+    case ASKS_FIELD: return { [ASKS_FIELD]: { checkbox: to === 'Yes' } };
     default: return {};
   }
 }
@@ -142,6 +144,7 @@ export function stepRestore(row: UpdateRow, step: UpStep): Record<string, unknow
     Pieces: step.pieces === null ? null : String(step.pieces),
     Priority: step.priority, 'Default Media': step.defaultMedia,
     Brief: step.brief, Where: step.where, 'Why It Matters': step.why,
+    [ASKS_FIELD]: step.asksNotes ? 'Yes' : null,
   };
   let props: Record<string, unknown> = {};
   for (const c of row.changes) props = { ...props, ...stepProp(c.field, was[c.field] ?? null) };

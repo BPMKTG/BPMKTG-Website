@@ -86,6 +86,7 @@ export function shapeMaster(page: any): MasterStep | null {
     defaultMedia: readSelect(p['Default Media']),
     pieces: readNumber(p['Pieces']),
     brief: readText(p['Brief']),
+    asksNotes: readCheckbox(p['Ask for Notes']),
   };
 }
 
@@ -266,6 +267,10 @@ export function buildMasterProperties(body: Record<string, unknown>, vocab: Mast
     if (v !== undefined) props['Brief'] = richText(v);
     else rejected.push('brief');
   }
+  if ('asksNotes' in body) {
+    if (typeof body.asksNotes === 'boolean') props['Ask for Notes'] = { checkbox: body.asksNotes };
+    else rejected.push('asksNotes');
+  }
   // Moving a step between playbooks is how one is retired and how one
   // is restored. Only to a playbook some master is already in, or to
   // Retired, so a typo cannot found a new playbook.
@@ -437,6 +442,7 @@ export function stepProperties(
     Status: selectOf('Not Started'),
     Notes: richText(step.notes ? step.notes.slice(0, MAX_STEP_NOTES) : null),
     Brief: richText(step.brief ? step.brief.slice(0, MAX_STEP_NOTES) : null),
+    'Ask for Notes': { checkbox: !!step.asksNotes },
     Where: richText(step.where ? step.where.slice(0, MAX_STEP_NOTES) : null),
     'Why It Matters': richText(step.why ? step.why.slice(0, MAX_STEP_NOTES) : null),
     'Last Edited By': selectOf('Blueprint'),

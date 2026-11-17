@@ -374,6 +374,8 @@ export async function fetchCalendar(
         capacity: readNumber(p[CALENDAR_FIELDS[16]]),
         flow: readSelect(p[CALENDAR_FIELDS[17]]),
         brief: readText(p[CALENDAR_FIELDS[18]]),
+        asksNotes: readCheckbox(p[CALENDAR_FIELDS[19]]),
+        clientNotes: readText(p[CALENDAR_FIELDS[20]]),
       },
     });
   }
@@ -504,7 +506,10 @@ export async function fetchOwnedStep(
   token: string,
   clientPageId: string,
   pageId: string,
-): Promise<{ status: string | null; owner: string | null; date: string | null } | null> {
+): Promise<{
+  status: string | null; owner: string | null; date: string | null;
+  asksNotes: boolean; clientNotes: string | null;
+} | null> {
   const page = await fetchPage(token, pageId);
   if (!page || page.object !== 'page' || page.archived) return null;
 
@@ -522,6 +527,8 @@ export async function fetchOwnedStep(
     status: readSelect(p['Status']),
     owner: readSelect(p['Owner']),
     date: readDate(p['Date']),
+    asksNotes: readCheckbox(p['Ask for Notes']),
+    clientNotes: readText(p['Client Notes']),
   };
 }
 

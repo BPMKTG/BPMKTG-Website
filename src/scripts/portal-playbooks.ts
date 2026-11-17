@@ -249,6 +249,16 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     brief.placeholder = 'How to make it. The client reads this on the step and on the piece.';
     form.appendChild(sheetField('Brief', brief));
 
+    // A step that is a question. Ticked, the client's card for it gets
+    // a box to write the answer in, above the tick.
+    const asksWrap = el('label', 'pt-pb-asks');
+    const asks = el('input') as HTMLInputElement;
+    asks.type = 'checkbox';
+    asks.checked = !!step?.asksNotes;
+    asksWrap.append(asks, el('span', undefined,
+      'Ask the client for notes on this step. Their card gets a box to write in before they tick it.'));
+    form.appendChild(asksWrap);
+
     const notes = el('textarea', 'pt-input pt-textarea') as HTMLTextAreaElement;
     notes.rows = 2;
     notes.maxLength = 2000;
@@ -294,6 +304,7 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
         title: title.value.trim(), offset: Number(offset.value), flow: flow.value,
         phase: phase.value, notes: notes.value.trim() || null,
         brief: brief.value.trim() || null,
+        asksNotes: asks.checked,
         priority: delivers ? priority.value || null : null,
         defaultMedia: delivers ? media.value || null : null,
         pieces: delivers ? nPieces : null,
@@ -325,6 +336,12 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
       if (next.phase !== step.phase) { patch.phase = next.phase; lines.push(`Phase: ${step.phase ?? 'none'} becomes ${next.phase}.`); }
       if ((next.notes ?? '') !== (step.notes ?? '')) { patch.notes = next.notes; lines.push('Notes are updated.'); }
       if ((next.brief ?? '') !== (step.brief ?? '')) { patch.brief = next.brief; lines.push('The brief is updated. Clients see it on new campaigns.'); }
+      if (next.asksNotes !== !!step.asksNotes) {
+        patch.asksNotes = next.asksNotes;
+        lines.push(next.asksNotes
+          ? 'Clients are asked for notes on this step, on new campaigns.'
+          : 'Clients are no longer asked for notes on this step, on new campaigns. Notes already written are kept.');
+      }
       if (next.priority !== (step.priority ?? null)) { patch.priority = next.priority; lines.push(`Priority: ${step.priority ?? 'not set'} becomes ${next.priority ?? 'not set'}.`); }
       if (next.defaultMedia !== (step.defaultMedia ?? null)) { patch.defaultMedia = next.defaultMedia; lines.push(`Default media: ${step.defaultMedia ?? 'not set'} becomes ${next.defaultMedia ?? 'not set'}.`); }
       if (next.pieces !== (step.pieces ?? null)) { patch.pieces = next.pieces; lines.push(`Pieces: ${pieceCount(step.pieces ?? null)} becomes ${pieceCount(next.pieces)}.`); }
@@ -762,6 +779,7 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     const main = el('div', 'pt-pb-main');
     main.appendChild(mark(el('span', 'pt-pb-title', s.title), s.was.title, 'Title'));
     if (s.brief) main.appendChild(el('span', 'pt-pb-brief', s.brief));
+    if (s.asksNotes) main.appendChild(el('span', 'pt-pb-notes', 'Asks the client for notes.'));
     if (s.notes) main.appendChild(el('span', 'pt-pb-notes', s.notes));
     li.appendChild(main);
 

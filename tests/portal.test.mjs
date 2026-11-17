@@ -7,6 +7,10 @@ import {
   formatEngagement,
   isOpenClientTodo,
   canSetStepStatus,
+  canWriteStepNote,
+  cleanStepNote,
+  MAX_STEP_NOTE,
+  ASKS_FIELD,
   // Blueprint HQ · reports
   REPORT_FIELDS,
   reportGaps,
@@ -5195,6 +5199,67 @@ section('Playbook Audit · what an upload has to be');
   is('upload: an empty file is refused', [none.ok, none.error], [false, 'empty']);
   const huge = await readPdfUpload(post(pdf, { 'Content-Length': String(MAX_AUDIT_BYTES + 1) }));
   is('upload: one that declares itself over the cap is refused before it is read', [huge.ok, huge.error, huge.status], [false, 'too_big', 413]);
+}
+
+section('Step notes · the box a step can ask the client to fill in');
+
+{
+  const mine = { owner: 'Client', status: 'Not Started', asksNotes: true };
+  is('who: a client writes on their own step that asks for a note', canWriteStepNote(mine), true);
+  is('who: and still can once it is ticked, to add what they forgot', canWriteStepNote({ ...mine, status: 'Done' }), true);
+  is('who: not on a step that does not ask', [canWriteStepNote({ ...mine, asksNotes: false }), canWriteStepNote({ owner: 'Client', status: 'Not Started' })], [false, false]);
+  is('who: not on one of ours, even one that asks', canWriteStepNote({ ...mine, owner: 'Blueprint' }), false);
+  is('who: one of us can, on either side', [canWriteStepNote({ ...mine, owner: 'Blueprint' }, 'admin'), canWriteStepNote(mine, 'admin')], [true, true]);
+  is('who: nobody on a step taken out of the plan',
+     [canWriteStepNote({ ...mine, status: 'Skipped' }), canWriteStepNote({ ...mine, status: 'Moved' }, 'admin')], [false, false]);
+  is('who: asking does not let one of us write where the step never asked', canWriteStepNote({ ...mine, asksNotes: false }, 'admin'), false);
+
+  is('what: trimmed, with one kind of line ending', cleanStepNote('  Second drop\r\nThe intro edit \r'), 'Second drop\nThe intro edit');
+  is('what: an empty note is an answer, it clears the box', [cleanStepNote(''), cleanStepNote('   ')], ['', '']);
+  is('what: only text is a note', [cleanStepNote(7), cleanStepNote(null), cleanStepNote(['a']), cleanStepNote({ text: 'a' })], [undefined, undefined, undefined, undefined]);
+  is('what: as long as the limit is kept, one over is refused rather than cut',
+     [cleanStepNote('x'.repeat(MAX_STEP_NOTE)).length, cleanStepNote('x'.repeat(MAX_STEP_NOTE + 1))], [MAX_STEP_NOTE, undefined]);
+
+  is('sent: both fields are on the list a client is sent, after Brief, and Notes still is not',
+     [CALENDAR_FIELDS[19], CALENDAR_FIELDS[20], CALENDAR_NEVER_SEND.includes('Notes'), CALENDAR_FIELDS.includes('Notes')],
+     ['Ask for Notes', 'Client Notes', true, false]);
+
+  const page = { id: 'pb-1', properties: {
+    Item: NP.title('Log biggest crowd reaction moments'), 'Is Playbook': NP.check(true), Kind: NP.sel('Step'),
+    Playbook: NP.sel('Show Night'), 'Ask for Notes': NP.check(true),
+  } };
+  is('master: the tick is read', [shapeMaster(page).asksNotes, shapeMaster({ ...page, properties: { ...page.properties, 'Ask for Notes': NP.check(false) } }).asksNotes], [true, false]);
+  const vocab = vocabularyOf(MASTERS);
+  is('master: it is switched on and off, and only by yes or no',
+     [buildMasterProperties({ asksNotes: true }, vocab).properties['Ask for Notes'].checkbox,
+      buildMasterProperties({ asksNotes: false }, vocab).properties['Ask for Notes'].checkbox,
+      buildMasterProperties({ asksNotes: 'yes' }, vocab).rejected], [true, false, ['asksNotes']]);
+  const planned = { title: 'Log biggest crowd reaction moments', playbook: 'Show Night', phase: 'Show Night', offset: 0, date: '2027-01-10',
+    flow: 'Client task', owner: 'Client', type: 'Admin', notes: null, where: null, why: null };
+  is('apply: a new step carries the tick, and starts with nothing written',
+     [stepProperties({ ...planned, asksNotes: true }, 'c', 'm')['Ask for Notes'].checkbox,
+      stepProperties(planned, 'c', 'm')['Ask for Notes'].checkbox,
+      'Client Notes' in stepProperties({ ...planned, asksNotes: true }, 'c', 'm')], [true, false, false]);
+
+  const masters = [...UP_MASTERS, UM('n1', 'Log biggest crowd reaction moments', { playbook: 'Show Night', phase: 'Show Night', offset: 0,
+    flow: 'Client task', owner: 'Client', type: 'Admin', priority: null, defaultMedia: null, asksNotes: true })];
+  const base = { playbook: 'Show Night', phase: 'Show Night', flow: 'Client task', offset: 0, priority: null, defaultMedia: null };
+  const steps = [
+    ustep('n-open', 'Log biggest crowd reaction moments', '2026-12-13', base),
+    ustep('n-has', 'Log biggest crowd reaction moments', '2026-12-13', { ...base, asksNotes: true }),
+  ];
+  const plan = planUpdate(steps, UP_MOMENTS, masters, [], UP_OPTS);
+  const row = (id) => plan.rows.find((r) => r.stepId === id);
+  is('update: a step whose master now asks gets the box switched on',
+     row('n-open').changes.filter((c) => c.field === ASKS_FIELD).map((c) => [c.from, c.to]), [[null, 'Yes']]);
+  is('update: one that already asks is not touched for it', (row('n-has')?.changes ?? []).some((c) => c.field === ASKS_FIELD), false);
+  is('update: it is written as a tick, and put back as the tick it was',
+     [stepWrite(row('n-open'), steps[0])[ASKS_FIELD].checkbox, stepRestore(row('n-open'), steps[0])[ASKS_FIELD].checkbox], [true, false]);
+  is('update: the plan, applied, says the step asks', applyPlan(steps, [], plan.rows).steps.find((s2) => s2.id === 'n-open').asksNotes, true);
+  const off = planUpdate([ustep('n-keep', 'Announce: crowd clip ending on the flyer, flyer story, event banner', '2026-11-18', { phase: 'Pre-Show · Announce', offset: -28, asksNotes: true })],
+    UP_MOMENTS, UP_MASTERS, [], UP_OPTS);
+  is('update: a master that does not ask never switches a box off',
+     off.rows.flatMap((r) => r.changes).some((c) => c.field === ASKS_FIELD), false);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

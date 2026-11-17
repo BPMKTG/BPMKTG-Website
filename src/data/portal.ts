@@ -92,6 +92,11 @@ export const CALENDAR_FIELDS = [
   // How to make it. Written for the client to read: it is on the step
   // they open and on the piece that step delivers.
   'Brief',
+  // A step that asks the client to write something down, and what they
+  // wrote. The second is the one calendar field a client can type
+  // into; see canWriteStepNote.
+  'Ask for Notes',
+  'Client Notes',
 ] as const;
 
 export const CALENDAR_NEVER_SEND = ['Notes', 'Offset (days)', 'Is Playbook', 'Hide from Client'] as const;
@@ -353,6 +358,42 @@ export function canSetStepStatus(
   // A status Notion has not been given yet reads as Not Started, which
   // is where a step starts life anyway.
   return row.status === null || isStepClientStatus(row.status);
+}
+
+/** As long as a step's note may be. Notion holds 2,000 characters in
+ *  one run of text, and a note is one run. */
+export const MAX_STEP_NOTE = 2000;
+
+/**
+ * May this viewer write the note on this step?
+ *
+ * Only on a step whose master asks for one: the box is an answer to a
+ * question the playbook put, not a comment thread on every row. After
+ * that the line is where it is for a tick: a client writes on their
+ * OWN steps, one of us on any, and nobody on a step that has been
+ * taken out of the plan.
+ */
+export function canWriteStepNote(
+  row: { owner: string | null; status: string | null; asksNotes?: boolean | null },
+  role: 'client' | 'admin' = 'client',
+): boolean {
+  if (!row.asksNotes) return false;
+  if (role !== 'admin' && row.owner !== 'Client') return false;
+  return row.status === null || isStepClientStatus(row.status);
+}
+
+/**
+ * A note as it will be stored, or undefined when it is not one.
+ *
+ * Trimmed, line endings made the same, and refused rather than cut
+ * when it is too long: half a list of crowd moments saved as if it
+ * were the whole list is worse than being told it did not fit. An
+ * empty string is a real answer: it clears the note.
+ */
+export function cleanStepNote(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const text = value.replace(/\r\n?/g, '\n').trim();
+  return text.length > MAX_STEP_NOTE ? undefined : text;
 }
 
 /** Is this step ticked off? */
@@ -1060,6 +1101,10 @@ export interface PortalCalendarItem {
   whyItMatters: string | null;
   /** The creative brief. Absent on rows read before the field existed. */
   brief?: string | null;
+  /** The step asks the client to write something down. */
+  asksNotes?: boolean;
+  /** What they wrote. Null when nothing has been written. */
+  clientNotes?: string | null;
   venueCity: string | null;
   ticketLink: string | null;
   /** Who makes it and who posts it, as Notion's Flow select says it.

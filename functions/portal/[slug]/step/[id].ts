@@ -1,14 +1,19 @@
 /* ──────────────────────────────────────────────────────────────
-   PATCH /portal/<slug>/step/<id> — the client ticks off a to-do, or
-   drags it to another day.
+   PATCH /portal/<slug>/step/<id> — the client ticks off a to-do,
+   drags it to another day, or writes the note it asks for.
 
-   The only writable things on Campaign Calendar, and only two of
-   them: Status and Date. A client may move one of their OWN steps
-   between Not Started, In Progress and Done, and give it a different
-   day. Nothing else: not a moment, not one of our steps, not a step we
-   have taken out of the plan, and no property beyond those two. The
+   The only writable things on Campaign Calendar, and only three of
+   them: Status, Date and Client Notes. A client may move one of their
+   OWN steps between Not Started, In Progress and Done, give it a
+   different day, and, on a step whose master asks for a note, write
+   one. Nothing else: not a moment, not one of our steps, not a step we
+   have taken out of the plan, and no property beyond those three. The
    write also stamps Last Edited By, which the client does not get to
    choose: it is read off the session, not off the request.
+
+   The note is plain text and is stored as plain text. It goes to
+   Client Notes and never to Notes, which is ours and is never sent to
+   a client.
 
    A step that moves takes its Planned pieces with it: the Content
    Pipeline rows linked to it get the step's new day as their Post
@@ -30,7 +35,9 @@
    Every failure returns the same 404 the rest of the portal uses.
    ────────────────────────────────────────────────────────────── */
 
-import { canSetStepStatus, canSetStepDate, isIsoDay } from '../../../../src/data/portal';
+import {
+  canSetStepStatus, canSetStepDate, canWriteStepNote, cleanStepNote, isIsoDay,
+} from '../../../../src/data/portal';
 import { portalNotFound } from '../../../../src/server/portal-auth';
 import { fetchOwnedStep, patchCalendarPage } from '../../../../src/server/portal-notion';
 import { editedBy, stampEdit } from '../../../../src/server/portal-write';
@@ -64,6 +71,7 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
   const props: Record<string, unknown> = {};
   let status = step.status;
   let date = step.date;
+  let note = step.clientNotes ?? '';
 
   if ('status' in ctx.body) {
     const wanted = ctx.body.status;
@@ -88,14 +96,28 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
     props.Date = { date: { start: date } };
   }
 
+  if ('note' in ctx.body) {
+    // Who may write it is decided from the row as Notion has it, like
+    // the other two. What they wrote is checked on its own: a string,
+    // trimmed, and short enough to be stored whole.
+    if (!canWriteStepNote(step, ctx.viewer.role)) return portalNotFound();
+    const wanted = cleanStepNote(ctx.body.note);
+    if (wanted === undefined) return portalNotFound();
+    if (wanted !== note) {
+      note = wanted;
+      props['Client Notes'] = { rich_text: note ? [{ text: { content: note } }] : [] };
+    }
+  }
+
   // A request that asked for nothing we write is not a request.
-  if (!Object.keys(props).length) return portalNotFound();
+  const asked = 'status' in ctx.body || 'date' in ctx.body || 'note' in ctx.body;
+  if (!asked) return portalNotFound();
 
   // Already there. Nothing is written and nothing is invalidated, which
   // is what a double tap on a phone, or a drop back on the same day,
   // looks like.
-  if (status === step.status && date === step.date) {
-    return writeOk({ ok: true, id, status, date, changed: false });
+  if (status === step.status && date === step.date && !('Client Notes' in props)) {
+    return writeOk({ ok: true, id, status, date, note, changed: false });
   }
 
   // Stamped the same way a content write is: Blueprint when one of us
@@ -120,7 +142,7 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
   }
 
   await bustDataCache(ctx.slug, env);
-  return writeOk({ ok: true, id, status: saved.status, date: saved.date, changed: true, pieces });
+  return writeOk({ ok: true, id, status: saved.status, date: saved.date, note, changed: true, pieces });
 };
 
 export const onRequest: PagesFunction<WriteEnv> = async ({ request, next }) => {

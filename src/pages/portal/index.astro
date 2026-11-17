@@ -253,6 +253,8 @@ const NAV = [
   import {
     canSetStepDate,
     canSetStepStatus,
+    canWriteStepNote,
+    MAX_STEP_NOTE,
     cardFilmCovered,
     cardMoment,
     cardMomentIndex,
@@ -1298,6 +1300,10 @@ const NAV = [
     }
     body.appendChild(dl);
 
+    // The note a step asks for sits above its tick box, because
+    // writing it is the thing there is to do before ticking it.
+    if (!isMomentRow(it) && (it.asksNotes || it.clientNotes)) body.appendChild(stepNoteBox(it));
+
     if (tickable) {
       const box = stepBox(it, true);
       box.style.marginTop = 'var(--pt-4)';
@@ -2302,25 +2308,142 @@ const NAV = [
     }
   }
 
+  /** A step's writes, one at a time. A note and a tick are two writes
+   *  to the same Notion page, and somebody who types a note and taps
+   *  "Mark as done" sends both within a moment of each other. Notion
+   *  refuses the second of two writes that overlap, so they queue. */
+  let STEP_WRITES: Promise<unknown> = Promise.resolve();
+
+  function inTurn<T>(job: () => Promise<T>): Promise<T> {
+    const next = STEP_WRITES.then(job, job);
+    STEP_WRITES = next.catch(() => undefined);
+    return next;
+  }
+
+  type StepReply = { ok?: boolean; status?: string; note?: string };
+
+  function sendStep(id: string, body: Record<string, unknown>): Promise<StepReply | null> {
+    return inTurn(async () => {
+      try {
+        const res = await fetch(
+          `/portal/${encodeURIComponent(SLUG)}/step/${encodeURIComponent(id)}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(body),
+          },
+        );
+        if (!res.ok) return null;
+        const out = await res.json() as StepReply;
+        return out.ok ? out : null;
+      } catch {
+        return null;
+      }
+    });
+  }
+
   async function patchStep(id: string, status: string): Promise<boolean> {
-    try {
-      const res = await fetch(
-        `/portal/${encodeURIComponent(SLUG)}/step/${encodeURIComponent(id)}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ status }),
-        },
-      );
-      if (!res.ok) return false;
-      const out = await res.json() as { ok?: boolean; status?: string };
-      // The server replies with the status as it now stands. Anything
-      // other than what we asked for means it refused.
-      return !!out.ok && out.status === status;
-    } catch {
-      return false;
+    // The server replies with the status as it now stands. Anything
+    // other than what we asked for means it refused.
+    return (await sendStep(id, { status }))?.status === status;
+  }
+
+  /* ── the note a step asks for ─────────────────────────────────
+     Some steps are a question: "log the biggest crowd reaction
+     moments". The answer used to have nowhere to go but a text to us.
+     A step whose master asks for notes gets a box in its drawer, and
+     what is typed there is saved onto the step itself, where HQ reads
+     it.
+
+     It saves itself: a moment after the typing stops, when the box is
+     left, and on the button. Somebody who types and goes straight to
+     "Mark as done" has not lost anything, because leaving the box
+     saves it and the tick waits its turn behind that save. */
+
+  const NOTE_PAUSE_MS = 1200;
+
+  function stepNoteBox(it: PortalCalendarItem): HTMLElement {
+    const box = el('div', 'pt-stepnote');
+    box.dataset.stepNote = it.id;
+    const theirs = VIEWER.role === 'admin';
+    const id = `pt-stepnote-${it.id}`;
+    const label = el('label', 'pt-stepnote-label', theirs ? 'Their notes' : 'Your notes');
+    (label as HTMLLabelElement).htmlFor = id;
+    box.appendChild(label);
+
+    if (!canWriteStepNote(it, VIEWER.role)) {
+      const read = el('p', 'pt-stepnote-read', it.clientNotes || 'Nothing written yet.');
+      read.id = id;
+      box.appendChild(read);
+      return box;
     }
+
+    box.appendChild(el('p', 'pt-stepnote-hint', theirs
+      ? 'What the client wrote for this step. You can add to it for them.'
+      : 'Write it here before you tick this off. We can read it as soon as it is saved.'));
+
+    const area = el('textarea', 'pt-input pt-textarea') as HTMLTextAreaElement;
+    area.id = id;
+    area.rows = 5;
+    area.maxLength = MAX_STEP_NOTE;
+    area.value = it.clientNotes ?? '';
+    area.placeholder = 'Type your notes';
+    box.appendChild(area);
+
+    const foot = el('div', 'pt-stepnote-foot');
+    const save = el('button', 'pt-btn', 'Save notes') as HTMLButtonElement;
+    save.type = 'button';
+    const said = el('span', 'pt-stepnote-said');
+    said.setAttribute('role', 'status');
+    foot.append(save, said);
+    box.appendChild(foot);
+
+    const dirty = () => area.value.replace(/\r\n?/g, '\n').trim() !== (it.clientNotes ?? '');
+    const say = (text: string, bad = false) => {
+      said.textContent = text;
+      said.classList.toggle('pt-stepnote-bad', bad);
+    };
+    let busy = false;
+    let timer = 0;
+
+    const run = async () => {
+      window.clearTimeout(timer);
+      if (busy || !dirty()) return;
+      busy = true;
+      save.disabled = true;
+      say('Saving');
+      const ok = await saveStepNote(it, area.value);
+      busy = false;
+      save.disabled = false;
+      if (!ok) { say('That did not save. Check your connection and try again.', true); return; }
+      // Typed on while it was saving: that is a newer note, not a
+      // saved one, so it goes round again rather than being called
+      // saved.
+      if (dirty()) { say('Not saved yet'); timer = window.setTimeout(() => void run(), NOTE_PAUSE_MS); }
+      else say('Saved');
+    };
+
+    area.addEventListener('input', () => {
+      window.clearTimeout(timer);
+      if (!dirty()) { say(it.clientNotes ? 'Saved' : ''); return; }
+      say('Not saved yet');
+      timer = window.setTimeout(() => void run(), NOTE_PAUSE_MS);
+    });
+    // Fires when the box is left, which is what tapping the tick box,
+    // the close button or anything else in the drawer does first.
+    area.addEventListener('change', () => void run());
+    save.addEventListener('click', () => void run());
+    return box;
+  }
+
+  async function saveStepNote(it: PortalCalendarItem, text: string): Promise<boolean> {
+    const out = await sendStep(it.id, { note: text });
+    if (!out || typeof out.note !== 'string') return false;
+    // The same object the calendar and Home hold, so the note is there
+    // the next time the drawer opens without a reload.
+    it.clientNotes = out.note || null;
+    return true;
   }
 
   /* ── moving things to another day ─────────────────────────────

@@ -3850,6 +3850,11 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 .pt-pb-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pt-pb-title { font-size: .9rem; font-weight: 650; color: var(--pt-ink); }
 .pt-pb-notes { font-size: .78rem; line-height: 1.4; color: var(--pt-muted); }
+.pt-pb-asks {
+  display: flex; align-items: flex-start; gap: var(--pt-2);
+  font-size: .86rem; line-height: 1.45; color: var(--pt-ink-2); cursor: pointer;
+}
+.pt-pb-asks input { margin-top: 3px; flex: none; }
 .pt-pb-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 19rem; }
 .pt-pb-act {
   font-size: .76rem; font-weight: 650; color: var(--pt-navy);
@@ -3900,6 +3905,25 @@ div.pt-pb-step-editing { border: 1px solid var(--pt-line); border-radius: var(--
   text-transform: uppercase; color: var(--pt-navy-deep);
 }
 .pt-brief span, .pt-brief p { margin: 0; font-size: .9rem; line-height: 1.5; color: var(--pt-ink); white-space: pre-line; }
+/* The note a step asks for, in its drawer. */
+.pt-stepnote { margin-top: var(--pt-4); display: flex; flex-direction: column; gap: 6px; }
+.pt-stepnote-label {
+  font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--pt-navy-deep);
+}
+.pt-stepnote-hint { margin: 0; font-size: .82rem; line-height: 1.45; color: var(--pt-muted); }
+.pt-stepnote .pt-textarea { width: 100%; min-height: 108px; font-size: .92rem; }
+.pt-stepnote-read {
+  margin: 0; padding: var(--pt-3) var(--pt-4); border-radius: var(--pt-r-sm);
+  background: var(--pt-tint-soft); font-size: .9rem; line-height: 1.5;
+  color: var(--pt-ink); white-space: pre-line;
+}
+.pt-stepnote-foot { display: flex; align-items: center; gap: var(--pt-3); flex-wrap: wrap; }
+.pt-stepnote-said { font-size: .8rem; color: var(--pt-muted); }
+.pt-stepnote-said.pt-stepnote-bad { color: var(--pt-bad); }
+/* 16px on a phone: anything smaller and iOS zooms the page in when
+   the box is tapped, and does not zoom back out. */
+@media (max-width: 900px) { .pt-stepnote .pt-textarea { font-size: 16px; } }
 .pt-pb-danger { color: var(--pt-bad); border-color: color-mix(in srgb, var(--pt-bad) 40%, transparent); }
 .pt-pb-addstep { align-self: flex-start; }
 .pt-pb-warn {

@@ -35,11 +35,18 @@ import { countsToward } from './portal-content';
 
 /* ── shapes ───────────────────────────────────────────────────── */
 
+/** The checkbox a master ticks to give the client's card a note box.
+ *  In the plan it travels as 'Yes' or nothing, like every other field
+ *  the plan copies. */
+export const ASKS_FIELD = 'Ask for Notes';
+
 export interface UpStep extends PieceStep {
   offset: number | null;
   brief: string | null;
   where: string | null;
   why: string | null;
+  /** The step asks the client for a note. Absent reads as no. */
+  asksNotes?: boolean;
 }
 
 export interface UpPiece extends ExistingPiece {
@@ -106,6 +113,7 @@ export interface UpdateRow {
     title: string; playbook: string; phase: string | null; offset: number | null; date: string;
     flow: string | null; owner: string | null; type: string | null;
     brief: string | null; where: string | null; why: string | null; notes: string | null;
+    asksNotes?: boolean;
   };
 }
 
@@ -469,6 +477,9 @@ export function planUpdate(
       ['Pieces', step.pieces, m.pieces],
       ['Where', step.where, m.where],
       ['Why It Matters', step.why, m.why],
+      // Switched on from the master, never off: a step that has a
+      // note written on it keeps the box the note was written in.
+      [ASKS_FIELD, step.asksNotes ? 'Yes' : null, m.asksNotes ? 'Yes' : null],
     ];
     for (const [field, has, wants] of copy) {
       // A master with nothing to say does not empty what a step has.
@@ -547,6 +558,7 @@ export function planUpdate(
           title: master.title, playbook: add.playbook, phase: master.phase, offset: master.offset, date,
           flow: master.flow, owner: master.owner, type: master.type,
           brief: master.brief ?? null, where: master.where, why: master.why, notes: master.notes,
+          asksNotes: !!master.asksNotes,
         },
       });
     }
@@ -600,6 +612,7 @@ export function applyPlan(
       else if (c.field === 'Pieces') next.pieces = c.to === null ? null : Number(c.to);
       else if (c.field === 'Where') next.where = c.to;
       else if (c.field === 'Why It Matters') next.why = c.to;
+      else if (c.field === ASKS_FIELD) next.asksNotes = c.to === 'Yes';
     }
     return next;
   });
@@ -610,6 +623,7 @@ export function applyPlan(
       phase: r.add.phase, flow: r.add.flow, status: 'Not Started', date: r.add.date, momentId: r.momentId,
       priority: null, defaultMedia: null, pieces: null, offset: r.add.offset,
       brief: r.add.brief, where: r.add.where, why: r.add.why, notes: r.add.notes,
+      asksNotes: !!r.add.asksNotes,
     });
   }
   const outPieces = pieces.map((p) => {

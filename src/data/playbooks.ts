@@ -56,6 +56,9 @@ export interface MasterStep {
   /** How to make it: the creative brief for the piece or the job.
    *  Shown to the client on the step and on the piece it delivers. */
   brief?: string | null;
+  /** The step is a question: the client's card gets a box to write
+   *  the answer in, and what they write is kept on their step. */
+  asksNotes?: boolean;
 }
 
 export const OVERRIDE_STATUSES = ['Draft', 'Requested', 'Approved', 'Declined'] as const;
@@ -102,6 +105,7 @@ export interface EffectiveStep {
   defaultMedia: string | null;
   pieces: number | null;
   brief: string | null;
+  asksNotes: boolean;
   /** What the master says, for each thing an override changed. Absent
    *  means unchanged. */
   was: { title?: string; offset?: number | null; flow?: string | null };
@@ -209,7 +213,7 @@ export function effectivePlaybook(
     offset: m.offset, flow: m.flow, owner: m.owner, type: m.type,
     notes: m.notes, where: m.where, why: m.why,
     priority: m.priority ?? null, defaultMedia: m.defaultMedia ?? null, pieces: m.pieces ?? null,
-    brief: m.brief ?? null,
+    brief: m.brief ?? null, asksNotes: !!m.asksNotes,
     was: {}, skipped: false, added: false, overrideIds: [],
   }]));
   const added: EffectiveStep[] = [];
@@ -231,7 +235,7 @@ export function effectivePlaybook(
         // A step that makes a post is content; anything else is a job.
         type: /posts/.test(flow) ? 'Content' : 'Admin',
         notes: o.reason, where: null, why: null,
-        priority: null, defaultMedia: null, pieces: null, brief: null,
+        priority: null, defaultMedia: null, pieces: null, brief: null, asksNotes: false,
         was: {}, skipped: false, added: true, overrideIds: [o.id],
       });
       continue;
@@ -365,6 +369,7 @@ export interface PlannedStep {
   defaultMedia?: string | null;
   pieces?: number | null;
   brief?: string | null;
+  asksNotes?: boolean;
 }
 
 /**
@@ -391,6 +396,7 @@ export function planApply(
       flow: s.flow, owner: s.owner, type: s.type,
       notes: s.notes, where: s.where, why: s.why,
       priority: s.priority, defaultMedia: s.defaultMedia, pieces: s.pieces, brief: s.brief,
+      asksNotes: s.asksNotes,
     }));
 }
 
