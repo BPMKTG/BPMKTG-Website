@@ -193,6 +193,8 @@ export const AUDIT_ALIASES: readonly Alias[] = [
   { playbook: 'Release Rollout', master: 'Release day video', was: ['Full hook clip'] },
   { playbook: 'Release Rollout', master: 'Announce: "out Friday"', was: ['Push the best performing cut'] },
   { playbook: 'Release Rollout', master: 'Send promo copies to your DJ contacts', was: ['Send promo copies to target DJs'] },
+  // Renamed on 17 November: the same master row, seen before and after.
+  { playbook: 'Release Rollout', master: 'Hit check: pick the best cut for the announce', was: ['Check which cut performed best'] },
 
   /* Release Sprint */
   { playbook: 'Release Sprint', master: 'Send promo copies to your DJ contacts', was: ['Send promo copies to target DJs'] },

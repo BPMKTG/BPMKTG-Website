@@ -4807,6 +4807,10 @@ const UP_MASTERS = [
      [named.master.id, named.by, named.artist], ['m3', 'placeholder', 'Sean']);
   is('match: and then there is nothing to rename',
      renameFor({ title: 'Ticket giveaway: Sean talks to camera, send it to who you\u2019re bringing, comment to enter (comps from the promoter)' }, named, 'Christmas Show', 'Sean Comma').title, null);
+  is('match: a master renamed after the audit is found by the title it had',
+     matchMaster({ title: 'Check which cut performed best', playbook: 'Release Rollout' },
+       [...UP_MASTERS, UM('m13', 'Hit check: pick the best cut for the announce. If a clip is at 3\u00d7 the account\u2019s usual views, post a follow-up within 72 hours',
+         { playbook: 'Release Rollout', phase: 'Wk \u22122 · Seed and Test', offset: -10, flow: 'Blueprint task' })]).master.id, 'm13');
   is('aliases: every one names a playbook and how its master starts', AUDIT_ALIASES.every((a) => a.playbook && a.master && (a.was || a.like || a.keep)), true);
 
   const rn = (title, playbook, moment = 'Christmas Show') => renameFor({ title }, m(title, playbook), moment, 'Sean Comma');
