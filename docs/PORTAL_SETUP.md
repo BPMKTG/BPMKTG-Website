@@ -446,10 +446,12 @@ like a show; the rest are plain moments with their own tag.
 
 **The two gym flows.** `Blueprint shoots + edits → Client posts` and
 `Blueprint shoots + grades → Client edits + posts`. Both are **Owner =
-Blueprint**, as the playbook masters have them: the step is the photo
-set or graded footage we owe. Owner still wins when Flow and Owner
-disagree. Applying a playbook creates a delivery for them, never a
-Blueprint post.
+Client**: the step is the posting, which is hers, so she ticks it and
+it sits under "You post" and on her to-do list, never under
+"Blueprint's work". Our half is not a step. It is the photo set or
+footage batch the step owes, tracked as a delivery in HQ → Content.
+What a step owes is read off **Flow alone, never Owner**. Applying a
+playbook creates a delivery for them, never a Blueprint post.
 
 **Deliveries, not a month counter.** A gym is not counted in 15 to 25
 posts. What we owe is photo sets and footage batches, per competition.
@@ -536,9 +538,10 @@ would be written; nothing is written before it.
   the rest. Rows are archived, not deleted.
 - **Masters are never written to** by any of this.
 
-Both gym flows are **Owner = Blueprint**, as the masters have them: the
-step is the delivery we owe, and it sits under "Blueprint's work". The
-client posting it is not a step of its own.
+Both gym flows are **Owner = Client**: the step is the client's
+posting, and what we owe for it is the delivery. A copy of a master
+with one of these flows is always written Owner = Client, whatever the
+master's Owner says.
 
 ### A new moment
 
@@ -551,8 +554,9 @@ session's and never the request's.
 ### When a client applies a playbook
 
 Their own steps (Owner = Client) are created and are on their to-do
-list. Steps that are ours are created with **Pending Blueprint**
-ticked: they owe nothing, create no post or delivery, and count toward
+list. Steps that need us are created with **Pending Blueprint**
+ticked. That is every step of ours, and every step of theirs with one
+of the two gym flows, because the shoot behind it is our work: they owe nothing, create no post or delivery, and count toward
 no month and no tracker until one of us confirms them. A late step is
 Skipped; a client cannot keep one or give a team count.
 

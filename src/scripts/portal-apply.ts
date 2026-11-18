@@ -385,7 +385,7 @@ export function openApplyFlow(host: ApplyHost, preset: ApplyPreset = {}) {
       }
       if (!admin && waiting && picked.size) {
         preview.appendChild(el('p', 'pt-apply-waits',
-          `${plural(waiting, 'step')} here ${waiting === 1 ? 'is' : 'are'} Blueprint’s work. `
+          `${plural(waiting, 'step')} here ${waiting === 1 ? 'needs' : 'need'} Blueprint. `
           + `${waiting === 1 ? 'It is' : 'They are'} added as waiting, and we confirm ${waiting === 1 ? 'it' : 'each one'} before it goes on our plan.`));
       }
     }

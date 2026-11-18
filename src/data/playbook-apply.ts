@@ -147,11 +147,19 @@ export function isPerTeam(notes: string | null | undefined): boolean {
  * be ticked by nobody. A master should have all three; where one does
  * not, each is read off the others, and the last resort is our own
  * task, which is the one answer that hides nothing from us.
+ *
+ * A flow that owes a delivery is the exception to "Owner wins": it is
+ * kept whatever Owner says, and Owner is read off it. What we owe a
+ * gym is decided by Flow alone, so a master with a stale Owner cannot
+ * turn a photo set into a post of ours.
  */
 export function completeStep(s: { flow: string | null; owner: string | null; type: string | null }): {
   flow: StepFlow; owner: 'Blueprint' | 'Client'; type: 'Content' | 'Admin';
 } {
   const known = (ALL_STEP_FLOWS as readonly string[]).includes(s.flow ?? '') ? s.flow as StepFlow : null;
+  if (known && deliverableOfFlow(known)) {
+    return { flow: known, owner: flowOwner(known) ?? 'Client', type: 'Content' };
+  }
   const owner: 'Blueprint' | 'Client' = s.owner === 'Client' || s.owner === 'Blueprint'
     ? s.owner : (known ? flowOwner(known) : null) ?? 'Blueprint';
   const posts = known ? /posts/.test(known) : s.type === 'Content';
@@ -236,11 +244,14 @@ export function planApplyRun(
     const date = start && s.offset !== null ? plusDays(start, s.offset) : null;
     const late = !!date && date < opts.today;
     const skippedLate = late && !keep.has(s.key);
-    // A client's own step is theirs to add. One of ours waits for us.
-    const pending = opts.role === 'client' && done.owner === 'Blueprint' && !skippedLate;
+    // A client's own step is theirs to add. One of ours waits for us,
+    // and so does one of theirs that has us shoot: the step is hers,
+    // but the delivery behind it is our work, and what we take on
+    // stays our decision.
+    const delivery = deliverableOfFlow(done.flow);
+    const pending = opts.role === 'client' && (done.owner === 'Blueprint' || !!delivery) && !skippedLate;
     const live = !skippedLate && !pending;
 
-    const delivery = deliverableOfFlow(done.flow);
     const owes: ApplyRow['owes'] = delivery ?? (isDeliverableFlow(done.flow) ? 'post' : null);
     const perTeam = !!owes && isPerTeam(s.notes);
     let pieces = 0;

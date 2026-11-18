@@ -5373,15 +5373,16 @@ section('Client types · the two flows a gym has');
   is('flows: both are real flows, spelled as Notion has them',
      [isStepFlow(SHOOTS_EDITS_FLOW), isStepFlow(SHOOTS_GRADES_FLOW), SHOOTS_EDITS_FLOW, SHOOTS_GRADES_FLOW],
      [true, true, 'Blueprint shoots + edits → Client posts', 'Blueprint shoots + grades → Client edits + posts']);
-  is('flows: both are ours, as the playbook masters have them: the step is the delivery we owe', [flowOwner(SHOOTS_EDITS_FLOW), flowOwner(SHOOTS_GRADES_FLOW)], ['Blueprint', 'Blueprint']);
-  is('flows: the client is still the one who posts', [postsBy(SHOOTS_EDITS_FLOW), postsBy(SHOOTS_GRADES_FLOW)], ['client', 'client']);
-  is('flows: what the chip says', [flowChip(SHOOTS_EDITS_FLOW), flowChip(SHOOTS_GRADES_FLOW)], ['We shoot + edit, you post', 'We shoot + grade, you edit + post']);
-  const step = { kind: 'Step', title: 'Routine clip, one per team', owner: 'Blueprint', type: 'Content', status: 'Not Started', flow: SHOOTS_GRADES_FLOW };
-  is('flows: a master’s row (Owner Blueprint, Type Content) keeps its flow, and is not read as a post of ours', flowOf(step), SHOOTS_GRADES_FLOW);
-  is('flows: it sits with our work, not under Blueprint posts and not on her to-do list', stepLayers(step), ['blueprint']);
-  is('flows: it is ours to tick, so she cannot and we can', [canSetStepStatus(step, 'Done'), canSetStepStatus(step, 'Done', 'admin')], [false, true]);
-  is('flows: Owner still wins. The same flow on a row owned by the client is not believed',
-     flowOf({ ...step, owner: 'Client' }), 'Client makes + posts');
+  is('flows: the posting step is the client’s', [flowOwner(SHOOTS_EDITS_FLOW), flowOwner(SHOOTS_GRADES_FLOW)], ['Client', 'Client']);
+  is('flows: the client posts both', [postsBy(SHOOTS_EDITS_FLOW), postsBy(SHOOTS_GRADES_FLOW)], ['client', 'client']);
+  is('flows: what the chip says', [flowChip(SHOOTS_EDITS_FLOW), flowChip(SHOOTS_GRADES_FLOW)], ['You post', 'You edit + post']);
+  const step = { kind: 'Step', title: 'Routine highlight, one per team', owner: 'Client', type: 'Content', status: 'Not Started', flow: SHOOTS_GRADES_FLOW };
+  is('flows: a step with one keeps its flow', [flowOf(step), flowOf({ ...step, flow: SHOOTS_EDITS_FLOW })], [SHOOTS_GRADES_FLOW, SHOOTS_EDITS_FLOW]);
+  is('flows: it sits under You post and on her to-do list, never under Blueprint’s work',
+     [stepLayers(step), stepLayers({ ...step, flow: SHOOTS_EDITS_FLOW })], [['postsTheirs', 'todos'], ['postsTheirs', 'todos']]);
+  is('flows: she can tick it, because Owner is Client', [canSetStepStatus(step, 'Done'), canSetStepStatus({ ...step, owner: 'Blueprint' }, 'Done')], [true, false]);
+  is('flows: Owner still wins on a screen. The flow on a row owned by us is not believed',
+     flowOf({ ...step, owner: 'Blueprint' }), 'Blueprint makes + posts');
   is('flows: each owes a delivery, and nothing else does',
      [deliverableOfFlow(SHOOTS_EDITS_FLOW), deliverableOfFlow(SHOOTS_GRADES_FLOW), deliverableOfFlow('Blueprint makes + posts'), deliverableOfFlow(null)],
      ['Photo set', 'Footage batch', null, null]);
@@ -5422,7 +5423,7 @@ section('Client types · playbooks belong to one type');
 
   const vocab = vocabularyOf(all);
   const joined = buildNewMaster({ title: 'Share the recap', offset: 2, flow: SHOOTS_GRADES_FLOW, phase: 'Comp Week · After', playbook: 'Comp Week' }, vocab, all);
-  is('new step: a step added to a gym playbook joins the gym', [joined.rejected, joined.properties['Client Type'].select.name, joined.properties.Owner.select.name], [[], 'Cheer Gym', 'Blueprint']);
+  is('new step: a step added to a gym playbook joins the gym', [joined.rejected, joined.properties['Client Type'].select.name, joined.properties.Owner.select.name], [[], 'Cheer Gym', 'Client']);
   is('new step: a gym flow on an artist playbook is refused',
      buildNewMaster({ title: 'x', offset: 0, flow: SHOOTS_EDITS_FLOW, phase: 'Pre-Show · Build', playbook: 'Pre-Show' }, vocab, all).rejected, ['flow']);
   is('new step: an artist step still carries no Client Type',
@@ -5541,9 +5542,9 @@ section('Apply a playbook · the plan');
     EFF('m-plan', 'Confirm the shoot plan', -10, BP),
     EFF('m-hype', 'Comp week hype reel', -7),
     EFF('m-times', 'Performance times post and story', -2),
-    EFF('m-clip', 'Routine highlight, one per team', 0, { flow: SHOOTS_GRADES_FLOW, owner: 'Blueprint', priority: 'Core', defaultMedia: 'Video', notes: 'One piece per competing team.', was: { title: 'Routine clip, one per team' }, overrideIds: ['o1'] }),
-    EFF('m-photos', 'Event photo carousel', 1, { flow: SHOOTS_EDITS_FLOW, owner: 'Blueprint', priority: 'Core', defaultMedia: 'Carousel' }),
-    EFF('m-recap', 'Recap video', 5, { flow: SHOOTS_GRADES_FLOW, owner: 'Blueprint', priority: 'Filler', defaultMedia: 'Video', skipped: true }),
+    EFF('m-clip', 'Routine highlight, one per team', 0, { flow: SHOOTS_GRADES_FLOW, owner: 'Client', priority: 'Core', defaultMedia: 'Video', notes: 'One piece per competing team.', was: { title: 'Routine clip, one per team' }, overrideIds: ['o1'] }),
+    EFF('m-photos', 'Event photo carousel', 1, { flow: SHOOTS_EDITS_FLOW, owner: 'Client', priority: 'Core', defaultMedia: 'Carousel' }),
+    EFF('m-recap', 'Recap video', 5, { flow: SHOOTS_GRADES_FLOW, owner: 'Client', priority: 'Filler', defaultMedia: 'Video', skipped: true }),
     EFF('add:o9', 'Tag the event producer', 2, { added: true }),
   ];
   const oneDay = { id: 'mo', title: 'Cheer America (Round Rock)', date: '2026-12-06' };
@@ -5577,9 +5578,9 @@ section('Apply a playbook · the plan');
   is('late: one of us can keep one live', kept.rows.filter((r) => r.late).map((r) => [r.key, r.status]), [['m-plan', 'Not Started'], ['m-hype', 'Skipped']]);
 
   const client = planApplyRun(steps, oneDay, [], [], none, { today: '2026-11-20', role: 'client', keep: ['m-plan'], pieces: { 'm-clip': 9 } });
-  is('client: her own steps are live, and every step of ours waits and owes nothing',
+  is('client: her own steps are live. A step of ours waits, and so does one of hers that has us shoot, and neither owes anything yet',
      client.rows.map((r) => [r.key, r.owner, r.pending, r.pieces]),
-     [['m-plan', 'Blueprint', true, 0], ['m-hype', 'Client', false, 0], ['m-times', 'Client', false, 0], ['m-clip', 'Blueprint', true, 0], ['m-photos', 'Blueprint', true, 0], ['add:o9', 'Client', false, 0]]);
+     [['m-plan', 'Blueprint', true, 0], ['m-hype', 'Client', false, 0], ['m-times', 'Client', false, 0], ['m-clip', 'Client', true, 0], ['m-photos', 'Client', true, 0], ['add:o9', 'Client', false, 0]]);
   is('client: she is not asked how many teams, because nothing of ours is sized until we confirm it', client.needs, []);
   const clientLate = planApplyRun(steps, oneDay, [], [], none, { today: '2026-11-30', role: 'client', keep: ['m-plan', 'm-hype'] });
   is('client: she cannot keep a late step. It is skipped, and a skipped step is not left waiting',
@@ -5638,9 +5639,16 @@ section('Apply a playbook · the plan');
       completeStep({ flow: SHOOTS_EDITS_FLOW, owner: null, type: null })],
      [{ flow: 'Blueprint task', owner: 'Blueprint', type: 'Admin' }, { flow: 'Client task', owner: 'Client', type: 'Admin' },
       { flow: 'Client makes + posts', owner: 'Client', type: 'Content' }, { flow: 'Blueprint task', owner: 'Blueprint', type: 'Admin' },
-      { flow: SHOOTS_EDITS_FLOW, owner: 'Blueprint', type: 'Content' }]);
+      { flow: SHOOTS_EDITS_FLOW, owner: 'Client', type: 'Content' }]);
   is('copy: where Flow and Owner disagree, Owner wins and the flow is one that owner can have',
      completeStep({ flow: 'Client task', owner: 'Blueprint', type: 'Admin' }), { flow: 'Blueprint task', owner: 'Blueprint', type: 'Admin' });
+  is('copy: a flow that owes a delivery is the exception. It is kept whatever Owner says, and the copy is the client’s',
+     [completeStep({ flow: SHOOTS_EDITS_FLOW, owner: 'Blueprint', type: 'Content' }), completeStep({ flow: SHOOTS_GRADES_FLOW, owner: 'Blueprint', type: null })],
+     [{ flow: SHOOTS_EDITS_FLOW, owner: 'Client', type: 'Content' }, { flow: SHOOTS_GRADES_FLOW, owner: 'Client', type: 'Content' }]);
+  is('deliveries: what a step owes is read off Flow alone, so a stale Owner on a master changes nothing',
+     ['Client', 'Blueprint', null].map((owner) => planApplyRun([EFF('m-x', 'Event photo carousel', 1, { flow: SHOOTS_EDITS_FLOW, owner })], oneDay, [], [], none, admin).rows
+       .map((r) => [r.owes, r.pieces, r.owner, r.flow])[0]),
+     [['Photo set', 1, 'Client', SHOOTS_EDITS_FLOW], ['Photo set', 1, 'Client', SHOOTS_EDITS_FLOW], ['Photo set', 1, 'Client', SHOOTS_EDITS_FLOW]]);
 
   // ── the page a row becomes ──
   const gymClient = { pageId: 'client-1', artist: 'Rebelz Cheer', slug: 'rebelz-cheer', type: CHEER_GYM };
@@ -5649,12 +5657,12 @@ section('Apply a playbook · the plan');
      [clip['Is Playbook'].checkbox, clip.Kind.select.name, clip.Moment.relation[0].id, clip.Client.relation[0].id, clip[MASTER_PROP].rich_text[0].text.content,
       clip.Status.select.name, clip.Date.date.start, clip.Flow.select.name, clip.Owner.select.name, clip.Type.select.name, clip['Client Type'].select.name,
       clip.Priority.select.name, clip['Default Media'].select.name, clip.Pieces.number, clip.Item.title[0].text.content, PENDING_PROP in clip],
-     [false, 'Step', 'mo', 'client-1', 'm-clip', 'Not Started', '2026-12-06', SHOOTS_GRADES_FLOW, 'Blueprint', 'Content', 'Cheer Gym', 'Core', 'Video', 4, 'Routine highlight, one per team', false]);
+     [false, 'Step', 'mo', 'client-1', 'm-clip', 'Not Started', '2026-12-06', SHOOTS_GRADES_FLOW, 'Client', 'Content', 'Cheer Gym', 'Core', 'Video', 4, 'Routine highlight, one per team', false]);
   const lateCopy = copyProperties(late.rows.find((r) => r.key === 'm-plan'), gymClient, 'mo', false, 'admin', '2026-11-30');
   is('copy: a late step is written Skipped, and says why', [lateCopy.Status.select.name, lateCopy.Notes.rich_text[0].text.content], ['Skipped', lateNote('2026-11-30')]);
   const waiting = copyProperties(client.rows.find((r) => r.key === 'm-photos'), gymClient, 'mo', false, 'client', '2026-11-20');
-  is('copy: a step of ours a client added is flagged pending, stamped as theirs, and still Owner Blueprint',
-     [waiting[PENDING_PROP].checkbox, waiting['Last Edited By'].select.name, waiting.Owner.select.name, waiting.Flow.select.name], [true, 'Client', 'Blueprint', SHOOTS_EDITS_FLOW]);
+  is('copy: a step a client added that has us shoot is hers, and is flagged pending until we confirm the shoot',
+     [waiting[PENDING_PROP].checkbox, waiting['Last Edited By'].select.name, waiting.Owner.select.name, waiting.Flow.select.name], [true, 'Client', 'Client', SHOOTS_EDITS_FLOW]);
   const seanCopy = copyProperties(artist.rows[0], { pageId: 'c', artist: 'Sean Comma', slug: 'sean-comma', type: ARTIST }, 'sh', false, 'admin', '2026-11-20');
   is('copy: an artist’s copy carries no Client Type and the master’s own Pieces', ['Client Type' in seanCopy, seanCopy.Pieces.number, seanCopy.Status.select.name, seanCopy[MASTER_PROP].rich_text[0].text.content], [false, 3, 'Not Started', 'a-ann']);
   is('sent: the pending flag is on the list a client is sent, and the master id never is',

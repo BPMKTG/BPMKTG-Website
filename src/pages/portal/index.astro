@@ -1350,13 +1350,16 @@ const NAV = [
     // all on a phone, where dragging inside a grid that scrolls is a
     // fight. Shown at every width for that reason, not only the narrow
     // one: a keyboard cannot drag either.
-    // One of ours that the client added by planning an event, and
-    // that we have not confirmed yet.
+    // One the client added by planning an event that needs us, and
+    // that we have not confirmed yet: a step of ours, or one of theirs
+    // that has us shoot.
     if (it.pending && !isMomentRow(it)) {
       body.appendChild(el('p', 'pt-drawer-note',
         VIEWER.role === 'admin'
           ? 'Added from the client\u2019s portal and not confirmed yet. Confirm or skip it in HQ, on Today.'
-          : 'This one is waiting on us. You added it by planning this event, and we confirm it before it goes on our plan.'));
+          : it.owner === 'Client'
+            ? 'This one needs us to shoot it. You added it by planning this event, and we confirm the shoot before it goes on our plan.'
+            : 'This one is waiting on us. You added it by planning this event, and we confirm it before it goes on our plan.'));
     }
 
     // A moment can be planned with one of this client's playbooks.

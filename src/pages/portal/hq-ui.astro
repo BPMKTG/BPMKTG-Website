@@ -3147,8 +3147,9 @@ const NAV = [
    * Client added: confirm.
    *
    * What a client put on their own calendar that is waiting on us: an
-   * event they created (so we know about it), and every step of OURS
-   * that a playbook they applied asked for. Those steps owe nothing
+   * event they created (so we know about it), and every step that
+   * needs us that a playbook they applied asked for: ours, or one of
+   * theirs that has us shoot. Those steps owe nothing
    * and count toward nothing until one of us confirms them here, so
    * what we take on in a month stays our decision.
    */
@@ -3164,7 +3165,7 @@ const NAV = [
     head.appendChild(el('span', 'hq-sec-count', String(rows.length)));
     sec.appendChild(head);
     sec.appendChild(el('p', 'hq-added-note',
-      'Added from a client\u2019s portal. A step of ours creates nothing and counts toward nothing until it is confirmed.'));
+      'Added from a client\u2019s portal. A step that needs us creates nothing and counts toward nothing until it is confirmed.'));
 
     const answer = async (r: HqCalItem, action: string, done: string, pieces?: number): Promise<void> => {
       const res = await pbSend('POST', '/portal/hq/pending', { id: r.id, action, ...(pieces ? { pieces } : {}) });
