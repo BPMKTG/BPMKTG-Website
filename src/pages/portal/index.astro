@@ -302,9 +302,11 @@ const NAV = [
   import { createBoard, isPhone, type Board } from '../../scripts/portal-board';
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { createCounter } from '../../scripts/portal-content-counter';
+  import { createDeliveries } from '../../scripts/portal-deliveries';
   import { createReviewStrip } from '../../scripts/portal-content-review';
   import { createOwnContent, type OwnContent } from '../../scripts/portal-own-content';
   import { createClientPlaybooks, type Answer as PbAnswer } from '../../scripts/portal-playbooks';
+  import { clientTypeById, momentLabel } from '../../data/client-types';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { createCalendar, type CalRow } from '../../scripts/portal-calendar';
   import { createMover } from '../../scripts/portal-move';
@@ -315,6 +317,8 @@ const NAV = [
     canClientMove,
     contentSide,
     countsToward,
+    cleanBucketName,
+    MAX_BUCKET_NAME,
     normaliseId,
     postMonths,
     whoOf,
@@ -388,6 +392,18 @@ const NAV = [
    *  it can draw a switcher and a sign-out; nothing it does with this
    *  is a permission. Every write is decided again on the server. */
   let VIEWER: PortalViewer = { role: 'client' };
+
+  /** What kind of client this portal is for, as the payload says. An
+   *  artist until it says otherwise, which is every payload there was
+   *  before client types. Everything that differs by type is read off
+   *  this, never off the name of a type. */
+  const TYPE = () => clientTypeById(DATA?.client.type);
+
+  /** A moment's own word for itself ("Competition"), when its type has
+   *  one. Null for a step, and for an artist's moments, which use the
+   *  kind's word as they always have. */
+  const momentWord = (it: { kind?: string | null; momentType: string | null }): string | null =>
+    (it.kind === 'Moment' || it.momentType ? momentLabel(it.momentType) : null);
 
   /* ── the one failure path ──────────────────────────────────── */
   function renderMissing() {
@@ -689,7 +705,7 @@ const NAV = [
     /* KPI strip */
     const snap = data.snapshots[0];
     if (snap) {
-      const picks = ['Instagram · Followers', 'TikTok · Followers', 'Spotify · Monthly Listeners', 'Email + SMS List']
+      const picks = TYPE().homeMetrics
         .filter((m) => typeof snap.metrics[m] === 'number');
       if (picks.length) {
         const grid = el('div', 'pt-grid pt-grid-4');
@@ -800,7 +816,10 @@ const NAV = [
     const left = daysUntil(c.goalDeadline);
     const term = termProgress(c.termStart, c.termEnd);
     const count = el('div', 'pt-goals-count');
-    if (term.state === 'before') {
+    // A client with goals and no term dates yet has no term to be
+    // before or after. Reading `.state` off that used to stop the
+    // whole portal from drawing.
+    if (term && term.state === 'before') {
       count.appendChild(el('div', 'pt-goals-days pt-num',
         String(term.daysUntilStart)));
       count.appendChild(el('div', 'pt-goals-days-label',
@@ -1105,7 +1124,7 @@ const NAV = [
     const k = kindOf(it);
     const bits = row.content
       ? [row.content.bucket, it.where, row.content.status].filter(Boolean) as string[]
-      : [k === 'todo' ? null : KIND_LABEL[k], it.where, it.venueCity, it.status]
+      : [k === 'todo' ? null : (momentWord(it) ?? KIND_LABEL[k]), it.where, it.venueCity, it.status]
           .filter(Boolean) as string[];
     for (const b of bits.slice(0, it.moment ? 2 : 3)) meta.appendChild(el('span', undefined, b));
     main.appendChild(meta);
@@ -1175,7 +1194,9 @@ const NAV = [
     // doing for them and cannot touch any of it.
     layers: () => [...PORTAL_LAYERS],
     // Said to the client, so it is ours rather than a column name.
-    layerLabel: (l) => (l === 'blueprint' ? 'Blueprint\u2019s work' : null),
+    layerLabel: (l) => (l === 'blueprint' ? 'Blueprint\u2019s work'
+      : l === 'moments' ? TYPE().labels.momentsLayer : null),
+    words: () => TYPE().labels,
     content: () => CON.items,
     schema: () => CON.schema,
     extraRows: () => contentRows(CON.items),
@@ -1236,7 +1257,7 @@ const NAV = [
     const k = kindOf(it);
     const tags = el('div');
     tags.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px';
-    const kindTag = el('span', `pt-tag`, KIND_LABEL[k]);
+    const kindTag = el('span', `pt-tag`, momentWord(it) ?? KIND_LABEL[k]);
     if (k === 'todo') kindTag.className = 'pt-tag pt-tag-todo';
     tags.appendChild(kindTag);
     if (it.tentative) tags.appendChild(el('span', 'pt-tag pt-tag-tentative', 'Tentative'));
@@ -1473,6 +1494,21 @@ const NAV = [
     return BOARD;
   }
 
+  /** What we are finishing for a client who posts for themselves:
+   *  read-only here, whoever is looking. HQ is where they are moved. */
+  const conDeliveries = createDeliveries({
+    role: () => 'client',
+    clients: () => [{
+      key: SLUG,
+      name: DATA?.client.artist ?? '',
+      deliveries: DATA?.deliveries ?? [],
+      moments: (DATA?.calendar ?? [])
+        .filter((i) => i.kind === 'Moment' || !!i.momentType)
+        .map((i) => ({ id: i.id, title: i.title, date: i.date })),
+    }],
+    shortDay: (iso) => fmtDateShort(iso),
+  });
+
   /** "Blueprint is making 21 pieces for you this month." Always in the
    *  client's voice here, even when one of us is the one looking: this
    *  is their portal, and what it says to them is the thing to check. */
@@ -1510,7 +1546,9 @@ const NAV = [
     }
   }
 
-  const PLAYBOOKS = createClientPlaybooks({ send: pbSend, slug: () => SLUG, toast });
+  const PLAYBOOKS = createClientPlaybooks({
+    send: pbSend, slug: () => SLUG, toast, intro: () => TYPE().labels.playbooksIntro,
+  });
 
   function drawPlaybooks() {
     const root = q('[data-view="playbooks"]');
@@ -1566,7 +1604,13 @@ const NAV = [
       empty: contentEmpty,
       today: dateKeyToday,
       redraw: drawContent,
-      above: [conReview, conCounter],
+      // The month counter is for a client counted in posts, and the
+      // delivery tracker for one counted in deliveries. Each draws
+      // nothing for the other kind, so an artist's tab is the two
+      // blocks it always had.
+      above: [conReview,
+        (v) => (TYPE().features.monthCounter ? conCounter(v) : null),
+        (v) => (TYPE().features.deliveries ? conDeliveries(v) : null)],
     });
     return CONVIEW;
   }
@@ -1898,6 +1942,30 @@ const NAV = [
         bucketSel.appendChild(opt);
       }
       form.appendChild(sheetField('Bucket', bucketSel));
+      // Their own buckets: one more choice, and a box to name it in.
+      const NEW_BUCKET = '\u0000new';
+      const bucketName = el('input', 'pt-input') as HTMLInputElement;
+      bucketName.maxLength = MAX_BUCKET_NAME;
+      bucketName.placeholder = 'Name the new bucket';
+      const bucketNameWrap = sheetField('New bucket', bucketName);
+      bucketNameWrap.hidden = true;
+      if (CON.schema.ownBuckets) {
+        const fresh = el('option', undefined, 'New bucket\u2026') as HTMLOptionElement;
+        fresh.value = NEW_BUCKET;
+        bucketSel.appendChild(fresh);
+        bucketSel.addEventListener('change', () => {
+          bucketNameWrap.hidden = bucketSel.value !== NEW_BUCKET;
+          if (!bucketNameWrap.hidden) bucketName.focus();
+        });
+        form.appendChild(bucketNameWrap);
+      }
+      /** The bucket the form is asking for, or undefined when a new
+       *  one was asked for and not usably named. */
+      const pickedBucket = (): string | null | undefined => {
+        if (bucketSel.value !== NEW_BUCKET) return bucketSel.value || null;
+        const named = cleanBucketName(bucketName.value);
+        return named || undefined;
+      };
 
       const more = el('details', 'pt-more');
       more.appendChild(el('summary', undefined, 'Add dates'));
@@ -1914,10 +1982,15 @@ const NAV = [
         ev.preventDefault();
         const name = title.value.trim();
         if (!name) { title.focus(); return; }
+        const inBucket = pickedBucket();
+        if (inBucket === undefined) { bucketName.focus(); return; }
+        if (inBucket && !CON.schema.bucket.some((o) => o.name === inBucket)) {
+          CON.schema.bucket.push({ name: inBucket, color: 'default' });
+        }
         go.disabled = true;
         const ok = await createIdea({
           title: name,
-          bucket: bucketSel.value || null,
+          bucket: inBucket,
           filmBy: film.value || null,
           postDate: post.value || null,
         });
@@ -3101,7 +3174,10 @@ const NAV = [
 
   function documentsSection(): HTMLElement | null {
     const rows: DocRow[] = [
-      ...SNAPS.map(reportDocRow),
+      // A client type with no monthly PDF has months that are numbers
+      // only, and a row promising "PDF coming" would be a promise
+      // nobody made. Their months are the Reports tab itself.
+      ...SNAPS.filter((s) => TYPE().features.reportPdf || !!s.reportPdf).map(reportDocRow),
       ...AUDITS.map(auditDocRow),
     ].sort((a, b) => b.sort - a.sort);
 
@@ -3371,6 +3447,19 @@ const NAV = [
     row.append(text, adminPill(r.published ? 'Published' : 'Draft', r.published ? 'good' : 'warn'));
 
     const acts = el('div', 'pt-admin-acts');
+    // A client type with no monthly PDF: the month goes live as its
+    // numbers, and there is nothing to preview, generate or email.
+    if (!TYPE().features.reportPdf) {
+      if (!r.published) {
+        acts.appendChild(adminButton('Publish numbers', async () => {
+          const res = await adminPost(`report/${encodeURIComponent(r.id)}/numbers`);
+          return res.ok ? 'Published. They see these numbers on their next load.'
+            : bad(why(res, 'Publishing did not go through.'));
+        }));
+      }
+      row.appendChild(acts);
+      return row;
+    }
     acts.appendChild(previewLink('report', r.id));
     acts.appendChild(adminButton('Regenerate PDF', async () => {
       const res = await adminPost(`report/${encodeURIComponent(r.id)}/pdf`);

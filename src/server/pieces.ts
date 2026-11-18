@@ -15,6 +15,7 @@
    asked runs them again until nothing is.
    ────────────────────────────────────────────────────────────── */
 
+import { clientType, type ClientTypeConfig } from '../data/client-types';
 import { cleanItemTitle } from '../data/portal';
 import {
   piecesToFollow,
@@ -57,7 +58,12 @@ function formulaDay(p: any): string | null {
   return null;
 }
 
-export interface ClientFacts { slug: string | null; artist: string }
+export interface ClientFacts {
+  slug: string | null;
+  artist: string;
+  /** What kind of client this is. An artist unless the row says. */
+  type: ClientTypeConfig;
+}
 
 /** The two things about a client these writes need: whose cache to
  *  drop, and the name to take off the front of a moment's title. */
@@ -68,7 +74,11 @@ export async function clientFacts(token: string, clientPageId: string): Promise<
   const slug = (readText(p['Intake Slug']) ?? '').trim().toLowerCase();
   // The title property is the artist, whatever it is called.
   const titleProp = Object.values(p).find((v: any) => v?.type === 'title');
-  return { slug: slug || null, artist: (readText(titleProp as any) ?? '').trim() };
+  return {
+    slug: slug || null,
+    artist: (readText(titleProp as any) ?? '').trim(),
+    type: clientType(readSelect(p['Client Type'])),
+  };
 }
 
 export interface ClientCalendar {
@@ -181,6 +191,9 @@ export async function fetchLinkedPieces(
   });
   return rows
     .filter((page: any) => readRelation(page?.properties?.['Client']).some((id) => same(id, clientPageId)))
+    // A delivery is not a piece: it is not a post, it is counted in no
+    // month, and it follows no step. See src/data/deliveries.ts.
+    .filter((page: any) => !readSelect(page?.properties?.['Deliverable']))
     .map(shapePiece);
 }
 
@@ -200,6 +213,9 @@ export async function fetchMonthPieces(
   });
   return rows
     .filter((page: any) => readRelation(page?.properties?.['Client']).some((id) => same(id, clientPageId)))
+    // A delivery is not a piece: it is not a post, it is counted in no
+    // month, and it follows no step. See src/data/deliveries.ts.
+    .filter((page: any) => !readSelect(page?.properties?.['Deliverable']))
     .map(shapePiece);
 }
 

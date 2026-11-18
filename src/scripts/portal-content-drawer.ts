@@ -36,6 +36,7 @@ import {
   type PortalContentSchema,
   type ReviewAction,
   type Voice,
+  cleanBucketName,
 } from '../data/portal-content';
 import { MEDIA_ICON } from './portal-board';
 import { el, icon } from './portal-dom';
@@ -287,8 +288,33 @@ export function fillContentDrawer(host: DrawerHost, c: PortalContentItem, body: 
       camps.map((x) => ({ name: x.id, color: 'default', label: x.title })), 'No campaign',
       (v, tick) => save({ campaign: v ? [v] : [] }, { campaign: v ? [v] : [] }, tick)));
   }
-  more.appendChild(selectEditor('Bucket', c.bucket, schema.bucket, 'No bucket',
-    (v, tick) => save({ bucket: v }, { bucket: v }, tick)));
+  // A client whose buckets are their own gets one more choice at the
+  // foot of the list: name a new one. It becomes a bucket by being
+  // set on this card, which is the only way a bucket ever exists.
+  const NEW_BUCKET = '\u0000new';
+  const bucketOptions = schema.ownBuckets
+    ? [...schema.bucket, { name: NEW_BUCKET, color: 'default', label: 'New bucket\u2026' }]
+    : schema.bucket;
+  const bucketField = selectEditor('Bucket', c.bucket, bucketOptions, 'No bucket', (v, tick) => {
+    if (v !== NEW_BUCKET) { save({ bucket: v }, { bucket: v }, tick); return; }
+    const sel = bucketField.querySelector('select') as HTMLSelectElement | null;
+    const named = cleanBucketName(window.prompt('Name the new bucket', '') ?? '');
+    if (!named) {
+      // Cancelled, empty, or not a name a bucket can have: back to
+      // what it was, and nothing is saved.
+      if (sel) sel.value = c.bucket ?? '';
+      return;
+    }
+    if (!schema.bucket.some((o) => o.name === named)) schema.bucket.push({ name: named, color: 'default' });
+    if (sel) {
+      const o = document.createElement('option');
+      o.value = named; o.textContent = named;
+      sel.insertBefore(o, sel.querySelector(`option[value="${NEW_BUCKET}"]`));
+      sel.value = named;
+    }
+    save({ bucket: named }, { bucket: named }, tick);
+  });
+  more.appendChild(bucketField);
   more.appendChild(multiEditor('Platforms', c.platforms, schema.platforms,
     (v, tick) => save({ platforms: v }, { platforms: v }, tick)));
   more.appendChild(multiEditor('Format', c.format, schema.format,

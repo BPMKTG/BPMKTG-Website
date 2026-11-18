@@ -6,13 +6,25 @@
 // validation instead of browser popups, the same honeypot. The
 // difference is that this one is stepped, and it posts to our own
 // endpoint at /api/intake rather than to Web3Forms.
-import { intakeSteps } from '../../data/intake';
+//
+// One component, drawn once per form config (src/data/intake-forms.ts).
+// The page holds every form; the default one is on screen and the
+// rest are hidden until the script learns the link is for one of them.
+import { ARTIST_FORM, type IntakeForm } from '../../data/intake-forms';
 import { CONTACT_EMAIL } from '../../config/cta';
 
-const fieldId = (prop: string) => 'f-' + prop.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+interface Props { form?: IntakeForm }
+const form = Astro.props.form ?? ARTIST_FORM;
+const intakeSteps = form.steps;
+// The default form keeps the ids and the anchor it has always had. Any
+// other form shares the page with it, so its ids carry its own name:
+// two forms both have an "Email".
+const isDefault = form.id === ARTIST_FORM.id;
+const fieldId = (prop: string) => (isDefault ? 'f-' : `f-${form.id}-`)
+  + prop.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const total = intakeSteps.length;
 ---
-<section class="intake" id="form">
+<section class="intake" id={isDefault ? 'form' : `form-${form.id}`} data-intake-section={form.id} hidden={!isDefault}>
   <div class="container intake-shell">
     <!-- Progress -->
     <div class="intake-progress" data-progress>
@@ -136,19 +148,22 @@ const total = intakeSteps.length;
 
     <div class="intake-success" data-success hidden role="status">
       <span class="intake-success-mark" aria-hidden="true">✓</span>
-      <h2>You're in.</h2>
-      <p>We'll review everything and come to our kickoff call with your audit ready.</p>
+      <h2>{form.success.heading}</h2>
+      <p>{form.success.body}</p>
     </div>
   </div>
 </section>
 
 <script>
-  import { intakeSteps } from '../../data/intake';
+  // The form that is not for this link stays hidden and is never
+  // bound: no draft is saved for it and nothing in it is validated.
+  const DEFAULT_FORM = 'artist';
 
-  const init = () => {
-    const form = document.querySelector<HTMLFormElement>('[data-intake-form]');
+  const init = (section: HTMLElement) => {
+    const form = section.querySelector<HTMLFormElement>('[data-intake-form]');
     if (!form || form.dataset.bound === 'true') return;
     form.dataset.bound = 'true';
+    const formId = section.dataset.intakeSection || DEFAULT_FORM;
 
     const shell = form.closest('.intake-shell');
     const steps = Array.from(form.querySelectorAll<HTMLElement>('[data-step]'));
@@ -172,7 +187,9 @@ const total = intakeSteps.length;
     // ── client slug from the URL, e.g. /intake?client=sean-comma ──
     const slug = (new URLSearchParams(location.search).get('client') || '')
       .trim().toLowerCase().slice(0, 100);
-    const storageKey = 'bp-intake:' + (slug || 'default');
+    // The default form's key is the one it has always had, so a draft
+    // somebody started before forms had names is still there.
+    const storageKey = 'bp-intake:' + (slug || 'default') + (formId === DEFAULT_FORM ? '' : ':' + formId);
 
     // ── storage, defensive on every call ──────────────────────────
     // Private windows, blocked site data and full quotas all throw
@@ -270,7 +287,7 @@ const total = intakeSteps.length;
       if (next) next.hidden = current === total - 1;
       if (submit) submit.hidden = current !== total - 1;
       if (stepNow) stepNow.textContent = String(current + 1);
-      if (stepName) stepName.textContent = intakeSteps[current]?.title ?? '';
+      if (stepName) stepName.textContent = steps[current]?.querySelector('legend')?.textContent ?? '';
       if (bar) bar.style.width = ((current + 1) / total) * 100 + '%';
       progress?.querySelector('.intake-bar')?.setAttribute('aria-valuenow', String(current + 1));
     };
@@ -388,12 +405,47 @@ const total = intakeSteps.length;
     render();
   };
 
-  if (document.readyState !== 'loading') init();
-  else document.addEventListener('DOMContentLoaded', init);
+  /**
+   * Which form this link is for.
+   *
+   * The default form is on screen from the first paint and is bound
+   * straight away, exactly as it was when it was the only one. Then,
+   * if the link names a client, the server is asked which form that
+   * client gets. Only when the answer is a different form does
+   * anything change: the default is hidden and the other one shown.
+   *
+   * No slug, a failed request, or an answer this page has no form
+   * for, all leave the default where it is.
+   */
+  const start = () => {
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-intake-section]'));
+    if (!sections.length) return;
+    const byId = (id: string) => sections.find((s) => s.dataset.intakeSection === id) ?? null;
+    const fallback = byId(DEFAULT_FORM) ?? sections[0];
+    init(fallback);
+
+    const slug = (new URLSearchParams(location.search).get('client') || '').trim().toLowerCase().slice(0, 100);
+    if (!slug || sections.length < 2) return;
+    fetch('/api/intake/form?client=' + encodeURIComponent(slug), { headers: { Accept: 'application/json' } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: { form?: string } | null) => {
+        const wanted = json?.form ? byId(json.form) : null;
+        if (!wanted || wanted === fallback) return;
+        fallback.hidden = true;
+        wanted.hidden = false;
+        init(wanted);
+      })
+      .catch(() => { /* the default form is already there */ });
+  };
+
+  if (document.readyState !== 'loading') start();
+  else document.addEventListener('DOMContentLoaded', start);
 </script>
 
 <style>
   .intake { padding: 4rem 0 7rem; }
+  /* A form this link is not for. */
+  .intake[hidden] { display: none; }
   .intake-shell { max-width: 820px; }
 
   /* ── Progress ── */

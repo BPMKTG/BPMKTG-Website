@@ -252,6 +252,9 @@ const NAV = [
   import { createBoard, type Board } from '../../scripts/portal-board';
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { createCounter } from '../../scripts/portal-content-counter';
+  import { createDeliveries } from '../../scripts/portal-deliveries';
+  import { clientTypeById } from '../../data/client-types';
+  import { deliveryTally, type Delivery } from '../../data/deliveries';
   import { createHqPlaybooks, type Answer as PbAnswer } from '../../scripts/portal-playbooks';
   import { hasTrimUndo, openMissingPieces, openTrims, undoLastTrim } from '../../scripts/portal-pieces';
   import { createOwnContent, type OwnContent } from '../../scripts/portal-own-content';
@@ -541,8 +544,17 @@ const NAV = [
       // planned to the right size. Red for a month with too few or
       // too many of ours in it, which is a thing to fix in the first
       // week rather than on the last day.
-      stat(`${owed.month} deliverables`, `${owed.posted} / ${owed.total}`,
-        owed.off ? 'bad' : undefined),
+      // A client counted in deliveries has no month to be over or
+      // under: what they are owed is photo sets and footage, and the
+      // number is how many of those are in.
+      typeOfClient(c).features.monthCounter
+        ? stat(`${owed.month} deliverables`, `${owed.posted} / ${owed.total}`,
+          owed.off ? 'bad' : undefined)
+        : stat('deliveries in', (() => {
+          const t = deliveryTally((((HQ as any)?.deliveries ?? []) as Delivery[])
+            .filter((d) => sameNotionId(d.clientId, c.pageId)));
+          return `${t.delivered} / ${t.total}`;
+        })()),
       stat('last report', f.lastReport ? shortDay(f.lastReport) : 'none',
         f.lastReport ? undefined : 'bad'),
     );
@@ -1737,7 +1749,7 @@ const NAV = [
         today: () => isoToday(),
         redraw: redrawBoard,
         clientOf: (c) => (scope ? null : (c as any).clientName ?? null),
-        above: [hqCounter(scope)],
+        above: [hqCounter(scope), hqDeliveries(scope)],
       });
       HQVIEWS.set(key, view);
     }
@@ -1752,6 +1764,9 @@ const NAV = [
       role: () => 'admin',
       groups: () => calClients()
         .filter((c) => (scope ? c.slug === scope : showingClient(c.slug)))
+        // Only a client counted in posts has a month to count. One
+        // counted in deliveries gets the tracker below instead.
+        .filter((c) => typeOfClient(c).features.monthCounter)
         .map((c) => ({
           key: c.slug, name: c.artist,
           items: BOARD_ITEMS.filter((x) => (x as any).clientSlug === c.slug),
@@ -1774,6 +1789,53 @@ const NAV = [
       canUndoTrim: (group) => { const c = piecesClient(group.key); return !!c && hasTrimUndo(c.pageId); },
       undoTrim: (group) => { const c = piecesClient(group.key); if (c) void undoLastTrim(piecesHost(), c); },
       redraw: redrawBoard,
+    });
+  }
+
+  /** What kind of client this is, as its config. An artist unless HQ's
+   *  data says otherwise. See src/data/client-types.ts. */
+  const typeOfClient = (c: unknown) => clientTypeById((c as { type?: string } | null)?.type);
+
+  const sameNotionId = (a: unknown, b: unknown) =>
+    String(a ?? '').replace(/-/g, '') === String(b ?? '').replace(/-/g, '');
+
+  /** What we owe each client who posts for themselves: one block per
+   *  client on screen, and nothing at all for a roster of artists. */
+  function hqDeliveries(scope: string | null) {
+    const saved = async (res: PbAnswer, done: string): Promise<boolean> => {
+      if (!res.ok) {
+        toast(String(res.json?.message ?? 'That did not save. Check your connection and try again.'), true);
+        return false;
+      }
+      toast(done);
+      await refreshCalendar();
+      redrawBoard();
+      return true;
+    };
+    return createDeliveries({
+      role: () => 'admin',
+      clients: () => calClients()
+        .filter((c) => (scope ? c.slug === scope : showingClient(c.slug)))
+        .filter((c) => typeOfClient(c).features.deliveries)
+        .map((c) => ({
+          key: c.slug,
+          name: c.artist,
+          deliveries: ((HQ as any)?.deliveries ?? [] as Delivery[])
+            .filter((d: Delivery) => sameNotionId(d.clientId, c.pageId)),
+          moments: ((HQ?.calendar ?? []) as HqCalItem[])
+            .filter((r) => r.kind === 'Moment' && sameNotionId(r.clientId, c.pageId))
+            .map((r) => ({ id: r.id, title: r.title, date: r.date })),
+        })),
+      shortDay: (iso) => (iso ? shortDay(iso) : ''),
+      add: async (client, d) => {
+        const c = calClientBySlug().get(client.key);
+        if (!c) return false;
+        return saved(await pbSend('POST', '/portal/hq/deliveries', { clientId: c.pageId, ...d }),
+          `Added for ${client.name}`);
+      },
+      change: async (client, d, change) => saved(
+        await pbSend('PATCH', '/portal/hq/deliveries', { id: d.id, ...change }),
+        change.drop ? 'Removed' : 'Saved'),
     });
   }
 
@@ -2066,7 +2128,7 @@ const NAV = [
   function hqPlaybooks() {
     HQPB ??= createHqPlaybooks({
       send: pbSend,
-      clients: () => calClients().map((c) => ({ pageId: c.pageId, slug: c.slug, artist: c.artist })),
+      clients: () => calClients().map((c) => ({ pageId: c.pageId, slug: c.slug, artist: c.artist, type: (c as { type?: string }).type })),
       moments: (slug) => [...momentsNow().values()]
         .filter((m) => m.clientSlug === slug)
         .map((m) => ({ id: m.id, title: m.title, date: m.date })),
@@ -2622,6 +2684,19 @@ const NAV = [
       return row;
     }
 
+    // A client type with no monthly PDF: the month goes live as its
+    // numbers, with nothing to preview, generate or email.
+    if (!typeOfClient(c).features.reportPdf) {
+      acts.appendChild(actionButton('Publish numbers', async () => {
+        const res = await hqPost(`${base}/numbers`);
+        if (!res.ok) return bad(whyFailed(res, 'Publishing did not go through.'));
+        s.published = true;
+        s.publishedAt = new Date().toISOString();
+        draw('reports');
+        return 'Published. They see these numbers on their next load.';
+      }));
+      return row;
+    }
     acts.appendChild(previewLink(base));
     acts.appendChild(actionButton('Regenerate PDF', async () => {
       const res = await hqPost(`${base}/pdf`);
@@ -3103,6 +3178,9 @@ const NAV = [
     wrap.setAttribute('aria-label', 'Deliverables this month');
     if (!live.length) { show(wrap, false); return wrap; }
     for (const c of live) {
+      // The band is for a client counted in posts. One counted in
+      // deliveries is not in this strip at all.
+      if (!typeOfClient(c).features.monthCounter) continue;
       const d = deliverablesFor(c);
       const a = el('a', `hq-owed-item${d.off ? ' hq-owed-off' : ''}`);
       a.href = `#/clients/${c.slug}`;

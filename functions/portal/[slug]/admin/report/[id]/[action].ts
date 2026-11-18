@@ -31,9 +31,9 @@
 import { monthLabel } from '../../../../../../src/data/print';
 import { adminJson, beginAdmin, reason, type AdminEnv } from '../../../../../../src/server/admin-guard';
 import { refreshCover } from '../../../../../../src/server/cover';
-import { portalNotFound } from '../../../../../../src/server/portal-auth';
+import { dropPortalData, portalNotFound } from '../../../../../../src/server/portal-auth';
 import { loadReport } from '../../../../../../src/server/report-data';
-import { publishSnapshot, setSnapshotPdf } from '../../../../../../src/server/report-publish';
+import { publishNumbers, publishSnapshot, setSnapshotPdf } from '../../../../../../src/server/report-publish';
 import { mintPrintToken, printSecret } from '../../../../../../src/server/print-token';
 import {
   canRender,
@@ -82,11 +82,35 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
   const action = params.action;
-  if (action !== 'pdf' && action !== 'publish') return portalNotFound();
+  if (action !== 'pdf' && action !== 'publish' && action !== 'numbers') return portalNotFound();
 
   const gate = await beginAdmin(request, env, params.slug, params.id, { write: true });
   if (!gate.ok) return gate.response;
   const { ctx } = gate;
+
+  // Which of the two ways a month goes live depends on the client's
+  // type. One with a monthly report gets the PDF and the email; one
+  // without gets its numbers switched on and nothing else. Asking for
+  // the wrong one is refused, so a gym is never emailed a report built
+  // for an artist.
+  const hasPdf = ctx.record.type.features.reportPdf;
+  if ((action === 'numbers') === hasPdf) {
+    return adminJson({ ok: false, error: 'not_for_this_client', detail: hasPdf
+      ? 'This client gets a monthly report. Use Publish.'
+      : 'This client has no monthly PDF. Use Publish numbers.' }, 400);
+  }
+  if (action === 'numbers') {
+    const row = await loadReport(env.NOTION_TOKEN, ctx.id);
+    if (!row) return portalNotFound();
+    if (row.client.pageId.replace(/-/g, '') !== ctx.record.pageId.replace(/-/g, '')) {
+      console.error('portal: snapshot does not belong to this client', ctx.id, ctx.slug);
+      return portalNotFound();
+    }
+    const done = await publishNumbers(env.NOTION_TOKEN, ctx.id, ctx.viewer.role);
+    if (!done) return adminJson({ ok: false, error: 'notion_write_failed' }, 502);
+    await dropPortalData(ctx.record.slug);
+    return adminJson({ ok: true, numbers: true });
+  }
 
   if (!canRender(env) || !env.REPORTS_BUCKET) {
     console.error('portal: browser rendering credentials or REPORTS_BUCKET missing');

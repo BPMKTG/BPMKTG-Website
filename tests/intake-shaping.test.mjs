@@ -1,4 +1,4 @@
-import { buildProperties, normaliseUrl, textObjects, missingRequired } from '../.tmp-intake-lib.mjs';
+import { buildProperties, normaliseUrl, textObjects, missingRequired, formForClient, clientFill } from '../.tmp-intake-lib.mjs';
 let pass = 0, fail = 0;
 const is = (name, got, want) => {
   const g = JSON.stringify(got), w = JSON.stringify(want);
@@ -184,6 +184,59 @@ is('required: access fields never reported',
 // Reported by label, which is what the person actually sees.
 is('required: reported by label not property',
    missingRequired({ ...complete, 'Artist Name': '' }), ['Artist name']);
+
+// ── which form a client gets ────────────────────────────────────
+// One engine, many forms. The Clients row decides: Client Type, then
+// Tier. No row is the artist form, which is what every link there has
+// ever been opens.
+const clientPage = (type, o = {}) => ({ id: 'client-1', properties: {
+  'Client Type': { type: 'select', select: type ? { name: type } : null },
+  Tier: { type: 'select', select: o.tier ? { name: o.tier } : null },
+  Instagram: { type: 'url', url: o.instagram ?? null },
+  TikTok: { type: 'url', url: o.tiktok ?? null },
+} });
+const artistForm = formForClient(null);
+const gymForm = formForClient(clientPage('Cheer Gym'));
+is('form: no client row is the artist form', [artistForm.id, artistForm.database], ['artist', 'e992eaab-da11-4c65-bcda-b6a40a1db965']);
+is('form: a row with no Client Type is the artist form', formForClient(clientPage(null)).id, 'artist');
+is('form: an artist on any tier gets the artist form, until a tier has its own',
+   [formForClient(clientPage('Artist', { tier: 'Tier 3 · Fan Growth Engine' })).id, formForClient(clientPage(null, { tier: 'Teardown' })).id], ['artist', 'artist']);
+is('form: a cheer gym gets the gym form, in its own database',
+   [gymForm.id, gymForm.database !== artistForm.database, /^[0-9a-f-]{36}$/.test(gymForm.database)], ['cheer-gym', true, true]);
+is('form: a Client Type nobody has heard of is the artist form', formForClient(clientPage('Dance Studio')).id, 'artist');
+is('form: the artist form is the one this file has always tested', buildProperties({ 'Artist Name': 'A' }, artistForm), buildProperties({ 'Artist Name': 'A' }));
+
+// ── the gym form ────────────────────────────────────────────────
+const gymComplete = {
+  'Gym Name': 'Rebelz Cheer', 'Your Name': 'Sam', Email: 'sam@example.com', Teams: 'Senior Elite, Level 4',
+  'Competition Schedule': 'Jan 10, Winter Classic, Dallas', 'Posting Frequency': 'Weekly',
+  'Footage You Have': ['Photos'], 'Media Release Status': 'Not sure', 'Win in 90 Days': 'More tryout signups',
+};
+is('gym: complete passes', missingRequired(gymComplete, gymForm), []);
+is('gym: what is required, by the label she sees', missingRequired({}, gymForm),
+   ['Gym name', 'Your name', 'Email', 'Your teams, with level and age division', 'Competitions this season (date, event, city)',
+    'How often the gym posts right now', 'Footage you already have', 'Media releases on file', 'What does a win look like in 90 days?']);
+is('gym: an artist\'s answers do not satisfy it', missingRequired(complete, gymForm).includes('Gym name'), true);
+is('gym: and a gym\'s answers do not satisfy the artist form', missingRequired(gymComplete).includes('Artist name'), true);
+const gymProps = buildProperties({ ...gymComplete, Instagram: 'instagram.com/rebelzcheer', YouTube: 'youtube',
+  'Naming and Tagging Rules': ['First names only', 'Made up'], 'Artist Name': 'not a gym field', 'Other Accounts': 'Team account' }, gymForm);
+is('gym: the name is the title', gymProps['Gym Name'].title[0].text.content, 'Rebelz Cheer');
+is('gym: a link gets its scheme', gymProps.Instagram.url, 'https://instagram.com/rebelzcheer');
+is('gym: a link that will not parse is kept under Other accounts, not lost', gymProps['Other Accounts'].rich_text[0].text.content, 'Team account\nYouTube: youtube');
+is('gym: only real options are written', gymProps['Naming and Tagging Rules'].multi_select.map((o) => o.name), ['First names only']);
+is('gym: a field from another form is not written at all', 'Artist Name' in gymProps, false);
+is('gym: no column name is long enough for Notion to refuse, and none repeats',
+   [gymForm.steps.flatMap((st) => st.fields).every((f) => f.prop.length <= 40), new Set(gymForm.steps.flatMap((st) => st.fields).map((f) => f.prop)).size === gymForm.steps.flatMap((st) => st.fields).length], [true, true]);
+is('gym: no option has a comma in it, which Notion will not take',
+   gymForm.steps.flatMap((st) => st.fields).flatMap((f) => f.options ?? []).filter((o) => o.includes(',')), []);
+
+// ── what a form fills in on the Clients row ─────────────────────
+is('fill: the gym form fills an empty Instagram and TikTok', clientFill(gymForm, clientPage('Cheer Gym'), { Instagram: { url: 'https://instagram.com/r' }, TikTok: { url: 'https://tiktok.com/@r' } }),
+   { Instagram: { url: 'https://instagram.com/r' }, TikTok: { url: 'https://tiktok.com/@r' } });
+is('fill: never over what is already on the row', clientFill(gymForm, clientPage('Cheer Gym', { instagram: 'https://instagram.com/ours' }), { Instagram: { url: 'https://instagram.com/r' }, TikTok: { url: 'https://tiktok.com/@r' } }),
+   { TikTok: { url: 'https://tiktok.com/@r' } });
+is('fill: nothing answered is nothing filled', clientFill(gymForm, clientPage('Cheer Gym'), {}), {});
+is('fill: the artist form writes nothing to the Clients row, as it never has', clientFill(artistForm, clientPage(null), { Instagram: { url: 'https://instagram.com/a' } }), {});
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

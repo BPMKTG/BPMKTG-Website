@@ -17,6 +17,7 @@
         one place.
    ────────────────────────────────────────────────────────────── */
 
+import { clientTypeById, momentLabel, momentSpec } from './client-types';
 import { canSetStepStatus, canSetStepDate, cleanItemTitle, flowOf, isFilmStep } from './portal';
 import { countsToward, MONTH_CAP, MONTH_MIN, STAGE_STATUSES } from './portal-content';
 
@@ -210,6 +211,8 @@ export interface RowClient {
   stage: string | null;
   nextAction: string | null;
   nextActionDate: string | null;
+  /** The client type's id. Absent on an artist. */
+  type?: string;
 }
 
 export interface RowStep {
@@ -663,6 +666,9 @@ export interface ClientFacts {
   /** Days to the next release, and how many of its steps are open. */
   releaseInDays: number | null;
   releaseStepsOpen: number;
+  /** What the date being watched is called, for a client type whose
+   *  key date is not a release. Absent means "release". */
+  keyMomentWord?: string;
   dayOfMonth: number;
 }
 
@@ -713,7 +719,7 @@ export const HEALTH_RULES: HealthRule[] = [
     when: (f) => f.releaseInDays !== null
       && f.releaseInDays <= HEALTH.RELEASE_RED_DAYS
       && f.releaseStepsOpen > 0,
-    reason: (f) => `a release in ${plural(f.releaseInDays ?? 0, 'day', 'days')} with ${plural(f.releaseStepsOpen, 'step', 'steps')} still open`,
+    reason: (f) => `a ${f.keyMomentWord ?? 'release'} in ${plural(f.releaseInDays ?? 0, 'day', 'days')} with ${plural(f.releaseStepsOpen, 'step', 'steps')} still open`,
   },
 ];
 
@@ -811,10 +817,13 @@ export function clientFacts(
   const lastReport = reports.length ? reports[reports.length - 1] : null;
   const month = today.slice(0, 7);
 
-  // The next release, and whether its plan is done.
+  // The next release, and whether its plan is done. "Release" is the
+  // artist's word: which Moment Types are watched, and what one is
+  // called, come from the client's type.
+  const type = clientTypeById(client.type);
   const releases = mine
     .filter((s) => s.kind === 'Moment'
-      && s.momentType === 'Release'
+      && type.health.keyMoments.includes(s.momentType ?? '')
       && s.date && s.date >= today
       && !settled(['Skipped', 'Moved'], s.status))
     .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
@@ -827,7 +836,8 @@ export function clientFacts(
   // previous month to have reported on.
   const started = client.stage === 'Active' || client.stage === 'Onboarding';
   const monthToReport = Boolean(
-    started && client.termStart && client.termStart.slice(0, 7) < month);
+    type.health.monthlyReport
+    && started && client.termStart && client.termStart.slice(0, 7) < month);
 
   return {
     stage: client.stage,
@@ -848,6 +858,7 @@ export function clientFacts(
       ? Math.round((Date.parse(`${release.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000)
       : null,
     releaseStepsOpen,
+    ...(type.health.word === 'release' ? {} : { keyMomentWord: type.health.word }),
     dayOfMonth: Number(today.slice(8, 10)),
   };
 }
@@ -1169,6 +1180,11 @@ export interface ClashRow {
 export function isShowOrRelease(row: ClashRow): boolean {
   const mt = (row.momentType ?? '').toLowerCase();
   if (!mt && row.kind !== 'Moment') return false;
+  // A Moment Type a client type lists is read as that type says: a
+  // gym's competition is a night one of us has to be at, the same as a
+  // show. Anything else is matched on the word, as it always was.
+  const spec = momentSpec(row.momentType);
+  if (spec) return spec.kind !== 'moment';
   return (CLASH_SHOW_TYPES as readonly string[]).some((t) => mt.includes(t.toLowerCase()))
     || mt.includes('drop') || mt.includes('single');
 }
@@ -1191,13 +1207,18 @@ export function isFilmSession(row: ClashRow): boolean {
 export function dayClash(rows: ClashRow[]): string | null {
   const shows = new Set<string>();
   const films = new Set<string>();
+  // Whether one of the dates has a word of its own ("Competition"),
+  // in which case "a show or release" would be wrong about it.
+  let named = false;
   for (const r of rows) {
     const who = r.clientSlug ?? '';
-    if (isShowOrRelease(r)) shows.add(who);
+    if (isShowOrRelease(r)) { shows.add(who); if (momentLabel(r.momentType)) named = true; }
     else if (isFilmSession(r)) films.add(who);
   }
   const parts: string[] = [];
-  if (shows.size > 1) parts.push(`${shows.size} clients have a show or release`);
+  if (shows.size > 1) {
+    parts.push(`${shows.size} clients have a ${named ? 'show, release or competition' : 'show or release'}`);
+  }
   if (films.size > 1) parts.push(`${films.size} clients are filming`);
   if (!parts.length) return null;
   return `${parts.join(', and ')} on this day`;

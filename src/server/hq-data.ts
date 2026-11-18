@@ -23,6 +23,9 @@
    without going through it.
    ────────────────────────────────────────────────────────────── */
 
+import { clientType } from '../data/client-types';
+import type { Delivery } from '../data/deliveries';
+import { shapeDelivery, splitPages } from './deliveries';
 import {
   CALENDAR_DB,
   CLIENTS_DB,
@@ -97,6 +100,9 @@ export interface HqClient {
   brandBriefPdf: string | null;
   /** The `Playbook Audit` pointer as typed, or null. */
   playbookAudit: string | null;
+  /** The client type's id (src/data/client-types.ts). Absent on an
+   *  artist, which is every client there was before types. */
+  type?: string;
 }
 
 /** A calendar row, flattened. HQ does not resolve moment relations
@@ -218,6 +224,9 @@ export interface HqPayload {
   contentSchema: PortalContentSchema;
   snapshots: HqSnapshot[];
   audits: AuditRow[];
+  /** Photo sets and footage batches we owe, across the roster. Absent
+   *  when nobody has any. */
+  deliveries?: Delivery[];
   /** When this payload was assembled, ISO. */
   built: string;
 }
@@ -270,6 +279,10 @@ function shapeClient(page: any): HqClient {
     brandBriefPdf: readUrl(p['Brand Brief PDF']),
     playbookAudit: typeof p['Playbook Audit']?.url === 'string' && p['Playbook Audit'].url.trim()
       ? p['Playbook Audit'].url.trim() : null,
+    // Said only for a client that is not an artist, so the payload for
+    // a roster of artists is what it was before client types.
+    ...(clientType(readSelect(p['Client Type'])).id === 'artist'
+      ? {} : { type: clientType(readSelect(p['Client Type'])).id }),
   };
 }
 
@@ -342,7 +355,9 @@ function readFormulaDay(p: any): string | null {
   return null;
 }
 
-async function readContent(token: string, now: Date): Promise<HqContentItem[]> {
+async function readContent(
+  token: string, now: Date,
+): Promise<{ content: HqContentItem[]; deliveries: Delivery[] }> {
   // The month counter counts whole months, so the window is widened to
   // the month boundaries either side of the days-based one. A month the
   // window only half covered would be counted wrong and look right.
@@ -375,7 +390,14 @@ async function readContent(token: string, now: Date): Promise<HqContentItem[]> {
     },
   });
 
-  return rows.map((page: any) => {
+  // A delivery is in this database and is not a post. Split off here,
+  // so nothing HQ draws from `content` can draw one. See
+  // src/data/deliveries.ts.
+  const { posts, deliveries } = splitPages(rows);
+  return { deliveries: deliveries.map((page: any) => ({
+    ...shapeDelivery(page),
+    clientId: readRelation(page.properties?.['Client'])[0] ?? null,
+  })), content: posts.map((page: any) => {
     const p = page.properties ?? {};
     return {
       id: String(page.id),
@@ -401,7 +423,7 @@ async function readContent(token: string, now: Date): Promise<HqContentItem[]> {
       postLink: readUrl(p['Post Link']),
       notes: readText(p['Notes']),
     };
-  });
+  }) };
 }
 
 async function readSnapshots(env: HqDataEnv, token: string): Promise<HqSnapshot[]> {
@@ -458,7 +480,7 @@ export async function hqBuild(env: HqDataEnv, now = new Date()): Promise<HqBuild
     try { return await run(); } finally { marks[name] = Date.now() - t; }
   };
 
-  const [clients, calendar, content, contentSchema, snapshots, audits] = await Promise.all([
+  const [clients, calendar, pipeline, contentSchema, snapshots, audits] = await Promise.all([
     timed('clients', () => readClients(token)),
     timed('calendar', () => readCalendar(token, now)),
     timed('content', () => readContent(token, now)),
@@ -468,7 +490,9 @@ export async function hqBuild(env: HqDataEnv, now = new Date()): Promise<HqBuild
   ]);
 
   const payload: HqPayload = {
-    clients, calendar, content, contentSchema, snapshots, audits,
+    clients, calendar, content: pipeline.content, contentSchema, snapshots, audits,
+    // Only when there are some: an HQ with artists only has no such key.
+    ...(pipeline.deliveries.length ? { deliveries: pipeline.deliveries } : {}),
     built: new Date().toISOString(),
   };
 

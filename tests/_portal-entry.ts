@@ -47,3 +47,12 @@ export {
   clientAuditKey, clientAuditPrefix, clientAuditUrl, generalAuditUrl, isOurAuditUrl, putClientAudit,
   putGeneralAudit, readAuditPointer, readClientAudit, readGeneralAudit, readOwnAudit, readPdfUpload,
 } from '../src/server/playbook-audit';
+// Client types: what kind of client this is, and what follows from it.
+export * from '../src/data/client-types';
+// Deliveries: photo sets and footage batches, for a client who posts
+// for themselves.
+export * from '../src/data/deliveries';
+export {
+  DELIVERABLE_PROP, deliveryPatchProperties, isDeliveryPage, newDeliveryProperties, shapeDelivery, splitPages,
+} from '../src/server/deliveries';
+export { publishNumbers } from '../src/server/report-publish';

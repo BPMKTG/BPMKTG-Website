@@ -16,7 +16,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { cleanItemTitle } from '../data/portal';
-import type { MasterStep } from '../data/playbooks';
+import { mastersForType, type MasterStep } from '../data/playbooks';
 import type { PieceMoment } from '../data/pieces';
 import {
   ASKS_FIELD, baselineOf,
@@ -56,9 +56,9 @@ export function shapeUpStep(page: any): UpStep {
 /** One client's steps, moments and campaign pieces, hidden rows
  *  included, and every master, retired ones too. */
 export async function readUpdateState(
-  token: string, clientPageId: string, artist: string,
+  token: string, clientPageId: string, artist: string, typeId = 'artist',
 ): Promise<UpdateState> {
-  const [rows, masters, linked] = await Promise.all([
+  const [rows, every, linked] = await Promise.all([
     queryAll(token, CALENDAR_DB, {
       filter: { and: [
         { property: 'Client', relation: { contains: clientPageId } },
@@ -91,6 +91,9 @@ export async function readUpdateState(
     id: p.id, title: p.title, status: p.status, postDate: p.postDate, campaign: p.campaign,
     media: p.media ?? null, postedBy: p.postedBy ?? null, notes: p.notes ?? null,
   }));
+  // A campaign is only ever brought up to date against its own client
+  // type's playbooks.
+  const masters = mastersForType(every, typeId);
   return { steps, moments, masters, pieces };
 }
 

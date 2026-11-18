@@ -17,6 +17,8 @@
 // to import anywhere and cheap to test.
 // ─────────────────────────────────────────────────────────────
 
+import { SHOOTS_EDITS_FLOW, SHOOTS_GRADES_FLOW, momentSpec } from './client-types';
+
 /* ── Clients ──────────────────────────────────────────────────── */
 
 /** Clients properties the browser is allowed to receive. */
@@ -36,6 +38,10 @@ export const CLIENT_FIELDS = [
   'Goal · Instagram Followers',
   'Goal · Songs at 10K Streams',
   'Goal · Shows per Month',
+  // What kind of client this is. Read on the server to pick the type's
+  // config; what reaches the browser is the config's id, and only for
+  // a client that is not an artist.
+  'Client Type',
 ] as const;
 
 /** Named purely so a test can assert they never appear in output.
@@ -469,7 +475,11 @@ export type StepFlow =
   | 'Client task'
   | 'Client makes + posts'
   | 'Client films \u2192 Blueprint edits + posts'
-  | 'Client film session';
+  | 'Client film session'
+  // A gym's two: we shoot and finish it, they put it out. See
+  // src/data/client-types.ts for which client type is offered which.
+  | 'Blueprint shoots + edits \u2192 Client posts'
+  | 'Blueprint shoots + grades \u2192 Client edits + posts';
 
 export const STEP_FLOWS: readonly StepFlow[] = [
   'Blueprint makes + posts',
@@ -480,8 +490,17 @@ export const STEP_FLOWS: readonly StepFlow[] = [
   'Client film session',
 ];
 
+/** Every flow any client type has. STEP_FLOWS above is the artist's
+ *  six, in the order its pickers have always listed them; a picker
+ *  for another type reads its own list off the type's config. */
+export const ALL_STEP_FLOWS: readonly StepFlow[] = [
+  ...STEP_FLOWS,
+  SHOOTS_EDITS_FLOW as StepFlow,
+  SHOOTS_GRADES_FLOW as StepFlow,
+];
+
 export function isStepFlow(v: unknown): v is StepFlow {
-  return typeof v === 'string' && (STEP_FLOWS as readonly string[]).includes(v);
+  return typeof v === 'string' && (ALL_STEP_FLOWS as readonly string[]).includes(v);
 }
 
 /** Which side a flow belongs to. Every flow names its owner in its
@@ -497,6 +516,10 @@ export function flowOwner(flow: StepFlow | null): 'Blueprint' | 'Client' | null 
     case 'Client task':
     case 'Client makes + posts':
     case 'Client film session':
+    // Theirs: we shoot it and finish it, and the step is the posting,
+    // which they do. Owner = Client is what lets them tick it.
+    case 'Blueprint shoots + edits \u2192 Client posts':
+    case 'Blueprint shoots + grades \u2192 Client edits + posts':
       return 'Client';
     default:
       return null;
@@ -574,6 +597,8 @@ export function postsBy(flow: StepFlow | null): 'blueprint' | 'client' | null {
     case 'Client films \u2192 Blueprint edits + posts':
       return 'blueprint';
     case 'Client makes + posts':
+    case 'Blueprint shoots + edits \u2192 Client posts':
+    case 'Blueprint shoots + grades \u2192 Client edits + posts':
       return 'client';
     default:
       return null;
@@ -599,6 +624,8 @@ export function flowChip(flow: StepFlow | null): string | null {
   switch (flow) {
     case 'Client film session': return 'You film';
     case 'Client makes + posts': return POSTS_LABEL.client;
+    case 'Blueprint shoots + edits \u2192 Client posts': return POSTS_LABEL.client;
+    case 'Blueprint shoots + grades \u2192 Client edits + posts': return 'You edit + post';
     case 'Blueprint makes + posts':
     case 'Client films \u2192 Blueprint edits + posts':
       return POSTS_LABEL.blueprint;
@@ -677,6 +704,10 @@ export function stepLayers(row: {
     case 'Blueprint makes + posts': return ['postsPlan'];
     case 'Client films \u2192 Blueprint edits + posts': return ['postsPlan'];
     case 'Client makes + posts': return ['postsTheirs', 'todos'];
+    // A gym's posts: ours to shoot and finish, theirs to put out, so
+    // they sit exactly where a post of the client's own sits.
+    case 'Blueprint shoots + edits \u2192 Client posts': return ['postsTheirs', 'todos'];
+    case 'Blueprint shoots + grades \u2192 Client edits + posts': return ['postsTheirs', 'todos'];
     case 'Client film session': return ['films', 'todos'];
     case 'Client task': return ['todos'];
     default: return [];
@@ -714,6 +745,11 @@ export const KIND_LABEL: Record<ItemKind, string> = {
 /** Shows and releases read off a Moment Type, which is free text in
  *  Notion: "Single Drop" and "Release" are the same thing to us. */
 export function momentKindOf(momentType: string | null): 'show' | 'release' | 'moment' {
+  // A Moment Type a client type lists is read exactly as that type's
+  // config says. This is what keeps a gym's "Showcase" from being read
+  // as a show by the rule below, which matches on the word.
+  const spec = momentSpec(momentType);
+  if (spec) return spec.kind;
   const mt = (momentType ?? '').toLowerCase();
   if (mt.includes('show')) return 'show';
   if (mt.includes('release') || mt.includes('drop') || mt.includes('single')) return 'release';
@@ -1072,6 +1108,9 @@ export interface PortalClient {
   goalInstagramFollowers: number | null;
   goalSongsAt10k: number | null;
   goalShowsPerMonth: number | null;
+  /** The client type's id (see src/data/client-types.ts). Absent on
+   *  an artist, which is every payload from before types existed. */
+  type?: string;
 }
 
 /** The moment a step belongs to, flattened to four fields.
@@ -1241,6 +1280,9 @@ export interface PortalPayload {
   /** Published client audits, newest first. Absent on an older
    *  payload, which reads as a client with none. */
   audits?: PortalAudit[];
+  /** Photo sets and footage batches we owe, for a client type that
+   *  has them. Absent for an artist. See src/data/deliveries.ts. */
+  deliveries?: import('./deliveries').Delivery[];
   /** Admin only, grafted per request and never cached. Everything in
    *  here is a draft or a control, so it must not be able to reach a
    *  client even through a stale cache entry. */

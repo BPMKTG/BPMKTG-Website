@@ -17,6 +17,7 @@ import {
   MAX_TITLE,
   canClientMove,
   clientOwns,
+  cleanBucketName,
   cleanPatchDate,
   cleanPatchMulti,
   cleanPatchRelation,
@@ -102,6 +103,10 @@ export interface BuildContext {
    * forgets this gets the tighter answer rather than the looser one.
    */
   role?: 'client' | 'admin';
+  /** This client's buckets are their own, so a name that is not on
+   *  the list is a new bucket rather than a mistake. Decided by the
+   *  client's type, never by the request. */
+  freeBuckets?: boolean;
   /** The Feedback field as it stands, for a note to be added to. */
   currentFeedback?: string | null;
   /** Today as an ISO day, stamped on a note. Passed in so the rule is
@@ -161,7 +166,11 @@ export function buildContentProperties(body: Record<string, unknown>, ctx: Build
     }
   }
 
-  take('bucket', cleanPatchSelect(body.bucket, names(ctx.schema.bucket)), selectProp);
+  // A bucket is picked from the shared list, unless this client's
+  // buckets are their own, in which case a new name founds one.
+  take('bucket', ctx.freeBuckets
+    ? cleanBucketName(body.bucket)
+    : cleanPatchSelect(body.bucket, names(ctx.schema.bucket)), selectProp);
   take('format', cleanPatchMulti(body.format, names(ctx.schema.format)), multiProp);
   take('platforms', cleanPatchMulti(body.platforms, names(ctx.schema.platforms)), multiProp);
   take('filmBy', cleanPatchDate(body.filmBy), dateProp);

@@ -53,6 +53,7 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
     postedBy: owned.item.postedBy,
     source: owned.item.source,
     role: ctx.viewer.role,
+    freeBuckets: ctx.record.type.features.ownBuckets,
     // A note is added to the thread as Notion holds it, and dated by
     // us. Neither is the request's to say.
     currentFeedback: owned.item.feedback,

@@ -407,6 +407,113 @@ as "Client notes".
   already on a calendar whose master now asks. It never switches one
   off, so a note that was written keeps the box it was written in.
 
+## Client types: artists and cheer gyms
+
+A client is an **Artist** unless its Clients row says otherwise. The
+**Client Type** select on Clients has two options, `Artist` and `Cheer
+Gym`, and a blank is an artist: every client from before types existed
+behaves exactly as it did.
+
+Everything that differs by type is in one file,
+`src/data/client-types.ts`: one config object per type. Labels, Moment
+Types, Flows, which KPI platforms are shown, which Home numbers, the
+health rule, and the features that are on or off. The screens read the
+config. **Do not add `if (cheer)` checks to a screen.** If a screen
+needs to know something new about a type, add a field to the config.
+A third type is a third object in `CLIENT_TYPES`.
+
+What a Cheer Gym does not get is left out **on the server**
+(`trimForType`), not only hidden in the browser: no streams, tickets,
+capacity or ticket link on a calendar row, no music goals, no Spotify,
+Apple Music or SoundCloud numbers, no Playbook Audit, and no artist
+playbooks. An artist's payload is passed through untouched.
+
+**Notion fields this added** (all additive):
+
+| Database | Field |
+|---|---|
+| Clients | `Client Type` (select: Artist, Cheer Gym) |
+| Campaign Calendar | `Client Type` (select), read on playbook masters |
+| Campaign Calendar | `Moment Type` options: Competition, Showcase, Tryouts, Camp, Picture Day, Banquet / Awards |
+| Campaign Calendar, Playbook Overrides | two `Flow` / `New Flow` options (below) |
+| Content Pipeline | `Deliverable` (select: Photo set, Footage batch) |
+| Gym Intake | a new database beside Artist Intake |
+
+**Moments.** A gym's Moment Types are its own. A Moment Type a config
+lists is read exactly ("Showcase" is not a "Show"); anything else falls
+back to the old match on the word. Competition and Showcase are drawn
+like a show; the rest are plain moments with their own tag.
+
+**The two gym flows.** `Blueprint shoots + edits → Client posts` and
+`Blueprint shoots + grades → Client edits + posts`. Both are **Owner =
+Client**: the step is the posting, which the client does and ticks.
+Owner still wins when Flow and Owner disagree. Neither is a
+"deliverable flow", so applying a playbook creates no Blueprint post
+for them.
+
+**Deliveries, not a month counter.** A gym is not counted in 15 to 25
+posts. What we owe is photo sets and footage batches, per competition.
+A delivery is a Content Pipeline row with `Deliverable` set, Posted By
+= Blueprint, and Campaign pointing at the competition's **moment** (not
+at a step, so the client's posting step stays on her calendar). Its
+four stages reuse four statuses: To shoot = Planned, Shot = Filmed,
+Editing or Grading = Editing, Delivered = Posted. The finished link
+lives in `Edit Link`.
+
+- Deliveries are split off on the server before any payload is built,
+  so they are never on a content board, a calendar or a month count.
+- HQ → Content shows a tracker per gym: add one, move its stage, paste
+  the link, remove it (which sets Skipped). `POST` and `PATCH`
+  `/portal/hq/deliveries`, admin only.
+- The gym sees the same list on her Content tab and can change nothing.
+- Her own posts are ordinary Client rows on the board, as before.
+
+**Her own buckets.** The Bucket select is one list for every client.
+A gym is shown only the buckets her own rows use, and "New bucket…" on
+a card or a new idea founds one by naming it.
+
+**Playbooks.** A playbook belongs to one client type. Masters carry
+`Client Type` (blank is Artist); a client is only ever shown, given, or
+updated against its own type's masters. HQ → Playbooks has a switch
+between the types and a **New playbook** button, which creates the
+playbook's placeholder moment and its first step. A step added to a
+playbook joins that playbook's type. "A new phase…" in the step form
+starts a phase.
+
+**Reports.** The Reports tab is the same for both types and draws
+whatever numbers a snapshot has. A gym has no monthly PDF: a month goes
+live with **Publish numbers** (HQ → Reports, or the admin panel in her
+portal), which ticks Published and sends nothing. Growth audits work as
+they do for artists.
+
+**Turning on a gym's portal.** On its Clients row: set **Client Type**
+to Cheer Gym, put her address in **Portal Emails**, tick **Portal
+Enabled**, and set **Portal Link** to
+`https://blueprint-marketing.com/portal/<intake slug>`. Its Intake Slug
+must be on exactly one row.
+
+## Intake forms
+
+`/intake?client=SLUG` is one page and one endpoint, and it holds every
+form. Which one a link opens is decided by the Clients row the slug
+finds: Client Type first, then Tier. See `src/data/intake-forms.ts`.
+
+- A form is a config: its steps and questions, its Notion database,
+  and optionally which Clients fields it fills. `FORM_RULES` in that
+  file says which client gets which. To give an artist tier its own
+  questions, write its config and add one rule above the artist
+  default.
+- The artist form is the default and is the list in `src/data/intake.ts`.
+  No slug, an unknown slug, or a slug on two rows, all get it.
+- The gym form is `src/data/intake-cheer.ts` and writes to the **Gym
+  Intake** database. Each `prop` is that database's column name: a
+  rename or a new option has to be made in both places.
+- The page asks `GET /api/intake/form?client=SLUG` which form to draw.
+  The `POST` works it out again for itself from the same row and never
+  trusts the browser about it.
+- The gym form fills **Instagram** and **TikTok** on the Clients row,
+  only when they are empty. The artist form writes nothing there.
+
 ## The Playbook Audit
 
 A card at the top of the Playbooks tab, in the client portal and in HQ:

@@ -37,6 +37,7 @@ export const onRequestPost: PagesFunction<WriteEnv> = async ({ request, env, par
     // request ask for Idea or Planned.
     currentStatus: null,
     role: ctx.viewer.role,
+    freeBuckets: ctx.record.type.features.ownBuckets,
   });
 
   // "Add a piece", from the month counter in HQ: a row that is OURS to

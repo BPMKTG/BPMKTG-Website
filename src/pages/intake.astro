@@ -7,6 +7,7 @@
 // Without one the form still works; the row just arrives unlinked.
 import Layout from '../layouts/Layout.astro';
 import IntakeForm from '../components/intake/IntakeForm.astro';
+import { INTAKE_FORMS } from '../data/intake-forms';
 ---
 <Layout
   title="Client Intake | Blueprint Marketing"
@@ -75,7 +76,10 @@ import IntakeForm from '../components/intake/IntakeForm.astro';
     </div>
   </section>
 
-  <IntakeForm />
+  {/* Every form is in the page; the default one is on screen. Which
+      one a link is for is decided by the Clients row its slug finds,
+      asked for by the script in IntakeForm.astro. */}
+  {INTAKE_FORMS.map((form) => <IntakeForm form={form} />)}
 </Layout>
 
 <style>

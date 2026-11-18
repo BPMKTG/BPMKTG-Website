@@ -3850,6 +3850,11 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 .pt-pb-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pt-pb-title { font-size: .9rem; font-weight: 650; color: var(--pt-ink); }
 .pt-pb-notes { font-size: .78rem; line-height: 1.4; color: var(--pt-muted); }
+.pt-pb-kind {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--pt-2) var(--pt-4); margin-bottom: var(--pt-4);
+}
+.pt-pb-kind .pt-tabs { margin: 0; }
 .pt-pb-asks {
   display: flex; align-items: flex-start; gap: var(--pt-2);
   font-size: .86rem; line-height: 1.45; color: var(--pt-ink-2); cursor: pointer;
@@ -3905,6 +3910,53 @@ div.pt-pb-step-editing { border: 1px solid var(--pt-line); border-radius: var(--
   text-transform: uppercase; color: var(--pt-navy-deep);
 }
 .pt-brief span, .pt-brief p { margin: 0; font-size: .9rem; line-height: 1.5; color: var(--pt-ink); white-space: pre-line; }
+/* ── the delivery tracker ─────────────────────────────────────
+   Photo sets and footage batches, by competition. It stands where the
+   month counter stands, for a client counted in deliveries. */
+.pt-deliv-wrap { display: flex; flex-direction: column; gap: var(--pt-4); }
+.pt-deliv {
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r);
+  background: var(--pt-surface); padding: var(--pt-4);
+  display: flex; flex-direction: column; gap: var(--pt-4);
+}
+.pt-deliv-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--pt-3) var(--pt-4); }
+.pt-deliv-toptext { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 320px; }
+.pt-deliv-who { font-size: .8rem; font-weight: 700; color: var(--pt-muted); }
+.pt-deliv-top h2 {
+  margin: 0; font-family: var(--pt-display); font-size: .82rem; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--pt-ink);
+}
+.pt-deliv-sum { margin: 0; font-size: .88rem; line-height: 1.45; color: var(--pt-ink-2); max-width: 68ch; }
+.pt-deliv-group { display: flex; flex-direction: column; gap: var(--pt-2); }
+.pt-deliv-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--pt-3);
+  padding-bottom: var(--pt-2); border-bottom: 1px solid var(--pt-line-soft);
+}
+.pt-deliv-head h3 { margin: 0; font-size: .95rem; font-weight: 700; color: var(--pt-ink); }
+.pt-deliv-date { font-size: .8rem; color: var(--pt-muted); }
+.pt-deliv-count { margin-left: auto; font-size: .8rem; color: var(--pt-muted); }
+.pt-deliv-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pt-deliv-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--pt-2) var(--pt-4); padding: var(--pt-2) 0;
+}
+.pt-deliv-row + .pt-deliv-row { border-top: 1px solid var(--pt-line-soft); }
+.pt-deliv-what { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--pt-3); min-width: 0; flex: 1 1 240px; }
+.pt-deliv-kind {
+  font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--pt-navy-deep);
+}
+.pt-deliv-title { font-size: .92rem; font-weight: 600; color: var(--pt-ink); overflow-wrap: anywhere; }
+.pt-deliv-due { font-size: .8rem; color: var(--pt-muted); }
+.pt-deliv-delivered .pt-deliv-title { color: var(--pt-ink-2); font-weight: 500; }
+.pt-deliv-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pt-2); }
+.pt-deliv-btn, .pt-deliv-open { padding: 5px 10px; font-size: .8rem; }
+.pt-deliv-open svg { width: 14px; height: 14px; }
+.pt-deliv-stage { min-width: 118px; }
+.pt-deliv-pill { background: var(--pt-tint-soft); color: var(--pt-ink-2); }
+.pt-deliv-pill-working { background: var(--pt-tint-blue); color: var(--pt-navy); }
+.pt-deliv-pill-delivered { background: var(--pt-tint); color: var(--pt-navy); font-weight: 700; }
+
 /* The note a step asks for, in its drawer. */
 .pt-stepnote { margin-top: var(--pt-4); display: flex; flex-direction: column; gap: 6px; }
 .pt-stepnote-label {

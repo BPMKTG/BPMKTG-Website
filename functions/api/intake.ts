@@ -15,10 +15,11 @@
    form exactly, and two copies would eventually disagree.
    ────────────────────────────────────────────────────────────── */
 
-import { intakeFields, URL_FALLBACK_PROP, type IntakeField } from '../../src/data/intake';
+import { type IntakeField } from '../../src/data/intake';
+import { ARTIST_FORM, fieldsOf, intakeFormFor, type IntakeForm } from '../../src/data/intake-forms';
+import { clientType } from '../../src/data/client-types';
 
 const NOTION_VERSION = '2022-06-28';
-const INTAKE_DB = 'e992eaab-da11-4c65-bcda-b6a40a1db965';
 const CLIENTS_DB = 'b495a24f-96c3-4108-8d78-106fd6228e14';
 
 /** Notion rejects any single text object over 2000 characters. */
@@ -82,13 +83,13 @@ function asArray(v: unknown): string[] {
 
 /* ── property building ─────────────────────────────────────────── */
 
-export function buildProperties(fields: Record<string, unknown>) {
+export function buildProperties(fields: Record<string, unknown>, form: IntakeForm = ARTIST_FORM) {
   const properties: Json = {};
   // URLs that would not parse are appended here rather than dropped,
   // so a mistyped link still reaches a human.
   const salvaged: string[] = [];
 
-  for (const def of intakeFields as IntakeField[]) {
+  for (const def of fieldsOf(form) as IntakeField[]) {
     const raw = fields[def.prop];
 
     if (def.notion === 'multi_select') {
@@ -130,11 +131,12 @@ export function buildProperties(fields: Record<string, unknown>) {
   }
 
   if (salvaged.length) {
-    const existing = typeof fields[URL_FALLBACK_PROP] === 'string'
-      ? String(fields[URL_FALLBACK_PROP]).trim()
+    const fallback = form.urlFallbackProp;
+    const existing = typeof fields[fallback] === 'string'
+      ? String(fields[fallback]).trim()
       : '';
     const merged = [existing, ...salvaged].filter(Boolean).join('\n');
-    properties[URL_FALLBACK_PROP] = { rich_text: textObjects(merged) };
+    properties[fallback] = { rich_text: textObjects(merged) };
   }
 
   return properties;
@@ -148,9 +150,9 @@ export function buildProperties(fields: Record<string, unknown>) {
  *  ALLOWED option: posting junk should not satisfy a requirement when
  *  the shaping step is going to filter it out anyway.
  */
-export function missingRequired(fields: Record<string, unknown>): string[] {
+export function missingRequired(fields: Record<string, unknown>, form: IntakeForm = ARTIST_FORM): string[] {
   const missing: string[] = [];
-  for (const def of intakeFields as IntakeField[]) {
+  for (const def of fieldsOf(form) as IntakeField[]) {
     if (!def.required) continue;
 
     if (def.notion === 'multi_select') {
@@ -172,10 +174,10 @@ export function missingRequired(fields: Record<string, unknown>): string[] {
 
 /* ── client lookup ─────────────────────────────────────────────── */
 
-/** Page id of the single Client whose Intake Slug matches, else null.
- *  Never throws: an unmatched or failed lookup must not cost us the
- *  submission, it just arrives unlinked. */
-async function findClientPage(token: string, slug: string): Promise<string | null> {
+/** The single Client whose Intake Slug matches, as its Notion page,
+ *  else null. Never throws: an unmatched or failed lookup must not
+ *  cost us the submission, it just arrives unlinked. */
+export async function findClientPage(token: string, slug: string): Promise<any | null> {
   try {
     const res = await fetch(`https://api.notion.com/v1/databases/${CLIENTS_DB}/query`, {
       method: 'POST',
@@ -189,15 +191,43 @@ async function findClientPage(token: string, slug: string): Promise<string | nul
       console.error('intake: client lookup failed', res.status, await res.text());
       return null;
     }
-    const data = (await res.json()) as { results?: Array<{ id: string }> };
+    const data = (await res.json()) as { results?: any[] };
     const results = data.results ?? [];
     // Exactly one, deliberately: two clients sharing a slug is a data
     // problem, and guessing between them would be worse than not linking.
-    return results.length === 1 ? results[0].id : null;
+    return results.length === 1 ? results[0] : null;
   } catch (err) {
     console.error('intake: client lookup threw', err);
     return null;
   }
+}
+
+/**
+ * Which form a Clients page gets: its Client Type decides, then its
+ * Tier. No page (no slug, an unknown one, a duplicated one) is the
+ * artist form, which is what every link has always opened.
+ */
+export function formForClient(page: any | null): IntakeForm {
+  if (!page) return ARTIST_FORM;
+  const p = page.properties ?? {};
+  return intakeFormFor(clientType(p['Client Type']?.select?.name).id, p['Tier']?.select?.name ?? null);
+}
+
+/**
+ * The Clients fields a form fills in, as a Notion patch: only the
+ * ones that are EMPTY on the row. What we have typed is never
+ * overwritten by what a client typed. Urls only, today.
+ */
+export function clientFill(form: IntakeForm, page: any, properties: Json): Json {
+  const out: Json = {};
+  const p = page?.properties ?? {};
+  for (const map of form.toClients ?? []) {
+    const have = p[map.client];
+    if (!have || have.type !== 'url' || have.url) continue;
+    const from = properties[map.from] as { url?: string } | undefined;
+    if (from?.url) out[map.client] = { url: from.url };
+  }
+  return out;
 }
 
 /* ── optional notification ─────────────────────────────────────── */
@@ -249,29 +279,31 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   const fields = body.fields && typeof body.fields === 'object' ? body.fields : {};
 
-  const missing = missingRequired(fields);
+  // The Clients row comes first now, because it decides which form
+  // this is: its questions, its required fields and its database. The
+  // browser is not asked which form it showed.
+  const slug = typeof body.client === 'string' ? body.client.trim().toLowerCase().slice(0, 100) : '';
+  const clientPage = slug ? await findClientPage(env.NOTION_TOKEN, slug) : null;
+  const form = formForClient(clientPage);
+
+  const missing = missingRequired(fields, form);
   if (missing.length) {
     return json(400, { ok: false, message: `Still needed: ${missing.join(', ')}.` });
   }
 
-  const email = String(fields['Email'] ?? '').trim();
+  const email = String(fields[form.emailProp] ?? '').trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return json(400, { ok: false, message: "That email address doesn't look right." });
   }
 
-  const properties = buildProperties(fields);
-
-  const slug = typeof body.client === 'string' ? body.client.trim().toLowerCase().slice(0, 100) : '';
-  if (slug) {
-    const clientPage = await findClientPage(env.NOTION_TOKEN, slug);
-    if (clientPage) properties['Client'] = { relation: [{ id: clientPage }] };
-  }
+  const properties = buildProperties(fields, form);
+  if (clientPage) properties['Client'] = { relation: [{ id: clientPage.id }] };
 
   try {
     const res = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
       headers: notionHeaders(env.NOTION_TOKEN),
-      body: JSON.stringify({ parent: { database_id: INTAKE_DB }, properties }),
+      body: JSON.stringify({ parent: { database_id: form.database }, properties }),
     });
 
     if (!res.ok) {
@@ -286,8 +318,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return json(500, { ok: false, message: "We couldn't save that. Please try again." });
   }
 
+  // What the form fills in on the Clients row, where the row has
+  // nothing. Never allowed to fail the submission: it is in Notion.
+  const fill = clientPage ? clientFill(form, clientPage, properties) : {};
+  if (clientPage && Object.keys(fill).length) {
+    try {
+      const res = await fetch(`https://api.notion.com/v1/pages/${clientPage.id}`, {
+        method: 'PATCH',
+        headers: notionHeaders(env.NOTION_TOKEN),
+        body: JSON.stringify({ properties: fill }),
+      });
+      if (!res.ok) console.error('intake: filling the client row failed', res.status);
+    } catch (err) {
+      console.error('intake: filling the client row threw', err);
+    }
+  }
+
   if (env.WEB3FORMS_KEY) {
-    await notify(env.WEB3FORMS_KEY, String(fields['Artist Name'] ?? 'an artist'), slug);
+    await notify(env.WEB3FORMS_KEY, String(fields[form.titleProp] ?? form.noun), slug);
   }
 
   return json(200, { ok: true });

@@ -21,7 +21,7 @@
    host's `send`, and the server checks it again.
    ────────────────────────────────────────────────────────────── */
 
-import { STEP_FLOWS } from '../data/portal';
+import { CLIENT_TYPES, clientTypeById } from '../data/client-types';
 import {
   byPhase,
   effectivePlaybook,
@@ -31,6 +31,7 @@ import {
   offsetLabel,
   overrideProblem,
   playbookNames,
+  mastersForType,
   stepWho,
   CHANGE_TYPES,
   type ClientPlaybook,
@@ -95,7 +96,7 @@ function playbookPills(
 
 export interface HqPlaybooksHost {
   send: Send;
-  clients: () => Array<{ pageId: string; slug: string; artist: string }>;
+  clients: () => Array<{ pageId: string; slug: string; artist: string; type?: string }>;
   /** A client's moments, for "apply to a moment". */
   moments: (slug: string) => Array<{ id: string; title: string; date: string | null }>;
   toast: (text: string, bad?: boolean) => void;
@@ -119,6 +120,14 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
   let editing = '';
   /** Whether the Retired section is open. It starts closed. */
   let retiredOpen = false;
+  /** Which client type's playbooks are on screen. A playbook belongs
+   *  to one type, and a client only ever gets its own type's. */
+  let kind: string = CLIENT_TYPES[0].id;
+  const kindOf = () => clientTypeById(kind);
+  /** The masters of the type on screen. */
+  const typed = (): MasterStep[] => mastersForType(masters ?? [], kind);
+  /** The clients of the type on screen. */
+  const typedClients = () => host.clients().filter((c) => clientTypeById(c.type).id === kind);
 
   const redraw = () => { if (ROOT?.isConnected) draw(ROOT); };
 
@@ -164,6 +173,114 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     });
   }
 
+  /* ── which client type, and starting a playbook ───────────────── */
+
+  /** Artist | Cheer Gym, and "New playbook". The switch is how a
+   *  second type's playbooks are reached at all, so it is always
+   *  drawn, even while that type has none. */
+  function kindBar(): HTMLElement {
+    const bar = el('div', 'pt-pb-kind');
+    bar.dataset.pbKind = kind;
+    const tabs = el('div', 'pt-tabs');
+    tabs.setAttribute('role', 'tablist');
+    tabs.setAttribute('aria-label', 'Client type');
+    for (const t of CLIENT_TYPES) {
+      const b = el('button', 'pt-tab-btn', `${t.notion} playbooks`);
+      b.type = 'button';
+      b.dataset.kind = t.id;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(t.id === kind));
+      b.addEventListener('click', () => {
+        if (kind === t.id) return;
+        kind = t.id; playbook = ''; clientId = ''; editing = '';
+        redraw();
+      });
+      tabs.appendChild(b);
+    }
+    bar.appendChild(tabs);
+    const add = el('button', 'pt-btn');
+    add.type = 'button';
+    add.dataset.newPlaybook = '1';
+    add.append(icon('plus'), el('span', undefined, 'New playbook'));
+    add.addEventListener('click', newPlaybookSheet);
+    bar.appendChild(add);
+    return bar;
+  }
+
+  /** A playbook is started by adding its first step. Everything about
+   *  it that cannot be changed later is asked for here: its name, the
+   *  client type it is for, and the kind of moment it builds to. */
+  function newPlaybookSheet() {
+    const type = kindOf();
+    openSheet(`New ${type.notion} playbook`, (form, close) => {
+      const name = el('input', 'pt-input') as HTMLInputElement;
+      name.required = true;
+      name.maxLength = 60;
+      name.placeholder = 'Comp Week';
+      form.appendChild(sheetField('Playbook name', name));
+
+      const moment = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
+      optionsInto(moment, type.moments.map((m) => [m.type, m.type] as [string, string]), type.moments[0]?.type ?? '');
+      form.appendChild(sheetField('The kind of moment it builds to', moment));
+
+      const phase = el('input', 'pt-input') as HTMLInputElement;
+      phase.required = true;
+      phase.maxLength = 80;
+      phase.placeholder = 'Comp Week \u00b7 Prep';
+      form.appendChild(sheetField('Its first phase', phase));
+
+      const title = el('input', 'pt-input') as HTMLInputElement;
+      title.required = true;
+      title.maxLength = 200;
+      title.placeholder = 'What happens';
+      form.appendChild(sheetField('Its first step', title));
+
+      const offset = el('input', 'pt-input pt-num') as HTMLInputElement;
+      offset.type = 'number';
+      offset.step = '1';
+      offset.min = '-365';
+      offset.max = '365';
+      offset.required = true;
+      offset.value = '0';
+      form.appendChild(sheetField('Offset in days (negative is before the moment)', offset));
+
+      const flow = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
+      optionsInto(flow, type.flows.map((f) => [f, f] as [string, string]), type.flows[0]);
+      form.appendChild(sheetField('Flow', flow));
+      form.appendChild(el('p', 'pt-sheet-note',
+        `It is for ${type.notion} clients only, and that cannot be changed later. Add the rest of its steps once it exists.`));
+
+      const go = sheetSubmit(form, 'Start the playbook');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (!name.value.trim()) { name.focus(); return; }
+        if (!phase.value.trim()) { phase.focus(); return; }
+        if (!title.value.trim()) { title.focus(); return; }
+        if (offset.value === '' || !Number.isInteger(Number(offset.value))) { offset.focus(); return; }
+        go.disabled = true;
+        const res = await host.send('POST', '/portal/hq/playbooks/step', {
+          newPlaybook: true, clientType: type.id, playbook: name.value.trim(), momentType: moment.value,
+          phase: phase.value.trim(), title: title.value.trim(), offset: Number(offset.value), flow: flow.value,
+        });
+        go.disabled = false;
+        if (!res.ok || !res.json?.step) {
+          const bad = (res.json?.rejected as string[] | undefined) ?? [];
+          host.toast(bad.includes('playbook')
+            ? 'That name is taken, or is not one a playbook can have.'
+            : why(res, 'That did not save.'), true);
+          return;
+        }
+        const made = res.json.step as MasterStep;
+        masters = [...(masters ?? []), made];
+        playbook = made.playbook;
+        editing = '';
+        host.toast(`${made.playbook} started`);
+        close();
+        redraw();
+      });
+    });
+  }
+
   /* ── editing a master step in place ───────────────────────────── */
 
   function stepForm(step: MasterStep | null): HTMLElement {
@@ -195,7 +312,8 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     row.appendChild(offWrap);
 
     const flow = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
-    optionsInto(flow, STEP_FLOWS.map((f) => [f, f] as [string, string]), step?.flow ?? STEP_FLOWS[0]);
+    const flows = kindOf().flows;
+    optionsInto(flow, flows.map((f) => [f, f] as [string, string]), step?.flow ?? flows[0]);
     const flowWrap = sheetField('Flow', flow);
     const owner = el('span', 'pt-pb-said');
     const sayOwner = () => { owner.textContent = `Owner: ${stepWho({ flow: flow.value, owner: null }) === 'You' ? 'Client' : 'Blueprint'}`; };
@@ -205,9 +323,21 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     row.appendChild(flowWrap);
 
     const phase = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
-    optionsInto(phase, phases.map((p) => [p, p] as [string, string]), step?.phase ?? phases[0] ?? '');
+    // A new step may start a new phase. Not offered on a step that
+    // exists: moving one between phases is a pick from the list.
+    const NEW_PHASE = '\u0000new';
+    optionsInto(phase, [...phases.map((p) => [p, p] as [string, string]),
+      ...(step ? [] : [[NEW_PHASE, 'A new phase\u2026'] as [string, string]])], step?.phase ?? phases[0] ?? '');
     row.appendChild(sheetField('Phase', phase));
     form.appendChild(row);
+    const phaseName = el('input', 'pt-input') as HTMLInputElement;
+    phaseName.maxLength = 80;
+    phaseName.placeholder = 'Comp Week \u00b7 Day Of';
+    const phaseWrap = sheetField('Name of the new phase', phaseName);
+    form.appendChild(phaseWrap);
+    const showPhase = () => { phaseWrap.hidden = phase.value !== NEW_PHASE; };
+    phase.addEventListener('change', showPhase);
+    showPhase();
 
     // What the step says about the piece it owes. Only a step that
     // posts something owes one, so the three sit out of sight until
@@ -302,7 +432,9 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
       }
       const next = {
         title: title.value.trim(), offset: Number(offset.value), flow: flow.value,
-        phase: phase.value, notes: notes.value.trim() || null,
+        phase: phase.value === NEW_PHASE ? phaseName.value.trim() : phase.value,
+        ...(phase.value === NEW_PHASE ? { newPhase: true } : {}),
+        notes: notes.value.trim() || null,
         brief: brief.value.trim() || null,
         asksNotes: asks.checked,
         priority: delivers ? priority.value || null : null,
@@ -310,6 +442,7 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
         pieces: delivers ? nPieces : null,
       };
       if (!next.title) { title.focus(); return; }
+      if (!next.phase) { phaseName.focus(); return; }
       if (offset.value === '' || !Number.isInteger(next.offset)) { offset.focus(); return; }
 
       if (!step) {
@@ -409,7 +542,7 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
       form.appendChild(offWrap);
 
       const flow = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
-      optionsInto(flow, [['', 'Pick a flow'], ...STEP_FLOWS.map((f) => [f, f] as [string, string])], base.newFlow ?? '');
+      optionsInto(flow, [['', 'Pick a flow'], ...kindOf().flows.map((f) => [f, f] as [string, string])], base.newFlow ?? '');
       const flowWrap = sheetField('New flow', flow);
       form.appendChild(flowWrap);
 
@@ -869,18 +1002,36 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
 
     // The reference card: why the playbooks are built this way. It
     // sits above the playbooks and changes nothing below it.
-    root.appendChild(hqAuditPanel(audit?.general ?? null, audit?.clients ?? [],
-      { toast: host.toast, changed: () => { void load(true); } }));
+    // It explains the artist playbooks, so it is drawn with them and
+    // not above another client type's.
+    if (kindOf().features.playbookAudit) {
+      root.appendChild(hqAuditPanel(audit?.general ?? null, audit?.clients ?? [],
+        { toast: host.toast, changed: () => { void load(true); } }));
+    }
 
-    const names = playbookNames(masters);
+    root.appendChild(kindBar());
+
+    const names = playbookNames(typed());
     if (!names.includes(playbook)) playbook = names[0] ?? '';
+
+    // A client type nobody has written a playbook for yet. Nothing
+    // below this has anything to draw, so it stops here with the one
+    // thing there is to do.
+    if (!names.length) {
+      const none = el('div', 'pt-pb-none');
+      none.dataset.pbEmpty = kind;
+      none.appendChild(el('p', undefined,
+        `No ${kindOf().notion} playbooks yet. Start one with its first step, and add the rest from here.`));
+      root.appendChild(none);
+      return;
+    }
 
     const pickRow = el('div', 'pt-pb-who');
     const sel = el('select', 'pt-select') as HTMLSelectElement;
     sel.setAttribute('aria-label', 'Show the playbook as a client gets it');
     sel.dataset.pbClient = '1';
     optionsInto(sel, [['', 'The master, as it is'],
-      ...host.clients().map((c) => [c.pageId, `As ${c.artist} gets it`] as [string, string])], clientId);
+      ...typedClients().map((c) => [c.pageId, `As ${c.artist} gets it`] as [string, string])], clientId);
     sel.addEventListener('change', () => { clientId = sel.value; editing = ''; redraw(); });
     pickRow.append(el('span', 'pt-whobar-label', 'Showing'), sel);
     if (clientId) {
@@ -914,9 +1065,9 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
    * not part of the plan.
    */
   function retiredSection(): HTMLElement | null {
-    const retired = retiredMasters(masters ?? []);
+    const retired = retiredMasters(typed());
     if (!retired.length) return null;
-    const names = playbookNames(masters ?? []);
+    const names = playbookNames(typed());
     const box = el('details', 'pt-pb-retired') as HTMLDetailsElement;
     box.dataset.retired = '1';
     box.open = retiredOpen;
@@ -980,6 +1131,8 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
 export interface ClientPlaybooksHost {
   send: Send;
   slug: () => string;
+  /** The line under the heading, for this client's type. */
+  intro?: () => string;
   toast: (text: string, bad?: boolean) => void;
 }
 
@@ -1048,9 +1201,11 @@ export function createClientPlaybooks(host: ClientPlaybooksHost): { draw: (root:
     const bar = el('div', 'pt-toolbar');
     bar.appendChild(el('h1', undefined, 'Playbooks'));
     root.appendChild(bar);
-    root.appendChild(el('p', 'pt-sub pt-pb-intro',
-      'How we plan a release or a show, step by step: what happens, how far ahead, and whether it is yours or ours. '
-      + 'Anything we have agreed to do differently for you is already in here.'));
+    // What a playbook is for depends on what kind of client this is.
+    // Absent means an artist's words, which are these.
+    root.appendChild(el('p', 'pt-sub pt-pb-intro', host.intro?.()
+      ?? ('How we plan a release or a show, step by step: what happens, how far ahead, and whether it is yours or ours. '
+      + 'Anything we have agreed to do differently for you is already in here.')));
 
     if (!playbooks) {
       root.appendChild(el('p', 'pt-pb-none', failed

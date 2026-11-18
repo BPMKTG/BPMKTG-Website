@@ -11,6 +11,14 @@ import {
   cleanStepNote,
   MAX_STEP_NOTE,
   ASKS_FIELD,
+  // client types and deliveries
+  ARTIST, CHEER_GYM, CLIENT_TYPES, clientType, clientTypeById, momentSpec,
+  momentLabel, momentTypesFor, metricAllowed, trimForType, SHOOTS_EDITS_FLOW, SHOOTS_GRADES_FLOW,
+  ALL_STEP_FLOWS, momentKindOf, mastersForType, buildNewPlaybook, PLACEHOLDER_DAY, cleanBucketName,
+  ownBuckets, MAX_BUCKET_NAME, DELIVERABLE_KINDS, DELIVERY_STAGES, STAGE_STATUS, deliveryStage,
+  stageLabel, deliveryMedia, cleanNewDelivery, cleanDeliveryPatch, cleanDeliveryLink, deliveryGroups,
+  deliveryTally, tallyLabel, LOOSE_DELIVERIES, isDeliveryPage, shapeDelivery, splitPages,
+  newDeliveryProperties, deliveryPatchProperties, isShowOrRelease, isStepFlow,
   // Blueprint HQ · reports
   REPORT_FIELDS,
   reportGaps,
@@ -5260,6 +5268,226 @@ section('Step notes · the box a step can ask the client to fill in');
     UP_MOMENTS, UP_MASTERS, [], UP_OPTS);
   is('update: a master that does not ask never switches a box off',
      off.rows.flatMap((r) => r.changes).some((c) => c.field === ASKS_FIELD), false);
+}
+
+section('Client types · an artist is the default, and is exactly what it was');
+
+{
+  is('type: a blank Client Type is an artist', [clientType(null).id, clientType('').id, clientType(undefined).id], ['artist', 'artist', 'artist']);
+  is('type: so is one this code has not heard of, and a typo', [clientType('Dance Studio').id, clientType('cheer gym ').id, clientType('Cheer  Gym').id], ['artist', 'cheer-gym', 'artist']);
+  is('type: Notion spells them this way', CLIENT_TYPES.map((t) => t.notion), ['Artist', 'Cheer Gym']);
+  is('type: an unknown id in a payload is an artist too', [clientTypeById(undefined).id, clientTypeById('nope').id, clientTypeById('cheer-gym').id], ['artist', 'artist', 'cheer-gym']);
+  is('artist: its flows are the six there always were, in the same order', [...ARTIST.flows], [...STEP_FLOWS]);
+  is('artist: its Home numbers are the four there always were',
+     [...ARTIST.homeMetrics], ['Instagram · Followers', 'TikTok · Followers', 'Spotify · Monthly Listeners', 'Email + SMS List']);
+  is('artist: nothing is hidden from it', [ARTIST.hiddenPlatforms.length, ARTIST.hiddenMetrics.length, Object.entries(ARTIST.features).filter(([, v]) => !v).map(([k]) => k)],
+     [0, 0, ['deliveries', 'ownBuckets']]);
+
+  const payload = {
+    client: { artist: 'Sean Comma', goalSongsAt10k: 3, goalShowsPerMonth: 2, goalInstagramFollowers: 5000 },
+    calendar: [{ id: 'm1', kind: 'Moment', momentType: 'Show', ticketLink: 'https://t.test', ticketsSold: 80, capacity: 120, streamsToDate: 900 }],
+    snapshots: [{ date: '2026-10-26', reportPdf: '/portal/x/files/r.pdf', metrics: { 'Instagram · Followers': 1200, 'Spotify · Streams (28d)': 400, 'Tickets Sold': 80, 'Email + SMS List': 30 } }],
+    content: [{ id: 'c1' }],
+  };
+  const same = trimForType(payload, ARTIST);
+  is('artist: its payload comes back as the very same object, untouched', [same === payload, JSON.stringify(same) === JSON.stringify(payload), 'type' in same.client], [true, true, false]);
+
+  const gym = trimForType(payload, CHEER_GYM);
+  is('gym: the payload says what type it is', gym.client.type, 'cheer-gym');
+  is('gym: no music goals, and the follower goal is kept', [gym.client.goalSongsAt10k, gym.client.goalShowsPerMonth, gym.client.goalInstagramFollowers], [null, null, 5000]);
+  is('gym: no ticket link, tickets, capacity or streams on any row',
+     [gym.calendar[0].ticketLink, gym.calendar[0].ticketsSold, gym.calendar[0].capacity, gym.calendar[0].streamsToDate, gym.calendar[0].momentType], [null, null, null, null, 'Show']);
+  is('gym: no music platform and no ticket count in its numbers', Object.keys(gym.snapshots[0].metrics), ['Instagram · Followers', 'Email + SMS List']);
+  is('gym: a month has no report PDF', gym.snapshots[0].reportPdf, null);
+  is('gym: the original payload was not changed by any of it', [payload.client.goalSongsAt10k, payload.calendar[0].ticketsSold, Object.keys(payload.snapshots[0].metrics).length], [3, 80, 4]);
+  is('gym: which KPI columns it may be sent',
+     ['Instagram · Followers', 'YouTube · Subscribers', 'Spotify · Followers', 'Apple Music · Plays (28d)', 'SoundCloud · Followers', 'Shows This Month', 'Tickets Sold', 'Email + SMS List']
+       .map((m) => metricAllowed(CHEER_GYM, m)), [true, true, false, false, false, false, false, true]);
+}
+
+section('Client types · moments');
+
+{
+  is('moments: a gym picks from these', momentTypesFor(CHEER_GYM),
+     ['Competition', 'Showcase', 'Tryouts', 'Camp', 'Picture Day', 'Banquet / Awards', 'Holiday', 'Brand Moment']);
+  is('moments: an artist picks from the five there always were', momentTypesFor(ARTIST), ['Release', 'Show', 'Festival', 'Holiday', 'Brand Moment']);
+  is('moments: a Showcase is read as a Showcase, not as a Show because of its first four letters',
+     [momentSpec('Showcase').type, momentLabel('Showcase'), momentLabel('Show')], ['Showcase', 'Showcase', null]);
+  is('moments: a competition is drawn like a show and called a competition', [momentKindOf('Competition'), momentLabel('Competition')], ['show', 'Competition']);
+  is('moments: tryouts, camp, picture day and the banquet are plain moments with their own word',
+     ['Tryouts', 'Camp', 'Picture Day', 'Banquet / Awards'].map((t) => [momentKindOf(t), momentLabel(t)]),
+     [['moment', 'Tryouts'], ['moment', 'Camp'], ['moment', 'Picture day'], ['moment', 'Banquet / awards']]);
+  is('moments: every artist reading is what it was, exact or free text',
+     ['Release', 'Show', 'Festival', 'Holiday', 'Brand Moment', 'Single Drop', 'Late Show', 'EP release', null, 'Something else'].map(momentKindOf),
+     ['release', 'show', 'moment', 'moment', 'moment', 'release', 'show', 'release', 'moment', 'moment']);
+  is('moments: an artist’s have no word of their own, so they keep the kind’s', ['Release', 'Show', 'Festival'].map(momentLabel), [null, null, null]);
+  is('clash: a competition counts as a night one of us has to be at, and a camp does not',
+     [isShowOrRelease({ momentType: 'Competition' }), isShowOrRelease({ momentType: 'Showcase' }), isShowOrRelease({ momentType: 'Camp' }), isShowOrRelease({ momentType: 'Show' }), isShowOrRelease({ momentType: 'Festival' })],
+     [true, true, false, true, false]);
+  is('clash: two artists the same night reads as it did',
+     dayClash([{ momentType: 'Show', clientSlug: 'a' }, { momentType: 'Release', clientSlug: 'b' }]), '2 clients have a show or release on this day');
+  is('clash: a competition and a show the same night is named for what it is',
+     dayClash([{ momentType: 'Show', clientSlug: 'a' }, { momentType: 'Competition', clientSlug: 'gym' }]), '2 clients have a show, release or competition on this day');
+}
+
+section('Client types · the two flows a gym has');
+
+{
+  is('flows: there are eight in all, the artist’s six first', [ALL_STEP_FLOWS.length, ALL_STEP_FLOWS.slice(0, 6)], [8, [...STEP_FLOWS]]);
+  is('flows: both are real flows, spelled as Notion has them',
+     [isStepFlow(SHOOTS_EDITS_FLOW), isStepFlow(SHOOTS_GRADES_FLOW), SHOOTS_EDITS_FLOW, SHOOTS_GRADES_FLOW],
+     [true, true, 'Blueprint shoots + edits → Client posts', 'Blueprint shoots + grades → Client edits + posts']);
+  is('flows: the posting step is the client’s', [flowOwner(SHOOTS_EDITS_FLOW), flowOwner(SHOOTS_GRADES_FLOW)], ['Client', 'Client']);
+  is('flows: the client posts both', [postsBy(SHOOTS_EDITS_FLOW), postsBy(SHOOTS_GRADES_FLOW)], ['client', 'client']);
+  is('flows: what the chip says', [flowChip(SHOOTS_EDITS_FLOW), flowChip(SHOOTS_GRADES_FLOW)], ['You post', 'You edit + post']);
+  const step = { kind: 'Step', title: 'Post the photo set', owner: 'Client', type: 'Content', status: 'Not Started', flow: SHOOTS_EDITS_FLOW };
+  is('flows: a step with one sits under You post and on her to-do list', stepLayers(step), ['postsTheirs', 'todos']);
+  is('flows: she can tick it, because Owner is Client', [canSetStepStatus(step, 'Done'), canSetStepStatus({ ...step, owner: 'Blueprint' }, 'Done')], [true, false]);
+  is('flows: Owner still wins. The flow on a row owned by us is not believed',
+     flowOf({ ...step, owner: 'Blueprint' }), 'Blueprint makes + posts');
+  is('flows: a gym is offered its own five, an artist never sees the gym’s two',
+     [CHEER_GYM.flows.length, CHEER_GYM.flows.includes(SHOOTS_EDITS_FLOW), ARTIST.flows.includes(SHOOTS_EDITS_FLOW), ARTIST.flows.includes(SHOOTS_GRADES_FLOW)], [5, true, false, false]);
+  is('flows: neither is a flow that makes a Blueprint post, so applying one creates no piece of ours',
+     [isDeliverableFlow(SHOOTS_EDITS_FLOW), isDeliverableFlow(SHOOTS_GRADES_FLOW)], [false, false]);
+}
+
+section('Client types · playbooks belong to one type');
+
+{
+  const cheer = UM('g1', 'Post the photo set', { playbook: 'Comp Week', phase: 'Comp Week · After', flow: SHOOTS_EDITS_FLOW, owner: 'Client', clientType: 'cheer-gym' });
+  const all = [...UP_MASTERS, cheer];
+  is('masters: an artist gets every master there was, and not the gym’s', [mastersForType(all, 'artist').length, mastersForType(all, 'artist').includes(cheer)], [UP_MASTERS.length, false]);
+  is('masters: a gym gets only its own', mastersForType(all, 'cheer-gym').map((m) => m.title), ['Post the photo set']);
+  is('masters: with no gym masters, a gym has no playbooks and an artist has all of them',
+     [playbookNames(mastersForType(UP_MASTERS, 'cheer-gym')), playbookNames(mastersForType(UP_MASTERS, 'artist')).length > 0], [[], true]);
+  const row = (o = {}) => ({ id: 'p', properties: { Item: NP.title('Post the photo set'), 'Is Playbook': NP.check(true), Kind: NP.sel('Step'), Playbook: NP.sel('Comp Week'), ...o } });
+  is('masters: the type is read off the row, and absent on an artist’s',
+     [shapeMaster(row({ 'Client Type': NP.sel('Cheer Gym') })).clientType, 'clientType' in shapeMaster(row()), 'clientType' in shapeMaster(row({ 'Client Type': NP.sel('Artist') }))], ['cheer-gym', false, false]);
+
+  const ask = { newPlaybook: true, clientType: 'cheer-gym', playbook: '  Comp   Week ', momentType: 'Competition', phase: 'Comp Week · Prep', title: 'Confirm the schedule', offset: -7, flow: 'Client task' };
+  const made = buildNewPlaybook(ask, UP_MASTERS);
+  is('new playbook: its placeholder moment, on the day every placeholder sits on',
+     [made.ok, made.value.name, made.value.moment.Kind.select.name, made.value.moment['Is Playbook'].checkbox, made.value.moment['Moment Type'].select.name, made.value.moment.Date.date.start, made.value.moment['Client Type'].select.name],
+     [true, 'Comp Week', 'Moment', true, 'Competition', PLACEHOLDER_DAY, 'Cheer Gym']);
+  is('new playbook: its first step, typed, with the owner its flow implies',
+     [made.value.step.Playbook.select.name, made.value.step.Phase.select.name, made.value.step['Offset (days)'].number, made.value.step.Owner.select.name, made.value.step.Type.select.name, made.value.step['Client Type'].select.name, made.value.step['Is Playbook'].checkbox],
+     ['Comp Week', 'Comp Week · Prep', -7, 'Client', 'Admin', 'Cheer Gym', true]);
+  is('new playbook: a name another playbook has, in any type, is refused', buildNewPlaybook({ ...ask, playbook: 'pre-show' }, UP_MASTERS).rejected, ['playbook']);
+  is('new playbook: nor Retired, nor nothing', [buildNewPlaybook({ ...ask, playbook: 'Retired' }, UP_MASTERS).rejected, buildNewPlaybook({ ...ask, playbook: '  ' }, UP_MASTERS).rejected], [['playbook'], ['playbook']]);
+  is('new playbook: an artist flow or an artist moment on a gym playbook is refused',
+     [buildNewPlaybook({ ...ask, flow: 'Blueprint makes + posts' }, UP_MASTERS).rejected, buildNewPlaybook({ ...ask, momentType: 'Release' }, UP_MASTERS).rejected], [['flow'], ['momentType']]);
+  is('new playbook: a type that does not exist is refused', buildNewPlaybook({ ...ask, clientType: 'dance' }, UP_MASTERS).rejected.includes('clientType'), true);
+  const artistNew = buildNewPlaybook({ ...ask, clientType: 'artist', momentType: 'Show', flow: 'Blueprint task' }, UP_MASTERS);
+  is('new playbook: an artist one carries no Client Type, like every artist master', [artistNew.ok, 'Client Type' in artistNew.value.step, 'Client Type' in artistNew.value.moment], [true, false, false]);
+
+  const vocab = vocabularyOf(all);
+  const joined = buildNewMaster({ title: 'Share the recap', offset: 2, flow: SHOOTS_GRADES_FLOW, phase: 'Comp Week · After', playbook: 'Comp Week' }, vocab, all);
+  is('new step: a step added to a gym playbook joins the gym', [joined.rejected, joined.properties['Client Type'].select.name, joined.properties.Owner.select.name], [[], 'Cheer Gym', 'Client']);
+  is('new step: a gym flow on an artist playbook is refused',
+     buildNewMaster({ title: 'x', offset: 0, flow: SHOOTS_EDITS_FLOW, phase: 'Pre-Show · Build', playbook: 'Pre-Show' }, vocab, all).rejected, ['flow']);
+  is('new step: an artist step still carries no Client Type',
+     'Client Type' in buildNewMaster({ title: 'x', offset: 0, flow: 'Blueprint task', phase: 'Pre-Show · Build', playbook: 'Pre-Show' }, vocab, all).properties, false);
+  const phased = buildNewMaster({ title: 'x', offset: 0, flow: 'Client task', phase: 'Comp Week · Day Of', newPhase: true, playbook: 'Comp Week' }, vocab, all);
+  is('new step: a new phase is taken when it is asked for on purpose, and refused as a typo when it is not',
+     [phased.rejected, phased.properties.Phase.select.name, buildNewMaster({ title: 'x', offset: 0, flow: 'Client task', phase: 'Comp Week · Day Of', playbook: 'Comp Week' }, vocab, all).rejected.includes('phase')],
+     [[], 'Comp Week · Day Of', true]);
+}
+
+section('Deliveries · photo sets and footage batches');
+
+{
+  is('stage: the four stages are four pipeline statuses', DELIVERY_STAGES.map((s) => STAGE_STATUS[s]), ['Planned', 'Filmed', 'Editing', 'Posted']);
+  is('stage: every status reads as a stage, and a dropped one as none',
+     ['Idea', 'Planned', null, 'Filmed', 'Footage In', 'Editing', 'Ready for Review', 'Approved', 'Scheduled', 'Posted', 'Skipped'].map(deliveryStage),
+     ['toShoot', 'toShoot', 'toShoot', 'shot', 'shot', 'working', 'working', 'working', 'working', 'delivered', null]);
+  is('stage: photos are edited and footage is graded', [stageLabel('working', 'Photo set'), stageLabel('working', 'Footage batch'), stageLabel('delivered', 'Photo set'), stageLabel('toShoot', 'Footage batch')],
+     ['Editing', 'Grading', 'Delivered', 'To shoot']);
+  is('kind: filed as a photo or a video', DELIVERABLE_KINDS.map(deliveryMedia), ['Photo', 'Video']);
+
+  const isId = (v) => typeof v === 'string' && /^[0-9a-f-]{32,36}$/.test(v);
+  const MOM = '11111111-1111-1111-1111-111111111111';
+  const good = cleanNewDelivery({ title: '  Senior Elite, day one ', kind: 'Photo set', due: '2027-01-12', momentId: MOM, postedBy: 'Client', Status: 'Posted' }, isId);
+  is('new: taken field by field, and nothing else in the request is read', good, { ok: true, value: { title: 'Senior Elite, day one', kind: 'Photo set', due: '2027-01-12', momentId: MOM } });
+  is('new: no competition and no due day is allowed', cleanNewDelivery({ title: 'Gym promo', kind: 'Footage batch' }, isId).value, { title: 'Gym promo', kind: 'Footage batch', due: null, momentId: null });
+  is('new: what is wrong is named', cleanNewDelivery({ title: ' ', kind: 'Reel', due: '2027-02-31', momentId: 'abc' }, isId).rejected, ['title', 'kind', 'due', 'momentId']);
+  const props = newDeliveryProperties(good.value, 'client-1');
+  is('new: written as ours, Planned, not hidden, linked to the competition, and marked as a delivery',
+     [props['Posted By'].select.name, props.Status.select.name, props['Hide from Client'].checkbox, props.Campaign.relation[0].id, props.Deliverable.select.name, props.Media.select.name, props.Client.relation[0].id, props['Post Date'].date.start],
+     ['Blueprint', 'Planned', false, MOM, 'Photo set', 'Photo', 'client-1', '2027-01-12']);
+
+  is('change: a stage is written as its status', cleanDeliveryPatch({ stage: 'delivered' }), { value: { status: 'Posted' }, rejected: [] });
+  is('change: a status by name is not a stage, and is refused', cleanDeliveryPatch({ stage: 'Posted' }).rejected, ['stage']);
+  is('change: a link is a web address or nothing',
+     [cleanDeliveryLink('drive.google.com/drive/folders/abc'), cleanDeliveryLink(''), cleanDeliveryLink(null), cleanDeliveryLink('javascript:alert(1)'), cleanDeliveryLink('folder'), cleanDeliveryLink(7)],
+     ['https://drive.google.com/drive/folders/abc', null, null, undefined, undefined, undefined]);
+  is('change: only stage, link, title and due are read', cleanDeliveryPatch({ stage: 'shot', link: 'https://a.test/x', title: ' New name ', due: '', 'Posted By': 'Client', Client: 'x' }),
+     { value: { status: 'Filmed', link: 'https://a.test/x', title: 'New name', due: null }, rejected: [] });
+  const patch = deliveryPatchProperties({ status: 'Posted', link: 'https://a.test/x' });
+  is('change: written to Status and Edit Link, stamped as ours', [patch.Status.select.name, patch['Edit Link'].url, patch['Last Edited By'].select.name, Object.keys(patch).length], ['Posted', 'https://a.test/x', 'Blueprint', 3]);
+  is('change: nothing asked for is nothing written', deliveryPatchProperties({}), {});
+
+  const page = (id, o = {}) => ({ id, properties: { Content: NP.title(o.title ?? 'Row'), Status: NP.sel(o.status ?? 'Planned'),
+    'Post Date': NP.date(o.due ?? null), Campaign: NP.rel(...(o.moment ? [o.moment] : [])), 'Posted By': NP.sel('Blueprint'),
+    Deliverable: NP.sel(o.kind ?? null), 'Edit Link': { type: 'url', url: o.link ?? null } } });
+  const pages = [page('a', { kind: 'Photo set', moment: MOM, title: 'Photos', status: 'Editing', link: 'https://a.test/p' }), page('b'), page('c', { kind: 'Footage batch', title: 'Footage' })];
+  const split = splitPages(pages);
+  is('split: a row with Deliverable set is a delivery, and one without is a post', [split.deliveries.map((p) => p.id), split.posts.map((p) => p.id), isDeliveryPage(pages[1])], [['a', 'c'], ['b'], false]);
+  is('split: a delivery, shaped', shapeDelivery(pages[0]), { id: 'a', title: 'Photos', kind: 'Photo set', status: 'Editing', due: null, link: 'https://a.test/p', momentId: MOM });
+
+  const D = (id, kind, status, momentId, title = id) => ({ id, title, kind, status, due: null, link: null, momentId });
+  const moments = [{ id: 'm-old', title: 'Winter Classic', date: '2026-12-05' }, { id: 'm-new', title: 'Nationals', date: '2027-02-20' }];
+  const list = [D('d1', 'Footage batch', 'Posted', 'm-old'), D('d2', 'Photo set', 'Editing', 'm-old'), D('d3', 'Photo set', 'Planned', 'm-new'),
+                D('d4', 'Photo set', 'Skipped', 'm-new'), D('d5', 'Footage batch', 'Filmed', null), D('d6', 'Photo set', 'Posted', 'm-gone')];
+  const groups = deliveryGroups(list, moments);
+  is('tracker: one group per competition, the newest competition first, and the loose ones last',
+     groups.map((g) => [g.title, g.date, g.rows.map((r) => r.id), g.delivered]),
+     [['Nationals', '2027-02-20', ['d3'], 0], ['Winter Classic', '2026-12-05', ['d2', 'd1'], 1], [LOOSE_DELIVERIES, null, ['d5', 'd6'], 1]]);
+  is('tracker: a dropped delivery is on no list and in no count', [deliveryTally(list), tallyLabel(deliveryTally(list)), tallyLabel(deliveryTally([]))],
+     [{ total: 5, delivered: 2 }, '2 of 5 delivered', 'No deliveries yet']);
+  is('counter: a delivery never reaches the month counter, because it is never in the content it is given',
+     split.posts.every((p) => !isDeliveryPage(p)), true);
+}
+
+section('Client types · a client’s own buckets');
+
+{
+  is('name: trimmed to one line, cleared by nothing', [cleanBucketName('  Comp   Day '), cleanBucketName(''), cleanBucketName(null), cleanBucketName('   ')], ['Comp Day', null, null, null]);
+  is('name: not a comma, not too long, not a number', [cleanBucketName('Tumbling, Stunts'), cleanBucketName('x'.repeat(MAX_BUCKET_NAME + 1)), cleanBucketName(4), cleanBucketName('x'.repeat(MAX_BUCKET_NAME)).length],
+     [undefined, undefined, undefined, MAX_BUCKET_NAME]);
+  const options = [{ name: 'Talking Head', color: 'red' }, { name: 'Sean Show', color: 'blue' }, { name: 'Comp Day', color: 'green' }, { name: 'Athlete Spotlight', color: 'pink' }];
+  is('list: only the buckets her own rows use, in Notion’s order, with Notion’s colours',
+     ownBuckets(options, [{ bucket: 'Athlete Spotlight' }, { bucket: 'Comp Day' }, { bucket: null }, { bucket: 'Comp Day' }]),
+     [{ name: 'Comp Day', color: 'green' }, { name: 'Athlete Spotlight', color: 'pink' }]);
+  is('list: an empty board has no buckets, and never another client’s', ownBuckets(options, []), []);
+  const schema = { bucket: options, format: [], platforms: [], status: CONTENT_STATUSES.map((name) => ({ name, color: 'default' })), media: [] };
+  const ctx = { schema, allowedCampaigns: [], currentStatus: 'Idea', postedBy: 'Client', source: 'Client Films', role: 'client' };
+  is('write: a client with shared buckets cannot found one',
+     buildContentProperties({ bucket: 'Brand New' }, ctx).rejected, ['bucket']);
+  const free = buildContentProperties({ bucket: ' Practice  Clips ' }, { ...ctx, freeBuckets: true });
+  is('write: a client with their own can, by naming it', [free.rejected, free.properties.Bucket.select.name], [[], 'Practice Clips']);
+  is('write: and a name that could not be a bucket is still refused', buildContentProperties({ bucket: 'a,b' }, { ...ctx, freeBuckets: true }).rejected, ['bucket']);
+}
+
+section('Client types · HQ: health follows the type');
+
+{
+  const today = new Date('2026-11-18T12:00:00Z');
+  const client = (o = {}) => ({ pageId: 'c1', slug: 'x', artist: 'X', stage: 'Active', nextAction: null, nextActionDate: null, termStart: '2026-09-01', ...o });
+  const steps = [
+    { id: 'm1', clientId: 'c1', momentId: null, kind: 'Moment', momentType: 'Competition', owner: null, status: 'Not Started', date: '2026-11-22', title: 'Winter Classic' },
+    { id: 's1', clientId: 'c1', momentId: 'm1', kind: 'Step', momentType: null, owner: 'Client', status: 'Not Started', date: '2026-11-21', title: 'Post the lineup' },
+    { id: 'm2', clientId: 'c1', momentId: null, kind: 'Moment', momentType: 'Release', owner: null, status: 'Not Started', date: '2026-11-23', title: 'Single' },
+    { id: 's2', clientId: 'c1', momentId: 'm2', kind: 'Step', momentType: null, owner: 'Blueprint', status: 'Not Started', date: '2026-11-22', title: 'Announce' },
+  ];
+  const input = { steps, content: [], snapshots: [] };
+  const gym = clientFacts(client({ type: 'cheer-gym' }), input, today);
+  const artist = clientFacts(client(), input, today);
+  is('health: a gym is watched against its next competition', [gym.releaseInDays, gym.releaseStepsOpen, gym.keyMomentWord], [4, 1, 'competition']);
+  is('health: an artist against its next release, exactly as before', [artist.releaseInDays, artist.releaseStepsOpen, 'keyMomentWord' in artist], [5, 1, false]);
+  is('health: a gym has no monthly report to be late with, and an artist does', [gym.monthToReport, artist.monthToReport], [false, true]);
+  const at = (f) => HEALTH_RULES.find((r) => r.id === 'release-at-risk').reason({ ...f, releaseInDays: 2, releaseStepsOpen: 3 });
+  is('health: the reason names the right thing', [at(gym), at(artist)],
+     ['a competition in 2 days with 3 steps still open', 'a release in 2 days with 3 steps still open']);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

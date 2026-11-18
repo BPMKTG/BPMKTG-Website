@@ -71,6 +71,28 @@ export async function publishSnapshot(
   }), 'snapshot publish');
 }
 
+/**
+ * Marks a month published as numbers only: the date, the switch, and
+ * who did it, with no PDF.
+ *
+ * For a client type that has no monthly report (see
+ * src/data/client-types.ts). Their month is the Reports tab itself,
+ * and the portal draws no document row for a month with no PDF, so a
+ * row published this way is not the half-written state publishSnapshot
+ * guards against.
+ */
+export async function publishNumbers(
+  token: string,
+  snapshotId: string,
+  role: 'client' | 'admin' = 'admin',
+  now = new Date(),
+): Promise<boolean> {
+  return patchPage(token, snapshotId, stampSnapshotEdit(role, {
+    'Published At': { date: { start: now.toISOString().slice(0, 10) } },
+    Published: { checkbox: true },
+  }), 'snapshot publish, numbers only');
+}
+
 /** Just the PDF URL, for a Regenerate on a month already published. */
 export async function setSnapshotPdf(
   token: string,

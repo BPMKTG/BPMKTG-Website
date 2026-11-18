@@ -36,7 +36,7 @@ import {
   clientFacts, createPiece, fetchClientCalendar, fetchLinkedPieces, shapeStep,
   PIECE_WRITE_BUDGET,
 } from '../../../../src/server/pieces';
-import { effectivePlaybook, isRetiredPlaybook, planApply } from '../../../../src/data/playbooks';
+import { effectivePlaybook, isRetiredPlaybook, mastersForType, planApply } from '../../../../src/data/playbooks';
 import { isDeliverableFlow, piecesForStep, planMissingPieces, type PieceStep } from '../../../../src/data/pieces';
 
 interface Env extends HqEnv, HqDataEnv {}
@@ -52,12 +52,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const facts0 = await clientFacts(env.NOTION_TOKEN, clientId);
   if (!facts0) return portalNotFound();
-  const [masters, overrides, cal, linked] = await Promise.all([
+  const [every, overrides, cal, linked] = await Promise.all([
     fetchMasters(env.NOTION_TOKEN),
     fetchOverrides(env.NOTION_TOKEN, clientId),
     fetchClientCalendar(env.NOTION_TOKEN, clientId, facts0.artist, { momentId }),
     fetchLinkedPieces(env.NOTION_TOKEN, clientId),
   ]);
+  // Only the playbooks this client's type has. An artist's playbook
+  // asked for on a gym is refused here as a playbook that does not
+  // exist, which for that client it does not.
+  const masters = mastersForType(every, facts0.type.id);
   const playbook = typeof body.playbook === 'string' && vocabularyOf(masters).playbooks.includes(body.playbook)
     ? body.playbook : null;
   if (!playbook) return hqJson({ ok: false, error: 'invalid', rejected: ['playbook'] }, 400);

@@ -59,6 +59,19 @@ export interface MasterStep {
   /** The step is a question: the client's card gets a box to write
    *  the answer in, and what they write is kept on their step. */
   asksNotes?: boolean;
+  /** Which client type this master is for, as the type's id (see
+   *  src/data/client-types.ts). Absent on an artist's, which is every
+   *  master there was before types. */
+  clientType?: string;
+}
+
+/** The masters one client type has. A playbook belongs to exactly one
+ *  type, so this is also "the playbooks a client of this type gets":
+ *  an artist never sees a gym's, and a gym never sees an artist's. */
+export function mastersForType<T extends { clientType?: string }>(
+  masters: readonly T[], typeId: string,
+): T[] {
+  return masters.filter((m) => (m.clientType ?? 'artist') === typeId);
 }
 
 export const OVERRIDE_STATUSES = ['Draft', 'Requested', 'Approved', 'Declined'] as const;

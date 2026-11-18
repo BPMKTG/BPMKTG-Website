@@ -16,6 +16,7 @@ import {
 } from '../../../../src/server/portal-auth';
 import { findClientBySlug } from '../../../../src/server/portal-notion';
 import { fetchMasters, fetchOverrides } from '../../../../src/server/playbooks';
+import { mastersForType } from '../../../../src/data/playbooks';
 import { clientPlaybooks, clientRequests } from '../../../../src/data/playbooks';
 import { readClientAudit, type AuditEnv } from '../../../../src/server/playbook-audit';
 
@@ -31,11 +32,17 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
   if (!record || !record.portalEnabled) return portalNotFound();
 
   try {
-    const [masters, overrides, audit] = await Promise.all([
+    const [every, overrides, audit] = await Promise.all([
       fetchMasters(env.NOTION_TOKEN), fetchOverrides(env.NOTION_TOKEN, record.pageId),
-      // Their own audit if they have one, the general one if not.
-      readClientAudit(env, record.slug, record.playbookAuditUrl),
+      // Their own audit if they have one, the general one if not. The
+      // audit explains the artist playbooks, so a client type that
+      // does not have it is sent neither.
+      record.type.features.playbookAudit
+        ? readClientAudit(env, record.slug, record.playbookAuditUrl)
+        : Promise.resolve(null),
     ]);
+    // Only the playbooks this client's type has.
+    const masters = mastersForType(every, record.type.id);
     return new Response(JSON.stringify({
       ok: true,
       playbooks: clientPlaybooks(masters, overrides, record.pageId),

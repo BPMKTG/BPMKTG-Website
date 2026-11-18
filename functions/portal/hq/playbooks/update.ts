@@ -110,7 +110,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const state = await readUpdateState(env.NOTION_TOKEN, clientId, facts.artist);
+  const state = await readUpdateState(env.NOTION_TOKEN, clientId, facts.artist, facts.type.id);
 
   /* ── the checks, after a run ───────────────────────────────── */
   if (body.verify === true) {

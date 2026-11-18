@@ -16,7 +16,7 @@
 
 import {
   fetchCalendar,
-  fetchContent,
+  fetchContentAndDeliveries,
   fetchContentSchema,
   fetchPortalClients,
   fetchSnapshots,
@@ -39,6 +39,9 @@ import {
 } from '../../../src/server/portal-auth';
 import { readBrief } from '../../../src/server/brief';
 import type { PortalPayload } from '../../../src/data/portal';
+import { trimForType } from '../../../src/data/client-types';
+import { shapeDelivery } from '../../../src/server/deliveries';
+import { ownBuckets } from '../../../src/data/portal-content';
 
 interface Env {
   NOTION_TOKEN: string;
@@ -97,10 +100,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     // their portal switched off gets the same 404 as everyone else.
     if (!record || !record.portalEnabled) return portalNotFound();
 
-    const [calendar, snapshots, content, contentSchema, audits, brief] = await Promise.all([
+    const [calendar, snapshots, pipeline, contentSchema, audits, brief] = await Promise.all([
       fetchCalendar(env.NOTION_TOKEN, record.pageId, record.client.artist),
       fetchSnapshots(env.NOTION_TOKEN, record.pageId),
-      fetchContent(env.NOTION_TOKEN, record.pageId),
+      fetchContentAndDeliveries(env.NOTION_TOKEN, record.pageId),
       fetchContentSchema(env.NOTION_TOKEN),
       // Published client audits only, filtered on the server. A draft
       // teardown is not in this list at all, so there is nothing for
@@ -117,7 +120,26 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
       readBrief(env, record.slug, record.brandBriefUrl),
     ]);
 
-    payload = { client: record.client, brief, calendar, snapshots, content, contentSchema, audits };
+    // What this type of client is not sent, taken out here so that no
+    // screen has to remember not to draw it. An artist's payload comes
+    // back from this untouched.
+    const content = pipeline.content;
+    // A client whose buckets are their own is shown only theirs, and
+    // told they may name a new one. Everyone else gets the shared list
+    // exactly as Notion has it.
+    const schema = record.type.features.ownBuckets
+      ? { ...contentSchema, bucket: ownBuckets(contentSchema.bucket, content), ownBuckets: true }
+      : contentSchema;
+    payload = trimForType(
+      { client: record.client, brief, calendar, snapshots, content, contentSchema: schema, audits },
+      record.type,
+    );
+    // What we owe a client who posts for themselves. Only a type that
+    // has deliveries is sent the list, empty or not, so an artist's
+    // payload has no such key.
+    if (record.type.features.deliveries) {
+      payload.deliveries = pipeline.deliveryPages.map(shapeDelivery);
+    }
   } catch (err) {
     console.error('portal: data build threw', err);
     return portalNotFound();

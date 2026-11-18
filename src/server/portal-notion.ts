@@ -19,6 +19,7 @@
    objects, which still stop here.
    ────────────────────────────────────────────────────────────── */
 
+import { clientType, type ClientTypeConfig } from '../data/client-types';
 import { isValidSlug, normaliseSlug } from './portal-auth';
 import { parseEmailList } from './portal-login';
 import {
@@ -227,6 +228,9 @@ export interface ClientRecord {
    *  this client's own audit PDF, a link to one elsewhere, or null.
    *  Never ships raw: readClientAudit() turns it into what is shown. */
   playbookAuditUrl: string | null;
+  /** What kind of client this is: an artist unless the Clients row
+   *  says otherwise. Decides what the payload leaves out. */
+  type: ClientTypeConfig;
   client: PortalClient;
 }
 
@@ -272,6 +276,7 @@ function shapeClient(page: any): ClientRecord {
     brandBriefUrl: readUrl(p['Brand Brief PDF']),
     playbookAuditUrl: typeof p['Playbook Audit']?.url === 'string' && p['Playbook Audit'].url.trim()
       ? p['Playbook Audit'].url.trim() : null,
+    type: clientType(readSelect(p[CLIENT_FIELDS[15]])),
     // Built field by field from CLIENT_FIELDS. Nothing else on the page
     // is read, so nothing else can ship.
     client: {
@@ -855,7 +860,50 @@ export async function fetchContent(
   // matching the way we think it does, a hidden row still cannot ship.
   return results
     .filter((page: any) => !readCheckbox((page.properties ?? {})['Hide from Client']))
+    // A delivery (a photo set or a footage batch we owe) is a row in
+    // this database and is not a post. It is never on a board, a
+    // calendar or a count: fetchContentAndDeliveries hands those to
+    // the one screen that draws them.
+    .filter((page: any) => !isDeliveryRow(page))
     .map(shapeContent);
+}
+
+/** Is this Content Pipeline page a delivery? The column is a select
+ *  that is blank on every post. Kept local so this file does not
+ *  import the deliveries module, which imports from here. */
+function isDeliveryRow(page: any): boolean {
+  return !!readSelect((page?.properties ?? {})['Deliverable']);
+}
+
+/**
+ * One client's Content Pipeline, as posts and as raw delivery pages,
+ * from a single query. The posts are exactly what fetchContent
+ * returns. The delivery pages are left unshaped for
+ * src/server/deliveries.ts, which knows what one is.
+ */
+export async function fetchContentAndDeliveries(
+  token: string,
+  clientPageId: string,
+): Promise<{ content: PortalContentItem[]; deliveryPages: any[] }> {
+  let results: any[];
+  try {
+    results = await queryAll(token, CONTENT_DB, {
+      filter: {
+        and: [
+          { property: 'Client', relation: { contains: clientPageId } },
+          { property: 'Hide from Client', checkbox: { equals: false } },
+        ],
+      },
+    });
+  } catch (err) {
+    console.error('portal: content fetch failed', err);
+    return { content: [], deliveryPages: [] };
+  }
+  const visible = results.filter((page: any) => !readCheckbox((page.properties ?? {})['Hide from Client']));
+  return {
+    content: visible.filter((page: any) => !isDeliveryRow(page)).map(shapeContent),
+    deliveryPages: visible.filter(isDeliveryRow),
+  };
 }
 
 /**
@@ -921,6 +969,9 @@ export async function fetchOwnedContent(
     return null;
   }
   if (readCheckbox(p['Hide from Client'])) return null;
+  // A delivery is ours from start to finish and is changed from HQ's
+  // own endpoint. Through this one a client could "approve" it.
+  if (isDeliveryRow(page)) return null;
 
   return { page, item: shapeContent(page) };
 }

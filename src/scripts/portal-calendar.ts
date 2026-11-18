@@ -17,6 +17,7 @@
  * own view state and its own storage key, so two calendars can be
  * alive at once without reading each other's prefs.
  */
+import { momentLabel } from '../data/client-types';
 import {
   canSetStepDate,
   isBlueprintWork,
@@ -109,6 +110,13 @@ export interface CalendarHost {
    * somebody else's.
    */
   layerLabel?(layer: CalendarLayer): string | null;
+  /**
+   * The words that depend on what kind of client this is: what an
+   * empty calendar says is coming, the legend's two moment rows, and
+   * the line about dragging a moment. Absent means an artist's words,
+   * which are the ones written below. See src/data/client-types.ts.
+   */
+  words?(): { calendarEmpty: string; legendShow: string; legendRelease: string; dragMoment: string } | null;
 
   /* how a row looks */
   kindOf(it: PortalCalendarItem): string;
@@ -473,7 +481,7 @@ export function createCalendar(H: CalendarHost) {
           : 'Nothing on the calendar yet'),
         el('p', undefined, calFiltering()
           ? 'Turn a layer back on, or clear a filter, to see the rest of your calendar.'
-          : 'Shows, releases and content steps appear here as we plan them.'),
+          : (H.words?.()?.calendarEmpty ?? 'Shows, releases and content steps appear here as we plan them.')),
       );
       root.appendChild(e);
       return;
@@ -725,14 +733,17 @@ export function createCalendar(H: CalendarHost) {
 
     const panel = el('div', 'pt-help-panel');
     panel.appendChild(el('h4', undefined, 'Reading the calendar'));
+    const words = H.words?.() ?? null;
     for (const [cls, text] of [
       ['pt-legend-post', 'A post, in its bucket colour'],
       ['pt-legend-film', 'A shoot: dashed, and written "Film \u00b7"'],
       ['pt-legend-tentative', 'Dashed anywhere else means tentative'],
-      ['pt-legend-show', 'A show'],
-      ['pt-legend-release', 'A release'],
+      ['pt-legend-show', words ? words.legendShow : 'A show'],
+      ['pt-legend-release', words ? words.legendRelease : 'A release'],
       ['pt-legend-todo', 'Something on you'],
     ] as const) {
+      // A kind of moment this client type does not have gets no row.
+      if (!text) continue;
       const r = el('div', 'pt-help-row');
       r.append(el('span', `pt-legend-key ${cls}`), el('span', undefined, text));
       panel.appendChild(r);
@@ -751,9 +762,9 @@ export function createCalendar(H: CalendarHost) {
       + 'sits in Film days next to the shoots off your content board.'));
     panel.appendChild(el('p', undefined,
       'A post that has already gone out steps back and wears a tick.'));
-    panel.appendChild(el('p', undefined,
-      'Drag anything you own to another day. Drag a show or a release and '
-      + 'its whole campaign follows, once you have said yes.'));
+    panel.appendChild(el('p', undefined, words?.dragMoment
+      ?? ('Drag anything you own to another day. Drag a show or a release and '
+      + 'its whole campaign follows, once you have said yes.')));
     d.appendChild(panel);
     return d;
   }
@@ -1214,9 +1225,12 @@ export function createCalendar(H: CalendarHost) {
       + (it.tentative ? ' pt-chip-tentative' : '')
       + (readOnlyWork(it) ? ' pt-chip-theirs' : '')
       + (m ? ` pt-edge-${H.momentKind(m)}` : '');
+    // A moment whose type has its own word ("Competition") is read
+    // out as that, not as the kind it is coloured like.
+    const word = (isMomentRow(it) ? momentLabel(it.momentType) : null) ?? H.kindLabel(k);
     const label = m
-      ? `${H.kindLabel(k)}: ${it.title} — part of ${m.title}`
-      : `${H.kindLabel(k)}: ${it.title}`;
+      ? `${word}: ${it.title} — part of ${m.title}`
+      : `${word}: ${it.title}`;
 
     // A step the client owns carries its box here too, so a week can be
     // cleared from the month without opening anything. A button cannot

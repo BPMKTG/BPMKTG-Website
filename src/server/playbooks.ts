@@ -17,6 +17,7 @@
    value by quietly making a new option.
    ────────────────────────────────────────────────────────────── */
 
+import { CLIENT_TYPES, clientType, clientTypeById, isArtist, type ClientTypeConfig } from '../data/client-types';
 import { isStepFlow, flowOwner, type StepFlow } from '../data/portal';
 import { isDeliverableFlow, isPieceMedia, isPriority, MAX_PIECES } from '../data/pieces';
 import {
@@ -87,6 +88,10 @@ export function shapeMaster(page: any): MasterStep | null {
     pieces: readNumber(p['Pieces']),
     brief: readText(p['Brief']),
     asksNotes: readCheckbox(p['Ask for Notes']),
+    // Said only for a master that is not an artist's, so the masters
+    // an artist is built from are what they were before types.
+    ...(clientType(readSelect(p['Client Type'])).id === 'artist'
+      ? {} : { clientType: clientType(readSelect(p['Client Type'])).id }),
   };
 }
 
@@ -309,7 +314,13 @@ export function buildMasterProperties(body: Record<string, unknown>, vocab: Mast
 export function buildNewMaster(
   body: Record<string, unknown>, vocab: MasterVocabulary, masters: readonly MasterStep[],
 ): Built & { playbook: string | null } {
-  const built = buildMasterProperties(body, vocab);
+  // A phase nobody uses yet is refused as a typo, unless the request
+  // says it is a new one on purpose. A new playbook starts with a new
+  // phase by definition, and one that exists gains phases as it grows.
+  const phase = body.newPhase === true ? cleanName(body.phase, MAX_PHASE_NAME) : null;
+  const built = buildMasterProperties(body, phase
+    ? { ...vocab, phases: [...vocab.phases, phase] } : vocab);
+  if (phase) built.properties['Phase'] = selectOf(phase);
   const playbook = typeof body.playbook === 'string' && vocab.playbooks.includes(body.playbook)
     ? body.playbook : null;
   for (const need of ['Item', 'Offset (days)', 'Flow', 'Phase']) {
@@ -319,18 +330,111 @@ export function buildNewMaster(
   if (!playbook) return { ...built, playbook };
 
   const sibling = masters.find((m) => m.playbook === playbook && m.momentId);
+  // A step joins its playbook's client type. Never taken from the
+  // request: a playbook is one type's, and its steps go where it is.
+  const type = clientTypeById(masters.find((m) => m.playbook === playbook)?.clientType);
   const flow = (body.flow as string) ?? '';
+  if (flow && !type.flows.includes(flow)) built.rejected.push('flow');
   built.properties = {
     ...built.properties,
     Kind: selectOf('Step'),
     'Is Playbook': { checkbox: true },
     Playbook: selectOf(playbook),
+    ...(isArtist(type) ? {} : { 'Client Type': selectOf(type.notion) }),
     // A step that makes a post is content; anything else is a job.
     Type: selectOf(/posts/.test(flow) ? 'Content' : 'Admin'),
     ...(sibling?.momentId ? { Moment: { relation: [{ id: sibling.momentId }] } } : {}),
   };
   return { ...built, playbook };
 }
+
+export const MAX_PLAYBOOK_NAME = 60;
+export const MAX_PHASE_NAME = 80;
+
+/** A name somebody typed for a playbook or a phase: one line, trimmed,
+ *  or null when there is nothing usable in it. */
+export function cleanName(v: unknown, max: number): string | null {
+  if (typeof v !== 'string') return null;
+  const s = v.replace(/\s+/g, ' ').trim();
+  return s && s.length <= max ? s : null;
+}
+
+export interface NewPlaybook {
+  name: string;
+  type: ClientTypeConfig;
+  /** The moment's row, which every step of the playbook hangs off so
+   *  Notion can work out a date for it. */
+  moment: Record<string, unknown>;
+  /** The first step, minus its Moment relation: that is set once the
+   *  moment exists. */
+  step: Record<string, unknown>;
+}
+
+/**
+ * A brand new playbook: its placeholder moment and its first step.
+ *
+ * A playbook is not a row of its own. It exists because masters name
+ * it, so it is started by adding its first step, in its first phase.
+ * It belongs to one client type, which is asked for here and never
+ * again: every later step inherits it.
+ *
+ * The name has to be new. Two types cannot share a playbook name,
+ * because a step on a client's calendar says which playbook it came
+ * from by name alone.
+ */
+export function buildNewPlaybook(
+  body: Record<string, unknown>, masters: readonly MasterStep[],
+): { ok: true; value: NewPlaybook } | { ok: false; rejected: string[] } {
+  const rejected: string[] = [];
+  const name = cleanName(body.playbook, MAX_PLAYBOOK_NAME);
+  const taken = new Set(masters.map((m) => m.playbook.trim().toLowerCase()));
+  if (!name || taken.has(name.toLowerCase()) || isRetiredPlaybook(name)) rejected.push('playbook');
+  const type = CLIENT_TYPES.find((t) => t.id === body.clientType) ?? null;
+  if (!type) rejected.push('clientType');
+  const momentType = type?.moments.find((m) => m.type === body.momentType)?.type ?? null;
+  if (!momentType) rejected.push('momentType');
+  const phase = cleanName(body.phase, MAX_PHASE_NAME);
+  if (!phase) rejected.push('phase');
+  const title = text(body.title, MAX_STEP_TITLE);
+  if (typeof title !== 'string') rejected.push('title');
+  const offset = cleanOffset(body.offset);
+  if (offset === undefined) rejected.push('offset');
+  const flow = typeof body.flow === 'string' && type?.flows.includes(body.flow) && isStepFlow(body.flow)
+    ? body.flow as StepFlow : null;
+  if (!flow) rejected.push('flow');
+  if (rejected.length || !name || !type || !momentType || !phase || !flow) return { ok: false, rejected };
+
+  const typed = isArtist(type) ? {} : { 'Client Type': selectOf(type.notion) };
+  return { ok: true, value: {
+    name, type,
+    moment: {
+      Item: { title: [{ text: { content: `PLAYBOOK \u00b7 ${name}` } }] },
+      Kind: selectOf('Moment'),
+      'Is Playbook': { checkbox: true },
+      'Moment Type': selectOf(momentType),
+      // The same day every playbook's placeholder sits on. It is never
+      // shown; it is what an offset is counted from.
+      Date: { date: { start: PLACEHOLDER_DAY } },
+      Notes: richText('Placeholder for the playbook\u2019s steps. Not a real moment.'),
+      ...typed,
+    },
+    step: {
+      Item: { title: [{ text: { content: title as string } }] },
+      Kind: selectOf('Step'),
+      'Is Playbook': { checkbox: true },
+      Playbook: selectOf(name),
+      Phase: selectOf(phase),
+      'Offset (days)': { number: offset },
+      Flow: selectOf(flow),
+      Owner: selectOf(flowOwner(flow)),
+      Type: selectOf(/posts/.test(flow) ? 'Content' : 'Admin'),
+      ...typed,
+    },
+  } };
+}
+
+/** Where every playbook's placeholder moment is dated. */
+export const PLACEHOLDER_DAY = '2027-01-01';
 
 export interface OverrideContext {
   /** Master step ids that exist, so a relation cannot point at a

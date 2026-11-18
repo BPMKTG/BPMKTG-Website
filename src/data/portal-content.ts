@@ -516,6 +516,44 @@ export interface PortalContentSchema {
   platforms: PortalOption[];
   status: PortalOption[];
   media: PortalOption[];
+  /** The buckets are this client's own: the list is the ones their
+   *  rows use, and they may name a new one. Absent for a client who
+   *  picks from the shared list, which is every artist. */
+  ownBuckets?: boolean;
+}
+
+/** As long as a bucket's name may be. */
+export const MAX_BUCKET_NAME = 40;
+
+/**
+ * A bucket a client named themselves: null to clear it, the name to
+ * set it, undefined when it is not a usable name.
+ *
+ * One line, no commas (Notion will not take one in a select option),
+ * and short enough to be a column heading.
+ */
+export function cleanBucketName(v: unknown): string | null | undefined {
+  if (v === null || v === '') return null;
+  if (typeof v !== 'string') return undefined;
+  const name = v.replace(/\s+/g, ' ').trim();
+  if (!name) return null;
+  if (name.length > MAX_BUCKET_NAME || name.includes(',')) return undefined;
+  return name;
+}
+
+/**
+ * A client's own buckets: the options their rows actually use, in the
+ * order Notion lists them, with Notion's colours.
+ *
+ * The Bucket select is one list for every client, and it holds one
+ * artist's vocabulary. A client with their own buckets is shown only
+ * theirs, so nobody else's ever appears on their board.
+ */
+export function ownBuckets(
+  options: readonly PortalOption[], rows: readonly { bucket: string | null }[],
+): PortalOption[] {
+  const used = new Set(rows.map((r) => r.bucket).filter((b): b is string => !!b));
+  return options.filter((o) => used.has(o.name));
 }
 
 /* ── pipeline stages ──────────────────────────────────────────── */
