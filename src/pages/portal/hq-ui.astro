@@ -2131,10 +2131,10 @@ const NAV = [
       clients: () => calClients().map((c) => ({ pageId: c.pageId, slug: c.slug, artist: c.artist, type: (c as { type?: string }).type })),
       moments: (slug) => [...momentsNow().values()]
         .filter((m) => m.clientSlug === slug)
-        .map((m) => ({ id: m.id, title: m.title, date: m.date })),
+        .map((m) => ({ id: m.id, title: m.title, date: m.date, momentType: m.type })),
       toast,
       today: () => isoToday(),
-      calendarChanged: () => { void refreshCalendar(); },
+      calendarChanged: () => refreshCalendar(),
     });
     return HQPB;
   }
@@ -3103,11 +3103,15 @@ const NAV = [
 
   function drawToday(root: HTMLElement) {
     root.appendChild(strip());
+    const added = clientAdded();
+    if (added) root.appendChild(added);
     root.appendChild(owedBar());
     root.appendChild(todayBar());
 
     const lists = buildToday(
-      { clients: clients(), steps: HQ?.calendar ?? [], content: HQ?.content ?? [] },
+      // A step waiting for us to confirm is not on anybody's list yet.
+      // It is in "Client added" above, which is where it is answered.
+      { clients: clients(), steps: ((HQ?.calendar ?? []) as HqCalItem[]).filter((r) => !r.pending), content: HQ?.content ?? [] },
       FILTER,
     );
 
@@ -3137,6 +3141,79 @@ const NAV = [
     if (lists.overdue.length) root.appendChild(section('Overdue', lists.overdue, true));
     if (lists.today.length) root.appendChild(section('Due today', lists.today));
     if (lists.week.length) root.appendChild(section('This week', lists.week));
+  }
+
+  /**
+   * Client added: confirm.
+   *
+   * What a client put on their own calendar that is waiting on us: an
+   * event they created (so we know about it), and every step of OURS
+   * that a playbook they applied asked for. Those steps owe nothing
+   * and count toward nothing until one of us confirms them here, so
+   * what we take on in a month stays our decision.
+   */
+  function clientAdded(): HTMLElement | null {
+    const rows = ((HQ?.calendar ?? []) as HqCalItem[]).filter((r) => r.pending);
+    if (!rows.length) return null;
+    const byId = new Map(clients().map((c) => [c.pageId, c]));
+    const titleOf = (id: string | null) => ((HQ?.calendar ?? []) as HqCalItem[]).find((r) => r.id === id)?.title ?? null;
+    const sec = el('section', 'hq-sec hq-added');
+    sec.dataset.clientAdded = '1';
+    const head = el('div', 'hq-sec-head');
+    head.appendChild(el('h2', undefined, 'Client added: confirm'));
+    head.appendChild(el('span', 'hq-sec-count', String(rows.length)));
+    sec.appendChild(head);
+    sec.appendChild(el('p', 'hq-added-note',
+      'Added from a client\u2019s portal. A step of ours creates nothing and counts toward nothing until it is confirmed.'));
+
+    const answer = async (r: HqCalItem, action: string, done: string, pieces?: number): Promise<void> => {
+      const res = await pbSend('POST', '/portal/hq/pending', { id: r.id, action, ...(pieces ? { pieces } : {}) });
+      if (!res.ok && res.json?.error === 'needs_pieces') {
+        // One row per team, and only we know how many teams.
+        const typed = window.prompt(`"${r.title}" is one per team. How many?`, '');
+        const n = Number(typed);
+        if (typed === null) return;
+        if (!Number.isInteger(n) || n < 1 || n > 24) { toast('That needs a whole number from 1 to 24.', true); return; }
+        return answer(r, action, done, n);
+      }
+      if (!res.ok) { toast('That did not save. Check your connection and try again.', true); return; }
+      toast(done);
+      await refreshCalendar();
+      draw('today');
+    };
+    const button = (label: string, run: () => void, cls = 'pt-btn pt-btn-sm') => {
+      const b = el('button', cls, label) as HTMLButtonElement;
+      b.type = 'button';
+      b.addEventListener('click', () => { b.disabled = true; run(); });
+      return b;
+    };
+
+    const list = el('ul', 'hq-added-list');
+    const sorted = [...rows].sort((a, b) => (a.kind === b.kind ? (a.date ?? '').localeCompare(b.date ?? '') : a.kind === 'Moment' ? -1 : 1));
+    for (const r of sorted) {
+      const li = el('li', 'hq-added-row');
+      li.dataset.pending = r.id;
+      const who = byId.get(r.clientId ?? '')?.artist ?? 'A client';
+      const text = el('div', 'hq-added-text');
+      if (r.kind === 'Moment') {
+        text.appendChild(el('strong', undefined, `${who} added an event: ${r.title}`));
+        text.appendChild(el('span', undefined, [r.momentType, r.date ? shortDay(r.date) : null, r.venueCity].filter(Boolean).join(' \u00b7 ')));
+        li.append(text, button('Got it', () => { void answer(r, 'seen', 'Noted'); }));
+      } else {
+        text.appendChild(el('strong', undefined, r.title));
+        text.appendChild(el('span', undefined,
+          [who, titleOf(r.momentId), r.date ? shortDay(r.date) : null, r.flow].filter(Boolean).join(' \u00b7 ')));
+        const acts = el('div', 'hq-added-acts');
+        acts.append(
+          button('Confirm', () => { void answer(r, 'confirm', 'Confirmed. It is on our plan now.'); }, 'pt-btn pt-btn-sm pt-btn-primary'),
+          button('Skip', () => { void answer(r, 'skip', 'Skipped'); }),
+        );
+        li.append(text, acts);
+      }
+      list.appendChild(li);
+    }
+    sec.appendChild(list);
+    return sec;
   }
 
   /** One campaign and the work under it. */

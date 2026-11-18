@@ -22,6 +22,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { CLIENT_TYPES, clientTypeById } from '../data/client-types';
+import { openApplyFlow, type ApplyPreset } from './portal-apply';
 import {
   byPhase,
   effectivePlaybook,
@@ -98,11 +99,11 @@ export interface HqPlaybooksHost {
   send: Send;
   clients: () => Array<{ pageId: string; slug: string; artist: string; type?: string }>;
   /** A client's moments, for "apply to a moment". */
-  moments: (slug: string) => Array<{ id: string; title: string; date: string | null }>;
+  moments: (slug: string) => Array<{ id: string; title: string; date: string | null; momentType: string | null }>;
   toast: (text: string, bad?: boolean) => void;
   today: () => string;
   /** Something on a calendar changed, so HQ's own data is stale. */
-  calendarChanged: () => void;
+  calendarChanged: () => void | Promise<unknown>;
 }
 
 export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLElement) => void } {
@@ -203,7 +204,17 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     add.dataset.newPlaybook = '1';
     add.append(icon('plus'), el('span', undefined, 'New playbook'));
     add.addEventListener('click', newPlaybookSheet);
-    bar.appendChild(add);
+    // The way in to applying. It used to be reachable only from a
+    // client's overrides panel, after picking that client under
+    // "Showing", which is not where anybody looks for it.
+    const apply = el('button', 'pt-btn pt-btn-primary');
+    apply.type = 'button';
+    apply.dataset.applyOpen = '1';
+    apply.append(el('span', undefined, 'Apply a playbook to a moment'));
+    apply.addEventListener('click', () => applyFlow(clientId ? { clientKey: clientId } : {}));
+    const acts = el('div', 'pt-pb-kind-acts');
+    acts.append(apply, add);
+    bar.appendChild(acts);
     return bar;
   }
 
@@ -688,98 +699,28 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     });
   }
 
-  /** Put this playbook on one of the client's moments, as they get it. */
-  function applyToMoment() {
-    const client = host.clients().find((c) => sameId(c.pageId) === sameId(clientId));
-    if (!client) return;
-    const today = host.today();
-    const moments = host.moments(client.slug)
-      .filter((m) => !!m.date && m.date.slice(0, 10) >= today)
-      .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
-    openSheet(`Apply ${playbook} to a moment`, (form, close) => {
-      if (!moments.length) {
-        form.appendChild(el('p', 'pt-sheet-note', `${client.artist} has no upcoming moment to put it on.`));
-        return;
-      }
-      const pick = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
-      optionsInto(pick, moments.map((m) => [m.id, `${m.title} · ${shortDay(m.date)}`] as [string, string]), moments[0].id);
-      form.appendChild(sheetField('Moment', pick));
-      const preview = el('div', 'pt-pb-preview');
-      form.appendChild(preview);
-      const go = sheetSubmit(form, 'Create the steps');
-      go.disabled = true;
-      let count = 0;
-      let pieceTotal = 0;
-
-      const look = async () => {
-        go.disabled = true;
-        clear(preview);
-        preview.appendChild(el('p', 'pt-sheet-note', 'Working out the steps…'));
-        const res = await host.send('POST', '/portal/hq/playbooks/apply',
-          { clientId, momentId: pick.value, playbook, dryRun: true });
-        clear(preview);
-        if (!res.ok) { preview.appendChild(el('p', 'pt-pb-warn', why(res, 'Could not plan that.'))); return; }
-        const steps = (res.json?.steps ?? []) as Array<{ title: string; date: string | null; pieces?: number }>;
-        count = steps.length;
-        pieceTotal = Number(res.json?.pieceCount ?? 0);
-        const facts: string[] = [`${count} step${count === 1 ? '' : 's'} would be created, dated from the moment.`];
-        if (pieceTotal) {
-          facts.push(`${pieceTotal} piece${pieceTotal === 1 ? '' : 's'} would be created in the Content Pipeline with them, `
-            + 'one for every step we post, Planned and dated the same day.');
-        }
-        const changed = (res.json?.changed ?? []) as string[];
-        const skipped = (res.json?.skipped ?? []) as string[];
-        if (changed.length) facts.push(`${changed.length} carry ${client.artist}'s approved overrides: ${changed.join('; ')}.`);
-        if (skipped.length) facts.push(`${skipped.length} left out by an approved skip: ${skipped.join('; ')}.`);
-        if (res.json?.alreadyThere) facts.push(`${res.json.alreadyThere} already on this moment under the same title, so not doubled.`);
-        for (const f of facts) preview.appendChild(el('p', 'pt-sheet-note', f));
-        const list = el('ul', 'pt-pb-writes');
-        for (const s of steps) {
-          const li = el('li');
-          li.append(el('strong', 'pt-num', s.date ? shortDay(s.date) : 'no date'), el('span', undefined, ` · ${s.title}`));
-          if (s.pieces) li.appendChild(el('span', 'pt-pb-owed', s.pieces === 1 ? ' · 1 piece' : ` · ${s.pieces} pieces`));
-          list.appendChild(li);
-        }
-        preview.appendChild(list);
-        go.disabled = count === 0 && pieceTotal === 0;
-        go.textContent = count
-          ? `Create ${count} step${count === 1 ? '' : 's'}${pieceTotal ? ` and ${pieceTotal} piece${pieceTotal === 1 ? '' : 's'}` : ''}`
-          : pieceTotal ? `Create ${pieceTotal} missing piece${pieceTotal === 1 ? '' : 's'}` : 'Nothing to create';
-      };
-      pick.addEventListener('change', () => { void look(); });
-      void look();
-
-      form.addEventListener('submit', async (ev) => {
-        ev.preventDefault();
-        if (!count && !pieceTotal) return;
-        go.disabled = true;
-        pick.disabled = true;
-        // One request writes a limited number of rows and says what is
-        // left, so this asks until nothing is. A round that writes
-        // nothing ends it, rather than asking forever.
-        let steps = 0, pieces = 0, left = count + pieceTotal;
-        for (let round = 0; round < 12 && left > 0; round++) {
-          go.textContent = `Creating\u2026 ${steps} of ${count} steps, ${pieces} of ${pieceTotal} pieces`;
-          const res = await host.send('POST', '/portal/hq/playbooks/apply', { clientId, momentId: pick.value, playbook });
-          if (!res.ok) { host.toast(why(res, 'That did not apply.'), true); break; }
-          const made = Number(res.json?.created ?? 0) + Number(res.json?.piecesCreated ?? 0);
-          steps += Number(res.json?.created ?? 0);
-          pieces += Number(res.json?.piecesCreated ?? 0);
-          left = Number(res.json?.remaining ?? 0) + Number(res.json?.piecesRemaining ?? 0);
-          if (!made) break;
-        }
-        go.disabled = false;
-        pick.disabled = false;
-        host.toast(left
-          ? `${steps} steps and ${pieces} pieces created, ${left} still to go. Run it again.`
-          : `${steps} step${steps === 1 ? '' : 's'} and ${pieces} piece${pieces === 1 ? '' : 's'} created`, left > 0);
-        host.calendarChanged();
-        close();
-      });
-    });
+  /**
+   * Apply a playbook to a moment: client, moment (or a new one),
+   * playbooks, preview, write. The whole flow is one sheet, shared
+   * with the client's portal, in src/scripts/portal-apply.ts.
+   *
+   * Every client is offered, whichever type's playbooks are on screen,
+   * and each is only ever shown their own type's.
+   */
+  function applyFlow(preset: ApplyPreset = {}) {
+    openApplyFlow({
+      role: () => 'admin',
+      clients: () => host.clients().map((c) => ({ key: c.pageId, name: c.artist, type: c.type })),
+      moments: (c) => host.moments(host.clients().find((x) => sameId(x.pageId) === sameId(c.key))?.slug ?? ''),
+      playbooks: async (c) => playbookNames(mastersForType(masters ?? [], clientTypeById(c.type).id)),
+      apply: (c, body) => host.send('POST', '/portal/hq/playbooks/apply', { clientId: c.key, ...body }),
+      createMoment: (c, body) => host.send('POST', '/portal/hq/moments', { clientId: c.key, ...body }),
+      toast: host.toast,
+      today: host.today,
+      shortDay: (iso) => (iso ? shortDay(iso) : ''),
+      changed: () => host.calendarChanged(),
+    }, preset);
   }
-
-  /* ── the overrides panel ──────────────────────────────────────── */
 
   function overrideRow(o: PlaybookOverride): HTMLElement {
     const li = el('li', 'pt-pb-ov');
@@ -842,7 +783,7 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     head.appendChild(el('span', 'pt-toolbar-spacer'));
     const apply = el('button', 'pt-btn', `Apply ${playbook} to a moment`);
     apply.type = 'button';
-    apply.addEventListener('click', applyToMoment);
+    apply.addEventListener('click', () => applyFlow({ clientKey: clientId, playbook }));
     // Retired steps are kept to be read, not run.
     apply.hidden = isRetiredPlaybook(playbook);
     // The other direction: campaigns already running, brought up to
@@ -1005,8 +946,12 @@ export function createHqPlaybooks(host: HqPlaybooksHost): { draw: (root: HTMLEle
     // It explains the artist playbooks, so it is drawn with them and
     // not above another client type's.
     if (kindOf().features.playbookAudit) {
-      root.appendChild(hqAuditPanel(audit?.general ?? null, audit?.clients ?? [],
-        { toast: host.toast, changed: () => { void load(true); } }));
+      // Each type's own clients, and the shared PDF only for a type
+      // that has one.
+      root.appendChild(hqAuditPanel(audit?.general ?? null,
+        (audit?.clients ?? []).filter((c) => clientTypeById(c.type).id === kind),
+        { toast: host.toast, changed: () => { void load(true); } },
+        { general: kindOf().audit.general, summary: kindOf().audit.summary }));
     }
 
     root.appendChild(kindBar());
@@ -1133,6 +1078,8 @@ export interface ClientPlaybooksHost {
   slug: () => string;
   /** The line under the heading, for this client's type. */
   intro?: () => string;
+  /** What the Playbook Audit card says the audit is made of. */
+  auditSummary?: () => string;
   toast: (text: string, bad?: boolean) => void;
 }
 
@@ -1217,7 +1164,7 @@ export function createClientPlaybooks(host: ClientPlaybooksHost): { draw: (root:
     }
     // Why they are built this way: their own audit, or the general
     // one. No card when there is neither.
-    const auditCard = clientAuditCard(audit, host.slug());
+    const auditCard = clientAuditCard(audit, host.slug(), host.auditSummary?.());
     if (auditCard) root.appendChild(auditCard);
 
     if (!playbooks.length) {

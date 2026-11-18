@@ -45,8 +45,24 @@ export interface Delivery {
   link: string | null;
   /** The competition it came from, if it is linked to one. */
   momentId: string | null;
+  /** The campaign step that owes it, when a playbook made it. */
+  stepId?: string | null;
   /** HQ only: whose it is. */
   clientId?: string | null;
+}
+
+/** The two flows that owe a delivery, and which kind each owes.
+ *  Spelled out here rather than imported so this file stays free of
+ *  the portal's rules; a test holds the two spellings together. */
+const FLOW_DELIVERS: Record<string, DeliverableKind> = {
+  'Blueprint shoots + edits \u2192 Client posts': 'Photo set',
+  'Blueprint shoots + grades \u2192 Client edits + posts': 'Footage batch',
+};
+
+/** What a step with this Flow owes: a photo set, a footage batch, or
+ *  nothing that is a delivery. */
+export function deliverableOfFlow(flow: string | null | undefined): DeliverableKind | null {
+  return FLOW_DELIVERS[flow ?? ''] ?? null;
 }
 
 export const DELIVERY_STAGES = ['toShoot', 'shot', 'working', 'delivered'] as const;
@@ -174,6 +190,27 @@ export function cleanDeliveryPatch(
     else rejected.push('due');
   }
   return { value, rejected };
+}
+
+/**
+ * Point each delivery at its competition.
+ *
+ * A delivery made by hand links straight to the moment. One made by
+ * applying a playbook links to the STEP that owes it, so that undoing
+ * the apply, and "is this step's work done?", can find it. The tracker
+ * groups by competition either way, so a step's delivery is filed
+ * under the moment its step belongs to.
+ */
+export function resolveDeliveries(
+  deliveries: readonly Delivery[],
+  steps: ReadonlyArray<{ id: string; momentId: string | null }>,
+): Delivery[] {
+  const norm = (id: unknown) => String(id ?? '').replace(/-/g, '').toLowerCase();
+  const byId = new Map(steps.map((s) => [norm(s.id), s]));
+  return deliveries.map((d) => {
+    const step = d.momentId ? byId.get(norm(d.momentId)) : undefined;
+    return step ? { ...d, stepId: step.id, momentId: step.momentId } : d;
+  });
 }
 
 /* ── the tracker ──────────────────────────────────────────────── */

@@ -13,6 +13,8 @@ import {
   MAX_STEP_NOTE,
   ASKS_FIELD,
   // client types and deliveries
+  deliverableOfFlow, resolveDeliveries, planApplyRun, planUndo, completeStep, isPerTeam, marksOf, overlapFor,
+  cleanNewMoment, momentTitleFor, lateNote, MAX_TEAM_PIECES, copyProperties, readApplyAsk, MASTER_PROP, PENDING_PROP,
   ARTIST, CHEER_GYM, CLIENT_TYPES, clientType, clientTypeById, momentSpec,
   momentLabel, momentTypesFor, metricAllowed, trimForType, SHOOTS_EDITS_FLOW, SHOOTS_GRADES_FLOW,
   ALL_STEP_FLOWS, momentKindOf, mastersForType, buildNewPlaybook, PLACEHOLDER_DAY, cleanBucketName,
@@ -5371,14 +5373,18 @@ section('Client types · the two flows a gym has');
   is('flows: both are real flows, spelled as Notion has them',
      [isStepFlow(SHOOTS_EDITS_FLOW), isStepFlow(SHOOTS_GRADES_FLOW), SHOOTS_EDITS_FLOW, SHOOTS_GRADES_FLOW],
      [true, true, 'Blueprint shoots + edits → Client posts', 'Blueprint shoots + grades → Client edits + posts']);
-  is('flows: the posting step is the client’s', [flowOwner(SHOOTS_EDITS_FLOW), flowOwner(SHOOTS_GRADES_FLOW)], ['Client', 'Client']);
-  is('flows: the client posts both', [postsBy(SHOOTS_EDITS_FLOW), postsBy(SHOOTS_GRADES_FLOW)], ['client', 'client']);
-  is('flows: what the chip says', [flowChip(SHOOTS_EDITS_FLOW), flowChip(SHOOTS_GRADES_FLOW)], ['You post', 'You edit + post']);
-  const step = { kind: 'Step', title: 'Post the photo set', owner: 'Client', type: 'Content', status: 'Not Started', flow: SHOOTS_EDITS_FLOW };
-  is('flows: a step with one sits under You post and on her to-do list', stepLayers(step), ['postsTheirs', 'todos']);
-  is('flows: she can tick it, because Owner is Client', [canSetStepStatus(step, 'Done'), canSetStepStatus({ ...step, owner: 'Blueprint' }, 'Done')], [true, false]);
-  is('flows: Owner still wins. The flow on a row owned by us is not believed',
-     flowOf({ ...step, owner: 'Blueprint' }), 'Blueprint makes + posts');
+  is('flows: both are ours, as the playbook masters have them: the step is the delivery we owe', [flowOwner(SHOOTS_EDITS_FLOW), flowOwner(SHOOTS_GRADES_FLOW)], ['Blueprint', 'Blueprint']);
+  is('flows: the client is still the one who posts', [postsBy(SHOOTS_EDITS_FLOW), postsBy(SHOOTS_GRADES_FLOW)], ['client', 'client']);
+  is('flows: what the chip says', [flowChip(SHOOTS_EDITS_FLOW), flowChip(SHOOTS_GRADES_FLOW)], ['We shoot + edit, you post', 'We shoot + grade, you edit + post']);
+  const step = { kind: 'Step', title: 'Routine clip, one per team', owner: 'Blueprint', type: 'Content', status: 'Not Started', flow: SHOOTS_GRADES_FLOW };
+  is('flows: a master’s row (Owner Blueprint, Type Content) keeps its flow, and is not read as a post of ours', flowOf(step), SHOOTS_GRADES_FLOW);
+  is('flows: it sits with our work, not under Blueprint posts and not on her to-do list', stepLayers(step), ['blueprint']);
+  is('flows: it is ours to tick, so she cannot and we can', [canSetStepStatus(step, 'Done'), canSetStepStatus(step, 'Done', 'admin')], [false, true]);
+  is('flows: Owner still wins. The same flow on a row owned by the client is not believed',
+     flowOf({ ...step, owner: 'Client' }), 'Client makes + posts');
+  is('flows: each owes a delivery, and nothing else does',
+     [deliverableOfFlow(SHOOTS_EDITS_FLOW), deliverableOfFlow(SHOOTS_GRADES_FLOW), deliverableOfFlow('Blueprint makes + posts'), deliverableOfFlow(null)],
+     ['Photo set', 'Footage batch', null, null]);
   is('flows: a gym is offered its own five, an artist never sees the gym’s two',
      [CHEER_GYM.flows.length, CHEER_GYM.flows.includes(SHOOTS_EDITS_FLOW), ARTIST.flows.includes(SHOOTS_EDITS_FLOW), ARTIST.flows.includes(SHOOTS_GRADES_FLOW)], [5, true, false, false]);
   is('flows: neither is a flow that makes a Blueprint post, so applying one creates no piece of ours',
@@ -5416,7 +5422,7 @@ section('Client types · playbooks belong to one type');
 
   const vocab = vocabularyOf(all);
   const joined = buildNewMaster({ title: 'Share the recap', offset: 2, flow: SHOOTS_GRADES_FLOW, phase: 'Comp Week · After', playbook: 'Comp Week' }, vocab, all);
-  is('new step: a step added to a gym playbook joins the gym', [joined.rejected, joined.properties['Client Type'].select.name, joined.properties.Owner.select.name], [[], 'Cheer Gym', 'Client']);
+  is('new step: a step added to a gym playbook joins the gym', [joined.rejected, joined.properties['Client Type'].select.name, joined.properties.Owner.select.name], [[], 'Cheer Gym', 'Blueprint']);
   is('new step: a gym flow on an artist playbook is refused',
      buildNewMaster({ title: 'x', offset: 0, flow: SHOOTS_EDITS_FLOW, phase: 'Pre-Show · Build', playbook: 'Pre-Show' }, vocab, all).rejected, ['flow']);
   is('new step: an artist step still carries no Client Type',
@@ -5522,6 +5528,186 @@ section('Client types · HQ: health follows the type');
   const at = (f) => HEALTH_RULES.find((r) => r.id === 'release-at-risk').reason({ ...f, releaseInDays: 2, releaseStepsOpen: 3 });
   is('health: the reason names the right thing', [at(gym), at(artist)],
      ['a competition in 2 days with 3 steps still open', 'a release in 2 days with 3 steps still open']);
+}
+
+section('Apply a playbook · the plan');
+
+{
+  const EFF = (key, title, offset, o = {}) => ({ key, masterId: key.startsWith('add:') ? null : key, title, playbook: 'Competition Weekend',
+    phase: 'Cheer · Build', offset, flow: 'Client makes + posts', owner: 'Client', type: 'Content', notes: null, where: null, why: null,
+    priority: null, defaultMedia: null, pieces: null, brief: null, asksNotes: false, was: {}, skipped: false, added: false, overrideIds: [], ...o });
+  const BP = { flow: 'Blueprint task', owner: 'Blueprint', type: 'Admin' };
+  const steps = [
+    EFF('m-plan', 'Confirm the shoot plan', -10, BP),
+    EFF('m-hype', 'Comp week hype reel', -7),
+    EFF('m-times', 'Performance times post and story', -2),
+    EFF('m-clip', 'Routine highlight, one per team', 0, { flow: SHOOTS_GRADES_FLOW, owner: 'Blueprint', priority: 'Core', defaultMedia: 'Video', notes: 'One piece per competing team.', was: { title: 'Routine clip, one per team' }, overrideIds: ['o1'] }),
+    EFF('m-photos', 'Event photo carousel', 1, { flow: SHOOTS_EDITS_FLOW, owner: 'Blueprint', priority: 'Core', defaultMedia: 'Carousel' }),
+    EFF('m-recap', 'Recap video', 5, { flow: SHOOTS_GRADES_FLOW, owner: 'Blueprint', priority: 'Filler', defaultMedia: 'Video', skipped: true }),
+    EFF('add:o9', 'Tag the event producer', 2, { added: true }),
+  ];
+  const oneDay = { id: 'mo', title: 'Cheer America (Round Rock)', date: '2026-12-06' };
+  const multi = { id: 'mo', title: 'Encore (Houston)', date: '2026-12-12', dateEnd: '2026-12-13' };
+  const none = () => null;
+  const admin = { today: '2026-11-20', role: 'admin' };
+  const plan = planApplyRun(steps, oneDay, [], [], none, { ...admin, pieces: { 'm-clip': 4 } });
+  is('dates: each step is the moment’s day plus its offset, in date order',
+     plan.rows.map((r) => [r.key, r.date]), [['m-plan', '2026-11-26'], ['m-hype', '2026-11-29'], ['m-times', '2026-12-04'], ['m-clip', '2026-12-06'], ['m-photos', '2026-12-07'], ['add:o9', '2026-12-08']]);
+  is('dates: a two-day moment is counted from its first day',
+     planApplyRun(steps, multi, [], [], none, { ...admin, pieces: { 'm-clip': 4 } }).rows.map((r) => r.date), ['2026-12-02', '2026-12-05', '2026-12-10', '2026-12-12', '2026-12-13', '2026-12-14']);
+  is('overrides: an approved skip is left out and named, and the rest are marked for what was done to them',
+     [plan.skipped, plan.rows.find((r) => r.key === 'm-clip').marks, plan.rows.find((r) => r.key === 'add:o9').marks, plan.rows.find((r) => r.key === 'm-hype').marks],
+     [['Recap video'], ['reworded'], ['added'], []]);
+  is('overrides: every kind of change has its mark',
+     marksOf(EFF('x', 'x', 0, { was: { title: 'a', offset: -3, flow: 'Client task' }, added: true })), ['added', 'reworded', 'shifted', 'reassigned']);
+  is('owes: a graded-footage step owes footage batches, a photo step a photo set, and a post of hers nothing',
+     plan.rows.map((r) => [r.key, r.owes, r.pieces]),
+     [['m-plan', null, 0], ['m-hype', null, 0], ['m-times', null, 0], ['m-clip', 'Footage batch', 4], ['m-photos', 'Photo set', 1], ['add:o9', null, 0]]);
+
+  const unsized = planApplyRun(steps, oneDay, [], [], none, admin);
+  is('per team: a step whose notes say "One piece per" needs a number, and says so', [isPerTeam('One piece per competing team.'), isPerTeam('One per team, spread across −10 to −2.'), isPerTeam(null), unsized.needs, unsized.rows.find((r) => r.key === 'm-clip').perTeam], [true, false, false, ['m-clip'], true]);
+  is('per team: a number outside 1 to ' + MAX_TEAM_PIECES + ' is not a number',
+     [0, 25, 2.5].map((n) => planApplyRun(steps, oneDay, [], [], none, { ...admin, pieces: { 'm-clip': n } }).needs.length), [1, 1, 1]);
+
+  const late = planApplyRun(steps, oneDay, [], [], none, { today: '2026-11-30', role: 'admin', pieces: { 'm-clip': 4 } });
+  is('late: a step whose day has passed is created as Skipped, flagged, and owes nothing',
+     late.rows.filter((r) => r.late).map((r) => [r.key, r.status, r.pieces]), [['m-plan', 'Skipped', 0], ['m-hype', 'Skipped', 0]]);
+  is('late: today is not late', late.rows.find((r) => r.date === '2026-12-04').late, false);
+  const kept = planApplyRun(steps, oneDay, [], [], none, { today: '2026-11-30', role: 'admin', keep: ['m-plan'], pieces: { 'm-clip': 4 } });
+  is('late: one of us can keep one live', kept.rows.filter((r) => r.late).map((r) => [r.key, r.status]), [['m-plan', 'Not Started'], ['m-hype', 'Skipped']]);
+
+  const client = planApplyRun(steps, oneDay, [], [], none, { today: '2026-11-20', role: 'client', keep: ['m-plan'], pieces: { 'm-clip': 9 } });
+  is('client: her own steps are live, and every step of ours waits and owes nothing',
+     client.rows.map((r) => [r.key, r.owner, r.pending, r.pieces]),
+     [['m-plan', 'Blueprint', true, 0], ['m-hype', 'Client', false, 0], ['m-times', 'Client', false, 0], ['m-clip', 'Blueprint', true, 0], ['m-photos', 'Blueprint', true, 0], ['add:o9', 'Client', false, 0]]);
+  is('client: she is not asked how many teams, because nothing of ours is sized until we confirm it', client.needs, []);
+  const clientLate = planApplyRun(steps, oneDay, [], [], none, { today: '2026-11-30', role: 'client', keep: ['m-plan', 'm-hype'] });
+  is('client: she cannot keep a late step. It is skipped, and a skipped step is not left waiting',
+     clientLate.rows.filter((r) => r.late).map((r) => [r.key, r.status, r.pending]), [['m-plan', 'Skipped', false], ['m-hype', 'Skipped', false]]);
+
+  const artistSteps = [
+    EFF('a-ann', 'Announce: flyer', -28, { playbook: 'Pre-Show', flow: 'Blueprint makes + posts', owner: 'Blueprint', priority: 'Core', defaultMedia: 'Graphic', pieces: 3 }),
+    EFF('a-film', 'Film: ticket giveaway', -17, { playbook: 'Pre-Show', flow: 'Client film session', owner: 'Client', type: 'Admin' }),
+  ];
+  const show = { id: 'sh', title: 'Faith Rave', date: '2027-03-21' };
+  const artist = planApplyRun(artistSteps, show, [], [], none, { today: '2026-11-20', role: 'admin' });
+  is('artist: a step we post owes pieces, as many as its master says', artist.rows.map((r) => [r.key, r.owes, r.pieces, r.masterPieces]), [['a-ann', 'post', 3, 3], ['a-film', null, 0, null]]);
+  const artistClient = planApplyRun(artistSteps, show, [], [], none, { today: '2026-11-20', role: 'client' });
+  is('artist: when the artist applies it, our post waits and owes nothing, so the month count does not move',
+     artistClient.rows.map((r) => [r.key, r.pending, r.pieces]), [['a-ann', true, 0], ['a-film', false, 0]]);
+
+  // ── twice ──
+  const there = [
+    { id: 's1', title: 'Confirm the shoot plan', momentId: 'mo', date: '2026-11-26', status: 'Not Started', masterId: 'm-plan' },
+    { id: 's2', title: 'Something she renamed by hand', momentId: 'mo', date: '2026-11-29', status: 'Done', masterId: 'm-hype' },
+    { id: 's3', title: 'Routine clip, one per team', momentId: 'mo', date: '2026-12-06', status: 'Not Started', masterId: null },
+    { id: 's4', title: 'Tag the event producer', momentId: 'mo', date: '2026-12-08', status: 'Not Started', masterId: 'add:o9' },
+  ];
+  const again = planApplyRun(steps, oneDay, there, there, none, { ...admin, pieces: { 'm-clip': 4 } });
+  is('twice: a step is known by the master id on its copy, whatever it has been renamed to',
+     [again.alreadyThere, again.rows.map((r) => r.key)], [4, ['m-times', 'm-photos']]);
+  is('twice: a copy from before the id was kept is known by its title, under the master’s name or the reworded one',
+     again.rows.some((r) => r.key === 'm-clip'), false);
+  const all = [...there, { id: 's5', title: 'x', momentId: 'mo', date: null, status: 'Not Started', masterId: 'm-times' }, { id: 's6', title: 'y', momentId: 'mo', date: null, status: 'Skipped', masterId: 'm-photos' }];
+  const full = planApplyRun(steps, oneDay, all, all, none, admin);
+  is('twice: once everything is there, there is nothing to add, a skipped copy included', [full.rows.length, full.alreadyThere, full.needs], [0, 6, []]);
+
+  // ── overlaps ──
+  const other = [
+    { id: 'o1', title: 'Debut highlight, one per team', momentId: 'show', date: '2026-12-05', status: 'Not Started', defaultMedia: 'Video' },
+    { id: 'o2', title: 'Event photo carousel (best frames)', momentId: 'show', date: '2026-12-10', status: 'Not Started', defaultMedia: 'Graphic' },
+    { id: 'o3', title: 'Routine clip', momentId: 'show', date: '2026-12-07', status: 'Skipped', defaultMedia: 'Carousel' },
+    { id: 'o4', title: 'Same moment', momentId: 'mo', date: '2026-12-06', status: 'Not Started', defaultMedia: 'Video' },
+  ];
+  const name = (id) => (id === 'show' ? 'NCA Showcase' : null);
+  is('overlap: the same media within three days on another campaign is flagged, and says where',
+     overlapFor({ title: 'Routine highlight', date: '2026-12-06', defaultMedia: 'Video' }, 'mo', other, name), '1 day from "Debut highlight, one per team" on NCA Showcase');
+  is('overlap: so is the same title, brackets aside, whatever its media',
+     overlapFor({ title: 'Event photo carousel', date: '2026-12-07', defaultMedia: 'Carousel' }, 'mo', other, name), '3 days from "Event photo carousel (best frames)" on NCA Showcase');
+  is('overlap: not four days away, not a skipped step, and not this moment’s own steps',
+     [overlapFor({ title: 'Debut highlight', date: '2026-12-09', defaultMedia: 'Video' }, 'mo', other.slice(0, 1), name),
+      overlapFor({ title: 'x', date: '2026-12-07', defaultMedia: 'Carousel' }, 'mo', [other[2]], name),
+      overlapFor({ title: 'x', date: '2026-12-06', defaultMedia: 'Video' }, 'mo', [other[3]], name)], [null, null, null]);
+  is('overlap: it is on the plan row', planApplyRun(steps, oneDay, [], other, name, { ...admin, pieces: { 'm-clip': 4 } }).rows.find((r) => r.key === 'm-clip').overlap,
+     '1 day from "Debut highlight, one per team" on NCA Showcase');
+
+  // ── never blank ──
+  is('copy: Flow, Owner and Type are never blank, each read off the others',
+     [completeStep({ flow: null, owner: null, type: null }), completeStep({ flow: 'Client task', owner: null, type: null }),
+      completeStep({ flow: null, owner: 'Client', type: 'Content' }), completeStep({ flow: 'Made up', owner: 'Blueprint', type: null }),
+      completeStep({ flow: SHOOTS_EDITS_FLOW, owner: null, type: null })],
+     [{ flow: 'Blueprint task', owner: 'Blueprint', type: 'Admin' }, { flow: 'Client task', owner: 'Client', type: 'Admin' },
+      { flow: 'Client makes + posts', owner: 'Client', type: 'Content' }, { flow: 'Blueprint task', owner: 'Blueprint', type: 'Admin' },
+      { flow: SHOOTS_EDITS_FLOW, owner: 'Blueprint', type: 'Content' }]);
+  is('copy: where Flow and Owner disagree, Owner wins and the flow is one that owner can have',
+     completeStep({ flow: 'Client task', owner: 'Blueprint', type: 'Admin' }), { flow: 'Blueprint task', owner: 'Blueprint', type: 'Admin' });
+
+  // ── the page a row becomes ──
+  const gymClient = { pageId: 'client-1', artist: 'Rebelz Cheer', slug: 'rebelz-cheer', type: CHEER_GYM };
+  const clip = copyProperties(plan.rows.find((r) => r.key === 'm-clip'), gymClient, 'mo', false, 'admin', '2026-11-20');
+  is('copy: a real step on the real moment, for this client, with the master’s id kept and nothing blank',
+     [clip['Is Playbook'].checkbox, clip.Kind.select.name, clip.Moment.relation[0].id, clip.Client.relation[0].id, clip[MASTER_PROP].rich_text[0].text.content,
+      clip.Status.select.name, clip.Date.date.start, clip.Flow.select.name, clip.Owner.select.name, clip.Type.select.name, clip['Client Type'].select.name,
+      clip.Priority.select.name, clip['Default Media'].select.name, clip.Pieces.number, clip.Item.title[0].text.content, PENDING_PROP in clip],
+     [false, 'Step', 'mo', 'client-1', 'm-clip', 'Not Started', '2026-12-06', SHOOTS_GRADES_FLOW, 'Blueprint', 'Content', 'Cheer Gym', 'Core', 'Video', 4, 'Routine highlight, one per team', false]);
+  const lateCopy = copyProperties(late.rows.find((r) => r.key === 'm-plan'), gymClient, 'mo', false, 'admin', '2026-11-30');
+  is('copy: a late step is written Skipped, and says why', [lateCopy.Status.select.name, lateCopy.Notes.rich_text[0].text.content], ['Skipped', lateNote('2026-11-30')]);
+  const waiting = copyProperties(client.rows.find((r) => r.key === 'm-photos'), gymClient, 'mo', false, 'client', '2026-11-20');
+  is('copy: a step of ours a client added is flagged pending, stamped as theirs, and still Owner Blueprint',
+     [waiting[PENDING_PROP].checkbox, waiting['Last Edited By'].select.name, waiting.Owner.select.name, waiting.Flow.select.name], [true, 'Client', 'Blueprint', SHOOTS_EDITS_FLOW]);
+  const seanCopy = copyProperties(artist.rows[0], { pageId: 'c', artist: 'Sean Comma', slug: 'sean-comma', type: ARTIST }, 'sh', false, 'admin', '2026-11-20');
+  is('copy: an artist’s copy carries no Client Type and the master’s own Pieces', ['Client Type' in seanCopy, seanCopy.Pieces.number, seanCopy.Status.select.name, seanCopy[MASTER_PROP].rich_text[0].text.content], [false, 3, 'Not Started', 'a-ann']);
+  is('sent: the pending flag is on the list a client is sent, and the master id never is',
+     [CALENDAR_FIELDS[21], CALENDAR_NEVER_SEND.includes(MASTER_PROP), CALENDAR_FIELDS.includes(MASTER_PROP)], [PENDING_PROP, true, false]);
+
+  // ── what a request may say ──
+  const isId = (v) => typeof v === 'string' && /^[0-9a-f-]{32,36}$/.test(v);
+  const ID = '11111111-1111-1111-1111-111111111111';
+  is('ask: read by shape, and nothing about who or whose is taken from it',
+     readApplyAsk({ momentId: ID, playbook: ' Competition Weekend ', keep: ['a', 3], pieces: { a: 4, b: 0, c: 'x', d: 99 }, clientId: 'x', owner: 'Client', role: 'admin' }, isId),
+     { momentId: ID, playbook: 'Competition Weekend', dryRun: false, keep: ['a'], pieces: { a: 4 } });
+  is('ask: no moment or no playbook is no ask', [readApplyAsk({ playbook: 'x' }, isId), readApplyAsk({ momentId: ID }, isId), readApplyAsk({ momentId: 'nope', playbook: 'x' }, isId)], [null, null, null]);
+
+  // ── undo ──
+  const us = [
+    { id: 'u1', title: 'Untouched', status: 'Not Started', masterId: 'm1' },
+    { id: 'u2', title: 'Ticked', status: 'Done', masterId: 'm2' },
+    { id: 'u3', title: 'Work begun', status: 'Not Started', masterId: 'm3' },
+    { id: 'u4', title: 'Made by hand', status: 'Not Started', masterId: null },
+    { id: 'u5', title: 'Skipped late', status: 'Skipped', masterId: 'm5' },
+  ];
+  const rowsOf = [{ id: 'r1', stepId: 'u1', status: 'Planned' }, { id: 'r3', stepId: 'u3', status: 'Editing' }, { id: 'r3b', stepId: 'u3', status: 'Planned' }];
+  const undo = planUndo(['u1', 'u2', 'u3', 'u4', 'u5', 'nope'], us, rowsOf);
+  is('undo: only a step it made, still untouched, with nothing begun, goes, and its planned rows with it',
+     undo.remove, [{ id: 'u1', rows: ['r1'] }, { id: 'u5', rows: [] }]);
+  is('undo: everything else is left where it is and named with the reason',
+     undo.kept.map((k) => [k.title, k.why]), [['Ticked', 'already Done'], ['Work begun', 'its work is already Editing'], ['Made by hand', 'not made by applying a playbook']]);
+}
+
+section('Apply a playbook · a new moment, and deliveries under their competition');
+
+{
+  const gym = ['Competition', 'Showcase', 'Tryouts', 'Camp', 'Picture Day', 'Banquet / Awards', 'Holiday', 'Brand Moment'];
+  const ok = cleanNewMoment({ event: '  Cheer   America ', city: 'Round Rock', momentType: 'Competition', date: '2026-12-06', dateEnd: '2026-12-06', notes: ' Doors 8am ', client: 'someone-else', Client: 'x' }, gym);
+  is('moment: read field by field, a one-day event has no end, and nothing says whose it is',
+     ok, { ok: true, value: { event: 'Cheer America', city: 'Round Rock', momentType: 'Competition', date: '2026-12-06', dateEnd: null, notes: 'Doors 8am' } });
+  is('moment: a multi-day one keeps its last day', cleanNewMoment({ event: 'Encore', momentType: 'Competition', date: '2026-12-12', dateEnd: '2026-12-13' }, gym).value.dateEnd, '2026-12-13');
+  is('moment: titled the way every moment is', [momentTitleFor('Rebelz Cheer', ok.value), momentTitleFor('Sean Comma', { event: 'Faith Rave', city: null })], ['Rebelz Cheer · Cheer America (Round Rock)', 'Sean Comma · Faith Rave']);
+  is('moment: a gym cannot be given a Release, nor an artist a Competition',
+     [cleanNewMoment({ event: 'x', momentType: 'Release', date: '2026-12-06' }, gym).rejected, cleanNewMoment({ event: 'x', momentType: 'Competition', date: '2026-12-06' }, momentTypesFor(ARTIST)).rejected], [['momentType'], ['momentType']]);
+  is('moment: what is wrong is named', cleanNewMoment({ event: ' ', momentType: 'Camp', date: '2026-02-31', dateEnd: 'soon', city: 7 }, gym).rejected, ['event', 'date', 'dateEnd', 'city']);
+  is('moment: an end before the start is refused', cleanNewMoment({ event: 'x', momentType: 'Camp', date: '2026-12-21', dateEnd: '2026-12-20' }, gym).rejected, ['dateEnd']);
+
+  const d = (id, momentId) => ({ id, title: id, kind: 'Photo set', status: 'Planned', due: null, link: null, momentId });
+  const resolved = resolveDeliveries([d('by-hand', 'mo-1'), d('from-playbook', 'step-9'), d('loose', null)], [{ id: 'step-9', momentId: 'mo-2' }]);
+  is('deliveries: one a playbook made hangs off its step, and is filed under that step’s competition',
+     resolved.map((x) => [x.id, x.momentId, x.stepId ?? null]), [['by-hand', 'mo-1', null], ['from-playbook', 'mo-2', 'step-9'], ['loose', null, null]]);
+  is('suggest: each kind of moment has its usual playbooks',
+     [CHEER_GYM.playbooksFor.Competition.names, CHEER_GYM.playbooksFor.Showcase.names, CHEER_GYM.playbooksFor.Tryouts.names, CHEER_GYM.playbooksFor.Camp.names, ARTIST.playbooksFor.Show, ARTIST.playbooksFor.Release.names],
+     [['Competition Weekend'], ['Showcase / Season Reveal'], ['Tryouts & Placements'], ['Camp / Clinic'], { names: ['Pre-Show', 'Show Night', 'Post-Show'], all: true }, ['Release Rollout', 'Release Sprint', 'Remix Drop']]);
+  is('pending: a step the client added and we have not confirmed owes no piece',
+     planMissingPieces([{ id: 's', title: 'Announce', playbook: 'Pre-Show', phase: null, flow: 'Blueprint makes + posts', status: 'Not Started', date: '2027-01-01', momentId: 'm', priority: 'Core', defaultMedia: 'Video', pieces: null, pending: true }], [{ id: 'm', title: 'Show', date: '2027-01-10', momentType: 'Show' }], []).length, 0);
+  is('audit: an artist falls back to the general audit, a gym is shown only its own', [ARTIST.audit.general, CHEER_GYM.audit.general, CHEER_GYM.features.playbookAudit], [true, false, true]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

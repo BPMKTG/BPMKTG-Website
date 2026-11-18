@@ -56,3 +56,6 @@ export {
   DELIVERABLE_PROP, deliveryPatchProperties, isDeliveryPage, newDeliveryProperties, shapeDelivery, splitPages,
 } from '../src/server/deliveries';
 export { publishNumbers } from '../src/server/report-publish';
+// Applying a playbook to a moment: the plan, and the page a row becomes.
+export * from '../src/data/playbook-apply';
+export { copyProperties, readApplyAsk, MASTER_PROP, PENDING_PROP } from '../src/server/playbook-apply';

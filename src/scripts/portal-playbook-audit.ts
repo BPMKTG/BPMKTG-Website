@@ -32,6 +32,7 @@ export interface AuditRosterRow {
   slug: string;
   artist: string;
   audit: AuditInfo | null;
+  type?: string;
 }
 
 /** What the audit is made of, in one line. */
@@ -74,22 +75,24 @@ function fileButtons(a: AuditInfo, downloadAs: string): HTMLElement {
   return row;
 }
 
-function cardShell(title: string): { card: HTMLElement; text: HTMLElement } {
+function cardShell(title: string, summary: string = AUDIT_SUMMARY): { card: HTMLElement; text: HTMLElement } {
   const card = el('section', 'pt-audit');
   card.dataset.playbookAudit = '1';
   const mark = el('div', 'pt-audit-mark');
   mark.appendChild(icon('playbook'));
   const text = el('div', 'pt-audit-text');
   text.appendChild(el('h2', undefined, title));
-  text.appendChild(el('p', 'pt-audit-sum', AUDIT_SUMMARY));
+  text.appendChild(el('p', 'pt-audit-sum', summary));
   card.append(mark, text);
   return { card, text };
 }
 
 /** The card a client sees, or null when there is no audit to show. */
-export function clientAuditCard(audit: AuditInfo | null, slug: string): HTMLElement | null {
+export function clientAuditCard(
+  audit: AuditInfo | null, slug: string, summary: string = AUDIT_SUMMARY,
+): HTMLElement | null {
   if (!audit) return null;
-  const { card, text } = cardShell('The Playbook Audit: why your playbooks are built this way');
+  const { card, text } = cardShell('The Playbook Audit: why your playbooks are built this way', summary);
   const meta = el('p', 'pt-audit-meta');
   if (audit.own) meta.appendChild(el('span', 'pt-tag pt-audit-own', 'Written for you'));
   meta.appendChild(el('span', undefined, metaLine(audit)));
@@ -160,10 +163,15 @@ function uploadButton(label: string, url: string, host: HqAuditHost, done: strin
 /** The general audit, and who has one of their own. */
 export function hqAuditPanel(
   general: AuditInfo | null, roster: readonly AuditRosterRow[], host: HqAuditHost,
+  /** A client type with no general audit has only the per-client
+   *  list: there is no shared PDF to show, replace or fall back to. */
+  opts: { general?: boolean; summary?: string } = {},
 ): HTMLElement {
   const wrap = el('div', 'pt-audit-hq');
+  const shared = opts.general !== false;
 
-  const { card, text } = cardShell('The Playbook Audit: why the playbooks are built this way');
+  const { card, text } = cardShell('The Playbook Audit: why the playbooks are built this way', opts.summary);
+  if (!shared) card.hidden = true;
   text.appendChild(el('p', 'pt-audit-meta', general
     ? `General audit · ${metaLine(general)} · every client without their own is shown this one`
     : 'No general audit is uploaded yet, so clients without their own see no card.'));
@@ -187,7 +195,8 @@ export function hqAuditPanel(
     li.dataset.client = r.slug;
     const who = el('div', 'pt-audit-who');
     who.appendChild(el('strong', undefined, r.artist));
-    who.appendChild(el('span', undefined, r.audit ? `Their own · ${metaLine(r.audit)}` : 'Shown the general audit'));
+    who.appendChild(el('span', undefined, r.audit ? `Their own · ${metaLine(r.audit)}`
+      : shared ? 'Shown the general audit' : 'No audit yet, so no card on their Playbooks tab'));
     li.appendChild(who);
     const a = el('div', 'pt-audit-acts');
     if (r.audit) {

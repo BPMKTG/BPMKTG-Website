@@ -304,6 +304,7 @@ const NAV = [
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { createCounter } from '../../scripts/portal-content-counter';
   import { createDeliveries } from '../../scripts/portal-deliveries';
+  import { openApplyFlow } from '../../scripts/portal-apply';
   import { createReviewStrip } from '../../scripts/portal-content-review';
   import { createOwnContent, type OwnContent } from '../../scripts/portal-own-content';
   import { createClientPlaybooks, type Answer as PbAnswer } from '../../scripts/portal-playbooks';
@@ -1202,6 +1203,14 @@ const NAV = [
     // Said to the client, so it is ours rather than a column name.
     layerLabel: (l) => (l === 'blueprint' ? 'Blueprint\u2019s work'
       : l === 'moments' ? TYPE().labels.momentsLayer : null),
+    toolbarExtra: () => {
+      const b = el('button', 'pt-btn pt-btn-primary');
+      b.type = 'button';
+      b.dataset.addEvent = '1';
+      b.append(icon('plus'), el('span', undefined, 'Add an event'));
+      b.addEventListener('click', () => planEvent({ newMoment: true }));
+      return b;
+    },
     words: () => TYPE().labels,
     content: () => CON.items,
     schema: () => CON.schema,
@@ -1341,6 +1350,27 @@ const NAV = [
     // all on a phone, where dragging inside a grid that scrolls is a
     // fight. Shown at every width for that reason, not only the narrow
     // one: a keyboard cannot drag either.
+    // One of ours that the client added by planning an event, and
+    // that we have not confirmed yet.
+    if (it.pending && !isMomentRow(it)) {
+      body.appendChild(el('p', 'pt-drawer-note',
+        VIEWER.role === 'admin'
+          ? 'Added from the client\u2019s portal and not confirmed yet. Confirm or skip it in HQ, on Today.'
+          : 'This one is waiting on us. You added it by planning this event, and we confirm it before it goes on our plan.'));
+    }
+
+    // A moment can be planned with one of this client's playbooks.
+    if (isMomentRow(it) && it.date) {
+      const plan = el('button', 'pt-btn');
+      plan.type = 'button';
+      plan.dataset.planMoment = '1';
+      plan.style.marginTop = 'var(--pt-4)';
+      plan.appendChild(icon('playbook'));
+      plan.appendChild(el('span', undefined, 'Plan this with a playbook'));
+      plan.addEventListener('click', () => { closeDrawer(); planEvent({ momentId: it.id }); });
+      body.appendChild(plan);
+    }
+
     if (canDragMoment(it) || canDragStep(it)) {
       const mv = el('button', 'pt-btn');
       mv.type = 'button';
@@ -1552,8 +1582,38 @@ const NAV = [
     }
   }
 
+  /**
+   * Add an event, and plan it with a playbook.
+   *
+   * The same sheet HQ uses, as the client: the moment is theirs (the
+   * server takes whose from the session), the playbooks are their own
+   * type's, their own steps are created, and ours are created waiting
+   * for us to confirm.
+   */
+  function planEvent(preset: { momentId?: string; newMoment?: boolean } = {}) {
+    const base = () => `/portal/${encodeURIComponent(SLUG)}`;
+    openApplyFlow({
+      role: () => (VIEWER.role === 'admin' ? 'admin' : 'client'),
+      clients: () => [{ key: SLUG, name: DATA?.client.artist ?? '', type: DATA?.client.type }],
+      moments: () => (DATA?.calendar ?? [])
+        .filter((i) => i.kind === 'Moment' || !!i.momentType)
+        .map((i) => ({ id: i.id, title: i.title, date: i.date, momentType: i.momentType })),
+      playbooks: async () => {
+        const res = await pbSend('GET', `${base()}/playbooks`);
+        return ((res.json?.playbooks ?? []) as Array<{ name: string }>).map((p) => p.name);
+      },
+      apply: (_c, body) => pbSend('POST', `${base()}/playbooks/apply`, body),
+      createMoment: (_c, body) => pbSend('POST', `${base()}/moment`, body),
+      toast,
+      today: dateKeyToday,
+      shortDay: (iso) => fmtDateShort(iso),
+      changed: async () => { await reloadCalendar(); },
+    }, preset);
+  }
+
   const PLAYBOOKS = createClientPlaybooks({
     send: pbSend, slug: () => SLUG, toast, intro: () => TYPE().labels.playbooksIntro,
+    auditSummary: () => TYPE().audit.summary,
   });
 
   function drawPlaybooks() {

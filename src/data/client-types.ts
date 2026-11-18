@@ -89,6 +89,17 @@ export interface ClientTypeConfig {
      *  published as numbers only. */
     reportPdf: boolean;
   };
+  /**
+   * The playbooks a kind of moment is usually planned with, by Moment
+   * Type. `all` means every one of them goes on (a show gets its
+   * before, its night and its after); otherwise the first is the
+   * suggestion and the rest are alternatives.
+   */
+  playbooksFor: Readonly<Record<string, { names: readonly string[]; all?: boolean }>>;
+  /** The Playbook Audit card. `general` is the shared PDF every
+   *  client of this type falls back to; without it, only a client
+   *  with an audit of their own is shown one. */
+  audit: { general: boolean; summary: string };
   /** The date a client's health is watched against: the next one of
    *  these with steps still open, close in, turns the card red. */
   health: {
@@ -151,6 +162,11 @@ export const ARTIST: ClientTypeConfig = {
     ownBuckets: false,
     reportPdf: true,
   },
+  playbooksFor: {
+    Show: { names: ['Pre-Show', 'Show Night', 'Post-Show'], all: true },
+    Release: { names: ['Release Rollout', 'Release Sprint', 'Remix Drop'] },
+  },
+  audit: { general: true, summary: '1,983 posts from 25 bass artists, scored on TikTok and Instagram' },
   health: { keyMoments: ['Release'], word: 'release', monthlyReport: true },
 };
 
@@ -193,12 +209,19 @@ export const CHEER_GYM: ClientTypeConfig = {
     musicGoals: false,
     tickets: false,
     streams: false,
-    playbookAudit: false,
+    playbookAudit: true,
     monthCounter: false,
     deliveries: true,
     ownBuckets: true,
     reportPdf: false,
   },
+  playbooksFor: {
+    Competition: { names: ['Competition Weekend'] },
+    Showcase: { names: ['Showcase / Season Reveal'] },
+    Tryouts: { names: ['Tryouts & Placements'] },
+    Camp: { names: ['Camp / Clinic'] },
+  },
+  audit: { general: false, summary: 'The research behind your playbooks: what gyms like yours post, and what works' },
   health: { keyMoments: ['Competition'], word: 'competition', monthlyReport: false },
 };
 

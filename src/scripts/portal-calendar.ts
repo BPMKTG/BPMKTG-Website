@@ -110,6 +110,8 @@ export interface CalendarHost {
    * somebody else's.
    */
   layerLabel?(layer: CalendarLayer): string | null;
+  /** A control of this screen's own for the calendar's toolbar. */
+  toolbarExtra?(): HTMLElement | null;
   /**
    * The words that depend on what kind of client this is: what an
    * empty calendar says is coming, the legend's two moment rows, and
@@ -570,6 +572,10 @@ export function createCalendar(H: CalendarHost) {
     }
 
     bar.appendChild(seg);
+    // Whatever this screen adds to the calendar's own controls: the
+    // client's "Add an event". Absent on a screen with nothing to add.
+    const extra = H.toolbarExtra?.() ?? null;
+    if (extra) bar.appendChild(extra);
     return bar;
   }
 

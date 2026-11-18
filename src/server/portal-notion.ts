@@ -381,6 +381,8 @@ export async function fetchCalendar(
         brief: readText(p[CALENDAR_FIELDS[18]]),
         asksNotes: readCheckbox(p[CALENDAR_FIELDS[19]]),
         clientNotes: readText(p[CALENDAR_FIELDS[20]]),
+        // Only when it is: every row from before this field has no key.
+        ...(readCheckbox(p[CALENDAR_FIELDS[21]]) ? { pending: true } : {}),
       },
     });
   }

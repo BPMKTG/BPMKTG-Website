@@ -26,8 +26,9 @@
    may read, which is why only things meant for all of them go in it.
    ────────────────────────────────────────────────────────────── */
 
+import { clientType } from '../data/client-types';
 import { MAX_BRIEF_BYTES, briefHost, isSafeBriefUrl, looksLikePdf } from './brief';
-import { CLIENTS_DB, queryAll, readCheckbox, readText } from './portal-notion';
+import { CLIENTS_DB, queryAll, readCheckbox, readSelect, readText } from './portal-notion';
 import { fileSlug } from './pdf';
 
 export const AUDIT_FILE = 'playbook-audit.pdf';
@@ -230,6 +231,8 @@ export interface AuditRosterRow {
   artist: string;
   /** Their own audit, or null when they read the general one. */
   audit: PlaybookAuditInfo | null;
+  /** The client type's id. Absent on an artist. */
+  type?: string;
 }
 
 /**
@@ -248,6 +251,8 @@ export async function readAuditRoster(token: string, env: AuditEnv): Promise<Aud
     out.push({
       pageId: String(page.id), slug, artist: (readText(title as any) ?? '').trim() || slug,
       audit: await readOwnAudit(env, slug, readAuditPointer(p['Playbook Audit'])),
+      ...(clientType(readSelect(p['Client Type'])).id === 'artist'
+        ? {} : { type: clientType(readSelect(p['Client Type'])).id }),
     });
   }
   return out.sort((a, b) => a.artist.localeCompare(b.artist));

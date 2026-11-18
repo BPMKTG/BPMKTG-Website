@@ -18,7 +18,7 @@ import { findClientBySlug } from '../../../../src/server/portal-notion';
 import { fetchMasters, fetchOverrides } from '../../../../src/server/playbooks';
 import { mastersForType } from '../../../../src/data/playbooks';
 import { clientPlaybooks, clientRequests } from '../../../../src/data/playbooks';
-import { readClientAudit, type AuditEnv } from '../../../../src/server/playbook-audit';
+import { readClientAudit, readOwnAudit, type AuditEnv } from '../../../../src/server/playbook-audit';
 
 interface Env extends AuditEnv { NOTION_TOKEN: string; PORTAL_SECRET?: string }
 
@@ -37,9 +37,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
       // Their own audit if they have one, the general one if not. The
       // audit explains the artist playbooks, so a client type that
       // does not have it is sent neither.
-      record.type.features.playbookAudit
-        ? readClientAudit(env, record.slug, record.playbookAuditUrl)
-        : Promise.resolve(null),
+      // A type with a general audit falls back to it. One without is
+      // shown an audit only when it has one of its own.
+      !record.type.features.playbookAudit ? Promise.resolve(null)
+        : record.type.audit.general
+          ? readClientAudit(env, record.slug, record.playbookAuditUrl)
+          : readOwnAudit(env, record.slug, record.playbookAuditUrl),
     ]);
     // Only the playbooks this client's type has.
     const masters = mastersForType(every, record.type.id);

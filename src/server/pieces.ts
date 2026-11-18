@@ -102,6 +102,9 @@ export function shapeStep(page: any): PieceStep {
     pieces: readNumber(p['Pieces']),
     hidden: readCheckbox(p['Hide from Client']),
     notes: readText(p['Notes']),
+    owner: readSelect(p['Owner']),
+    masterId: (readText(p['Master Step ID']) ?? '').trim() || null,
+    pending: readCheckbox(p['Pending Blueprint']),
   };
 }
 

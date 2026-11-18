@@ -24,7 +24,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { clientType } from '../data/client-types';
-import type { Delivery } from '../data/deliveries';
+import { resolveDeliveries, type Delivery } from '../data/deliveries';
 import { shapeDelivery, splitPages } from './deliveries';
 import {
   CALENDAR_DB,
@@ -141,6 +141,9 @@ export interface HqCalItem {
   /** The step asks the client for a note, and what they wrote. */
   asksNotes: boolean;
   clientNotes: string | null;
+  /** Added by the client and waiting for one of us: a moment they
+   *  created, or a step of ours a playbook of theirs asked for. */
+  pending?: boolean;
 }
 
 export interface HqContentItem {
@@ -339,6 +342,8 @@ async function readCalendar(token: string, now: Date): Promise<HqCalItem[]> {
       brief: readText(p['Brief']),
       asksNotes: readCheckbox(p['Ask for Notes']),
       clientNotes: readText(p['Client Notes']),
+      // Only when it is, so a roster with nothing pending is as it was.
+      ...(readCheckbox(p['Pending Blueprint']) ? { pending: true } : {}),
     });
   }
   return out;
@@ -492,7 +497,8 @@ export async function hqBuild(env: HqDataEnv, now = new Date()): Promise<HqBuild
   const payload: HqPayload = {
     clients, calendar, content: pipeline.content, contentSchema, snapshots, audits,
     // Only when there are some: an HQ with artists only has no such key.
-    ...(pipeline.deliveries.length ? { deliveries: pipeline.deliveries } : {}),
+    ...(pipeline.deliveries.length ? { deliveries: resolveDeliveries(pipeline.deliveries,
+      calendar.filter((r) => r.kind !== 'Moment').map((r) => ({ id: r.id, momentId: r.momentId }))) } : {}),
     built: new Date().toISOString(),
   };
 

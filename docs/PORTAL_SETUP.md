@@ -446,10 +446,10 @@ like a show; the rest are plain moments with their own tag.
 
 **The two gym flows.** `Blueprint shoots + edits → Client posts` and
 `Blueprint shoots + grades → Client edits + posts`. Both are **Owner =
-Client**: the step is the posting, which the client does and ticks.
-Owner still wins when Flow and Owner disagree. Neither is a
-"deliverable flow", so applying a playbook creates no Blueprint post
-for them.
+Blueprint**, as the playbook masters have them: the step is the photo
+set or graded footage we owe. Owner still wins when Flow and Owner
+disagree. Applying a playbook creates a delivery for them, never a
+Blueprint post.
 
 **Deliveries, not a month counter.** A gym is not counted in 15 to 25
 posts. What we owe is photo sets and footage batches, per competition.
@@ -472,6 +472,10 @@ lives in `Edit Link`.
 A gym is shown only the buckets her own rows use, and "New bucket…" on
 a card or a new idea founds one by naming it.
 
+**Playbook Audit.** A gym is shown the audit card only when its own
+PDF is uploaded (HQ → Playbooks → Cheer Gym playbooks → Custom audits).
+There is no general gym audit to fall back to.
+
 **Playbooks.** A playbook belongs to one client type. Masters carry
 `Client Type` (blank is Artist); a client is only ever shown, given, or
 updated against its own type's masters. HQ → Playbooks has a switch
@@ -491,6 +495,72 @@ to Cheer Gym, put her address in **Portal Emails**, tick **Portal
 Enabled**, and set **Portal Link** to
 `https://blueprint-marketing.com/portal/<intake slug>`. Its Intake Slug
 must be on exactly one row.
+
+## Applying a playbook to a moment
+
+One sheet, in two places: **HQ → Playbooks → Apply a playbook to a
+moment**, and **Add an event** on a client's own Calendar tab (also
+"Plan this with a playbook" on any moment's card). The plan is
+`src/data/playbook-apply.ts`; the writing is `src/server/playbook-apply.ts`.
+
+Pick the client (HQ only), the moment or **New moment…**, and the
+playbooks. Only the client's own type's playbooks are offered, and the
+usual ones for that Moment Type are ticked (`playbooksFor` in
+`src/data/client-types.ts`). The preview is a dry run of exactly what
+would be written; nothing is written before it.
+
+- **Dates.** A step is the moment's first day plus its Offset. A
+  multi-day moment counts from its first day.
+- **Overrides.** Only Approved ones for that client and playbook apply.
+  The preview marks each step they touched: Reworded, Shifted,
+  Reassigned, Added. A skipped step is left out and named.
+- **Late.** A step whose day has passed is created as **Skipped**
+  unless one of us ticks "keep" in the preview.
+- **Per team.** A step whose Notes contain "One piece per" needs a
+  number before it can be applied. The number is kept in the copy's
+  Pieces.
+- **What a step owes.** For an artist, a Blueprint post per deliverable
+  step, as before. For a gym, a photo set
+  (`Blueprint shoots + edits → Client posts`) or a footage batch
+  (`Blueprint shoots + grades → Client edits + posts`), linked to the
+  step and shown in the delivery tracker under its competition.
+- **Twice is safe.** Every copy keeps its master's id in **Master Step
+  ID** (never sent to a client). A second apply says "already applied"
+  and only adds what is missing, including rows that steps already
+  there still owe. Copies from before that field are matched by title.
+- **Overlaps.** A new step within three days of a step on another of
+  the client's campaigns, with the same Default Media or the same
+  title, is flagged in the preview.
+- **Undo.** In HQ, until the sheet is closed: removes only the steps it
+  just made that are still Not Started with nothing begun, and names
+  the rest. Rows are archived, not deleted.
+- **Masters are never written to** by any of this.
+
+Both gym flows are **Owner = Blueprint**, as the masters have them: the
+step is the delivery we owe, and it sits under "Blueprint's work". The
+client posting it is not a step of its own.
+
+### A new moment
+
+Title "[Client] · [Event] ([City])", Kind = Moment, a Moment Type from
+the client's type, Date (and last day if more than one), Venue / City,
+Client, Client Type, Notes. `POST /portal/hq/moments` for us,
+`POST /portal/<slug>/moment` for a client, where the client is the
+session's and never the request's.
+
+### When a client applies a playbook
+
+Their own steps (Owner = Client) are created and are on their to-do
+list. Steps that are ours are created with **Pending Blueprint**
+ticked: they owe nothing, create no post or delivery, and count toward
+no month and no tracker until one of us confirms them. A late step is
+Skipped; a client cannot keep one or give a team count.
+
+HQ → Today shows **Client added: confirm**: each event a client
+created ("Got it") and each pending step (**Confirm** or **Skip**).
+Confirm is what creates the step's post, photo set or footage batch,
+and asks for the team count on a per-team step.
+`POST /portal/hq/pending`.
 
 ## Intake forms
 

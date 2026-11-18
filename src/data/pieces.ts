@@ -77,6 +77,13 @@ export interface PieceStep {
   pieces: number | null;
   hidden?: boolean;
   notes?: string | null;
+  /** Who does it, as Notion's Owner says. */
+  owner?: string | null;
+  /** The master it was copied from, when applying kept it. */
+  masterId?: string | null;
+  /** Added by the client and waiting for one of us to confirm. A
+   *  pending step owes nothing yet. */
+  pending?: boolean;
 }
 
 export interface PieceMoment {
@@ -259,6 +266,8 @@ export function planMissingPieces(
   const out: PlannedPiece[] = [];
   for (const step of steps) {
     if (!isDeliverableFlow(step.flow) || STEP_CLOSED.includes(step.status ?? '')) continue;
+    // A step the client added that we have not confirmed owes nothing.
+    if (step.pending) continue;
     if (wantStep && !wantStep.has(sameId(step.id))) continue;
     if (wantMonth && !wantMonth.has(day(step.date).slice(0, 7))) continue;
     const want = piecesForStep(step, momentOf.get(sameId(step.momentId)) ?? null, steps);
@@ -281,6 +290,8 @@ export function stepsWithoutPieces(
 ): PieceStep[] {
   const linked = new Set(existing.flatMap((p) => p.campaign.map(sameId)));
   return steps.filter((s) => isDeliverableFlow(s.flow)
+    // A step the client added that we have not confirmed owes nothing.
+    && !s.pending
     && !STEP_CLOSED.includes(s.status ?? '') && !linked.has(sameId(s.id)));
 }
 

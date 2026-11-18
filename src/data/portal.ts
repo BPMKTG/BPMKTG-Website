@@ -103,9 +103,12 @@ export const CALENDAR_FIELDS = [
   // into; see canWriteStepNote.
   'Ask for Notes',
   'Client Notes',
+  // A step of ours the client added, waiting for us to confirm it.
+  // Sent so their calendar can say so.
+  'Pending Blueprint',
 ] as const;
 
-export const CALENDAR_NEVER_SEND = ['Notes', 'Offset (days)', 'Is Playbook', 'Hide from Client'] as const;
+export const CALENDAR_NEVER_SEND = ['Notes', 'Offset (days)', 'Is Playbook', 'Hide from Client', 'Master Step ID'] as const;
 
 /* ── KPI Snapshots ────────────────────────────────────────────── */
 
@@ -512,14 +515,17 @@ export function flowOwner(flow: StepFlow | null): 'Blueprint' | 'Client' | null 
     // Ours: they hand us footage and we cut it and put it out. The
     // filming has its own step, owned by them.
     case 'Client films \u2192 Blueprint edits + posts':
+    // A gym's two. Ours: the step is the photo set or the graded
+    // footage we owe, and it is done when that is delivered. The
+    // posting that follows is theirs and is not a step of its own.
+    // The playbook masters carry Owner = Blueprint for both, and this
+    // has to agree with them or flowOf stops believing the Flow.
+    case 'Blueprint shoots + edits \u2192 Client posts':
+    case 'Blueprint shoots + grades \u2192 Client edits + posts':
       return 'Blueprint';
     case 'Client task':
     case 'Client makes + posts':
     case 'Client film session':
-    // Theirs: we shoot it and finish it, and the step is the posting,
-    // which they do. Owner = Client is what lets them tick it.
-    case 'Blueprint shoots + edits \u2192 Client posts':
-    case 'Blueprint shoots + grades \u2192 Client edits + posts':
       return 'Client';
     default:
       return null;
@@ -624,8 +630,8 @@ export function flowChip(flow: StepFlow | null): string | null {
   switch (flow) {
     case 'Client film session': return 'You film';
     case 'Client makes + posts': return POSTS_LABEL.client;
-    case 'Blueprint shoots + edits \u2192 Client posts': return POSTS_LABEL.client;
-    case 'Blueprint shoots + grades \u2192 Client edits + posts': return 'You edit + post';
+    case 'Blueprint shoots + edits \u2192 Client posts': return 'We shoot + edit, you post';
+    case 'Blueprint shoots + grades \u2192 Client edits + posts': return 'We shoot + grade, you edit + post';
     case 'Blueprint makes + posts':
     case 'Client films \u2192 Blueprint edits + posts':
       return POSTS_LABEL.blueprint;
@@ -704,10 +710,12 @@ export function stepLayers(row: {
     case 'Blueprint makes + posts': return ['postsPlan'];
     case 'Client films \u2192 Blueprint edits + posts': return ['postsPlan'];
     case 'Client makes + posts': return ['postsTheirs', 'todos'];
-    // A gym's posts: ours to shoot and finish, theirs to put out, so
-    // they sit exactly where a post of the client's own sits.
-    case 'Blueprint shoots + edits \u2192 Client posts': return ['postsTheirs', 'todos'];
-    case 'Blueprint shoots + grades \u2192 Client edits + posts': return ['postsTheirs', 'todos'];
+    // A gym's deliverables: ours to shoot and finish, so they sit
+    // with our work. They are not "Blueprint posts", because we do not
+    // post them, and not a to-do of the client's, because the step is
+    // done when we deliver.
+    case 'Blueprint shoots + edits \u2192 Client posts': return ['blueprint'];
+    case 'Blueprint shoots + grades \u2192 Client edits + posts': return ['blueprint'];
     case 'Client film session': return ['films', 'todos'];
     case 'Client task': return ['todos'];
     default: return [];
@@ -1144,6 +1152,9 @@ export interface PortalCalendarItem {
   asksNotes?: boolean;
   /** What they wrote. Null when nothing has been written. */
   clientNotes?: string | null;
+  /** A step of ours the client added by applying a playbook, which we
+   *  have not confirmed yet. Present only when true. */
+  pending?: boolean;
   venueCity: string | null;
   ticketLink: string | null;
   /** Who makes it and who posts it, as Notion's Flow select says it.

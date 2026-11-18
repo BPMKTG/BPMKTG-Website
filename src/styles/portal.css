@@ -3957,6 +3957,54 @@ div.pt-pb-step-editing { border: 1px solid var(--pt-line); border-radius: var(--
 .pt-deliv-pill-working { background: var(--pt-tint-blue); color: var(--pt-navy); }
 .pt-deliv-pill-delivered { background: var(--pt-tint); color: var(--pt-navy); font-weight: 700; }
 
+/* ── apply a playbook to a moment ─────────────────────────── */
+.pt-pb-kind-acts { display: flex; flex-wrap: wrap; gap: var(--pt-2); }
+.pt-apply-new {
+  display: flex; flex-direction: column; gap: var(--pt-3);
+  padding: var(--pt-3) var(--pt-4); border: 1px dashed var(--pt-line); border-radius: var(--pt-r-sm);
+}
+.pt-apply-new[hidden] { display: none; }
+.pt-apply-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--pt-3); }
+.pt-apply-books { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pt-apply-books[hidden] { display: none; }
+.pt-apply-books legend { padding: 0; margin-bottom: 4px; font-size: .78rem; font-weight: 600; color: var(--pt-ink-2); }
+.pt-apply-book { display: flex; align-items: center; gap: var(--pt-2); font-size: .9rem; cursor: pointer; }
+.pt-apply-usual { font-size: .68rem; }
+.pt-apply-preview { display: flex; flex-direction: column; gap: var(--pt-4); max-height: 46vh; overflow-y: auto; }
+.pt-apply-head { display: flex; align-items: center; gap: var(--pt-2); }
+.pt-apply-head h3 { margin: 0; font-size: .92rem; font-weight: 700; color: var(--pt-ink); }
+.pt-apply-steps { list-style: none; margin: 0; padding: 0; }
+.pt-apply-step {
+  display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: var(--pt-3);
+  padding: var(--pt-2) 0; border-top: 1px solid var(--pt-line-soft);
+}
+.pt-apply-date { font-size: .8rem; color: var(--pt-muted); padding-top: 2px; }
+.pt-apply-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pt-apply-title { font-size: .9rem; font-weight: 600; color: var(--pt-ink); overflow-wrap: anywhere; }
+.pt-apply-step-off .pt-apply-title { color: var(--pt-muted); text-decoration: line-through; }
+.pt-apply-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--pt-2); font-size: .76rem; color: var(--pt-muted); }
+.pt-apply-mark { background: var(--pt-tint-blue); color: var(--pt-navy); }
+.pt-apply-owes { font-weight: 600; color: var(--pt-ink-2); }
+.pt-apply-late, .pt-apply-teams {
+  display: flex; align-items: center; gap: var(--pt-2); font-size: .8rem; color: var(--pt-bad);
+}
+.pt-apply-teams { color: var(--pt-ink-2); }
+.pt-apply-teams .pt-input { width: 84px; }
+.pt-apply-overlap { margin: 0; font-size: .8rem; color: var(--pt-bad); }
+.pt-apply-waits, .pt-apply-done { margin: 0; font-size: .86rem; line-height: 1.45; color: var(--pt-ink-2); }
+.pt-apply-after { display: flex; flex-direction: column; gap: var(--pt-2); align-items: flex-start; }
+.hq-added { border: 1px solid var(--pt-line); border-radius: var(--pt-r); background: var(--pt-surface); padding: var(--pt-4); margin-bottom: var(--pt-4); }
+.hq-added-note { margin: 0 0 var(--pt-2); font-size: .84rem; color: var(--pt-muted); }
+.hq-added-list { list-style: none; margin: 0; padding: 0; }
+.hq-added-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--pt-2) var(--pt-4); padding: var(--pt-2) 0; border-top: 1px solid var(--pt-line-soft);
+}
+.hq-added-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 260px; }
+.hq-added-text strong { font-size: .9rem; color: var(--pt-ink); }
+.hq-added-text span { font-size: .8rem; color: var(--pt-muted); }
+.hq-added-acts { display: flex; gap: var(--pt-2); }
+
 /* The note a step asks for, in its drawer. */
 .pt-stepnote { margin-top: var(--pt-4); display: flex; flex-direction: column; gap: 6px; }
 .pt-stepnote-label {

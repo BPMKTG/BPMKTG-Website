@@ -42,6 +42,7 @@ import type { PortalPayload } from '../../../src/data/portal';
 import { trimForType } from '../../../src/data/client-types';
 import { shapeDelivery } from '../../../src/server/deliveries';
 import { ownBuckets } from '../../../src/data/portal-content';
+import { resolveDeliveries } from '../../../src/data/deliveries';
 
 interface Env {
   NOTION_TOKEN: string;
@@ -138,7 +139,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     // has deliveries is sent the list, empty or not, so an artist's
     // payload has no such key.
     if (record.type.features.deliveries) {
-      payload.deliveries = pipeline.deliveryPages.map(shapeDelivery);
+      // One made by applying a playbook hangs off its step; file it
+      // under that step's competition.
+      payload.deliveries = resolveDeliveries(pipeline.deliveryPages.map(shapeDelivery),
+        calendar.filter((i) => i.kind !== 'Moment' && !i.momentType)
+          .map((i) => ({ id: i.id, momentId: i.moment?.id ?? null })));
     }
   } catch (err) {
     console.error('portal: data build threw', err);
