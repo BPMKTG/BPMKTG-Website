@@ -6,6 +6,7 @@ import {
   isEngagementMetric,
   formatEngagement,
   isOpenClientTodo,
+  snapshotsNewestFirst,
   canSetStepStatus,
   canWriteStepNote,
   cleanStepNote,
@@ -1010,6 +1011,39 @@ is('snapshots: data source carried', snapshots[1].dataSource, ['Platform analyti
 // And the display path on top of the stored decimal.
 is('snapshots: engagement renders as a percent',
    formatEngagement(snapshots[1].metrics['Instagram · Engagement']), '4.2%');
+
+// The server sends oldest first and Home reads index 0 as "now".
+// snapshotsNewestFirst is the one thing standing between the two.
+is('snapshots: the server sends them oldest first',
+   snapshots.map((s) => s.type), ['Baseline', 'Monthly']);
+{
+  const turned = snapshotsNewestFirst(snapshots);
+  is('newest first: index 0 is the latest month', [turned[0].type, turned[0].date], ['Monthly', '2026-10-22']);
+  is('newest first: and index 1 is the one before it', turned[1].type, 'Baseline');
+  is('newest first: the list it was given is left as it was',
+     snapshots.map((s) => s.type), ['Baseline', 'Monthly']);
+  is('newest first: turning it twice changes nothing',
+     snapshotsNewestFirst(turned).map((s) => s.date), turned.map((s) => s.date));
+
+  const one = snapshotsNewestFirst([snapshots[0]]);
+  is('newest first: a lone baseline is still the only row', [one.length, one[0] === snapshots[0]], [1, true]);
+  is('newest first: nothing in, nothing out',
+     [snapshotsNewestFirst([]), snapshotsNewestFirst(undefined), snapshotsNewestFirst(null)], [[], [], []]);
+
+  const row = (date, id) => ({ date, id });
+  is('newest first: any order in, by date out',
+     snapshotsNewestFirst([row('2026-10-01', 'b'), row('2026-12-01', 'd'), row('2026-09-01', 'a'), row('2026-11-01', 'c')])
+       .map((s) => s.id), ['d', 'c', 'b', 'a']);
+  is('newest first: a row with no date counts as the oldest',
+     snapshotsNewestFirst([row(null, 'x'), row('2026-09-01', 'a'), row('2026-10-01', 'b')]).map((s) => s.id),
+     ['b', 'a', 'x']);
+  is('newest first: two rows on one day keep the order they came in',
+     snapshotsNewestFirst([row('2026-09-01', 'a'), row('2026-10-01', 'b1'), row('2026-10-01', 'b2')]).map((s) => s.id),
+     ['b1', 'b2', 'a']);
+  is('newest first: a Notion datetime sorts by its day like a plain date',
+     snapshotsNewestFirst([row('2026-10-01', 'a'), row('2026-11-01T09:00:00.000-06:00', 'b')]).map((s) => s.id),
+     ['b', 'a']);
+}
 
 /* ══ 12. Goal tracker maths ══════════════════════════════════════ */
 

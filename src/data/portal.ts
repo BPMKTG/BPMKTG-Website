@@ -1183,6 +1183,25 @@ export interface PortalSnapshot {
   metrics: Record<string, number>;
 }
 
+/**
+ * Snapshots with the newest first, so index 0 is "now" and index 1 is
+ * the month before.
+ *
+ * The server sends them OLDEST first (fetchSnapshots sorts by Date,
+ * ascending), and everything in the browser that says "latest" reads
+ * index 0. This is the one place that turns one into the other. It is
+ * the same comparison the Reports tab makes, so Home and Reports can
+ * never disagree about which month is the current one: a row with no
+ * date counts as the oldest, and two rows on the same day keep the
+ * order they arrived in. Returns a copy.
+ */
+export function snapshotsNewestFirst<T extends { date: string | null }>(
+  snapshots: readonly T[] | null | undefined,
+): T[] {
+  const time = (s: T) => parseNotionDate(s.date)?.getTime() ?? 0;
+  return [...(snapshots ?? [])].sort((a, b) => time(b) - time(a));
+}
+
 /* ── Audits ───────────────────────────────────────────────────────
    What a client sees of a growth audit: the date, the window, the
    score, the one-paragraph summary and a link to the PDF. The eight

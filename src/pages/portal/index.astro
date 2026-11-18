@@ -278,6 +278,7 @@ const NAV = [
     parseNotionDate,
     shiftIsoDay,
     showsInMonth,
+    snapshotsNewestFirst,
     showsPerMonthAverage,
     songsAtTarget,
     weeklyPaceNeeded,
@@ -461,6 +462,9 @@ const NAV = [
       return renderMissing();
     }
 
+    // The server sends snapshots oldest first; Home reads index 0 as
+    // "now". Turned round once, here, before anything draws.
+    payload.snapshots = snapshotsNewestFirst(payload.snapshots);
     DATA = payload;
     mount(payload);
   }
@@ -779,7 +783,8 @@ const NAV = [
   function metricSpan(snapshots: PortalSnapshot[], name: string): { first: number; last: number } | null {
     const vals = snapshots.filter((s) => typeof s.metrics[name] === 'number');
     if (!vals.length) return null;
-    // Snapshots arrive newest first.
+    // Newest first by the time they get here: boot() turns the
+    // server's oldest-first list round before mounting.
     return { first: vals[vals.length - 1].metrics[name], last: vals[0].metrics[name] };
   }
 
@@ -998,6 +1003,7 @@ const NAV = [
     return String(h);
   }
 
+  /** `snapshots` is newest first: [0] is this month, [1] the one before. */
   function kpiCard(metric: string, snapshots: PortalSnapshot[]): HTMLElement {
     const latest = snapshots[0];
     const a = el('a', 'pt-kpi');
