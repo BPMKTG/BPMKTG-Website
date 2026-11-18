@@ -124,10 +124,8 @@ export function openApplyFlow(host: ApplyHost, preset: ApplyPreset = {}) {
     fresh.dataset.applyNew = '1';
     const event = el('input', 'pt-input') as HTMLInputElement;
     event.maxLength = 120;
-    event.placeholder = 'Cheer America';
     const city = el('input', 'pt-input') as HTMLInputElement;
     city.maxLength = 80;
-    city.placeholder = 'Round Rock, TX';
     const kind = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
     const start = el('input', 'pt-input') as HTMLInputElement;
     start.type = 'date';
@@ -192,6 +190,10 @@ export function openApplyFlow(host: ApplyHost, preset: ApplyPreset = {}) {
         k.value = t;
         kind.appendChild(k);
       }
+      // The examples are the client's own kind of event, not a gym's
+      // on an artist's screen.
+      event.placeholder = typeOf().labels.eventExample;
+      city.placeholder = typeOf().labels.cityExample;
     }
 
     /** The playbooks a moment of this type is usually planned with. */

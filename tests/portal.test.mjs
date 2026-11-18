@@ -5708,6 +5708,11 @@ section('Apply a playbook · a new moment, and deliveries under their competitio
   is('pending: a step the client added and we have not confirmed owes no piece',
      planMissingPieces([{ id: 's', title: 'Announce', playbook: 'Pre-Show', phase: null, flow: 'Blueprint makes + posts', status: 'Not Started', date: '2027-01-01', momentId: 'm', priority: 'Core', defaultMedia: 'Video', pieces: null, pending: true }], [{ id: 'm', title: 'Show', date: '2027-01-10', momentType: 'Show' }], []).length, 0);
   is('audit: an artist falls back to the general audit, a gym is shown only its own', [ARTIST.audit.general, CHEER_GYM.audit.general, CHEER_GYM.features.playbookAudit], [true, false, true]);
+  is('new moment: every type has its own example name and place',
+     CLIENT_TYPES.every((t) => !!t.labels.eventExample && !!t.labels.cityExample), true);
+  is('new moment: an artist is not shown a gym’s example',
+     [/cheer/i.test(ARTIST.labels.eventExample), ARTIST.labels.eventExample === CHEER_GYM.labels.eventExample,
+      ARTIST.labels.cityExample === CHEER_GYM.labels.cityExample], [false, false, false]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

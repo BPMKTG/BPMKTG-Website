@@ -63,6 +63,9 @@ export interface ClientTypeConfig {
     dragMoment: string;
     /** What the client's Playbooks tab says a playbook is. */
     playbooksIntro: string;
+    /** The greyed-out examples in a new moment's name and place boxes. */
+    eventExample: string;
+    cityExample: string;
   };
   /** The numbers on the client's Home, first that exist win. */
   homeMetrics: readonly string[];
@@ -148,6 +151,8 @@ export const ARTIST: ClientTypeConfig = {
       + 'its whole campaign follows, once you have said yes.',
     playbooksIntro: 'How we plan a release or a show, step by step: what happens, how far ahead, and whether it is yours or ours. '
       + 'Anything we have agreed to do differently for you is already in here.',
+    eventExample: 'Hometown show',
+    cityExample: 'Austin, TX',
   },
   homeMetrics: ['Instagram · Followers', 'TikTok · Followers', 'Spotify · Monthly Listeners', 'Email + SMS List'],
   hiddenPlatforms: [],
@@ -201,6 +206,8 @@ export const CHEER_GYM: ClientTypeConfig = {
       + 'its whole campaign follows, once you have said yes.',
     playbooksIntro: 'How we plan a competition or an event, step by step: what happens, how far ahead, and whether it is yours or ours. '
       + 'Anything we have agreed to do differently for you is already in here.',
+    eventExample: 'Cheer America',
+    cityExample: 'Round Rock, TX',
   },
   homeMetrics: ['Instagram · Followers', 'TikTok · Followers', 'Facebook · Followers', 'YouTube · Subscribers'],
   hiddenPlatforms: ['Spotify', 'Apple Music', 'SoundCloud'],
