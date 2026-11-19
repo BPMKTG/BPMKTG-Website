@@ -5480,9 +5480,19 @@ section('Deliveries · photo sets and footage batches');
   const list = [D('d1', 'Footage batch', 'Posted', 'm-old'), D('d2', 'Photo set', 'Editing', 'm-old'), D('d3', 'Photo set', 'Planned', 'm-new'),
                 D('d4', 'Photo set', 'Skipped', 'm-new'), D('d5', 'Footage batch', 'Filmed', null), D('d6', 'Photo set', 'Posted', 'm-gone')];
   const groups = deliveryGroups(list, moments);
-  is('tracker: one group per competition, the newest competition first, and the loose ones last',
+  is('tracker: one group per competition, the soonest with something still owed first, and the loose ones last',
      groups.map((g) => [g.title, g.date, g.rows.map((r) => r.id), g.delivered]),
-     [['Nationals', '2027-02-20', ['d3'], 0], ['Winter Classic', '2026-12-05', ['d2', 'd1'], 1], [LOOSE_DELIVERIES, null, ['d5', 'd6'], 1]]);
+     [['Winter Classic', '2026-12-05', ['d2', 'd1'], 1], ['Nationals', '2027-02-20', ['d3'], 0], [LOOSE_DELIVERIES, null, ['d5', 'd6'], 1]]);
+  const season = [{ id: 'm1', title: 'A', date: '2026-12-06' }, { id: 'm2', title: 'B', date: '2026-12-12' }, { id: 'm3', title: 'C', date: '2027-01-17' }, { id: 'm4', title: 'D', date: '2027-02-13' }, { id: 'm0', title: 'Undated', date: null }];
+  const order = (rows) => deliveryGroups(rows, season).map((g) => g.title);
+  is('tracker: a whole season reads in date order, soonest on top',
+     order([D('x4', 'Photo set', 'Planned', 'm4'), D('x2', 'Photo set', 'Planned', 'm2'), D('x1', 'Photo set', 'Planned', 'm1'), D('x3', 'Photo set', 'Planned', 'm3')]), ['A', 'B', 'C', 'D']);
+  is('tracker: a competition that is all delivered drops below the ones still owed, most recent of those first, and one only part delivered stays in its place',
+     order([D('x1', 'Photo set', 'Posted', 'm1'), D('x2', 'Photo set', 'Posted', 'm2'), D('x2b', 'Footage batch', 'Editing', 'm2'), D('x3', 'Photo set', 'Posted', 'm3'), D('x4', 'Photo set', 'Planned', 'm4')]),
+     ['B', 'D', 'C', 'A']);
+  is('tracker: one with no date sits after the dated ones still owed, and before what is finished',
+     order([D('x0', 'Photo set', 'Planned', 'm0'), D('x1', 'Photo set', 'Posted', 'm1'), D('x4', 'Photo set', 'Planned', 'm4'), D('x9', 'Photo set', 'Planned', null)]),
+     ['D', 'Undated', 'A', LOOSE_DELIVERIES]);
   is('tracker: a dropped delivery is on no list and in no count', [deliveryTally(list), tallyLabel(deliveryTally(list)), tallyLabel(deliveryTally([]))],
      [{ total: 5, delivered: 2 }, '2 of 5 delivered', 'No deliveries yet']);
   is('counter: a delivery never reaches the month counter, because it is never in the content it is given',

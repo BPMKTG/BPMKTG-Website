@@ -236,13 +236,18 @@ const same = (id: unknown): string => String(id ?? '').replace(/-/g, '').toLower
 export const LOOSE_DELIVERIES = 'Other deliveries';
 
 /**
- * The tracker's list: one group per competition, newest competition
- * first, with what is still owed above what has been delivered.
+ * The tracker's list: one group per competition, the soonest one that
+ * still has something owed first.
  *
- * Newest first because the question is always about the last
- * competition: "are the photos from Saturday done?". A dropped
- * delivery is on no list. A delivery linked to a moment this viewer
- * cannot see is kept, under "Other deliveries", rather than vanishing.
+ * A competition with anything still owed comes before one that is all
+ * delivered, and among those the earliest date is on top: that is the
+ * next shoot before it happens and "are the photos from Saturday
+ * done?" after it, until they are. A competition that is all delivered
+ * drops below, most recent first, so a finished season does not push
+ * the next event down the page. Within one, what is still owed sits
+ * above what has been delivered. A dropped delivery is on no list. A
+ * delivery linked to a moment this viewer cannot see is kept, under
+ * "Other deliveries", rather than vanishing.
  */
 export function deliveryGroups(
   deliveries: readonly Delivery[], moments: readonly DeliveryMoment[],
@@ -270,7 +275,12 @@ export function deliveryGroups(
   return [...groups.values()].sort((a, b) => {
     // The loose group last, whatever its dates.
     if (!a.key !== !b.key) return a.key ? -1 : 1;
-    return (b.date ?? '').localeCompare(a.date ?? '') || a.title.localeCompare(b.title);
+    const doneA = a.delivered === a.rows.length, doneB = b.delivered === b.rows.length;
+    if (doneA !== doneB) return doneA ? 1 : -1;
+    // An undated one last among those still owed.
+    if (!a.date !== !b.date) return a.date ? -1 : 1;
+    const byDate = (a.date ?? '').localeCompare(b.date ?? '');
+    return (doneA ? -byDate : byDate) || a.title.localeCompare(b.title);
   });
 }
 

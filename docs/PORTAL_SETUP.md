@@ -465,7 +465,9 @@ lives in `Edit Link`.
 - Deliveries are split off on the server before any payload is built,
   so they are never on a content board, a calendar or a month count.
 - In the tracker each competition is a dropdown, shut until opened,
-  with its date and "n of m delivered" on the heading.
+  with its date and "n of m delivered" on the heading. The soonest
+  competition with anything still owed is on top; one that is all
+  delivered drops below, most recent first.
 - HQ → Content shows a tracker per gym: add one, move its stage, paste
   the link, remove it (which sets Skipped). `POST` and `PATCH`
   `/portal/hq/deliveries`, admin only.
