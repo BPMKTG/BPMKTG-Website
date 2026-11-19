@@ -46,6 +46,9 @@ const CF_API = 'https://api.cloudflare.com/client/v4/accounts';
 
 export interface PreviewEnv {
   GOOGLE_SERVICE_ACCOUNT_JSON?: string;
+  /** The account id the site already has, for PDF rendering. The
+   *  longer name is read too, in case that is the one that was set. */
+  CF_ACCOUNT_ID?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_STREAM_TOKEN?: string;
   REPORTS_BUCKET?: R2Bucket;
@@ -163,7 +166,7 @@ async function driveRendition(link: string | null, px: number): Promise<Response
 interface StreamConfig { account: string; token: string }
 
 function streamConfig(env: PreviewEnv): StreamConfig | null {
-  const account = (env.CLOUDFLARE_ACCOUNT_ID ?? '').trim();
+  const account = (env.CF_ACCOUNT_ID || env.CLOUDFLARE_ACCOUNT_ID || '').trim();
   const token = (env.CLOUDFLARE_STREAM_TOKEN ?? '').trim();
   return /^[0-9a-f]{32}$/i.test(account) && token ? { account, token } : null;
 }
@@ -318,7 +321,7 @@ export async function advancePreview(
   /* ── a conversion in progress ── */
   if (step.do === 'check') {
     const c = streamConfig(env);
-    if (!c) return { outcome: 'not_configured', stored, note: 'CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_STREAM_TOKEN is not set.' };
+    if (!c) return { outcome: 'not_configured', stored, note: 'CF_ACCOUNT_ID or CLOUDFLARE_STREAM_TOKEN is not set.' };
     const { job } = step;
     const info = await streamJson(c, `/${job.job}`);
     if (info.status === 404) return fail(step.fileId, 'The converter no longer has this video. Try again.');
@@ -431,7 +434,7 @@ export async function advancePreview(
 
   /* a video */
   const c = streamConfig(env);
-  if (!c) return { outcome: 'not_configured', stored, note: 'CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_STREAM_TOKEN is not set.' };
+  if (!c) return { outcome: 'not_configured', stored, note: 'CF_ACCOUNT_ID or CLOUDFLARE_STREAM_TOKEN is not set.' };
   if (!file.size) return fail(step.fileId, `Drive does not know the size of "${file.name}". It may still be uploading.`);
   if (file.size > MAX_VIDEO_BYTES) {
     return fail(step.fileId, `"${file.name}" is ${(file.size / 1024 / 1024 / 1024).toFixed(1)} GB. Export a version under ${Math.round(MAX_VIDEO_BYTES / 1024 / 1024)} MB and link that.`);

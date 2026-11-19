@@ -59,12 +59,11 @@ GOOGLE_SERVICE_ACCOUNT_JSON=
 # localhost origin. Test Preview and Publish against a deployment.
 
 # Previews: our own copies of the files behind Drive links (see
-# docs/PORTAL_SETUP.md, "Previews"). All three are needed for a video;
-# an image needs only the first.
+# docs/PORTAL_SETUP.md, "Previews"). A video needs both of these and
+# CF_ACCOUNT_ID; an image needs only the first.
 #
 # The whole key file of the read-only service account, on one line.
 GOOGLE_SERVICE_ACCOUNT_JSON=
-# The Cloudflare account Stream is on (32 hex characters).
-CLOUDFLARE_ACCOUNT_ID=
+# The account id is CF_ACCOUNT_ID, above: the same one PDF rendering uses.
 # An API token with Account → Stream → Edit, and nothing else.
 CLOUDFLARE_STREAM_TOKEN=

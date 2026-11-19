@@ -757,7 +757,7 @@ pieces past Planned as before, and no Done step changed.
 | `PORTAL_SECRET` | no | Signs session cookies. Any random 16+ character string. |
 | `PORTAL_MAIL_FROM` | no | The From line. Defaults to `Blueprint Marketing <noreply@bpmktg.com>`. |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | yes, for previews and report covers | The whole key file of the read-only service account. Reads the Drive files previews are made from. |
-| `CLOUDFLARE_ACCOUNT_ID` | yes, for video previews | The Cloudflare account Stream is on. |
+| `CF_ACCOUNT_ID` | yes, for video previews | The Cloudflare account Stream is on. The same variable PDF rendering already uses. |
 | `CLOUDFLARE_STREAM_TOKEN` | yes, for video previews | An API token with Account → Stream → Edit and nothing else. Converts videos. |
 
 There is also one **binding**, which is not a variable: a Workers KV
