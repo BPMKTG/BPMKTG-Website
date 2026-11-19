@@ -18,6 +18,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { parseNotionDate, type MomentRef } from './portal';
+import type { ItemPreview } from './preview';
 
 /* ── read whitelist ───────────────────────────────────────────── */
 
@@ -381,14 +382,11 @@ export function editPreview(raw: string | null | undefined): EditPreview | null 
   if (/\.(mp4|webm|mov|m4v)$/i.test(path)) return { kind: 'video', src: u.toString() };
   if (/\.(jpe?g|png|webp|gif|avif)$/i.test(path)) return { kind: 'image', src: u.toString() };
 
-  if (host === 'drive.google.com') {
-    const id = /^\/file\/d\/([\w-]{10,})/.exec(path)?.[1]
-      ?? (path === '/open' ? u.searchParams.get('id') : null);
-    if (id && /^[\w-]{10,}$/.test(id)) {
-      return { kind: 'frame', src: `https://drive.google.com/file/d/${id}/preview` };
-    }
-    return null;
-  }
+  // Drive is never framed. Google's player only plays for someone
+  // signed in to Google with access, in a browser that lets Google
+  // see that from inside a frame, and an iPhone does not. A Drive
+  // file is shown from our own copy instead: see src/data/preview.ts.
+  if (host === 'drive.google.com' || host === 'docs.google.com') return null;
   if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtu.be') {
     const id = host === 'youtu.be' ? path.slice(1)
       : path === '/watch' ? u.searchParams.get('v')
@@ -506,6 +504,10 @@ export interface PortalContentItem {
   /** Video, Photo, Carousel, Graphic or Story. Null on a row nobody
    *  has classified, which reads as a video everywhere it matters. */
   media: string | null;
+  /** Our own copy of the file behind a Drive Edit Link. Present only
+   *  when the Edit Link is a Drive file, so a card with no such link
+   *  is sent exactly as it always was. */
+  preview?: ItemPreview;
 }
 
 /** The option lists, read from the Notion schema rather than hardcoded,

@@ -20,6 +20,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { clientType, type ClientTypeConfig } from '../data/client-types';
+import { PREVIEW_FIELDS, itemPreview, type ItemPreview, type StoredPreview } from '../data/preview';
 import { isValidSlug, normaliseSlug } from './portal-auth';
 import { parseEmailList } from './portal-login';
 import {
@@ -803,6 +804,22 @@ export async function fetchSnapshots(token: string, clientPageId: string): Promi
 
 export const CONTENT_DB = '086468af-a36c-414a-9dd0-e13fca387a42';
 
+/** What a Content Pipeline row records about its preview. These six
+ *  fields are read here and are never sent: a page is sent
+ *  `itemPreview`'s answer, which holds no key and no field name. */
+export function readStoredPreview(properties: Record<string, any> | undefined): StoredPreview {
+  const p = properties ?? {};
+  const text = (name: string): string | null => (readText(p[name]) ?? '').trim() || null;
+  return {
+    status: readSelect(p[PREVIEW_FIELDS.status]),
+    imageKey: text(PREVIEW_FIELDS.image),
+    thumbKey: text(PREVIEW_FIELDS.thumb),
+    videoKey: text(PREVIEW_FIELDS.video),
+    source: text(PREVIEW_FIELDS.source),
+    detail: text(PREVIEW_FIELDS.detail),
+  };
+}
+
 /** One Notion page, shaped field by field into the client's view. */
 function shapeContent(page: any): PortalContentItem {
   const p = page.properties ?? {};
@@ -831,7 +848,15 @@ function shapeContent(page: any): PortalContentItem {
     editLink: readUrl(p[CONTENT_FIELDS[16]]),
     postLink: readUrl(p[CONTENT_FIELDS[17]]),
     media: readSelect(p[CONTENT_FIELDS[18]]),
+    ...previewPart(readUrl(p[CONTENT_FIELDS[16]]), p, String(page.id)),
   };
+}
+
+/** `{ preview }` for a card whose Edit Link is a Drive file, and
+ *  nothing at all for any other card. */
+function previewPart(link: string | null, p: Record<string, any>, id: string): { preview?: ItemPreview } {
+  const preview = itemPreview(link, readStoredPreview(p), id);
+  return preview ? { preview } : {};
 }
 
 export async function fetchContent(

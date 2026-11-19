@@ -1630,6 +1630,7 @@ const NAV = [
     momentOf: conMoment,
     openCard: openContentDrawer,
     reviewAct: (c, a) => { void reviewAct(c, a); },
+    slugOf: () => SLUG,
   });
 
   /** My Content: the client's own board, the one they had before the
@@ -1945,6 +1946,7 @@ const NAV = [
       save: (card, patch, local) => saveCard(card.id, patch, local),
       toast,
       reviewAct: (card, a) => { void reviewAct(card, a); },
+      slugOf: () => SLUG,
     }, c, body);
 
     /* the one action this card is waiting on */

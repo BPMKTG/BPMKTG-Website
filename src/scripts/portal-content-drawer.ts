@@ -22,7 +22,6 @@
 import {
   canClientMove,
   clientOwns,
-  editPreview,
   nextMove,
   normaliseId,
   parseFeedback,
@@ -38,8 +37,10 @@ import {
   type Voice,
   cleanBucketName,
 } from '../data/portal-content';
+import { driveFileId } from '../data/preview';
 import { MEDIA_ICON } from './portal-board';
 import { el, icon } from './portal-dom';
+import { previewBox } from './portal-preview';
 import {
   dateField, fieldShell, flashTick, multiEditor, selectEditor, textField, urlField,
   type Tick,
@@ -60,6 +61,9 @@ export interface DrawerHost {
   reviewAct?: (c: PortalContentItem, action: ReviewAction) => void;
   /** HQ only: whose card this is. */
   clientOf?: (c: PortalContentItem) => string | null;
+  /** The slug of the client a card belongs to, which is where its
+   *  preview is asked for. */
+  slugOf?: (c: PortalContentItem) => string | null;
   /** The brief on the campaign step this card delivers, when it has
    *  one. It is written on the step, so the card borrows it. */
   briefOf?: (c: PortalContentItem) => string | null;
@@ -70,40 +74,6 @@ function fact(label: string, value: string): HTMLElement {
   const { wrap, slot } = fieldShell(label);
   slot.appendChild(el('p', 'pt-field-read', value));
   return wrap;
-}
-
-/** The cut, in place. A frame for the hosts we can embed, a player or
- *  an image for a direct file, and otherwise nothing: the link below
- *  is the honest fallback. */
-export function previewEl(url: string, title: string): HTMLElement | null {
-  const p = editPreview(url);
-  if (!p) return null;
-  const box = el('div', `pt-preview pt-preview-${p.kind}`);
-  if (p.kind === 'video') {
-    const v = el('video') as HTMLVideoElement;
-    v.src = p.src;
-    v.controls = true;
-    v.preload = 'metadata';
-    v.playsInline = true;
-    box.appendChild(v);
-  } else if (p.kind === 'image') {
-    const img = el('img') as HTMLImageElement;
-    img.src = p.src;
-    img.alt = `The edit of ${title}`;
-    img.loading = 'lazy';
-    img.referrerPolicy = 'no-referrer';
-    box.appendChild(img);
-  } else {
-    const f = el('iframe') as HTMLIFrameElement;
-    f.src = p.src;
-    f.title = `The edit of ${title}`;
-    f.loading = 'lazy';
-    f.referrerPolicy = 'no-referrer';
-    f.allow = 'autoplay; fullscreen; picture-in-picture';
-    f.allowFullscreen = true;
-    box.appendChild(f);
-  }
-  return box;
 }
 
 function threadEl(host: DrawerHost, c: PortalContentItem): HTMLElement {
@@ -218,14 +188,17 @@ export function fillContentDrawer(host: DrawerHost, c: PortalContentItem, body: 
   }
 
   /* 2 ── the cut ── */
+  const ours = !!driveFileId(c.editLink);
   if (c.editLink) {
-    const frame = previewEl(c.editLink, c.title);
+    const frame = previewBox(c, host.slugOf?.(c) ?? null);
     if (frame) body.appendChild(frame);
   }
   if (admin) {
+    // A new Drive link has no preview yet. Saying so here is what
+    // makes the box ask for one the moment the link is saved.
     body.appendChild(urlField('Edit link', c.editLink, 'Paste the link to the cut',
-      (v, tick) => save({ editLink: v }, { editLink: v }, tick)));
-  } else if (c.editLink) {
+      (v, tick) => save({ editLink: v }, { editLink: v, preview: driveFileId(v) ? { state: 'pending' } : undefined }, tick)));
+  } else if (c.editLink && !ours) {
     const a = el('a', 'pt-btn pt-btn-wide') as HTMLAnchorElement;
     a.href = c.editLink;
     a.target = '_blank';

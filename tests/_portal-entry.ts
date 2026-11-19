@@ -22,6 +22,10 @@ export {
 } from '../src/server/brief';
 // Blueprint HQ. The rules that decide what a Today row is and what may
 // be done to it, and the whitelist for the one Clients write.
+// Previews: our own copy of a Drive file. The rules, and the two
+// small adapters that read and write a card's preview fields.
+export * from '../src/data/preview';
+export { storedPreviewProperties } from '../src/server/preview';
 export * from '../src/data/hq';
 export * from '../src/server/hq-write';
 // The one record of a publish email. Reads a claim out of a KV-shaped

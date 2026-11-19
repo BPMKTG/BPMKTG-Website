@@ -21,7 +21,7 @@ import {
   type ReviewAction,
 } from '../data/portal-content';
 import { MEDIA_ICON } from './portal-board';
-import { previewEl } from './portal-content-drawer';
+import { previewBox } from './portal-preview';
 import { el, icon } from './portal-dom';
 
 export interface ReviewHost {
@@ -29,6 +29,8 @@ export interface ReviewHost {
   momentOf: (c: PortalContentItem) => string | null;
   openCard: (c: PortalContentItem) => void;
   reviewAct: (c: PortalContentItem, action: ReviewAction) => void;
+  /** The slug a card's preview is asked for under. */
+  slugOf: (c: PortalContentItem) => string | null;
 }
 
 export function createReviewStrip(host: ReviewHost): () => HTMLElement | null {
@@ -39,7 +41,7 @@ export function createReviewStrip(host: ReviewHost): () => HTMLElement | null {
     // The cut, in place where it can be. Where it cannot, the link is
     // the honest fallback, and it still comes before the buttons: an
     // approval with nothing to look at is not one.
-    const frame = c.editLink ? previewEl(c.editLink, c.title) : null;
+    const frame = c.editLink ? previewBox(c, host.slugOf(c)) : null;
     if (frame) card.appendChild(frame);
     else if (c.editLink) {
       const a = el('a', 'pt-rcard-link') as HTMLAnchorElement;

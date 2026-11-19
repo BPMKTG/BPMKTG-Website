@@ -25,6 +25,7 @@
 
 import { clientType } from '../data/client-types';
 import { resolveDeliveries, type Delivery } from '../data/deliveries';
+import { itemPreview, type ItemPreview } from '../data/preview';
 import { shapeDelivery, splitPages } from './deliveries';
 import {
   CALENDAR_DB,
@@ -41,6 +42,7 @@ import {
   readSelect,
   readText,
   readUrl,
+  readStoredPreview,
 } from './portal-notion';
 import { AUDITS_DB, shapeAuditRow, type AuditRow } from './audit-data';
 import { shapeReportSnapshot } from './report-data';
@@ -57,7 +59,7 @@ export const HQ_TTL_SECONDS = 90;
 
 /** Bumped whenever the shape below changes, so a deploy cannot serve
  *  a cached payload the new UI does not understand. */
-export const HQ_CACHE_KEY = 'hq:v5';
+export const HQ_CACHE_KEY = 'hq:v6';
 
 /** How far back and forward the calendar is read. Today needs the
  *  overdue tail, the fourteen-day strip needs the near future, and a
@@ -188,6 +190,9 @@ export interface HqContentItem {
   footageLink: string | null;
   postLink: string | null;
   notes: string | null;
+  /** Our own copy of the file behind a Drive Edit Link, with the
+   *  reason when it failed. Only on a card that has such a link. */
+  preview?: ItemPreview;
 }
 
 /** A snapshot as the report pipeline already shapes it, plus the
@@ -360,6 +365,13 @@ function readFormulaDay(p: any): string | null {
   return null;
 }
 
+/** `{ preview }` for a card whose Edit Link is a Drive file. HQ is
+ *  told why one failed; a client never is. */
+function previewOf(link: string | null, p: Record<string, any>, id: string): { preview?: ItemPreview } {
+  const preview = itemPreview(link, readStoredPreview(p), id, { admin: true });
+  return preview ? { preview } : {};
+}
+
 async function readContent(
   token: string, now: Date,
 ): Promise<{ content: HqContentItem[]; deliveries: Delivery[] }> {
@@ -427,6 +439,7 @@ async function readContent(
       footageLink: readUrl(p['Footage Link']),
       postLink: readUrl(p['Post Link']),
       notes: readText(p['Notes']),
+      ...previewOf(readUrl(p['Edit Link']), p, String(page.id)),
     };
   }) };
 }

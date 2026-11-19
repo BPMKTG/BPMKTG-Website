@@ -579,6 +579,78 @@ created ("Got it") and each pending step (**Confirm** or **Skip**).
 Confirm is what creates the step's post, photo set or footage batch.
 `POST /portal/hq/pending`.
 
+## Previews: our own copy of a Drive file
+
+A Drive link in **Edit Link** is never shown in Google's player. That
+player only plays for someone signed in to Google with access, in a
+browser that lets Google see that from inside a frame, and an iPhone
+does not. Instead we keep our own copy in R2 and serve it behind the
+portal's sign-in:
+
+| The file is | What we keep | Made by |
+|---|---|---|
+| an image | a web copy (1600px long edge) and a thumbnail (400px) | Drive's own resized renditions |
+| a video | an H.264 MP4 (1080p at most), a poster and a small poster | Cloudflare Stream, used only as a converter |
+
+The original is never served. "Open original" under every preview is
+the Drive link itself.
+
+**The code.** The rules are `src/data/preview.ts` (pure, tested). The
+part that talks to Drive, Stream and R2 is `src/server/preview.ts`,
+and it knows nothing about content cards: it is given a link, what is
+recorded about that link's preview, and a way to record what happens
+next. The Content Vault can use it as it is.
+
+**One step per look.** There is no job runner on Pages, so
+`advancePreview` does one step each time someone looks: an image is
+done in one; a video is uploaded to Stream, then on later looks asked
+after, and when its MP4 is ready it is copied into R2 and deleted from
+Stream. A page that is waiting asks every five seconds. HQ asks when
+it opens, which is also the backfill: the first open after a link is
+added makes its preview.
+
+**Where it is recorded.** Six fields on the Content Pipeline, none of
+which is ever sent to a client:
+
+| Field | Holds |
+|---|---|
+| `Preview Status` | Converting, Ready or Failed |
+| `Preview Image Key` | the R2 key of the web image, or of a video's poster |
+| `Preview Thumb Key` | the R2 key of the small one |
+| `Preview Video Key` | the R2 key of the MP4 |
+| `Preview Source` | the Drive file id it was made from. A link to a different file is rebuilt. |
+| `Preview Detail` | what was made ("1920×1080 H.264, faststart, 23 MB"), the job while converting, or why it failed |
+
+A page is sent `preview: { state, kind, v }` and builds the address
+itself. Writing a preview touches those six fields and nothing else:
+not Status, not Last Edited By.
+
+**Keys and addresses.** `previews/<slug>/<item>/<version>/image.jpg`,
+`thumb.jpg`, `video.mp4`, in the existing bucket. The version is
+random per build, so a rebuilt preview has new addresses.
+`GET /portal/<slug>/preview/<item>/<version>/<image|thumb|video>`
+serves one, to that client's session or to an admin, with byte ranges
+(a phone will not play a video without them). The key is built from
+the slug the session is bound to, so there is no address for another
+client's file.
+
+**When it fails.** The client sees "Preview unavailable · open
+original". HQ → Today lists it under **Previews to fix** with the
+reason (most often: the file is not shared with the service account)
+and **Try again**. A missing secret is never recorded as a failure of
+the file: nothing is written, and HQ names the secret.
+
+**It repairs itself.** If a preview is recorded but its files are not
+in R2 (recorded by a local server, say, and read in production), the
+page fails to load it, tells the server, and the server checks R2 and
+rebuilds.
+
+**Limits.** A video over 800 MB is refused with "export a smaller
+file". Only one upload is started per HQ call, so a large backfill
+takes several rounds, which HQ does on its own.
+
+---
+
 ## Intake forms
 
 `/intake?client=SLUG` is one page and one endpoint, and it holds every
@@ -684,6 +756,9 @@ pieces past Planned as before, and no Done step changed.
 | `ADMIN_EMAILS` | yes, for admins | Comma-separated. `mason@bpmktg.com`. These addresses open every client's portal. |
 | `PORTAL_SECRET` | no | Signs session cookies. Any random 16+ character string. |
 | `PORTAL_MAIL_FROM` | no | The From line. Defaults to `Blueprint Marketing <noreply@bpmktg.com>`. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | yes, for previews and report covers | The whole key file of the read-only service account. Reads the Drive files previews are made from. |
+| `CLOUDFLARE_ACCOUNT_ID` | yes, for video previews | The Cloudflare account Stream is on. |
+| `CLOUDFLARE_STREAM_TOKEN` | yes, for video previews | An API token with Account → Stream → Edit and nothing else. Converts videos. |
 
 There is also one **binding**, which is not a variable: a Workers KV
 namespace bound as `PORTAL_KV`, in **Settings → Functions → KV namespace

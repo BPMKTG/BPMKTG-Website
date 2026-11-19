@@ -1724,9 +1724,9 @@ section('Content: previewing the cut');
 is('preview: a video file plays in place',
    editPreview('https://cdn.example.com/cuts/final.mp4'), { kind: 'video', src: 'https://cdn.example.com/cuts/final.mp4' });
 is('preview: an image shows in place', editPreview('https://cdn.example.com/a/flyer.PNG')?.kind, 'image');
-is('preview: a Drive file becomes its own preview address',
-   editPreview('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view?usp=sharing'),
-   { kind: 'frame', src: 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/preview' });
+is('preview: a Drive file is never framed. It is shown from our own copy, or not at all',
+   [editPreview('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view?usp=sharing'), editPreview('https://drive.google.com/open?id=1AbCdEfGhIjKlMnOp'),
+    editPreview('https://docs.google.com/file/d/1AbCdEfGhIjKlMnOp/preview')], [null, null, null]);
 is('preview: a Drive folder is just a link', editPreview('https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOp'), null);
 is('preview: YouTube, by id', editPreview('https://youtu.be/dQw4w9WgXcQ')?.src,
    'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
@@ -5743,6 +5743,137 @@ section('Apply a playbook · a new moment, and deliveries under their competitio
   is('new moment: an artist is not shown a gym’s example',
      [/cheer/i.test(ARTIST.labels.eventExample), ARTIST.labels.eventExample === CHEER_GYM.labels.eventExample,
       ARTIST.labels.cityExample === CHEER_GYM.labels.cityExample], [false, false, false]);
+}
+
+
+section('Previews · our own copy of a Drive file');
+{
+  const PV = await import('../.tmp-portal-lib.mjs');
+  const {
+    driveFileId, previewKey, versionOfKey, itemPreview, previewUrl, planPreview, parseJob, jobDetail, parseRange, probeMp4,
+    mp4IsWebReady, readyDetail, failureDetail, fileKind, isPreviewVariant, isPreviewVersion, PREVIEW_FIELDS, PREVIEW_FIELD_NAMES,
+    UPLOAD_STALE_MS, CONVERT_TIMEOUT_MS, UPLOAD_CHUNK, MAX_VIDEO_BYTES, readStoredPreview, storedPreviewProperties, CONTENT_FIELDS: CF,
+    CLIENT_EDITABLE,
+  } = PV;
+  const FILE = '1j3pkyQkYjFd2OtVUjYOEyrqzULmHYbrr', OTHER = '1M4a-dolxP0stU5aNAO3sEucw0Qxi9PSG';
+  const LINK = `https://drive.google.com/file/d/${FILE}/view?usp=drive_link`;
+  const ITEM = '0a1b2c3d-4e5f-6071-8293-a4b5c6d7e8f9', ITEMX = ITEM.replace(/-/g, '');
+  const V = '0123456789abcdef';
+  const none = { status: null, imageKey: null, thumbKey: null, videoKey: null, source: null, detail: null };
+
+  // ── which links ──
+  is('link: a Drive file link in any of its shapes gives the file id',
+     [LINK, `https://drive.google.com/file/d/${FILE}/preview`, `https://drive.google.com/file/u/1/d/${FILE}/view`, `https://drive.google.com/open?id=${FILE}`,
+      `https://drive.google.com/uc?export=download&id=${FILE}`, `https://docs.google.com/file/d/${FILE}/edit`].map(driveFileId),
+     [FILE, FILE, FILE, FILE, FILE, FILE]);
+  is('link: a folder, another site, plain http, a script and nothing are not a file',
+     ['https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOp', 'https://youtu.be/dQw4w9WgXcQ', `http://drive.google.com/file/d/${FILE}/view`,
+      'javascript:alert(1)', `https://drive.google.com.evil.example/file/d/${FILE}/view`, '', null].map(driveFileId),
+     [null, null, null, null, null, null, null]);
+  is('kind: images and videos have a preview, and nothing else does',
+     ['image/jpeg', 'image/heic', 'image/png', 'video/mp4', 'video/quicktime', 'application/pdf', 'application/vnd.google-apps.document', '', null].map(fileKind),
+     ['image', 'image', 'image', 'video', 'video', null, null, null, null]);
+
+  // ── keys ──
+  is('key: filed under the client, the item and the build',
+     [previewKey('sean-comma', ITEM, V, 'video'), previewKey('sean-comma', ITEMX, V, 'image'), previewKey('sean-comma', ITEM, V, 'thumb')],
+     [`previews/sean-comma/${ITEMX}/${V}/video.mp4`, `previews/sean-comma/${ITEMX}/${V}/image.jpg`, `previews/sean-comma/${ITEMX}/${V}/thumb.jpg`]);
+  is('key: nothing a request could type gets into one',
+     [previewKey('../other', ITEM, V, 'video'), previewKey('sean-comma/../x', ITEM, V, 'video'), previewKey('Sean', ITEM, V, 'video'), previewKey('sean-comma', '../x', V, 'video'),
+      previewKey('sean-comma', ITEM, '../../etc', 'video'), previewKey('sean-comma', ITEM, V.toUpperCase(), 'video'), previewKey('sean-comma', ITEM, V, 'original'),
+      previewKey('sean-comma', ITEM, V, '../video'), previewKey('', ITEM, V, 'video'), previewKey('sean%2f', ITEM, V, 'video')],
+     [null, null, null, null, null, null, null, null, null, null]);
+  is('key: a version and a variant are each one exact shape', [isPreviewVersion(V), isPreviewVersion('abc'), isPreviewVersion(V + '0'), isPreviewVariant('video'), isPreviewVariant('poster'), isPreviewVariant(null)],
+     [true, false, false, true, false, false]);
+  is('key: a stored key is only believed for the item it is on',
+     [versionOfKey(`previews/sean-comma/${ITEMX}/${V}/video.mp4`, ITEM), versionOfKey(`previews/sean-comma/${'f'.repeat(32)}/${V}/video.mp4`, ITEM),
+      versionOfKey(`reports/sean-comma/${ITEMX}/${V}/video.mp4`, ITEM), versionOfKey(`previews/sean-comma/${ITEMX}/${V}/original.mov`, ITEM), versionOfKey(null, ITEM)],
+     [V, null, null, null, null]);
+  is('address: one address for a client and for us, with no key in it',
+     previewUrl('sean-comma', ITEM, V, 'video'), `/portal/sean-comma/preview/${ITEMX}/${V}/video`);
+
+  // ── what a page is told ──
+  const ready = { status: 'Ready', imageKey: `previews/sean-comma/${ITEMX}/${V}/image.jpg`, thumbKey: null, videoKey: `previews/sean-comma/${ITEMX}/${V}/video.mp4`, source: FILE, detail: 'Ready · video' };
+  is('told: a ready video, with its poster', itemPreview(LINK, ready, ITEM), { state: 'ready', kind: 'video', v: V, poster: true });
+  is('told: a ready video with no poster says so', itemPreview(LINK, { ...ready, imageKey: null }, ITEM), { state: 'ready', kind: 'video', v: V });
+  is('told: a ready image', itemPreview(LINK, { ...ready, videoKey: null }, ITEM), { state: 'ready', kind: 'image', v: V });
+  is('told: nothing recorded yet is pending', itemPreview(LINK, none, ITEM), { state: 'pending' });
+  is('told: a preview made from a different file is not this link’s preview', itemPreview(LINK, { ...ready, source: OTHER }, ITEM), { state: 'pending' });
+  is('told: converting is pending', itemPreview(LINK, { ...none, status: 'Converting', source: FILE, detail: 'Converting · v x' }, ITEM), { state: 'pending' });
+  is('told: ready with a key that is not this item’s is pending, so it is rebuilt', itemPreview(LINK, { ...ready, videoKey: 'previews/x/y', imageKey: null }, ITEM), { state: 'pending' });
+  const failed = { ...none, status: 'Failed', source: FILE, detail: 'Failed · Drive will not show us this file.' };
+  is('told: a failure is said to a client without the reason, and to us with it',
+     [itemPreview(LINK, failed, ITEM), itemPreview(LINK, failed, ITEM, { admin: true })],
+     [{ state: 'failed' }, { state: 'failed', why: 'Failed · Drive will not show us this file.' }]);
+  is('told: a card with no Drive link has no preview at all, so it is sent exactly as before',
+     [itemPreview('https://youtu.be/dQw4w9WgXcQ', ready, ITEM), itemPreview(null, ready, ITEM), itemPreview('https://cdn.example.com/a.mp4', none, ITEM)], [undefined, undefined, undefined]);
+  const sent = JSON.stringify([itemPreview(LINK, ready, ITEM), itemPreview(LINK, failed, ITEM), itemPreview(LINK, none, ITEM)]);
+  is('told: no R2 key, no Notion field name and no Drive id is in anything a client is sent',
+     [/previews\//.test(sent), PREVIEW_FIELD_NAMES.some((f) => sent.includes(f)), sent.includes(FILE), /\.mp4|\.jpg/.test(sent)], [false, false, false, false]);
+  is('fields: the six preview fields are not on the list a client is sent, and not on the list a client may write',
+     [PREVIEW_FIELD_NAMES.length, PREVIEW_FIELD_NAMES.some((f) => CF.includes(f)), PREVIEW_FIELD_NAMES.some((f) => Object.values(CLIENT_EDITABLE).includes(f))], [6, false, false]);
+
+  // ── the Notion adapter ──
+  const props = storedPreviewProperties(ready);
+  is('notion: a preview writes its six fields and no other, so a card’s own fields and Last Edited By are never touched',
+     Object.keys(props).sort(), [...PREVIEW_FIELD_NAMES].sort());
+  const asRead = Object.fromEntries(Object.entries(props).map(([k, v]) => [k, v.select !== undefined ? { type: 'select', select: v.select } : { type: 'rich_text', rich_text: v.rich_text.map((t) => ({ plain_text: t.text.content })) }]));
+  is('notion: what is written reads back the same', readStoredPreview(asRead), ready);
+  is('notion: a row with none of the fields reads as nothing recorded', readStoredPreview({}), none);
+  is('notion: clearing a field writes it empty, not the word null',
+     [storedPreviewProperties(none)[PREVIEW_FIELDS.video].rich_text, storedPreviewProperties(none)[PREVIEW_FIELDS.status].select], [[], null]);
+
+  // ── what to do next ──
+  const now = Date.parse('2026-11-19T12:00:00.000Z');
+  const job = (o = {}) => ({ version: V, started: now - 60000, job: 'a'.repeat(32), ...o });
+  const conv = (j) => ({ ...none, status: 'Converting', source: FILE, detail: jobDetail(j) });
+  is('job: what is written while converting reads back', [parseJob(jobDetail(job())), parseJob(jobDetail(job({ job: null }))), parseJob('Ready · video'), parseJob(null)],
+     [job(), job({ job: null }), null, null]);
+  is('next: nothing recorded, build it', planPreview(LINK, none, now), { do: 'build', fileId: FILE });
+  is('next: the link now points at a different file, build it again', planPreview(LINK, { ...ready, source: OTHER }, now), { do: 'build', fileId: FILE });
+  is('next: ready is left alone, and so is a failure, until someone asks',
+     [planPreview(LINK, ready, now), planPreview(LINK, failed, now), planPreview(LINK, failed, now, { force: true })], [{ do: 'none' }, { do: 'none' }, { do: 'build', fileId: FILE }]);
+  is('next: converting with a job, ask the converter', planPreview(LINK, conv(job()), now), { do: 'check', fileId: FILE, job: job() });
+  is('next: an upload in progress is waited for, not sent again', planPreview(LINK, conv(job({ job: null })), now), { do: 'wait' });
+  is('next: an upload that never came back is started again after six minutes',
+     [planPreview(LINK, conv(job({ job: null, started: now - UPLOAD_STALE_MS - 1 })), now), UPLOAD_STALE_MS], [{ do: 'build', fileId: FILE }, 360000]);
+  is('next: a conversion still going after 45 minutes is a failure, not a forever spinner',
+     [planPreview(LINK, conv(job({ started: now - CONVERT_TIMEOUT_MS - 1 })), now).do, CONVERT_TIMEOUT_MS], ['fail', 2700000]);
+  is('next: converting with nothing readable beside it starts again', planPreview(LINK, { ...none, status: 'Converting', source: FILE, detail: 'garbage' }, now), { do: 'build', fileId: FILE });
+  is('next: no Drive link, nothing to do, whatever is recorded', [planPreview(null, ready, now), planPreview('https://vimeo.com/123456', none, now)], [{ do: 'none' }, { do: 'none' }]);
+  is('upload: a piece is a size the converter accepts (at least 5 MiB, a multiple of 256 KiB) and the cap is 800 MB',
+     [UPLOAD_CHUNK >= 5 * 1024 * 1024, UPLOAD_CHUNK % (256 * 1024), UPLOAD_CHUNK <= 200 * 1024 * 1024, MAX_VIDEO_BYTES], [true, 0, true, 800 * 1024 * 1024]);
+
+  // ── byte ranges: what a phone asks a video for ──
+  is('range: none, or one we do not answer, is the whole file', [parseRange(null, 1000), parseRange('', 1000), parseRange('bytes=0-1,5-9', 1000), parseRange('items=0-5', 1000), parseRange('bytes=-', 1000)],
+     ['all', 'all', 'all', 'all', 'all']);
+  is('range: the first two bytes, which is what Safari asks first', parseRange('bytes=0-1', 1000), { offset: 0, length: 2 });
+  is('range: from a point to the end', parseRange('bytes=500-', 1000), { offset: 500, length: 500 });
+  is('range: an end past the file is cut to the file', parseRange('bytes=990-5000', 1000), { offset: 990, length: 10 });
+  is('range: the last N bytes, which is where an index at the end would be', [parseRange('bytes=-100', 1000), parseRange('bytes=-5000', 1000)], [{ offset: 900, length: 100 }, { offset: 0, length: 1000 }]);
+  is('range: starting past the end, backwards, or of an empty file is refused',
+     [parseRange('bytes=1000-', 1000), parseRange('bytes=5-2', 1000), parseRange('bytes=0-1', 0), parseRange('bytes=-0', 1000)], [null, null, null, null]);
+
+  // ── reading an MP4 ──
+  const box = (type, ...parts) => { const body = parts.flatMap((p) => [...p]); const n = body.length + 8; return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255, ...[...type].map((c) => c.charCodeAt(0)), ...body]; };
+  const entry = (name, w, h) => { const b = new Array(78).fill(0); b[24] = w >> 8; b[25] = w & 255; b[26] = h >> 8; b[27] = h & 255; return box(name, b); };
+  const moov = (name, w, h) => box('moov', box('trak', box('mdia', box('minf', box('stbl', box('stsd', [0, 0, 0, 0, 0, 0, 0, 1], entry(name, w, h)))))));
+  const ftyp = box('ftyp', [...'isom'].map((c) => c.charCodeAt(0)), [0, 0, 2, 0], [...'avc1'].map((c) => c.charCodeAt(0)));
+  const mdat = box('mdat', new Array(64).fill(7));
+  const web = probeMp4(Uint8Array.from([...ftyp, ...moov('avc1', 1920, 1080), ...mdat]));
+  is('mp4: index first, H.264, 1920×1080 reads as exactly that', web, { faststart: true, codec: 'H.264', width: 1920, height: 1080 });
+  is('mp4: and that is what we promise a phone', mp4IsWebReady(web), true);
+  is('mp4: a portrait 1080×1920 is fine too', mp4IsWebReady(probeMp4(Uint8Array.from([...ftyp, ...moov('avc1', 1080, 1920), ...mdat]))), true);
+  const late = probeMp4(Uint8Array.from([...ftyp, ...mdat, ...moov('avc1', 1920, 1080)]));
+  is('mp4: picture data before the index is not faststart', [late.faststart, mp4IsWebReady(late)], [false, false]);
+  is('mp4: when the index is not in what was read at all, it is not faststart', probeMp4(Uint8Array.from([...ftyp, ...box('mdat', new Array(16).fill(1))])).faststart, false);
+  const hevc = probeMp4(Uint8Array.from([...ftyp, ...moov('hvc1', 1920, 1080), ...mdat]));
+  is('mp4: HEVC and 4K are each named, and neither is what we promise', [hevc.codec, mp4IsWebReady(hevc), mp4IsWebReady(probeMp4(Uint8Array.from([...ftyp, ...moov('avc1', 3840, 2160), ...mdat])))], ['HEVC', false, false]);
+  is('mp4: the brand name in the header is not mistaken for the picture', probeMp4(Uint8Array.from([...ftyp, ...box('moov', box('mvhd', new Array(20).fill(0))), ...mdat])).codec, null);
+  is('mp4: not an MP4 at all reads as unknown, not as a crash', probeMp4(Uint8Array.from([1, 2, 3, 4, 5])), { faststart: null, codec: null, width: null, height: null });
+  is('detail: what a finished build writes on the row',
+     [readyDetail('video', 23.4 * 1024 * 1024, web), readyDetail('image', 412 * 1024), readyDetail('video', 5 * 1024 * 1024, late), failureDetail('Drive will not show us this file.')],
+     ['Ready · video, 1920×1080 H.264, faststart, 23 MB', 'Ready · image, 0.4 MB', 'Ready · video, 1920×1080 H.264, NOT faststart, 5.0 MB · CHECK: not the web format we expect', 'Failed · Drive will not show us this file.']);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

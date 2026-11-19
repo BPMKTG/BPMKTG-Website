@@ -1117,6 +1117,7 @@ const NAV = [
         editLink: c.editLink ?? null,
         postLink: c.postLink ?? null,
         media: c.media ?? null,
+        ...(c.preview ? { preview: c.preview } : {}),
         clientSlug: client.slug,
         clientName: client.artist,
       } as PortalContentItem & { clientSlug: string; clientName: string });
@@ -1994,6 +1995,7 @@ const NAV = [
       save: (card, patchBody, local) => saveCalCard(card.id, patchBody, local),
       toast,
       clientOf: (card) => (card as any).clientName ?? null,
+      slugOf: (card) => (card as any).clientSlug ?? null,
     }, c, body);
 
     const who = slug ? calClientBySlug().get(slug) : undefined;
@@ -3105,6 +3107,12 @@ const NAV = [
     root.appendChild(strip());
     const added = clientAdded();
     if (added) root.appendChild(added);
+    // Filled when the previews answer comes back, which is after the
+    // first draw: making previews must never hold the page up.
+    const prev = el('div');
+    prev.dataset.previews = '';
+    fillPreviews(prev);
+    root.appendChild(prev);
     root.appendChild(owedBar());
     root.appendChild(todayBar());
 
@@ -3141,6 +3149,92 @@ const NAV = [
     if (lists.overdue.length) root.appendChild(section('Overdue', lists.overdue, true));
     if (lists.today.length) root.appendChild(section('Due today', lists.today));
     if (lists.week.length) root.appendChild(section('This week', lists.week));
+  }
+
+  /* ── previews ──────────────────────────────────────────
+     Our own copies of the files behind Drive links (see
+     src/data/preview.ts). HQ opening is what makes them: it asks
+     once, and keeps asking while any are still converting. What it
+     shows here is only what needs one of us: a file we could not
+     read or convert, with the reason and a way to try again. */
+
+  interface PreviewRow {
+    id: string; title: string; client: string | null; slug: string | null; link: string;
+    preview: { state: 'ready' | 'pending' | 'failed'; kind?: 'image' | 'video'; v?: string; poster?: boolean; why?: string };
+    note?: string;
+  }
+  let PREVIEWS: { items: PreviewRow[]; waiting: number; setup?: string[] } | null = null;
+  let PREVIEW_ASKS = 0;
+
+  async function syncPreviews(body: Record<string, unknown> = {}): Promise<void> {
+    const res = await pbSend('POST', '/portal/hq/previews', body);
+    if (!res.ok || !res.json) return;
+    if (!('id' in body)) {
+      PREVIEWS = { items: (res.json.items ?? []) as PreviewRow[], waiting: Number(res.json.waiting ?? 0), setup: res.json.setup };
+    } else if (PREVIEWS) {
+      // One item was asked about: put its answer in the list we hold.
+      const one = ((res.json.items ?? []) as PreviewRow[])[0];
+      if (one) PREVIEWS.items = PREVIEWS.items.map((r) => (r.id === one.id ? one : r));
+    }
+    // The cards HQ already holds learn where their preview is now, so
+    // a drawer opened after this shows it without a reload.
+    const byId = new Map((PREVIEWS?.items ?? []).map((r) => [r.id, r.preview]));
+    for (const c of (HQ?.content ?? []) as Array<{ id: string; preview?: unknown }>) {
+      const p = byId.get(c.id.replace(/-/g, '').toLowerCase());
+      if (p) c.preview = p;
+    }
+    const slot = q('[data-previews]');
+    if (slot) fillPreviews(slot);
+    // Still converting: ask again shortly, for as long as a
+    // conversion can reasonably take.
+    if (!('id' in body) && PREVIEWS && PREVIEWS.waiting > 0 && PREVIEW_ASKS < 120) {
+      PREVIEW_ASKS += 1;
+      window.setTimeout(() => { void syncPreviews(); }, 6000);
+    }
+  }
+
+  function fillPreviews(slot: HTMLElement): void {
+    clear(slot);
+    const failed = (PREVIEWS?.items ?? []).filter((r) => r.preview.state === 'failed');
+    const setup = PREVIEWS?.setup ?? [];
+    if (!failed.length && !setup.length) return;
+    const sec = el('section', 'hq-sec hq-prev');
+    sec.dataset.previewFailures = '1';
+    const head = el('div', 'hq-sec-head');
+    head.appendChild(el('h2', undefined, 'Previews to fix'));
+    if (failed.length) head.appendChild(el('span', 'hq-sec-count', String(failed.length)));
+    sec.appendChild(head);
+    for (const line of setup) {
+      sec.appendChild(el('p', 'hq-prev-setup', `Previews cannot be made yet: ${line}`));
+    }
+    if (failed.length) {
+      const list = el('ul', 'hq-prev-list');
+      for (const r of failed) {
+        const li = el('li', 'hq-prev-row');
+        li.dataset.previewFailed = r.id;
+        const text = el('div', 'hq-prev-text');
+        text.appendChild(el('strong', undefined, [r.client, r.title].filter(Boolean).join(' \u00b7 ')));
+        text.appendChild(el('span', undefined, (r.preview.why ?? r.note ?? 'The preview could not be made.').replace(/^Failed \u00b7 /, '')));
+        const acts = el('div', 'hq-prev-acts');
+        const open = el('a', 'pt-btn pt-btn-sm') as HTMLAnchorElement;
+        open.href = r.link;
+        open.target = '_blank';
+        open.rel = 'noopener noreferrer';
+        open.textContent = 'Open in Drive';
+        const again = el('button', 'pt-btn pt-btn-sm pt-btn-primary', 'Try again') as HTMLButtonElement;
+        again.type = 'button';
+        again.addEventListener('click', () => {
+          again.disabled = true;
+          again.textContent = 'Trying\u2026';
+          void syncPreviews({ id: r.id, retry: true }).then(() => syncPreviews());
+        });
+        acts.append(open, again);
+        li.append(text, acts);
+        list.appendChild(li);
+      }
+      sec.appendChild(list);
+    }
+    slot.appendChild(sec);
   }
 
   /**
@@ -3703,6 +3797,8 @@ const NAV = [
 
     show(q('[data-state="loading"]'), false);
     show(q('[data-app]'), true);
+    // Not awaited: the page is usable while previews are made.
+    void syncPreviews();
     wireSearch();
     bindSheet();
     q('[data-drawer-close]')?.addEventListener('click', closeCalDrawer);

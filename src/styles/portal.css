@@ -3604,6 +3604,46 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 }
 .pt-preview video, .pt-preview img { display: block; width: 100%; max-height: 62vh; object-fit: contain; }
 .pt-preview iframe { display: block; width: 100%; aspect-ratio: 9 / 12; max-height: 62vh; border: 0; }
+/* Our own copy of a Drive file. The stage is the dark box; the line
+   under it is the way out to the original, on the page's own colour
+   so it reads as a link and not as part of the picture. */
+.pt-preview-ours { background: var(--pt-surface); }
+.pt-preview-stage { background: #0b1220; }
+.pt-preview-stage video { background: #000; }
+.pt-preview-note {
+  margin: 0; padding: var(--pt-6) var(--pt-4); text-align: center;
+  font-size: .88rem; line-height: 1.45; color: #cbd5e1;
+}
+.pt-preview-note-pending::before {
+  content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 8px;
+  border: 2px solid rgba(203, 213, 225, .35); border-top-color: #cbd5e1; border-radius: 50%;
+  vertical-align: -1px; animation: pt-preview-spin .9s linear infinite;
+}
+@keyframes pt-preview-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pt-preview-note-pending::before { animation: none; } }
+.pt-preview-open {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px var(--pt-3); min-height: 44px;
+  font-size: .85rem; font-weight: 600; color: var(--pt-navy); text-decoration: none;
+  border-top: 1px solid var(--pt-line);
+}
+.pt-preview-open:hover { background: var(--pt-tint); }
+.pt-preview-open svg { width: 14px; height: 14px; flex: none; }
+.pt-rcard .pt-preview-ours { border-bottom: 1px solid var(--pt-line); }
+
+/* HQ: previews that could not be made, and why. */
+.hq-prev-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.hq-prev-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--pt-2) var(--pt-4); padding: var(--pt-3) 0;
+}
+.hq-prev-row + .hq-prev-row { border-top: 1px solid var(--pt-line-soft); }
+.hq-prev-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 320px; }
+.hq-prev-text strong { font-size: .92rem; color: var(--pt-ink); }
+.hq-prev-text span { font-size: .82rem; line-height: 1.4; color: var(--pt-ink-2); }
+.hq-prev-acts { display: flex; flex-wrap: wrap; gap: var(--pt-2); }
+.hq-prev-setup { margin: 0 0 var(--pt-3); font-size: .85rem; line-height: 1.45; color: var(--pt-ink-2); }
+
 .pt-btn-wide { width: 100%; justify-content: center; margin-bottom: var(--pt-4); }
 .pt-preview + .pt-field, .pt-btn-wide + .pt-field, .pt-drawer-top + .pt-field,
 .pt-review + .pt-field, .pt-preview + .pt-btn-wide { margin-top: 0; }
