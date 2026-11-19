@@ -121,6 +121,13 @@ export interface ApplyAsk {
   dryRun: boolean;
   keep: string[];
   pieces: Record<string, number>;
+  /** Ours only. Make no steps: only the deliveries that steps already
+   *  on the moment still owe. For backfilling a client whose steps
+   *  exist, where a step the plan does not recognise (a reworded one
+   *  from before Master Step ID) must not be made a second time. */
+  owedOnly: boolean;
+  /** Ours only, with owedOnly. Steps to hold back, by id. */
+  leave: string[];
 }
 
 /** Reads a request's apply options. Nothing here is trusted beyond
@@ -135,7 +142,11 @@ export function readApplyAsk(body: Record<string, unknown>, isId: (v: unknown) =
       if (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= MAX_TEAM_PIECES) pieces[k] = v;
     }
   }
-  return { momentId: body.momentId, playbook: body.playbook.trim(), dryRun: body.dryRun === true, keep, pieces };
+  const leave = Array.isArray(body.leave) ? body.leave.filter((k): k is string => typeof k === 'string' && isId(k)).slice(0, 80) : [];
+  return {
+    momentId: body.momentId, playbook: body.playbook.trim(), dryRun: body.dryRun === true, keep, pieces,
+    owedOnly: body.owedOnly === true, leave,
+  };
 }
 
 export interface ApplyAnswer { status: number; body: Record<string, unknown> }
@@ -179,8 +190,13 @@ export async function runApply(
   const effective = effectivePlaybook(masters, overrides, ask.playbook, client.pageId);
   const onMoment = cal.steps.filter((s) => same(s.momentId, ask.momentId));
   const titleOf = (id: string | null) => cal.moments.find((m) => same(m.id, id))?.title ?? null;
-  const plan = planApplyRun(effective, moment, onMoment.map(toExisting), cal.steps.map(toExisting), titleOf,
+  const planned = planApplyRun(effective, moment, onMoment.map(toExisting), cal.steps.map(toExisting), titleOf,
     { today, role, keep: ask.keep, pieces: ask.pieces });
+  // Deliveries only: the plan's new steps are counted for the answer
+  // and never made. A client cannot ask for this.
+  const owedOnly = ask.owedOnly && role === 'admin';
+  const plan = owedOnly ? { ...planned, rows: [], needs: [] } : planned;
+  const held = new Set(owedOnly ? ask.leave.map((id) => id.replace(/-/g, '')) : []);
 
   /* What steps this playbook already has here still owe. */
   const mine = onMoment.filter((s) => s.playbook === ask.playbook && !s.pending
@@ -201,10 +217,14 @@ export async function runApply(
     for (const s of mine) {
       const kind = deliverableOfFlow(s.flow);
       if (!kind || s.status === 'Done') continue;
+      // A backfill touches only what nobody has started, and leaves
+      // alone whatever it was told to.
+      if (owedOnly && (s.status !== 'Not Started' || held.has(s.id.replace(/-/g, '')))) continue;
       const have = deliveries.filter((d) => same(d.stepId, s.id)).length;
       const stored = typeof s.pieces === 'number' && s.pieces >= 1 ? Math.round(s.pieces) : null;
       const perTeam = isPerTeam(s.notes);
-      const asked = ask.pieces[s.id];
+      // A backfill never sizes a step: that would be a change to it.
+      const asked = owedOnly ? undefined : ask.pieces[s.id];
       // A number already on the step stands. One given now is written
       // onto the step, so the next apply does not have to ask again.
       const want = stored ?? (perTeam ? (asked ?? 0) : 1);
@@ -232,6 +252,7 @@ export async function runApply(
     moment: moment.title, momentDate: moment.date, playbook: ask.playbook,
     alreadyThere: plan.alreadyThere, alreadyApplied: plan.alreadyThere > 0,
     skipped: plan.skipped, needs: [...plan.needs, ...owedNeeds],
+    ...(owedOnly ? { owedOnly: true, stepsNotMade: planned.rows.map((r) => r.title) } : {}),
   };
 
   if (ask.dryRun) {

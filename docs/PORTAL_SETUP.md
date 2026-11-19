@@ -536,6 +536,13 @@ would be written; nothing is written before it.
 - **Undo.** In HQ, until the sheet is closed: removes only the steps it
   just made that are still Not Started with nothing begun, and names
   the rest. Rows are archived, not deleted.
+- **Deliveries only.** `owedOnly: true` on `POST /portal/hq/playbooks/apply`
+  (ours only; ignored from a client's portal) makes no steps at all:
+  only the deliveries that Not Started steps already on the moment
+  still owe. `leave: [stepIds]` holds steps back. It never sizes a
+  per-team step; one with no Pieces is refused. For backfilling a
+  client whose steps were made before Master Step ID, where a reworded
+  step would otherwise be made a second time.
 - **Masters are never written to** by any of this.
 
 Both gym flows are **Owner = Client**: the step is the client's

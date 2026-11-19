@@ -5673,7 +5673,12 @@ section('Apply a playbook · the plan');
   const ID = '11111111-1111-1111-1111-111111111111';
   is('ask: read by shape, and nothing about who or whose is taken from it',
      readApplyAsk({ momentId: ID, playbook: ' Competition Weekend ', keep: ['a', 3], pieces: { a: 4, b: 0, c: 'x', d: 99 }, clientId: 'x', owner: 'Client', role: 'admin' }, isId),
-     { momentId: ID, playbook: 'Competition Weekend', dryRun: false, keep: ['a'], pieces: { a: 4 } });
+     { momentId: ID, playbook: 'Competition Weekend', dryRun: false, keep: ['a'], pieces: { a: 4 }, owedOnly: false, leave: [] });
+  is('ask: deliveries only is off unless asked for outright, and the steps to hold back must be ids',
+     [readApplyAsk({ momentId: ID, playbook: 'x' }, isId).owedOnly, readApplyAsk({ momentId: ID, playbook: 'x', owedOnly: 'yes' }, isId).owedOnly,
+      readApplyAsk({ momentId: ID, playbook: 'x', owedOnly: true, leave: [ID, 'nope', 4] }, isId).owedOnly, readApplyAsk({ momentId: ID, playbook: 'x', owedOnly: true, leave: [ID, 'nope', 4] }, isId).leave,
+      readApplyAsk({ momentId: ID, playbook: 'x' }, isId).leave],
+     [false, false, true, [ID], []]);
   is('ask: no moment or no playbook is no ask', [readApplyAsk({ playbook: 'x' }, isId), readApplyAsk({ momentId: ID }, isId), readApplyAsk({ momentId: 'nope', playbook: 'x' }, isId)], [null, null, null]);
 
   // ── undo ──

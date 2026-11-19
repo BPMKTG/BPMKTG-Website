@@ -41,7 +41,7 @@ export const onRequestPost: PagesFunction<WriteEnv> = async ({ request, env, par
   if (!ask) return portalNotFound();
   const role = ctx.viewer.role;
   // A client cannot keep a late step or size a step of ours.
-  if (role !== 'admin') { ask.keep = []; ask.pieces = {}; }
+  if (role !== 'admin') { ask.keep = []; ask.pieces = {}; ask.owedOnly = false; ask.leave = []; }
   if (!ask.dryRun && await overLimit('pa', ctx.slug, LIMIT, WINDOW_SECONDS)) {
     return writeOk({ ok: false, error: 'too_fast', message: 'That is a lot of planning at once. Give it a while and try again.' });
   }
