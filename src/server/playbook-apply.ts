@@ -20,7 +20,7 @@ import {
   isDeliverableFlow, piecesForStep, planMissingPieces, type PieceStep, type PlannedPiece,
 } from '../data/pieces';
 import {
-  cleanNewMoment, isPerTeam, lateNote, momentTitleFor, planApplyRun, planUndo, MAX_TEAM_PIECES,
+  cleanNewMoment, lateNote, momentTitleFor, planApplyRun, planUndo, MAX_TEAM_PIECES,
   type ApplyRow, type ExistingStep,
 } from '../data/playbook-apply';
 import { effectivePlaybook, isRetiredPlaybook, mastersForType } from '../data/playbooks';
@@ -210,8 +210,8 @@ export async function runApply(
   const owedDeliveries: Array<{
     step: PieceStep; kind: DeliverableKind; missing: number; have: number; want: number; perTeam: boolean; sized: boolean;
   }> = [];
-  // Per-team steps already here with no number on them yet. They owe
-  // rows nobody can count until one of us says how many teams.
+  // Nothing a step already here owes needs a number any more: a
+  // delivery is one per step. Kept so the answer has one shape.
   const owedNeeds: string[] = [];
   if (gym && role === 'admin') {
     for (const s of mine) {
@@ -221,16 +221,12 @@ export async function runApply(
       // alone whatever it was told to.
       if (owedOnly && (s.status !== 'Not Started' || held.has(s.id.replace(/-/g, '')))) continue;
       const have = deliveries.filter((d) => same(d.stepId, s.id)).length;
-      const stored = typeof s.pieces === 'number' && s.pieces >= 1 ? Math.round(s.pieces) : null;
-      const perTeam = isPerTeam(s.notes);
-      // A backfill never sizes a step: that would be a change to it.
-      const asked = owedOnly ? undefined : ask.pieces[s.id];
-      // A number already on the step stands. One given now is written
-      // onto the step, so the next apply does not have to ask again.
-      const want = stored ?? (perTeam ? (asked ?? 0) : 1);
-      if (perTeam && !stored && !asked && !have) { owedNeeds.push(s.id); }
-      if (want > have || (perTeam && !stored && !asked && !have)) {
-        owedDeliveries.push({ step: s, kind, missing: Math.max(0, want - have), have, want, perTeam, sized: !!stored || !!asked });
+      // One delivery per step, whatever its Pieces and however many
+      // teams it is "one per". The step stands for the batch, as it
+      // does on the calendar, so nothing here asks for a team count.
+      const want = 1;
+      if (want > have) {
+        owedDeliveries.push({ step: s, kind, missing: want - have, have, want, perTeam: false, sized: true });
       }
     }
   }
@@ -330,11 +326,6 @@ export async function runApply(
       piecesCreated++;
     }
     for (const o of owedDeliveries) {
-      // The team count just given is kept on the step itself.
-      if (o.perTeam && !(typeof o.step.pieces === 'number' && o.step.pieces >= 1) && o.want > 0 && budget > 0) {
-        await patchRow(token, o.step.id, { Pieces: { number: o.want }, 'Last Edited By': editor(role) }, 'sizing a per-team step');
-        budget--;
-      }
       for (let n = o.have + 1; n <= o.want && !stopped; n++) {
         if (budget < 1) break;
         const d = deliveryFor(o.kind, moment.title, o.step.title, n, o.want, o.step.id, o.step.date);
@@ -430,7 +421,9 @@ export async function createMoment(
  *   skip      that step is not happening: Skipped, flag cleared
  */
 export async function answerPending(
-  token: string, pageId: string, action: string, pieces: number | null,
+  // The count is no longer used: a delivery is one per step. Kept so
+  // an older page that still sends one is answered, not refused.
+  token: string, pageId: string, action: string, _pieces: number | null,
   clientOf: (clientPageId: string) => Promise<ApplyClient | null>,
 ): Promise<ApplyAnswer & { slug?: string | null }> {
   const page = await fetchPage(token, pageId);
@@ -462,16 +455,10 @@ export async function answerPending(
     : { steps: [], moments: [] };
   const moment = cal.moments.find((m) => same(m.id, momentId)) ?? null;
   const kindOwed = deliverableOfFlow(step.flow);
-  const perTeam = isPerTeam(readText(p['Notes']));
-  let count = 0;
-  if (kindOwed) {
-    count = perTeam ? (pieces ?? 0) : (typeof step.pieces === 'number' && step.pieces >= 1 ? Math.round(step.pieces) : 1);
-    if (count < 1 || count > MAX_TEAM_PIECES) {
-      return { status: 400, body: { ok: false, error: 'needs_pieces', rejected: ['pieces'] } };
-    }
-  }
-  const cleared = await patchRow(token, pageId,
-    { ...clear, ...(kindOwed && perTeam ? { Pieces: { number: count } } : {}) }, 'confirming a pending step');
+  // One delivery per step: confirming never needs a team count, and
+  // never writes one onto the step.
+  const count = kindOwed ? 1 : 0;
+  const cleared = await patchRow(token, pageId, clear, 'confirming a pending step');
   if (!cleared) return { status: 502, body: { ok: false, error: 'write_failed' } };
 
   let made = 0;

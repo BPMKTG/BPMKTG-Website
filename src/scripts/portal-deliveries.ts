@@ -43,6 +43,11 @@ export interface DeliveriesHost {
 
 export function createDeliveries(host: DeliveriesHost): (view: ContentViewApi) => HTMLElement | null {
   const admin = () => host.role() === 'admin';
+  /** The competitions someone has opened, by client and moment. Kept
+   *  here rather than read off the page, because moving a delivery to
+   *  its next stage redraws the tracker and must not shut the list it
+   *  was done in. */
+  const opened = new Set<string>();
 
   function addSheet(client: DeliveryClient) {
     openSheet(`Add a delivery for ${client.name}`, (form, close) => {
@@ -169,9 +174,17 @@ export function createDeliveries(host: DeliveriesHost): (view: ContentViewApi) =
     return li;
   }
 
+  /** One competition, shut until it is asked for: a season of them is
+   *  a long page otherwise, and the heading already says how far along
+   *  each one is. */
   function group(client: DeliveryClient, g: DeliveryGroup): HTMLElement {
-    const box = el('div', 'pt-deliv-group');
-    const head = el('div', 'pt-deliv-head');
+    const key = `${client.key}:${g.key}`;
+    const box = el('details', 'pt-deliv-group') as HTMLDetailsElement;
+    box.dataset.deliveryGroup = g.key;
+    box.open = opened.has(key);
+    box.addEventListener('toggle', () => { if (box.open) opened.add(key); else opened.delete(key); });
+    const head = el('summary', 'pt-deliv-head');
+    head.appendChild(icon('chev'));
     head.appendChild(el('h3', undefined, g.title));
     if (g.date) head.appendChild(el('span', 'pt-deliv-date pt-num', host.shortDay(g.date)));
     head.appendChild(el('span', 'pt-deliv-count pt-num', `${g.delivered} of ${g.rows.length} delivered`));
@@ -203,7 +216,9 @@ export function createDeliveries(host: DeliveriesHost): (view: ContentViewApi) =
       head.appendChild(add);
     }
     sec.appendChild(head);
-    for (const g of deliveryGroups(client.deliveries, client.moments)) sec.appendChild(group(client, g));
+    const groups = el('div', 'pt-deliv-groups');
+    for (const g of deliveryGroups(client.deliveries, client.moments)) groups.appendChild(group(client, g));
+    if (groups.childElementCount) sec.appendChild(groups);
     return sec;
   }
 

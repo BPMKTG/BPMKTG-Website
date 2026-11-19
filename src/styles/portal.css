@@ -3927,11 +3927,22 @@ div.pt-pb-step-editing { border: 1px solid var(--pt-line); border-radius: var(--
   letter-spacing: .12em; text-transform: uppercase; color: var(--pt-ink);
 }
 .pt-deliv-sum { margin: 0; font-size: .88rem; line-height: 1.45; color: var(--pt-ink-2); max-width: 68ch; }
-.pt-deliv-group { display: flex; flex-direction: column; gap: var(--pt-2); }
+/* One competition is a dropdown, shut until asked for. The groups sit
+   close together when shut, so a season reads as a short list. */
+.pt-deliv-groups { display: flex; flex-direction: column; }
+.pt-deliv-group { border-top: 1px solid var(--pt-line-soft); }
+.pt-deliv-group:last-child { border-bottom: 1px solid var(--pt-line-soft); }
 .pt-deliv-head {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--pt-3);
-  padding-bottom: var(--pt-2); border-bottom: 1px solid var(--pt-line-soft);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--pt-3);
+  padding: var(--pt-3) var(--pt-1); cursor: pointer; list-style: none;
+  border-radius: var(--pt-r-sm, 6px);
 }
+.pt-deliv-head::-webkit-details-marker { display: none; }
+.pt-deliv-head:hover { background: var(--pt-line-soft); }
+.pt-deliv-head svg { width: 14px; height: 14px; flex: none; color: var(--pt-muted); transition: transform var(--pt-t); }
+.pt-deliv-group[open] > .pt-deliv-head svg { transform: rotate(90deg); }
+.pt-deliv-group[open] > .pt-deliv-list { padding: 0 var(--pt-1) var(--pt-3) calc(14px + var(--pt-3) + var(--pt-1)); }
+@media (prefers-reduced-motion: reduce) { .pt-deliv-head svg { transition: none; } }
 .pt-deliv-head h3 { margin: 0; font-size: .95rem; font-weight: 700; color: var(--pt-ink); }
 .pt-deliv-date { font-size: .8rem; color: var(--pt-muted); }
 .pt-deliv-count { margin-left: auto; font-size: .8rem; color: var(--pt-muted); }

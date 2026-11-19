@@ -253,7 +253,11 @@ export function planApplyRun(
     const live = !skippedLate && !pending;
 
     const owes: ApplyRow['owes'] = delivery ?? (isDeliverableFlow(done.flow) ? 'post' : null);
-    const perTeam = !!owes && isPerTeam(s.notes);
+    // A delivery is one row per step, whatever the step's Pieces and
+    // however many teams it is "one per": not every team goes to every
+    // competition, so the step stands for the batch, as it does on the
+    // calendar. Only a post of ours is still counted per team.
+    const perTeam = owes === 'post' && isPerTeam(s.notes);
     let pieces = 0;
     if (owes && live) {
       if (perTeam) {
@@ -262,7 +266,7 @@ export function planApplyRun(
         else needs.push(s.key);
       } else {
         const n = typeof s.pieces === 'number' && s.pieces >= 1 ? Math.min(MAX_PIECES, Math.round(s.pieces)) : 1;
-        pieces = n;
+        pieces = delivery ? 1 : n;
       }
     }
 

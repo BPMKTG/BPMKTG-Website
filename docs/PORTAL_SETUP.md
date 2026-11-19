@@ -464,6 +464,8 @@ lives in `Edit Link`.
 
 - Deliveries are split off on the server before any payload is built,
   so they are never on a content board, a calendar or a month count.
+- In the tracker each competition is a dropdown, shut until opened,
+  with its date and "n of m delivered" on the heading.
 - HQ → Content shows a tracker per gym: add one, move its stage, paste
   the link, remove it (which sets Skipped). `POST` and `PATCH`
   `/portal/hq/deliveries`, admin only.
@@ -518,14 +520,18 @@ would be written; nothing is written before it.
   Reassigned, Added. A skipped step is left out and named.
 - **Late.** A step whose day has passed is created as **Skipped**
   unless one of us ticks "keep" in the preview.
-- **Per team.** A step whose Notes contain "One piece per" needs a
-  number before it can be applied. The number is kept in the copy's
-  Pieces.
+- **Per team.** A post of ours whose Notes contain "One piece per"
+  needs a number before it can be applied, and the number is kept in
+  the copy's Pieces. A gym's delivery is never counted this way: see
+  the next line.
 - **What a step owes.** For an artist, a Blueprint post per deliverable
   step, as before. For a gym, a photo set
   (`Blueprint shoots + edits → Client posts`) or a footage batch
   (`Blueprint shoots + grades → Client edits + posts`), linked to the
   step and shown in the delivery tracker under its competition.
+  **One delivery per step**, whatever the step's Pieces and even when
+  it is "one per team": not every team goes to every competition, so
+  the row stands for the batch, as the step does on the calendar.
 - **Twice is safe.** Every copy keeps its master's id in **Master Step
   ID** (never sent to a client). A second apply says "already applied"
   and only adds what is missing, including rows that steps already
@@ -539,8 +545,7 @@ would be written; nothing is written before it.
 - **Deliveries only.** `owedOnly: true` on `POST /portal/hq/playbooks/apply`
   (ours only; ignored from a client's portal) makes no steps at all:
   only the deliveries that Not Started steps already on the moment
-  still owe. `leave: [stepIds]` holds steps back. It never sizes a
-  per-team step; one with no Pieces is refused. For backfilling a
+  still owe. `leave: [stepIds]` holds steps back. For backfilling a
   client whose steps were made before Master Step ID, where a reworded
   step would otherwise be made a second time.
 - **Masters are never written to** by any of this.
@@ -569,8 +574,7 @@ Skipped; a client cannot keep one or give a team count.
 
 HQ → Today shows **Client added: confirm**: each event a client
 created ("Got it") and each pending step (**Confirm** or **Skip**).
-Confirm is what creates the step's post, photo set or footage batch,
-and asks for the team count on a per-team step.
+Confirm is what creates the step's post, photo set or footage batch.
 `POST /portal/hq/pending`.
 
 ## Intake forms

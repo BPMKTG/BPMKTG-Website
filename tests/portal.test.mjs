@@ -5561,14 +5561,21 @@ section('Apply a playbook · the plan');
      [['Recap video'], ['reworded'], ['added'], []]);
   is('overrides: every kind of change has its mark',
      marksOf(EFF('x', 'x', 0, { was: { title: 'a', offset: -3, flow: 'Client task' }, added: true })), ['added', 'reworded', 'shifted', 'reassigned']);
-  is('owes: a graded-footage step owes footage batches, a photo step a photo set, and a post of hers nothing',
+  is('owes: a graded-footage step owes one footage batch, a photo step one photo set, and a post of hers nothing',
      plan.rows.map((r) => [r.key, r.owes, r.pieces]),
-     [['m-plan', null, 0], ['m-hype', null, 0], ['m-times', null, 0], ['m-clip', 'Footage batch', 4], ['m-photos', 'Photo set', 1], ['add:o9', null, 0]]);
+     [['m-plan', null, 0], ['m-hype', null, 0], ['m-times', null, 0], ['m-clip', 'Footage batch', 1], ['m-photos', 'Photo set', 1], ['add:o9', null, 0]]);
+  is('owes: a delivery is one per step, whatever the step’s Pieces, a team count sent with it, or "one per team" in its notes',
+     [{}, { 'm-x': 9 }].map((pieces) => planApplyRun([EFF('m-x', 'Routine highlight, one per team', 0, { flow: SHOOTS_GRADES_FLOW, pieces: 9, notes: 'One piece per competing team.' })], oneDay, [], [], none, { ...admin, pieces }))
+       .map((x) => [x.rows[0].pieces, x.rows[0].perTeam, x.needs]),
+     [[1, false, []], [1, false, []]]);
 
   const unsized = planApplyRun(steps, oneDay, [], [], none, admin);
-  is('per team: a step whose notes say "One piece per" needs a number, and says so', [isPerTeam('One piece per competing team.'), isPerTeam('One per team, spread across −10 to −2.'), isPerTeam(null), unsized.needs, unsized.rows.find((r) => r.key === 'm-clip').perTeam], [true, false, false, ['m-clip'], true]);
-  is('per team: a number outside 1 to ' + MAX_TEAM_PIECES + ' is not a number',
-     [0, 25, 2.5].map((n) => planApplyRun(steps, oneDay, [], [], none, { ...admin, pieces: { 'm-clip': n } }).needs.length), [1, 1, 1]);
+  is('per team: a gym’s highlight is never asked for a team count', [unsized.needs, unsized.rows.find((r) => r.key === 'm-clip').perTeam, unsized.rows.find((r) => r.key === 'm-clip').pieces], [[], false, 1]);
+  const perCity = [EFF('a-city', 'Local cut, one per city', -5, { flow: 'Blueprint makes + posts', owner: 'Blueprint', notes: 'One piece per city on the run.' })];
+  const unsizedPost = planApplyRun(perCity, oneDay, [], [], none, admin);
+  is('per team: a post of ours whose notes say "One piece per" still needs a number, and says so', [isPerTeam('One piece per competing team.'), isPerTeam('One per team, spread across −10 to −2.'), isPerTeam(null), unsizedPost.needs, unsizedPost.rows[0].perTeam], [true, false, false, ['a-city'], true]);
+  is('per team: a number outside 1 to ' + MAX_TEAM_PIECES + ' is not a number, and one inside it is taken',
+     [0, 25, 2.5, 3].map((n) => { const x = planApplyRun(perCity, oneDay, [], [], none, { ...admin, pieces: { 'a-city': n } }); return [x.needs.length, x.rows[0].pieces]; }), [[1, 0], [1, 0], [1, 0], [0, 3]]);
 
   const late = planApplyRun(steps, oneDay, [], [], none, { today: '2026-11-30', role: 'admin', pieces: { 'm-clip': 4 } });
   is('late: a step whose day has passed is created as Skipped, flagged, and owes nothing',
@@ -5653,11 +5660,11 @@ section('Apply a playbook · the plan');
   // ── the page a row becomes ──
   const gymClient = { pageId: 'client-1', artist: 'Rebelz Cheer', slug: 'rebelz-cheer', type: CHEER_GYM };
   const clip = copyProperties(plan.rows.find((r) => r.key === 'm-clip'), gymClient, 'mo', false, 'admin', '2026-11-20');
-  is('copy: a real step on the real moment, for this client, with the master’s id kept and nothing blank',
+  is('copy: a real step on the real moment, for this client, with the master’s id kept, and Pieces exactly as the master has it (blank here)',
      [clip['Is Playbook'].checkbox, clip.Kind.select.name, clip.Moment.relation[0].id, clip.Client.relation[0].id, clip[MASTER_PROP].rich_text[0].text.content,
       clip.Status.select.name, clip.Date.date.start, clip.Flow.select.name, clip.Owner.select.name, clip.Type.select.name, clip['Client Type'].select.name,
       clip.Priority.select.name, clip['Default Media'].select.name, clip.Pieces.number, clip.Item.title[0].text.content, PENDING_PROP in clip],
-     [false, 'Step', 'mo', 'client-1', 'm-clip', 'Not Started', '2026-12-06', SHOOTS_GRADES_FLOW, 'Client', 'Content', 'Cheer Gym', 'Core', 'Video', 4, 'Routine highlight, one per team', false]);
+     [false, 'Step', 'mo', 'client-1', 'm-clip', 'Not Started', '2026-12-06', SHOOTS_GRADES_FLOW, 'Client', 'Content', 'Cheer Gym', 'Core', 'Video', null, 'Routine highlight, one per team', false]);
   const lateCopy = copyProperties(late.rows.find((r) => r.key === 'm-plan'), gymClient, 'mo', false, 'admin', '2026-11-30');
   is('copy: a late step is written Skipped, and says why', [lateCopy.Status.select.name, lateCopy.Notes.rich_text[0].text.content], ['Skipped', lateNote('2026-11-30')]);
   const waiting = copyProperties(client.rows.find((r) => r.key === 'm-photos'), gymClient, 'mo', false, 'client', '2026-11-20');
