@@ -22,6 +22,7 @@ const NAV = [
   { id: 'clients',  label: 'Clients',  icon: 'home' },
   { id: 'calendar', label: 'Calendar', icon: 'cal' },
   { id: 'content',  label: 'Content',  icon: 'film' },
+  { id: 'vault',    label: 'Vault',    icon: 'photo' },
   { id: 'playbooks', label: 'Playbooks', icon: 'playbook' },
   { id: 'pipeline', label: 'Pipeline', icon: 'grip' },
   { id: 'reports',  label: 'Reports',  icon: 'chart' },
@@ -162,6 +163,7 @@ const NAV = [
           <section class="pt-view" data-view="clients" hidden></section>
           <section class="pt-view" data-view="calendar" hidden></section>
           <section class="pt-view" data-view="content" hidden></section>
+          <section class="pt-view" data-view="vault" hidden></section>
           <section class="pt-view" data-view="playbooks" hidden></section>
           <section class="pt-view" data-view="pipeline" hidden></section>
           <section class="pt-view" data-view="reports" hidden></section>
@@ -172,7 +174,7 @@ const NAV = [
     {/* The sidebar is display:none under 900px, so without this there
         is no way off the Today tab on a phone. Same markup and the
         same classes the client portal's tab bar uses. */}
-    <nav class="pt-tabbar" aria-label="Blueprint HQ">
+    <nav class="pt-tabbar" aria-label="Blueprint HQ" data-many>
       {NAV.map((n) => (
         <a class="pt-tab" href={`#/${n.id}`} data-nav={n.id}>
           <svg aria-hidden="true" focusable="false"><use href={`#pt-i-${n.icon}`}/></svg>
@@ -267,9 +269,10 @@ const NAV = [
   import { createOwnContent, type OwnContent } from '../../scripts/portal-own-content';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { notificationSheet } from '../../scripts/portal-app';
+  import { mountVault, mountVaultOverview, syncVaultsOnOpen, type VaultMount } from '../../scripts/portal-vault';
   import { clear, el, icon, q, qq, show } from '../../scripts/portal-dom';
 
-  const VIEWS = ['today', 'clients', 'calendar', 'content', 'playbooks', 'pipeline', 'reports'] as const;
+  const VIEWS = ['today', 'clients', 'calendar', 'content', 'vault', 'playbooks', 'pipeline', 'reports'] as const;
   type View = typeof VIEWS[number];
 
   let HQ: any = null;
@@ -397,10 +400,42 @@ const NAV = [
     draw(view);
   }
 
+  /* ══ VAULT ══════════════════════════════════════════════════
+     #/vault is every client's Vault in a card each. #/vault/<slug>
+     is one client's, the same module their own portal draws, with
+     what is ours switched on by the sign-in. Whichever is showing is
+     left in place while the address still names it, so a search or
+     a place in the grid is not lost to a redraw. */
+  let VAULT_AT: string | null = null;
+  let VAULT_ONE: VaultMount | null = null;
+  let VAULT_ALL: { destroy(): void } | null = null;
+
+  function drawVaultTab(root: HTMLElement) {
+    const [, slug = '', ...rest] = (location.hash || '').replace(/^#\/?/, '').split('/');
+    const want = /^[a-z0-9][a-z0-9-]*$/.test(slug) ? slug : '';
+    if (VAULT_AT !== want) {
+      VAULT_ONE?.destroy();
+      VAULT_ALL?.destroy();
+      VAULT_ONE = null;
+      VAULT_ALL = null;
+      VAULT_AT = want;
+      if (want) {
+        const name = clients().find((c) => c.slug === want)?.artist || want;
+        VAULT_ONE = mountVault(root, { slug: want, toast, hq: { name, back: () => { location.hash = '#/vault'; } } });
+      } else {
+        VAULT_ALL = mountVaultOverview(root, { toast, open: (s) => { location.hash = `#/vault/${s}`; } });
+      }
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+    if (want) VAULT_ONE?.route(rest.join('/'));
+  }
+
   function draw(view: View) {
     if (!HQ) return;
     const root = q(`[data-view="${view}"]`);
     if (!root) return;
+    // The Vault keeps itself: see drawVaultTab.
+    if (view === 'vault') { drawVaultTab(root); return; }
     clear(root);
     if (view === 'today') drawToday(root);
     if (view === 'clients') drawClients(root);
@@ -672,6 +707,16 @@ const NAV = [
     return card;
   }
 
+  /** The client's Vault, here in HQ. It used to be a link out to a
+   *  Google Sheet. */
+  function vaultLink(c: { slug?: string | null }): HTMLElement | null {
+    if (!c.slug) return null;
+    const a = el('a', 'hq-link');
+    a.href = `#/vault/${c.slug}`;
+    a.append(el('span', undefined, 'Content Vault'), icon('chev'));
+    return a;
+  }
+
   function linkRow(label: string, href: string | null | undefined): HTMLElement | null {
     if (!href) return null;
     const a = el('a', 'hq-link');
@@ -697,7 +742,7 @@ const NAV = [
     const row = el('div', 'hq-links');
     const any = [
       linkRow('Client Folder', c.clientFolder),
-      linkRow('Content Vault', c.contentVault),
+      vaultLink(c),
       linkRow('Drive Folder', c.driveFolder),
       linkRow('Brand Kit', c.brandKit),
       linkRow('Instagram', c.instagram),
@@ -3828,6 +3873,9 @@ const NAV = [
     show(q('[data-app]'), true);
     // Not awaited: the page is usable while previews are made.
     void syncPreviews();
+    // Nor is this: every Vault that is due is brought up to date in
+    // the background, one client at a time.
+    void syncVaultsOnOpen();
     q('[data-notifications]')?.addEventListener('click', () => {
       notificationSheet({ url: '/portal/hq/push', toast });
     });

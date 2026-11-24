@@ -24,8 +24,8 @@
 
 /* ── kinds ────────────────────────────────────────────────────── */
 
-export const CLIENT_KINDS = ['review', 'progress', 'report'] as const;
-export const ADMIN_KINDS = ['approved', 'changes', 'footage', 'idea', 'preview'] as const;
+export const CLIENT_KINDS = ['review', 'progress', 'report', 'media'] as const;
+export const ADMIN_KINDS = ['approved', 'changes', 'footage', 'idea', 'preview', 'files'] as const;
 export type ClientKind = typeof CLIENT_KINDS[number];
 export type AdminKind = typeof ADMIN_KINDS[number];
 export type PushKind = ClientKind | AdminKind;
@@ -36,11 +36,13 @@ export const PUSH_KIND_LABEL: Record<PushKind, string> = {
   review: 'New content needs your review',
   progress: 'Your content moves forward (editing, scheduled, posted, delivered)',
   report: 'Your monthly report is ready',
+  media: 'Photos and video from a show are ready',
   approved: 'A client approved something',
   changes: 'A client requested changes',
   footage: 'A client filmed something or sent footage',
   idea: 'A client submitted a new idea',
   preview: 'A preview failed',
+  files: 'New files landed in a client\'s Vault',
 };
 
 export const kindsFor = (audience: PushAudience): readonly PushKind[] =>
@@ -201,10 +203,44 @@ export function reportMessage(slug: string, label: string | null): PushMessage {
   };
 }
 
+/* ── the Content Vault ────────────────────────────────────────── */
+
+/**
+ * "Your Revival After Dark media is ready", to the client.
+ *
+ * Sent when one of us taps "Announce delivery" on a show and at no
+ * other time: a sync finding files says nothing to a client, because
+ * files landing is us still working, not a delivery.
+ */
+export function mediaReadyMessage(slug: string, show: string): PushMessage {
+  const name = short(show, 60);
+  return {
+    title: `Your ${name} media is ready`,
+    body: 'Open Blueprint to see it in your Vault.',
+    url: `/portal/${slug}#/vault/show/${encodeURIComponent(show)}`,
+    tag: 'media',
+  };
+}
+
+/**
+ * "Sean Comma: 12 new files", to us, after a sync that found new Raw
+ * files. One per client per sync, however many files it found, and a
+ * later sync's replaces it on the device.
+ */
+export function vaultFilesMessage(o: { client: string; slug: string; count: number }): PushMessage {
+  const n = Math.max(1, Math.floor(o.count));
+  return {
+    title: `${short(o.client || 'A client', 40)}: ${n} new ${n === 1 ? 'file' : 'files'}`,
+    body: 'They are in the Unsorted tray.',
+    url: `/portal/hq#/vault/${o.slug}`,
+    tag: `files-${o.slug}`.slice(0, 32),
+  };
+}
+
 /* ── ours ─────────────────────────────────────────────────────── */
 
 export function adminMessage(
-  kind: AdminKind, o: { client: string; slug: string | null; item: string; id: string | null; status?: string | null },
+  kind: Exclude<AdminKind, 'files'>, o: { client: string; slug: string | null; item: string; id: string | null; status?: string | null },
 ): PushMessage {
   const client = short(o.client || 'A client', 40);
   const item = short(o.item || 'an item', 70);

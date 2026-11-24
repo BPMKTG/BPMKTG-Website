@@ -51,6 +51,9 @@ interface Env {
   /** Where the brand brief lives. Optional: a deployment without it
    *  is a portal with no brief, not a broken one. */
   REPORTS_BUCKET?: R2Bucket;
+  /** The Content Vault's database. Only whether it is bound is read
+   *  here: a portal on a deployment without it has no Vault tab. */
+  VAULT_DB?: unknown;
 }
 
 
@@ -78,7 +81,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
         return [];
       })
     : [];
-  const viewerBlock = { role: viewer.role, ...(clients.length ? { clients } : {}) };
+  const viewerBlock = { role: viewer.role, ...(env.VAULT_DB ? { vault: true } : {}), ...(clients.length ? { clients } : {}) };
 
   // Drafts and controls. Read per request and grafted on the way out,
   // never written into the cached body: the cache is keyed by client,

@@ -15,6 +15,7 @@ const NAV = [
   { id: 'home',     label: 'Home',     icon: 'home' },
   { id: 'calendar', label: 'Calendar', icon: 'cal' },
   { id: 'content',  label: 'Content',  icon: 'film' },
+  { id: 'vault',    label: 'Vault',    icon: 'photo' },
   { id: 'playbooks', label: 'Playbooks', icon: 'playbook' },
   { id: 'reports',  label: 'Reports',  icon: 'chart' },
   { id: 'files',    label: 'Files',    icon: 'folder' },
@@ -195,7 +196,7 @@ const NAV = [
     <div class="pt-body">
       <nav class="pt-sidebar" aria-label="Portal sections">
         {NAV.map((n) => (
-          <a class="pt-nav-item" href={`#/${n.id}`} data-nav={n.id}>
+          <a class="pt-nav-item" href={`#/${n.id}`} data-nav={n.id} hidden={n.id === 'vault'}>
             <svg aria-hidden="true"><use href={`#pt-i-${n.icon}`} /></svg>
             {n.label}
           </a>
@@ -212,6 +213,7 @@ const NAV = [
         <section class="pt-view" data-view="home" aria-label="Home"></section>
         <section class="pt-view" data-view="calendar" aria-label="Calendar" hidden></section>
         <section class="pt-view" data-view="content" aria-label="Content" hidden></section>
+        <section class="pt-view" data-view="vault" aria-label="Content Vault" hidden></section>
         <section class="pt-view" data-view="playbooks" aria-label="Playbooks" hidden></section>
         <section class="pt-view" data-view="reports" aria-label="Reports" hidden></section>
         <section class="pt-view" data-view="files" aria-label="Files" hidden></section>
@@ -220,7 +222,7 @@ const NAV = [
 
     <nav class="pt-tabbar" aria-label="Portal sections">
       {NAV.map((n) => (
-        <a class="pt-tab" href={`#/${n.id}`} data-tab={n.id}>
+        <a class="pt-tab" href={`#/${n.id}`} data-tab={n.id} hidden={n.id === 'vault'}>
           <svg aria-hidden="true"><use href={`#pt-i-${n.icon}`} /></svg>
           {n.label}
           <span class="pt-tab-dot"></span>
@@ -321,6 +323,7 @@ const NAV = [
   import { openApplyFlow } from '../../scripts/portal-apply';
   import { createReviewStrip } from '../../scripts/portal-content-review';
   import { slideOnScreen } from '../../scripts/portal-slides';
+  import { mountVault, type VaultMount } from '../../scripts/portal-vault';
   import { showsSlides } from '../../data/slides';
   import { createOwnContent, type OwnContent } from '../../scripts/portal-own-content';
   import { createClientPlaybooks, type Answer as PbAnswer } from '../../scripts/portal-playbooks';
@@ -500,6 +503,7 @@ const NAV = [
     if (tier && c.tier) { tier.textContent = c.tier; show(tier, true); }
 
     VIEWER = data.viewer ?? { role: 'client' };
+    showVaultNav();
     wireIdentityMenu();
     // The one-time "put this on your home screen" card. Not for one
     // of us looking at a client's portal: it is their app to install.
@@ -654,13 +658,38 @@ const NAV = [
   /* ── router ────────────────────────────────────────────────────
      Hash routes so each section is its own view in the shell rather
      than one long scroll, and so a client can bookmark "my calendar". */
-  const VIEWS = ['home', 'calendar', 'content', 'playbooks', 'reports', 'files'] as const;
+  const VIEWS = ['home', 'calendar', 'content', 'vault', 'playbooks', 'reports', 'files'] as const;
   type View = typeof VIEWS[number];
+
+  /* ── the Content Vault ─────────────────────────────────────────
+     Its own module, drawn into its own view the first time it is
+     opened and left there, so coming back to it finds the search and
+     the place in the grid as they were. It is offered to a client
+     only where the Vault is set up; one of us always sees the tab,
+     because the view is also where it says what is missing. */
+  let VAULT: VaultMount | null = null;
+  const vaultOn = () => VIEWER.role === 'admin' || VIEWER.vault === true;
+
+  function drawVault(detail: string) {
+    const root = q('[data-view="vault"]');
+    if (!root) return;
+    if (!VAULT) VAULT = mountVault(root, { slug: SLUG, toast });
+    VAULT.route(detail);
+  }
+
+  /** The Vault's tab and sidebar link, shown or not. */
+  function showVaultNav() {
+    for (const n of qq('[data-nav="vault"], [data-tab="vault"]')) show(n, vaultOn());
+  }
 
   function currentRoute(): { view: View; detail: string } {
     const raw = location.hash.replace(/^#\/?/, '');
     const [v, ...rest] = raw.split('/');
-    const view = (VIEWS as readonly string[]).includes(v) ? (v as View) : 'home';
+    let view = (VIEWS as readonly string[]).includes(v) ? (v as View) : 'home';
+    if (view === 'vault' && !vaultOn()) view = 'home';
+    // The Vault reads its own detail, which may hold a show's name
+    // with a slash in it, so it is handed over as it was typed.
+    if (view === 'vault') return { view, detail: rest.join('/') };
     return { view, detail: decodeURIComponent(rest.join('/') || '') };
   }
 
@@ -679,6 +708,7 @@ const NAV = [
     if (view === 'reports') showPlatform(detail);
     if (view === 'content') drawContent();
     if (view === 'playbooks') drawPlaybooks();
+    if (view === 'vault') drawVault(detail);
     // #/calendar/<moment page id> opens the calendar with that campaign
     // already filtered. Blueprint HQ's campaign chips link here, so a
     // moment in a list over there is one click from the rollout it
@@ -4177,7 +4207,12 @@ const NAV = [
 
     const defs: Array<[string | null, string, string, string]> = [
       [c.driveFolder, 'Drive folder', 'Everything we shoot and cut for you: raw files, finished edits, stills.', 'folder'],
-      [c.contentVault, 'Content Vault', 'Your captions, hooks and posting plan, in the sheet we both work from.', 'inbox'],
+      // The Vault used to be a Google Sheet, linked here. It is a tab
+      // of its own now, so the card leads there, and the old sheet is
+      // only linked where the Vault is not set up.
+      vaultOn()
+        ? [`#/vault`, 'Content Vault', 'Every photo and clip of yours, findable in seconds.', 'photo']
+        : [c.contentVault, 'Content Vault', 'Your captions, hooks and posting plan, in the sheet we both work from.', 'inbox'],
       [c.roadmapLink, 'Roadmap', 'The plan for your term: what we are building, in what order, and why.', 'chart'],
     ];
     const live = defs.filter(([url]) => !!url);
@@ -4200,13 +4235,16 @@ const NAV = [
     for (const [url, title, desc, ic] of live) {
       const a = el('a', 'pt-file');
       (a as HTMLAnchorElement).href = url!;
-      (a as HTMLAnchorElement).target = '_blank';
-      (a as HTMLAnchorElement).rel = 'noopener noreferrer';
+      // A link to another part of the portal stays in this window.
+      if (!url!.startsWith('#')) {
+        (a as HTMLAnchorElement).target = '_blank';
+        (a as HTMLAnchorElement).rel = 'noopener noreferrer';
+      }
       const box = el('div', 'pt-file-icon');
       box.appendChild(icon(ic));
       a.append(box, el('h3', undefined, title), el('p', undefined, desc));
       const open = el('span', 'pt-file-open');
-      open.append(el('span', undefined, 'Open'), icon('ext'));
+      open.append(el('span', undefined, 'Open'), icon(url!.startsWith('#') ? 'chev' : 'ext'));
       a.appendChild(open);
       grid.appendChild(a);
     }

@@ -229,6 +229,31 @@ export function driveFolderId(raw: string | null | undefined): string | null {
   return null;
 }
 
+/* ── folder links typed into Notion ───────────────────────────── */
+
+/**
+ * Every Drive folder link in a Notion text field.
+ *
+ * A link may have been pasted as plain text or turned into a link by
+ * Notion, so both the words and what they point at are read. Each
+ * folder once, in the order written.
+ */
+export function folderLinks(prop: Record<string, any> | undefined): Array<{ id: string; link: string }> {
+  const out: Array<{ id: string; link: string }> = [];
+  const take = (raw: unknown): void => {
+    const id = driveFolderId(typeof raw === 'string' ? raw : null);
+    if (id && !out.some((o) => o.id === id)) out.push({ id, link: `https://drive.google.com/drive/folders/${id}` });
+  };
+  const parts = Array.isArray(prop?.rich_text) ? prop!.rich_text : [];
+  for (const t of parts) {
+    take(t?.href);
+    take(t?.text?.link?.url);
+    for (const word of String(t?.plain_text ?? '').split(/[\s,;]+/)) take(word);
+  }
+  if (typeof prop?.url === 'string') take(prop.url);
+  return out;
+}
+
 /* ── listing ──────────────────────────────────────────────────── */
 
 async function driveList(token: string, query: Record<string, string>): Promise<any[]> {

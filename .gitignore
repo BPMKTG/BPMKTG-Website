@@ -33,3 +33,4 @@ pnpm-debug.log*
 
 # transient bundle used by `npm run test:intake`
 .tmp-intake-lib.mjs
+.tmp-vault-lib.mjs

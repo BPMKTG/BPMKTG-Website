@@ -1264,6 +1264,9 @@ export interface PortalViewer {
   role: 'client' | 'admin';
   /** Admins only: the clients whose portal is switched on. */
   clients?: Array<{ slug: string; artist: string }>;
+  /** The Content Vault is set up on this deployment. Without it the
+   *  Vault tab is not drawn for a client. */
+  vault?: boolean;
 }
 
 /** A brief is either a PDF we hold or a link to one somebody else

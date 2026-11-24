@@ -34,8 +34,8 @@
    ────────────────────────────────────────────────────────────── */
 
 import {
-  REVIEW_BATCH_MS, addToBatch, adminMessage, cleanPrefs, progressKey, progressMessage, reportMessage, reviewMessage,
-  sweepReview, wants, withDevice,
+  REVIEW_BATCH_MS, addToBatch, adminMessage, cleanPrefs, mediaReadyMessage, progressKey, progressMessage, reportMessage,
+  reviewMessage, sweepReview, vaultFilesMessage, wants, withDevice,
   type AdminKind, type ProgressEvent, type PushAudience, type PushKind, type PushMessage, type PushPrefs,
   type ReviewBatch, type StoredSubscription,
 } from '../data/push';
@@ -384,8 +384,30 @@ export async function notifyReport(env: PushEnv, slug: string, label: string | n
   }
 }
 
+/** "[Client]: 12 new files", to us. See vaultFilesMessage. */
+export async function notifyVaultFiles(env: PushEnv, o: { client: string; slug: string; count: number }): Promise<number> {
+  try {
+    if (o.count < 1) return 0;
+    return await deliver(env, ADMIN_KEY, 'files', vaultFilesMessage(o), 'vault');
+  } catch (err) {
+    console.error('push: vault files notification failed', o.slug, err);
+    return 0;
+  }
+}
+
+/** "Your [show] media is ready", to the client. Only ever called by
+ *  the route behind "Announce delivery". */
+export async function notifyMediaReady(env: PushEnv, slug: string, show: string): Promise<number> {
+  try {
+    return await deliver(env, clientKey(slug), 'media', mediaReadyMessage(slug, show), 'media');
+  } catch (err) {
+    console.error('push: media notification failed', slug, err);
+    return 0;
+  }
+}
+
 export async function notifyAdmins(
-  env: PushEnv, kind: AdminKind, o: { client: string; slug: string | null; item: string; id: string | null; status?: string | null },
+  env: PushEnv, kind: Exclude<AdminKind, 'files'>, o: { client: string; slug: string | null; item: string; id: string | null; status?: string | null },
 ): Promise<number> {
   try { return await deliver(env, ADMIN_KEY, kind, adminMessage(kind, o)); } catch (err) {
     console.error('push: admin notification failed', kind, err);

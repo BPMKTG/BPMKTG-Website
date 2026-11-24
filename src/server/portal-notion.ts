@@ -22,6 +22,7 @@
 import { clientType, type ClientTypeConfig } from '../data/client-types';
 import { PREVIEW_FIELDS, itemPreview, type ItemPreview, type StoredPreview } from '../data/preview';
 import { SLIDES_FIELD } from '../data/slides';
+import { folderLinks } from './google-drive';
 import { isValidSlug, normaliseSlug } from './portal-auth';
 import { parseEmailList } from './portal-login';
 import {
@@ -207,6 +208,10 @@ export async function queryAll(
   return out;
 }
 
+/** The Clients field the Content Vault's extra folders are typed
+ *  into: one or more Drive folder links. */
+export const ARCHIVE_FOLDERS_FIELD = 'Archive Folders';
+
 /* ── client lookup ─────────────────────────────────────────────── */
 
 export interface ClientRecord {
@@ -233,6 +238,11 @@ export interface ClientRecord {
   /** What kind of client this is: an artist unless the Clients row
    *  says otherwise. Decides what the payload leaves out. */
   type: ClientTypeConfig;
+  /** The Clients row's `Archive Folders`: extra Drive folders the
+   *  Content Vault reads, which we do not own and cannot rename.
+   *  Ours only. Deliberately NOT in CLIENT_FIELDS and not on
+   *  `client`, so it is in nothing a client is sent. */
+  archiveFolders: Array<{ id: string; link: string }>;
   client: PortalClient;
 }
 
@@ -279,6 +289,7 @@ function shapeClient(page: any): ClientRecord {
     playbookAuditUrl: typeof p['Playbook Audit']?.url === 'string' && p['Playbook Audit'].url.trim()
       ? p['Playbook Audit'].url.trim() : null,
     type: clientType(readSelect(p[CLIENT_FIELDS[15]])),
+    archiveFolders: folderLinks(p[ARCHIVE_FOLDERS_FIELD]),
     // Built field by field from CLIENT_FIELDS. Nothing else on the page
     // is read, so nothing else can ship.
     client: {
@@ -496,6 +507,18 @@ export async function fetchPortalClients(token: string): Promise<Array<{ slug: s
     .filter((r) => r.slug && isValidSlug(r.slug))
     .map((r) => ({ slug: r.slug, artist: r.client.artist || r.slug }))
     .sort((a, b) => a.artist.localeCompare(b.artist));
+}
+
+/** Every client whose portal is on, as whole records. Ours only:
+ *  what the Content Vault's sync walks through. */
+export async function fetchPortalRecords(token: string): Promise<ClientRecord[]> {
+  const results = await queryAll(token, CLIENTS_DB, {
+    filter: { property: 'Portal Enabled', checkbox: { equals: true } },
+  });
+  return results
+    .map((page: any) => shapeClient(page))
+    .filter((r) => r.slug && isValidSlug(r.slug))
+    .sort((a, b) => (a.client.artist || a.slug).localeCompare(b.client.artist || b.slug));
 }
 
 /* ── one step, for the client's tick box ───────────────────────── */

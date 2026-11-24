@@ -93,7 +93,7 @@ the portal until someone adds it to that file on purpose.
 
 | Database | Sent | Never sent |
 |---|---|---|
-| Clients | Artist, Tier, Stage, Term Start, Term End, Client Announcement, Drive Folder, Content Vault, Roadmap Link, Access Complete | Portal Emails, Portal Key, Monthly Rate, Full Rate, Notes, Next Action, Email, Phone, Lead Source, Access Granted, Intake Slug, everything else |
+| Clients | Artist, Tier, Stage, Term Start, Term End, Client Announcement, Drive Folder, Content Vault, Roadmap Link, Access Complete | Portal Emails, Portal Key, Monthly Rate, Full Rate, Notes, Next Action, Email, Phone, Lead Source, Access Granted, Intake Slug, Archive Folders, everything else |
 | Campaign Calendar | Item, Kind, Moment Type, Date (or Auto Date), Status, Type, Owner, Playbook, Phase, Where, Why It Matters, Venue / City, Ticket or RSVP Link | Notes, Offset (days), Last Edited By |
 | KPI Snapshots | Date, Type, Data Source, Growth Score (/40), Summary, every numeric metric | Notes, Snapshot |
 
@@ -768,6 +768,181 @@ Client** ticked, and remove the slides before archiving it.
 
 ---
 
+## The Content Vault
+
+Every photo and clip a client owns, logged once and findable in
+seconds. It replaces the Google Sheet each client used to have, and
+the script that filled it. It is a tab in the client's portal
+(`/portal/<slug>#/vault`) and a tab in HQ (`/portal/hq#/vault`, every
+client; `/portal/hq#/vault/<slug>`, one).
+
+The rules are in `src/data/vault.ts`. The store is
+`src/server/vault-db.ts`, the reading of Drive `vault-drive.ts`, the
+sync `vault-sync.ts`, and what the routes are made of `vault.ts`. The
+page is one module, `src/scripts/portal-vault.ts`, drawn in both
+places.
+
+**Where it is kept.** A D1 database bound as `VAULT_DB`, not Notion: a
+client has thousands of files, and a filter over them is one query
+there and twenty requests to Notion. The tables are made by the app
+the first time it is used, so a new database needs nothing run
+against it.
+
+**Three sources a client.** Every file has a Kind (Raw or Finished)
+and a Source.
+
+| Source | Where | Kind | What the folders mean |
+|---|---|---|---|
+| Footage Drop | a folder of that name inside the Clients row's **Drive Folder** | Raw | `YYYY-MM-DD Event Name` gives the day and the show. Anything under `_IDS` is Unreleased. |
+| Finished Content | a folder of that name inside the same Drive Folder | Finished, source Blueprint | `YYYY/YYYY-MM/<show or release>/...` gives the month and the show. Deeper folders are filing: they are shown on the file and not used to name it. |
+| Archive | each link in the Clients row's **Archive Folders** | Raw, source Archive | Folders we do not own and cannot rename. Only a dated folder is trusted. |
+
+A file whose folders fit none of that is never left out. It keeps the
+name of the folder directly under the source (or under the year, in
+Finished Content) as a guess, and is listed in HQ under **Needs a
+show**, one line a guess, to confirm in bulk.
+
+A file's date is the folder's day where its name has one. A folder
+that only names a month or a year is sharpened to the day the photo
+was taken when that day falls inside it. With no folder date it is
+the day the photo was taken, and failing that the earliest day Drive
+has for the file: Drive records when a video was put there, not when
+it was shot.
+
+**Drive is read-only.** The service account's key asks for
+`drive.readonly`. The sync asks Drive questions and nothing else: no
+file is renamed, moved, copied or deleted, and no original is
+downloaded. What Drive already knows about a file (its size in
+pixels, its length, a thumbnail it has drawn) is all that is used.
+
+**Shared by name, not by link.** A folder counts as shared only when
+it, or a folder above it, has been shared with the service account by
+name. One that can be read only because "anyone with the link" can
+read it is shown in HQ as **Not shared with the Vault yet**, with the
+service account's address to copy, and none of its files are logged.
+
+**The sync.** Lists every image and video under all three sources,
+logs the ones it has not seen (matched on the Drive file's id), brings
+the ones it has up to date, makes a thumbnail for each, and brings the
+usage log in line with what is Posted. It fills in type, orientation,
+length, size, date and show. It runs:
+
+- once a day, from the scheduled Worker below
+- from **Sync now** in HQ
+- when HQ is opened, for any client not synced in the last half hour
+
+It runs in one pass and writes down where it has got to as it goes. A
+sync that is cut off is picked up by the next one: what it logged
+stays logged, the folders are listed again (seconds), and thumbnails
+carry on from where they stopped. Only one runs for a client at a
+time.
+
+A file that is no longer in a folder it was read from is marked
+**Missing** and is never deleted. Missing is only ever said of a file
+whose own source was read to the end that time: a folder that would
+not list, or is no longer shared, says nothing about its files.
+
+**Unsorted and keepers.** A new Raw file lands in **Unsorted**.
+Starring or rating it makes it a keeper. A Finished file is a keeper
+from the start. The default view is keepers only.
+
+**Opening a file.** A thumbnail is made for every file. The web-sized
+picture is made the first time someone opens the file, and kept. A
+video shows its poster; **Play preview** converts it through Stream
+(the preview service's own step, see above) and keeps the result. A
+video longer than five minutes is not converted on demand: it shows
+its poster and **Open original**, which is always there and is the
+file's own page in Drive. Every file is served by the preview route,
+behind the same sign-in: a client sees only their own.
+
+**The usage log.** When a Content Pipeline item is Posted, each Vault
+file it uses (its Edit Link, or its slides, matched on the Drive
+file's id) is logged as used, with the date, the platforms and the
+post. So is a file one of us marked as what the post was **made
+from**. It is brought up to date when a card crosses the Posted line
+through the portal, and by every sync, which is what catches a status
+changed in Notion itself. A post moved back out of Posted comes off
+the log. One of us can also mark a file as used by hand.
+
+**Hold for.** One of us can put files aside for a post or a campaign.
+A held file is left out of **Never posted**. We are shown what it is
+held for; a client is told it is held, and not for what, because the
+post may be one we are holding back.
+
+**Use in a post.** One file, or several picked in order, become a new
+Idea in that client's Content Pipeline: the file attached as its Edit
+Link, or the files as its slides. This is the one thing the Vault
+writes outside itself. It makes a new row and changes no existing
+card, stage, campaign or playbook. The Idea is the client's to post,
+so it does not count toward what we owe in a month.
+
+**Who can do what.** Decided by the signed session, on the server.
+
+| | A client | One of us |
+|---|---|---|
+| Browse, search, filter, open | their own files | every client's |
+| Star, tag, write notes | yes | yes |
+| Use in a post | into their own Ideas | yes |
+| Rate, set source, type or show, hold for, mark used, made from | no | yes |
+| Sync, Needs a show, Announce delivery | no | yes |
+
+**Notifications.** A sync that finds new Raw files tells us once:
+"[Client]: 12 new files". A client is told about files only when one
+of us taps **Announce delivery** on a show: "Your [show] media is
+ready". Never by a sync. Each is its own kind on the notifications
+sheet, so a device can turn it off.
+
+**The service worker.** It does not handle any Vault file, thumbnail,
+preview or data request, and was not changed for the Vault. The Vault
+is a view of pages it already serves.
+
+### Setting it up
+
+Three things, once, in the Cloudflare dashboard.
+
+**1. The database.** Storage & Databases → D1 SQL Database → **Create**.
+Name it `bpmktg-vault`. Then the Pages project → **Settings →
+Bindings → Add → D1 database**: variable name `VAULT_DB`, database
+`bpmktg-vault`. Add it for **Production** and for **Preview**, and
+redeploy. The Vault tab appears for clients once it is bound.
+
+**2. A secret both sides share.** Make a long random string (for
+example `openssl rand -hex 32`). On the Pages project, add it as an
+encrypted variable named `VAULT_CRON_SECRET`, for Production. It is
+what lets the daily Worker in, and nothing else can use that door.
+
+**3. The daily Worker.** Workers & Pages → **Create → Worker**. Name
+it `bpmktg-vault-sync`. Replace its code with the whole of
+`workers/vault-sync/worker.js` and deploy. Then, on that Worker:
+
+- **Settings → Variables and Secrets**: add a text variable
+  `SITE_URL` = `https://blueprint-marketing.com`, and a secret
+  `VAULT_CRON_SECRET` with the same string as step 2.
+- **Settings → Trigger Events → Add → Cron Triggers**: `0 10 * * *`
+  (10:00 UTC every day).
+
+To try it without waiting a day: the Worker's **Triggers** panel can
+run the scheduled event once, and its log should end with
+`vault-sync: done in N call(s)`. A `404` in the log means the two
+secrets do not match, or the site does not have one.
+
+The Worker holds no key to Notion or to Drive. All it can do is ask
+the site to start a sync.
+
+**Archive folders.** On a Clients row, paste one or more Drive folder
+links into **Archive Folders**, one per line. Have each folder's
+owner share it with the service account as a Viewer (HQ shows the
+address to copy). The field is ours: it is in nothing a client is
+sent.
+
+**Local testing.** Add `--d1 VAULT_DB` to the wrangler command. The
+local database and the local R2 are both separate from production's,
+so nothing done locally shows up there. "Use in a post" is the
+exception: it writes a real Idea to Notion, which a local server
+shares, so tick **Hide from Client** on it and archive it.
+
+---
+
 ## The installed app
 
 The portal can be put on a home screen. There are two apps, and a
@@ -994,10 +1169,14 @@ pieces past Planned as before, and no Done step changed.
 | `CLOUDFLARE_STREAM_TOKEN` | yes, for video previews | An API token with Account → Stream → Edit and nothing else. Converts videos. |
 | `VAPID_PUBLIC_KEY` | yes, for notifications | The public half of the push key pair. Handed to browsers when they subscribe. |
 | `VAPID_PRIVATE_KEY` | yes, for notifications | The private half. Signs every notification. Changing the pair signs every device out of notifications. |
+| `VAULT_CRON_SECRET` | yes, for the Vault's daily sync | A long random string, set here and on the `bpmktg-vault-sync` Worker. Lets the Worker ask for a sync. Without it the daily sync does not run; **Sync now** and opening HQ still do. |
 
 There is also one **binding**, which is not a variable: a Workers KV
 namespace bound as `PORTAL_KV`, in **Settings → Functions → KV namespace
 bindings**, for Production and Preview both.
+
+And one more for the Content Vault: a D1 database bound as `VAULT_DB`.
+See "The Content Vault" above.
 
 That is where a pending code lives for its ten minutes, and where the
 undo record for a moved campaign lives for its fifteen. Both have to be
@@ -1112,7 +1291,7 @@ one:
 
 ```bash
 npx wrangler kv namespace create PORTAL_KV --preview
-npx wrangler pages dev dist --kv PORTAL_KV --r2 REPORTS_BUCKET --port 8788 --compatibility-date=2026-01-01
+npx wrangler pages dev dist --kv PORTAL_KV --r2 REPORTS_BUCKET --d1 VAULT_DB --port 8788 --compatibility-date=2026-01-01
 ```
 
 or leave it unbound and accept that `/portal/login/start` will log
@@ -1145,6 +1324,18 @@ npm run test:calendar
 Run it before and after any change to the calendar. How it works, and
 when and how to re-record the baseline, is in
 `tests/calendar-snapshot/README.md`.
+
+The Content Vault has its own:
+
+```bash
+npm run test:vault      # part of npm test
+```
+
+It covers the folder rules, who may change what, the store (its SQL
+is run for real, against the SQLite that ships with Node), and the
+sync against a stand-in for Drive: new, moved, removed and returning
+files, a folder that will not list, a folder shared only by its link,
+a sync cut off part way, and that Drive is only ever sent a GET.
 
 ---
 

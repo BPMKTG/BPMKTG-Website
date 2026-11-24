@@ -19,6 +19,8 @@ import { buildContentProperties, editedBy, stampEdit } from '../../../../src/ser
 import { skipStepsOfPiece } from '../../../../src/server/pieces';
 import { attachSlides } from '../../../../src/server/slides';
 import { notifyAdmins, notifyProgress, notifyReview, type PushEnv } from '../../../../src/server/push';
+import type { VaultDbEnv } from '../../../../src/server/vault-db';
+import { logPostedUses } from '../../../../src/server/vault-sync';
 import {
   beginWrite,
   bustDataCache,
@@ -26,7 +28,7 @@ import {
   type WriteEnv,
 } from '../../../../src/server/portal-write-shared';
 
-type Env = WriteEnv & PushEnv & { REPORTS_BUCKET?: R2Bucket };
+type Env = WriteEnv & PushEnv & VaultDbEnv & { REPORTS_BUCKET?: R2Bucket };
 
 /** A Notion page id, dashed or not. Anything else never reaches the
  *  API: a path segment is not a safe thing to put in a URL. */
@@ -91,6 +93,18 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params,
     );
     if (touched.length) console.log('portal: card', nowPosted ? 'posted' : 'un-posted',
       'synced step(s)', touched.join(','));
+  }
+
+  // The Content Vault's usage log follows the same line: a file this
+  // card uses is Used once the card is Posted, and not if it comes
+  // back out. After the answer, and it changes nothing about the card.
+  // A moment's pause first, so the pipeline it reads has caught up
+  // with the save. A deployment with no Vault does nothing here.
+  if (wasPosted !== nowPosted && env.VAULT_DB) {
+    waitUntil((async () => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await logPostedUses(env, ctx.record);
+    })());
   }
 
   // A piece that is dropped takes its step with it, when it was the

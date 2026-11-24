@@ -24,7 +24,9 @@
         "--kv",
         "PORTAL_KV",
         "--r2",
-        "REPORTS_BUCKET"
+        "REPORTS_BUCKET",
+        "--d1",
+        "VAULT_DB"
       ],
       "port": 8788
     }

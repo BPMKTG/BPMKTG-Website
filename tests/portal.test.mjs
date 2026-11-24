@@ -6035,7 +6035,8 @@ section('Notifications · who is told what, and when');
      [adminMessage('approved', about).url, adminMessage('idea', about).url, adminMessage('preview', about).url, cardUrl('sean-comma', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')],
      [`/portal/sean-comma#/content/${A}`, `/portal/sean-comma#/content/${A}`, '/portal/hq#/today', `/portal/sean-comma#/content/${A}`]);
   is('says: every address a tap can open is inside /portal/',
-     [reviewMessage('s', one, 'x'), reviewMessage('s', three, 'x'), reportMessage('s', null), ...ADMIN_KINDS.map((k) => adminMessage(k, about)), adminMessage('approved', { ...about, slug: null })].every((m) => m.url.startsWith('/portal/')), true);
+     [reviewMessage('s', one, 'x'), reviewMessage('s', three, 'x'), reportMessage('s', null), ...ADMIN_KINDS.filter((k) => k !== 'files').map((k) => adminMessage(k, about)), adminMessage('approved', { ...about, slug: null }),
+      P.vaultFilesMessage({ client: 'Sean Comma', slug: 'sean-comma', count: 12 }), P.mediaReadyMessage('sean-comma', 'Revival After Dark')].every((m) => m.url.startsWith('/portal/')), true);
 
   // ── which status moves tell whom ──
   const { statusNotice, CLIENT_TOLD, ADMIN_TOLD, progressMessage, progressKey, notifyProgress } = P;
@@ -6071,11 +6072,11 @@ section('Notifications · who is told what, and when');
   is('sweep: one that leaves review is forgotten, so it is announced again if it comes back', [sweepReview([A, B], [A]), sweepReview([A], [A, B])], [{ announce: [], remember: [A] }, { announce: [B], remember: [A, B] }]);
 
   // ── kinds and choices ──
-  is('kinds: a client’s two and our four, and they do not overlap', [CLIENT_KINDS, ADMIN_KINDS, CLIENT_KINDS.some((k) => ADMIN_KINDS.includes(k)), [...CLIENT_KINDS, ...ADMIN_KINDS].every((k) => !!PUSH_KIND_LABEL[k])],
-     [['review', 'progress', 'report'], ['approved', 'changes', 'footage', 'idea', 'preview'], false, true]);
-  is('choices: everything is on until it is turned off', cleanPrefs(null, 'client'), { review: true, progress: true, report: true });
-  is('choices: a client’s device can only ever hold a client’s kinds, whatever it sends', cleanPrefs({ review: false, approved: true, preview: true, admin: true }, 'client'), { review: false, progress: true, report: true });
-  is('choices: ours hold ours', cleanPrefs({ idea: false, review: true }, 'admin'), { approved: true, changes: true, footage: true, idea: false, preview: true });
+  is('kinds: a client’s and ours, and they do not overlap', [CLIENT_KINDS, ADMIN_KINDS, CLIENT_KINDS.some((k) => ADMIN_KINDS.includes(k)), [...CLIENT_KINDS, ...ADMIN_KINDS].every((k) => !!PUSH_KIND_LABEL[k])],
+     [['review', 'progress', 'report', 'media'], ['approved', 'changes', 'footage', 'idea', 'preview', 'files'], false, true]);
+  is('choices: everything is on until it is turned off', cleanPrefs(null, 'client'), { review: true, progress: true, report: true, media: true });
+  is('choices: a client’s device can only ever hold a client’s kinds, whatever it sends', cleanPrefs({ review: false, approved: true, preview: true, files: true, admin: true }, 'client'), { review: false, progress: true, report: true, media: true });
+  is('choices: ours hold ours', cleanPrefs({ idea: false, review: true, media: true }, 'admin'), { approved: true, changes: true, footage: true, idea: false, preview: true, files: true });
   is('choices: a kind turned off is not sent, and one never asked about is', [wants({ review: false }, 'review'), wants({ review: false }, 'report'), wants(undefined, 'review')], [false, true, true]);
 
   // ── a subscription ──
@@ -6136,7 +6137,7 @@ section('Notifications · who is told what, and when');
   const errors = console.error; console.error = () => {};
   try {
     is('store: a client’s device is filed under their slug, with its choices', [await saveDevice(env, 'client', 'sean-comma', { endpoint: 'https://web.push.apple.com/phone', keys: phone.keys }, { report: false }, 'who1'), await deviceState(env, 'client', 'sean-comma', 'https://web.push.apple.com/phone'), await deviceState(env, 'client', 'other-artist', 'https://web.push.apple.com/phone')],
-       [{ review: true, progress: true, report: false }, { review: true, progress: true, report: false }, null]);
+       [{ review: true, progress: true, report: false, media: true }, { review: true, progress: true, report: false, media: true }, null]);
     await saveDevice(env, 'client', 'sean-comma', { endpoint: 'https://fcm.googleapis.com/fcm/send/tablet', keys: tablet.keys }, null, 'who1');
     await saveDevice(env, 'admin', null, { endpoint: 'https://fcm.googleapis.com/fcm/send/ours', keys: ours.keys }, { idea: false }, 'adminwho');
     const n1 = await notifyReview(env, 'sean-comma', [{ id: A, title: 'Rooftop Remix second cut' }], t0);
