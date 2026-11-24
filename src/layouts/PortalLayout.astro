@@ -29,6 +29,9 @@ const appName = app === 'hq' ? 'Blueprint HQ' : 'Blueprint';
 // HQ's manifest is served to a signed-in admin only, so the browser
 // has to send the cookie when it fetches it.
 const manifest = app === 'hq' ? '/portal/hq/app.webmanifest' : '/portal-app.webmanifest';
+// HQ's icon is the mark on a dark tile, so the two apps are told
+// apart on a home screen. Its launch screen stays light.
+const iconSet = app === 'hq' ? 'hq-dark' : 'client';
 
 // Every iPhone and iPad screen: width and height in points, and the
 // pixel ratio. iOS shows a launch image only when one matches the
@@ -64,10 +67,10 @@ const SCREENS: Array<[number, number, number]> = [
     <!-- The installable app. Light, like the portal: a white icon tile
          with the blue mark, dark text in the status bar, and a launch
          screen in the page's own colour with the header's wordmark. -->
-    <link rel="apple-touch-icon" href={`/brand/app/${app}-apple-180.png`} />
-    <link rel="apple-touch-icon" sizes="152x152" href={`/brand/app/${app}-apple-152.png`} />
-    <link rel="apple-touch-icon" sizes="167x167" href={`/brand/app/${app}-apple-167.png`} />
-    <link rel="apple-touch-icon" sizes="180x180" href={`/brand/app/${app}-apple-180.png`} />
+    <link rel="apple-touch-icon" href={`/brand/app/${iconSet}-apple-180.png`} />
+    <link rel="apple-touch-icon" sizes="152x152" href={`/brand/app/${iconSet}-apple-152.png`} />
+    <link rel="apple-touch-icon" sizes="167x167" href={`/brand/app/${iconSet}-apple-167.png`} />
+    <link rel="apple-touch-icon" sizes="180x180" href={`/brand/app/${iconSet}-apple-180.png`} />
     {app === 'hq'
       ? <link rel="manifest" href={manifest} crossorigin="use-credentials" />
       : <link rel="manifest" href={manifest} />}

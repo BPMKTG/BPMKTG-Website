@@ -663,7 +663,7 @@ phone that has both holds two icons:
 | `id` | `/portal/start` | `/portal/hq` |
 | Opens at | `/portal/start` | `/portal/hq` |
 | Scope | `/portal/` | `/portal/` |
-| Icon | the blue mark on white | the same, with the orange HQ badge |
+| Icon | the blue mark on white | the light mark on a dark tile, with the orange HQ badge |
 
 Both are light: `theme_color` is the top bar (`#ffffff`, see
 `.pt-topbar`), `background_color` is the page (`--pt-bg`, `#f6f9fc`),
@@ -730,21 +730,29 @@ A device the push service says is gone is forgotten.
 
 | Who | Is told | When |
 |---|---|---|
-| a client | New content needs your review | a card's Status becomes **Ready for Review** from any other status |
+| a client | New content needs your review | one of us moves a card to **Ready for Review** |
+| a client | Now editing / Scheduled / Posted: [item] | one of us moves a card to Editing, Scheduled or Posted |
+| a client (gym) | To shoot / Shot / Editing / Grading / Delivered: [delivery] | one of us moves a delivery to another stage |
 | a client | Your monthly report is ready | a report is published, once per report |
-| us | [Client] approved [item] | the client moves a card from Ready for Review to Approved |
-| us | [Client] requested changes on [item] | the client moves it to Editing |
+| us | [Client] approved [item] | the client moves a card to Approved |
+| us | [Client] requested changes on [item] | the client moves it from Ready for Review to Editing |
+| us | [Client] filmed [item] / sent footage for [item] | the client moves a card to Filmed or Footage In |
 | us | [Client] submitted a new idea | the client creates a card |
 | us | Preview failed: [item] | a preview lands in Previews to fix |
 
-- **Only the move fires.** A caption, on-screen text, a date or a
-  note changed on a card already in review tells nobody.
+- **Only the move fires, and only to the other side.** A caption,
+  on-screen text, a date, a note or a link changed on a card or a
+  delivery that stays where it is tells nobody. A move one of us makes
+  is told to the client; a move the client makes is told to us; nobody
+  is told about their own click (`statusNotice` in `src/data/push.ts`).
 - **A status changed in Notion itself** never passes through our save,
   so HQ looks for it when it loads fresh data: a card in review that
   has not been announced is announced once. The first look after this
   shipped announced nothing.
-- **Batching.** Cards that reach review within ten minutes of the
-  first become one notification. There is no timer on Pages, so this
+- **Batching.** Review and progress each batch on their own. Cards
+  that reach review within ten minutes of the first become one
+  notification, and so do progress updates ("3 updates on your
+  content"). There is no timer on Pages, so this
   is done on the device: each further card REPLACES the notification
   with the running count ("5 posts need your review").
 - **A tap** opens that card (`/portal/<slug>#/content/<id>`), or the

@@ -24,15 +24,16 @@ import { dropHq, type HqDataEnv } from '../../../../src/server/hq-data';
 import { dropPortalData, portalNotFound } from '../../../../src/server/portal-auth';
 import {
   createContentPage, fetchOwnedMoment, fetchPage, findClientById, isNotionId,
-  readRelation, updateContentPage,
+  readCheckbox, readRelation, updateContentPage,
 } from '../../../../src/server/portal-notion';
 import { beginPlaybookWrite } from '../../../../src/server/playbooks';
-import { cleanDeliveryPatch, cleanNewDelivery } from '../../../../src/data/deliveries';
+import { cleanDeliveryPatch, cleanNewDelivery, deliveryStage, stageLabel } from '../../../../src/data/deliveries';
+import { notifyProgress, type PushEnv } from '../../../../src/server/push';
 import {
   deliveryPatchProperties, isDeliveryPage, newDeliveryProperties, shapeDelivery,
 } from '../../../../src/server/deliveries';
 
-type Env = HqEnv & HqDataEnv & { NOTION_TOKEN: string };
+type Env = HqEnv & HqDataEnv & PushEnv & { NOTION_TOKEN: string };
 
 const same = (a: unknown, b: unknown) =>
   String(a ?? '').replace(/-/g, '').toLowerCase() === String(b ?? '').replace(/-/g, '').toLowerCase();
@@ -71,7 +72,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   return hqJson({ ok: true, id: made.id });
 };
 
-export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   const begun = await beginPlaybookWrite(request, env);
   if (!begun.ok) return begun.response;
   const { body } = begun;
@@ -99,7 +100,21 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   if (!saved) return hqJson({ ok: false, error: 'notion_write_failed' }, 502);
   await forget(env, client.slug || null);
   const after = await fetchPage(env.NOTION_TOKEN, id);
-  return hqJson({ ok: true, delivery: after ? shapeDelivery(after) : null });
+  const delivery = after ? shapeDelivery(after) : null;
+
+  // The client is told when a delivery moves to another stage: to
+  // shoot, shot, editing or grading, delivered. Only the move: a new
+  // link, a new title or a new due date on its own says nothing, and
+  // neither does dropping one, or anything on a row we are holding
+  // back from them.
+  const was = deliveryStage(shapeDelivery(page).status);
+  const now = delivery ? deliveryStage(delivery.status) : null;
+  if (delivery && client.slug && now && now !== was && !readCheckbox(after?.properties?.['Hide from Client'])) {
+    waitUntil(notifyProgress(env, client.slug, [{
+      id: delivery.id, title: delivery.title, label: stageLabel(now, delivery.kind), url: `/portal/${client.slug}#/content`,
+    }]));
+  }
+  return hqJson({ ok: true, delivery });
 };
 
 export const onRequest: PagesFunction<Env> = async ({ request, next }) => {

@@ -34,9 +34,10 @@
    ────────────────────────────────────────────────────────────── */
 
 import {
-  REVIEW_BATCH_MS, addToBatch, adminMessage, cleanPrefs, reportMessage, reviewMessage, sweepReview, wants, withDevice,
-  type AdminKind, type PushAudience, type PushKind, type PushMessage, type PushPrefs, type ReviewBatch,
-  type StoredSubscription,
+  REVIEW_BATCH_MS, addToBatch, adminMessage, cleanPrefs, progressKey, progressMessage, reportMessage, reviewMessage,
+  sweepReview, wants, withDevice,
+  type AdminKind, type ProgressEvent, type PushAudience, type PushKind, type PushMessage, type PushPrefs,
+  type ReviewBatch, type StoredSubscription,
 } from '../data/push';
 
 export interface PushKv {
@@ -316,6 +317,32 @@ export async function notifyReview(
 }
 
 /**
+ * "Now editing", "Scheduled", "Posted", "Shot", "Delivered": something
+ * of the client's moved forward because one of us moved it.
+ *
+ * Batched like review, with its own ten-minute window: the first is
+ * said at once and names the item, and each further one replaces it
+ * with the count.
+ */
+export async function notifyProgress(
+  env: PushEnv, slug: string, events: readonly ProgressEvent[], now = Date.now(),
+): Promise<number> {
+  if (!env.PORTAL_KV || !events.length || !pushConfig(env)) return 0;
+  try {
+    const kv = env.PORTAL_KV;
+    const key = `${batchKey(slug)}:progress`;
+    const prev = await readJson<ReviewBatch>(kv, key);
+    const batch = addToBatch(prev && Array.isArray(prev.ids) ? prev : null, events.map(progressKey), now);
+    if (prev && batch.first === prev.first && batch.ids.length === prev.ids.length) return 0;
+    await kv.put(key, JSON.stringify(batch), { expirationTtl: Math.ceil(REVIEW_BATCH_MS / 1000) + 120 });
+    return await deliver(env, clientKey(slug), 'progress', progressMessage(slug, batch, events[0] ?? null), 'progress');
+  } catch (err) {
+    console.error('push: progress notification failed', slug, err);
+    return 0;
+  }
+}
+
+/**
  * Cards that reached review without passing through our own save: a
  * status changed in Notion itself. Called when HQ loads.
  */
@@ -358,7 +385,7 @@ export async function notifyReport(env: PushEnv, slug: string, label: string | n
 }
 
 export async function notifyAdmins(
-  env: PushEnv, kind: AdminKind, o: { client: string; slug: string | null; item: string; id: string | null },
+  env: PushEnv, kind: AdminKind, o: { client: string; slug: string | null; item: string; id: string | null; status?: string | null },
 ): Promise<number> {
   try { return await deliver(env, ADMIN_KEY, kind, adminMessage(kind, o)); } catch (err) {
     console.error('push: admin notification failed', kind, err);

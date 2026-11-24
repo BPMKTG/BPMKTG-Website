@@ -30,7 +30,7 @@ export { storedPreviewProperties } from '../src/server/preview';
 // and the signing and encryption behind sending it.
 export * from '../src/data/push';
 export {
-  b64uToBytes, bytesToB64u, encryptPush, pushConfig, vapidAuthorization, notifyReview, notifyReport, notifyAdmins,
+  b64uToBytes, bytesToB64u, encryptPush, pushConfig, vapidAuthorization, notifyReview, notifyProgress, notifyReport, notifyAdmins,
   sweepReviewFor, saveDevice, deviceState, forgetDevice,
 } from '../src/server/push';
 export { HQ_MANIFEST } from '../functions/portal/hq/app.webmanifest';

@@ -5915,7 +5915,7 @@ section('The installed app · start address, manifests and the service worker');
      [client.background_color, HQ_MANIFEST.background_color, pageBg, topbar, client.theme_color, HQ_MANIFEST.theme_color], ['#f6f9fc', '#f6f9fc', '#f6f9fc', true, '#ffffff', '#ffffff']);
   const iconOk = (m, who) => ['192x192', '512x512'].every((sz) => m.icons.some((i) => i.sizes === sz && i.purpose === 'any')) && m.icons.some((i) => i.purpose === 'maskable')
     && m.icons.every((i) => i.src.startsWith(`/brand/app/${who}-`) && fs.existsSync(new URL(`../public${i.src}`, import.meta.url)));
-  is('manifest: each has its own 192, 512 and maskable icons, and every file is there', [iconOk(client, 'client'), iconOk(HQ_MANIFEST, 'hq')], [true, true]);
+  is('manifest: each has its own 192, 512 and maskable icons, and every file is there. HQ’s are the dark set', [iconOk(client, 'client'), iconOk(HQ_MANIFEST, 'hq-dark')], [true, true]);
   const layout = fs.readFileSync(new URL('../src/layouts/PortalLayout.astro', import.meta.url), 'utf8');
   const screens = [...layout.matchAll(/\[(\d+), (\d+), (\d)\]/g)].map((m) => [Number(m[1]), Number(m[2]), Number(m[3])]);
   is('launch screens: every iPhone and iPad size the layout names has an image, for both apps',
@@ -6037,6 +6037,34 @@ section('Notifications · who is told what, and when');
   is('says: every address a tap can open is inside /portal/',
      [reviewMessage('s', one, 'x'), reviewMessage('s', three, 'x'), reportMessage('s', null), ...ADMIN_KINDS.map((k) => adminMessage(k, about)), adminMessage('approved', { ...about, slug: null })].every((m) => m.url.startsWith('/portal/')), true);
 
+  // ── which status moves tell whom ──
+  const { statusNotice, CLIENT_TOLD, ADMIN_TOLD, progressMessage, progressKey, notifyProgress } = P;
+  is('moves: one of us moving a card to Editing, Scheduled or Posted tells the client, each in its own words',
+     ['Editing', 'Scheduled', 'Posted'].map((to) => statusNotice('admin', 'Planned', to)),
+     [{ to: 'client', kind: 'progress', label: 'Now editing' }, { to: 'client', kind: 'progress', label: 'Scheduled' }, { to: 'client', kind: 'progress', label: 'Posted' }]);
+  is('moves: one of us moving it to Ready for Review tells the client it needs their review', statusNotice('admin', 'Editing', 'Ready for Review'), { to: 'client', kind: 'review' });
+  is('moves: the client moving a card to Filmed, Footage In or Approved tells us',
+     [statusNotice('client', 'Planned', 'Filmed'), statusNotice('client', 'Filmed', 'Footage In'), statusNotice('client', 'Ready for Review', 'Approved')],
+     [{ to: 'admin', kind: 'footage' }, { to: 'admin', kind: 'footage' }, { to: 'admin', kind: 'approved' }]);
+  is('moves: the client asking for changes still tells us that', statusNotice('client', 'Ready for Review', 'Editing'), { to: 'admin', kind: 'changes' });
+  is('moves: nobody is told about their own click. Ours to Filmed, Footage In or Approved, and the client’s to Scheduled or Posted, tell nobody',
+     [statusNotice('admin', 'Planned', 'Filmed'), statusNotice('admin', 'Filmed', 'Footage In'), statusNotice('admin', 'Ready for Review', 'Approved'), statusNotice('client', 'Approved', 'Scheduled'), statusNotice('client', 'Scheduled', 'Posted'), statusNotice('client', 'Idea', 'Editing')],
+     [null, null, null, null, null, null]);
+  is('moves: a save that leaves the status where it was tells nobody, whoever made it and whatever else it changed',
+     [...Object.keys(CLIENT_TOLD), ...ADMIN_TOLD, 'Idea', 'Planned', 'Skipped'].flatMap((st) => [statusNotice('admin', st, st), statusNotice('client', st, st)]).every((x) => x === null), true);
+  is('moves: statuses nobody asked to hear about tell nobody', [statusNotice('admin', 'Idea', 'Planned'), statusNotice('admin', 'Planned', 'Skipped'), statusNotice('client', 'Idea', 'Planned'), statusNotice('admin', 'Posted', null)], [null, null, null, null]);
+  is('moves: the two lists are the ones asked for', [Object.keys(CLIENT_TOLD), ADMIN_TOLD], [['Editing', 'Ready for Review', 'Scheduled', 'Posted'], ['Filmed', 'Footage In', 'Approved']]);
+  const ev = (id, title, label, url = `/portal/rebelz-cheer#/content`) => ({ id, title, label, url });
+  const oneB = addToBatch(null, [progressKey(ev(A, 'x', 'Delivered'))], t0);
+  is('progress: one update names the item and what happened, and opens it', progressMessage('rebelz-cheer', oneB, ev(A, 'Cheer America Event photo carousel', 'Delivered')),
+     { title: 'Delivered: Cheer America Event photo carousel', body: 'Open Blueprint to see it.', url: '/portal/rebelz-cheer#/content', tag: 'progress' });
+  const manyB = addToBatch(addToBatch(oneB, [progressKey(ev(B, 'y', 'Shot'))], t0 + 1000), [progressKey(ev(A, 'x', 'Editing'))], t0 + 2000);
+  is('progress: the same item moving twice is two updates, and several are counted', [manyB.ids.length, progressMessage('rebelz-cheer', manyB, ev(A, 'x', 'Editing'))],
+     [3, { title: '3 updates on your content', body: 'Open Blueprint to see what moved.', url: '/portal/rebelz-cheer#/content', tag: 'progress' }]);
+  is('progress: the same move sent twice is one', addToBatch(oneB, [progressKey(ev(A, 'x', 'Delivered'))], t0 + 500).ids.length, 1);
+  is('says: filmed and footage, to us, in their own words',
+     [adminMessage('footage', { ...about, status: 'Filmed' }).title, adminMessage('footage', { ...about, status: 'Footage In' }).title], ['Sean Comma filmed Rooftop Remix second cut', 'Sean Comma sent footage for Rooftop Remix second cut']);
+
   // ── the sweep, for a status changed in Notion itself ──
   is('sweep: the very first look announces nothing, and remembers what is already there', sweepReview(null, [A, B]), { announce: [], remember: [A, B] });
   is('sweep: after that, a card newly in review is announced once', [sweepReview([A, B], [A, B, C]), sweepReview([A, B, C], [A, B, C])], [{ announce: [C], remember: [A, B, C] }, { announce: [], remember: [A, B, C] }]);
@@ -6044,10 +6072,10 @@ section('Notifications · who is told what, and when');
 
   // ── kinds and choices ──
   is('kinds: a client’s two and our four, and they do not overlap', [CLIENT_KINDS, ADMIN_KINDS, CLIENT_KINDS.some((k) => ADMIN_KINDS.includes(k)), [...CLIENT_KINDS, ...ADMIN_KINDS].every((k) => !!PUSH_KIND_LABEL[k])],
-     [['review', 'report'], ['approved', 'changes', 'idea', 'preview'], false, true]);
-  is('choices: everything is on until it is turned off', cleanPrefs(null, 'client'), { review: true, report: true });
-  is('choices: a client’s device can only ever hold a client’s kinds, whatever it sends', cleanPrefs({ review: false, approved: true, preview: true, admin: true }, 'client'), { review: false, report: true });
-  is('choices: ours hold ours', cleanPrefs({ idea: false, review: true }, 'admin'), { approved: true, changes: true, idea: false, preview: true });
+     [['review', 'progress', 'report'], ['approved', 'changes', 'footage', 'idea', 'preview'], false, true]);
+  is('choices: everything is on until it is turned off', cleanPrefs(null, 'client'), { review: true, progress: true, report: true });
+  is('choices: a client’s device can only ever hold a client’s kinds, whatever it sends', cleanPrefs({ review: false, approved: true, preview: true, admin: true }, 'client'), { review: false, progress: true, report: true });
+  is('choices: ours hold ours', cleanPrefs({ idea: false, review: true }, 'admin'), { approved: true, changes: true, footage: true, idea: false, preview: true });
   is('choices: a kind turned off is not sent, and one never asked about is', [wants({ review: false }, 'review'), wants({ review: false }, 'report'), wants(undefined, 'review')], [false, true, true]);
 
   // ── a subscription ──
@@ -6108,7 +6136,7 @@ section('Notifications · who is told what, and when');
   const errors = console.error; console.error = () => {};
   try {
     is('store: a client’s device is filed under their slug, with its choices', [await saveDevice(env, 'client', 'sean-comma', { endpoint: 'https://web.push.apple.com/phone', keys: phone.keys }, { report: false }, 'who1'), await deviceState(env, 'client', 'sean-comma', 'https://web.push.apple.com/phone'), await deviceState(env, 'client', 'other-artist', 'https://web.push.apple.com/phone')],
-       [{ review: true, report: false }, { review: true, report: false }, null]);
+       [{ review: true, progress: true, report: false }, { review: true, progress: true, report: false }, null]);
     await saveDevice(env, 'client', 'sean-comma', { endpoint: 'https://fcm.googleapis.com/fcm/send/tablet', keys: tablet.keys }, null, 'who1');
     await saveDevice(env, 'admin', null, { endpoint: 'https://fcm.googleapis.com/fcm/send/ours', keys: ours.keys }, { idea: false }, 'adminwho');
     const n1 = await notifyReview(env, 'sean-comma', [{ id: A, title: 'Rooftop Remix second cut' }], t0);
@@ -6126,6 +6154,14 @@ section('Notifications · who is told what, and when');
     is('review: the same card saved into review again sends nothing', [await notifyReview(env, 'sean-comma', [{ id: B, title: 'Second' }], t0 + 130_000), sentTo.length], [0, 0]);
     await notifyReview(env, 'sean-comma', [{ id: 'f'.repeat(32), title: 'Much later' }], t0 + 11 * 60_000);
     is('review: a card more than ten minutes after the first starts over at one', (await open(phone, sentTo.find((s) => s.url.endsWith('/phone')).body)).title, 'New content needs your review');
+    // progress
+    sentTo.length = 0;
+    is('progress: a delivery marked Shot reaches the client’s devices', [await notifyProgress(env, 'sean-comma', [ev(A, 'Cheer America Event photo carousel', 'Shot')], t0 + 40 * 60_000), (await open(phone, sentTo.find((x) => x.url.endsWith('/phone')).body)).title, sentTo[0].headers.Topic],
+       [2, 'Shot: Cheer America Event photo carousel', 'progress']);
+    sentTo.length = 0;
+    await notifyProgress(env, 'sean-comma', [ev(B, 'Results carousel', 'Shot')], t0 + 41 * 60_000); await notifyProgress(env, 'sean-comma', [ev(C, 'Recap video', 'Shot')], t0 + 42 * 60_000);
+    is('progress: three inside ten minutes end as one notification that says three', (await open(phone, sentTo.filter((x) => x.url.endsWith('/phone')).at(-1).body)).title, '3 updates on your content');
+    is('progress: it is its own batch, apart from review', [...kvStore.keys()].filter((k) => k.startsWith('push:batch:sean-comma')).sort(), ['push:batch:sean-comma', 'push:batch:sean-comma:progress']);
     // a kind turned off
     sentTo.length = 0;
     is('report: sent to the device that wants it and not to the one that turned it off', [await notifyReport(env, 'sean-comma', 'November 2026 is in your Reports tab.', 'report-1'), sentTo.map((s) => s.url)], [1, ['https://fcm.googleapis.com/fcm/send/tablet']]);

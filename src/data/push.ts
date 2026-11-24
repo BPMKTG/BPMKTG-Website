@@ -8,10 +8,13 @@
    Two audiences, and they never mix:
 
      a client   "New content needs your review"
+                "Now editing: [item]", "Scheduled: [item]", "Posted: [item]"
+                "Shot: [delivery]", "Delivered: [delivery]" (a gym)
                 "Your monthly report is ready"
 
      us         "[Client] approved [item]"
                 "[Client] requested changes on [item]"
+                "[Client] filmed [item]", "[Client] sent footage for [item]"
                 "[Client] submitted a new idea"
                 "Preview failed: [item]"
 
@@ -21,8 +24,8 @@
 
 /* ── kinds ────────────────────────────────────────────────────── */
 
-export const CLIENT_KINDS = ['review', 'report'] as const;
-export const ADMIN_KINDS = ['approved', 'changes', 'idea', 'preview'] as const;
+export const CLIENT_KINDS = ['review', 'progress', 'report'] as const;
+export const ADMIN_KINDS = ['approved', 'changes', 'footage', 'idea', 'preview'] as const;
 export type ClientKind = typeof CLIENT_KINDS[number];
 export type AdminKind = typeof ADMIN_KINDS[number];
 export type PushKind = ClientKind | AdminKind;
@@ -31,9 +34,11 @@ export type PushAudience = 'client' | 'admin';
 /** What each kind is called on the settings screen. */
 export const PUSH_KIND_LABEL: Record<PushKind, string> = {
   review: 'New content needs your review',
+  progress: 'Your content moves forward (editing, scheduled, posted, delivered)',
   report: 'Your monthly report is ready',
   approved: 'A client approved something',
   changes: 'A client requested changes',
+  footage: 'A client filmed something or sent footage',
   idea: 'A client submitted a new idea',
   preview: 'A preview failed',
 };
@@ -199,7 +204,7 @@ export function reportMessage(slug: string, label: string | null): PushMessage {
 /* ── ours ─────────────────────────────────────────────────────── */
 
 export function adminMessage(
-  kind: AdminKind, o: { client: string; slug: string | null; item: string; id: string | null },
+  kind: AdminKind, o: { client: string; slug: string | null; item: string; id: string | null; status?: string | null },
 ): PushMessage {
   const client = short(o.client || 'A client', 40);
   const item = short(o.item || 'an item', 70);
@@ -208,9 +213,97 @@ export function adminMessage(
   switch (kind) {
     case 'approved': return { title: `${client} approved ${item}`, body: 'It is ready to schedule.', url: to, tag };
     case 'changes': return { title: `${client} requested changes on ${item}`, body: 'Open it to read their note.', url: to, tag };
+    case 'footage': return o.status === 'Footage In'
+      ? { title: `${client} sent footage for ${item}`, body: 'It is ready for us to edit.', url: to, tag }
+      : { title: `${client} filmed ${item}`, body: 'The footage is on its way.', url: to, tag };
     case 'idea': return { title: `${client} submitted a new idea`, body: item, url: to, tag };
     case 'preview': return { title: `Preview failed: ${item}`, body: `${client}. It is under Previews to fix.`, url: '/portal/hq#/today', tag };
   }
+}
+
+/* ── a client's progress notifications, batched the same way ──── */
+
+/** One thing that moved: a card or a delivery, and where it moved to. */
+export interface ProgressEvent {
+  id: string;
+  title: string;
+  /** How the move is said: "Now editing", "Scheduled", "Delivered". */
+  label: string;
+  /** Where a tap goes for this one on its own. */
+  url: string;
+}
+
+/** A move is counted once per item and stage, so the same card going
+ *  to Editing and then to Scheduled is two updates, and the same save
+ *  sent twice is one. */
+export const progressKey = (e: { id: string; label: string }): string =>
+  `${hex(e.id)}${e.label.toLowerCase().replace(/[^a-z]/g, '')}`;
+
+/**
+ * What the client is told about progress. One update names the item
+ * and what happened to it. Several inside ten minutes are counted and
+ * open the Content tab, and replace each other on the device, so
+ * marking eight deliveries as shot is one notification, not eight.
+ */
+export function progressMessage(slug: string, batch: ReviewBatch, first: ProgressEvent | null): PushMessage {
+  const n = batch.ids.length;
+  if (n <= 1 && first) {
+    return { title: short(`${first.label}: ${first.title}`, 110), body: 'Open Blueprint to see it.', url: first.url, tag: 'progress' };
+  }
+  return {
+    title: `${n} updates on your content`,
+    body: 'Open Blueprint to see what moved.',
+    url: `/portal/${slug}#/content`,
+    tag: 'progress',
+  };
+}
+
+/* ── which status moves tell whom ─────────────────────────────── */
+
+/** A card moved to one of these BY US tells the client. */
+export const CLIENT_TOLD: Record<string, string> = {
+  Editing: 'Now editing',
+  'Ready for Review': 'Ready for your review',
+  Scheduled: 'Scheduled',
+  Posted: 'Posted',
+};
+
+/** A card moved to one of these BY THE CLIENT tells us. */
+export const ADMIN_TOLD: readonly string[] = ['Filmed', 'Footage In', 'Approved'];
+
+export type StatusNotice =
+  | { to: 'client'; kind: 'review' }
+  | { to: 'client'; kind: 'progress'; label: string }
+  | { to: 'admin'; kind: 'approved' | 'changes' | 'footage' }
+  | null;
+
+/**
+ * Who a status move is news to, if anyone.
+ *
+ * Always the OTHER side: a move one of us makes is told to the
+ * client, a move the client makes is told to us, and nobody is told
+ * about their own click. Only a real move counts. The status was one
+ * thing and is now another; a caption, a date or a note changed on a
+ * card that stays where it is tells nobody.
+ *
+ *   by us, to       Editing, Scheduled, Posted   → the client, progress
+ *                   Ready for Review             → the client, review
+ *   by the client   Filmed, Footage In           → us, footage
+ *                   Approved                     → us, approved
+ *                   Ready for Review → Editing   → us, changes
+ */
+export function statusNotice(
+  role: 'admin' | 'client', before: string | null | undefined, after: string | null | undefined,
+): StatusNotice {
+  if (!after || after === before) return null;
+  if (role === 'admin') {
+    if (after === REVIEW_STATUS) return { to: 'client', kind: 'review' };
+    return after in CLIENT_TOLD ? { to: 'client', kind: 'progress', label: CLIENT_TOLD[after] } : null;
+  }
+  if (after === 'Approved') return { to: 'admin', kind: 'approved' };
+  if (after === 'Filmed' || after === 'Footage In') return { to: 'admin', kind: 'footage' };
+  if (after === 'Editing' && before === REVIEW_STATUS) return { to: 'admin', kind: 'changes' };
+  return null;
 }
 
 /* ── when a review notification is owed ───────────────────────── */
