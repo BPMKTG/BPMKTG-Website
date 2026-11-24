@@ -152,6 +152,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
           owner: who.slug, itemId: id, title, link, stored,
         }, (next) => patchPage(env.NOTION_TOKEN, page.id, storedPreviewProperties(next), 'preview'), {
           force: !!only && body.retry === true, now,
+          // One maker at a time: see advancePreview.
+          reread: async () => {
+            const again = await fetchPage(env.NOTION_TOKEN, page.id);
+            return again?.properties ? readStoredPreview(again.properties) : null;
+          },
         });
         if (out.stored !== stored) touched.add(who.slug);
         // Newly a failure: it has just landed in "Previews to fix".

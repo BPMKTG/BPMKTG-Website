@@ -168,6 +168,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params, 
     // "I tried to play it and could not": only then is R2 asked
     // whether the files are really there.
     verify: body.verify === true,
+    // Notion writes whatever it is handed, so the step claims the
+    // item and reads the card again before it makes anything. HQ and
+    // the client opening the same new card make one preview.
+    reread: async () => {
+      const again = await fetchPage(env.NOTION_TOKEN, page.id);
+      return again?.properties ? readStoredPreview(again.properties) : null;
+    },
   });
 
   if (out.stored !== stored) await bustDataCache(slug, env);
@@ -185,7 +192,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params, 
     preview,
     // Whether asking again soon is worth it. Not when something is
     // missing on our side, and not when it has failed.
-    wait: out.outcome === 'converting' || (out.outcome === 'ready' && preview?.state !== 'ready'),
+    // Nor is it over when another look is the one making it.
+    wait: out.outcome === 'converting' || (out.outcome === 'busy' && preview?.state === 'pending')
+      || (out.outcome === 'ready' && preview?.state !== 'ready'),
   });
 };
 

@@ -6389,5 +6389,191 @@ section('Slides · a post that is several files');
      new Array(7).fill(null));
 }
 
+section('Previews · one maker at a time');
+{
+  const P = await import('../.tmp-portal-lib.mjs');
+  const { advancePreview, claimKey, claimBody, parseClaim, claimIsStale, previewKey, jobDetail, UPLOAD_STALE_MS } = P;
+  const fs = await import('node:fs');
+  const { generateKeyPairSync } = await import('node:crypto');
+  const ITEM = '5a'.repeat(16);
+  const FILE = '1AbC_single-file_xxxxxxxxxxxxxxxxxx';
+  const LINK = `https://drive.google.com/file/d/${FILE}/view`;
+  const JOB = 'c'.repeat(32), V = '0123456789abcdef';
+  const now = Date.parse('2026-11-24T12:00:00Z');
+  const KEY = claimKey('sean-comma', ITEM);
+  const NONE = { status: null, imageKey: null, thumbKey: null, videoKey: null, source: null, detail: null };
+
+  is('claim: kept under the item, beside its builds, and never at an address the preview route will serve',
+     [KEY, /^previews\/sean-comma\/5a{16}\/[0-9a-f]{16}\//.test(KEY)], [`previews/sean-comma/${ITEM}/building.json`, false]);
+  is('claim: there is none for an owner or an item that is not the shape it must be', [claimKey('../x', ITEM), claimKey('sean-comma', 'abc'), claimKey('sean-comma', `${ITEM}/..`)], [null, null, null]);
+  is('claim: read back only when it is one', [parseClaim(JSON.parse(claimBody({ token: V, at: now }))), parseClaim({ token: 'x', at: now }), parseClaim({ token: V }), parseClaim(null), parseClaim('building')],
+     [{ token: V, at: now }, null, null, null, null]);
+  is('claim: one left behind is anyone’s after as long as a dead upload is given, and not before',
+     [claimIsStale({ token: V, at: now - UPLOAD_STALE_MS - 1 }, now), claimIsStale({ token: V, at: now - UPLOAD_STALE_MS + 1000 }, now), claimIsStale(null, now)], [true, false, true]);
+
+  // R2 as the binding behaves: a write that says "only if there is
+  // none" or "only if it is still this one" is refused otherwise.
+  const bucket = () => {
+    const files = new Map(); let n = 0;
+    const b = {
+      files, puts: [], dels: [], broken: null,
+      async get(key) { const f = files.get(key); if (!f) return null; return { etag: f.etag, json: async () => JSON.parse(new TextDecoder().decode(f.bytes)), arrayBuffer: async () => f.bytes.buffer.slice(0) }; },
+      async put(key, body, o = {}) {
+        await null;
+        if (b.broken === 'throws' && key === KEY) throw new Error('R2 is not answering');
+        if (b.broken === 'refuses' && key === KEY) return null;
+        const cur = files.get(key);
+        const createOnly = typeof o.onlyIf?.get === 'function' && o.onlyIf.get('If-None-Match') === '*';
+        if (createOnly && cur) return null;
+        if (o.onlyIf?.etagMatches && cur?.etag !== o.onlyIf.etagMatches) return null;
+        n += 1; b.puts.push(key);
+        const bytes = typeof body === 'string' ? new TextEncoder().encode(body) : new Uint8Array(body);
+        files.set(key, { bytes, etag: `e${n}` });
+        return { etag: `e${n}` };
+      },
+      async delete(keys) { for (const k of [].concat(keys)) { b.dels.push(k); files.delete(k); } },
+      async head(key) { return files.has(key) ? {} : null; },
+    };
+    return b;
+  };
+  const built = (b) => [...b.files.keys()].filter((k) => k !== KEY).sort();
+  const versions = (b) => [...new Set(built(b).map((k) => k.split('/')[3]))];
+
+  // Google and the converter, as far as one step needs them.
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048, privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } });
+  const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 4, 1, 2, 0xff, 0xc2, 0, 17, 8, 0x06, 0x40, 0x04, 0x2b, 3, 1, 0x11, 0, 2, 0x11, 1, 3, 0x11, 1]);
+  const world = { drive: 0, renditions: 0, jobGone: false, state: 'ready', downloads: 0, deleted: 0 };
+  const realFetch = globalThis.fetch;
+  const J = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url); const method = init.method ?? 'GET';
+    await null;
+    if (u.startsWith('https://oauth2.googleapis.com/')) return J({ access_token: 'a-token' });
+    if (u.startsWith('https://www.googleapis.com/drive/v3/files/')) { world.drive += 1; return J({ id: FILE, name: 'flyer.jpg', mimeType: 'image/jpeg', size: '2000', thumbnailLink: 'https://lh3.googleusercontent.com/abc=s220' }); }
+    if (u.startsWith('https://lh3.googleusercontent.com/')) { world.renditions += 1; return new Response(jpg, { headers: { 'Content-Type': 'image/jpeg' } }); }
+    if (u.includes('/stream/')) {
+      if (method === 'DELETE') { world.deleted += 1; world.jobGone = true; return J({ result: {} }); }
+      if (world.jobGone) return J({ result: null, errors: [{ message: 'not found' }] }, 404);
+      if (u.endsWith('/downloads')) return J({ result: { default: { status: 'ready', url: `https://videodelivery.example/${JOB}/downloads/default.mp4` } } });
+      if (u.endsWith('/token')) return J({ result: { token: 'signed' } });
+      return J({ result: { readyToStream: world.state === 'ready', status: { state: world.state }, duration: 12, thumbnail: null } });
+    }
+    if (u.startsWith('https://videodelivery.example/')) { world.downloads += 1; return new Response(new Uint8Array(64), { headers: { 'Content-Type': 'video/mp4' } }); }
+    return new Response('', { status: 500 });
+  };
+  const errors = console.error; const said = [];
+  console.error = (...a) => { said.push(a.map(String).join(' ')); };
+
+  try {
+    const env = (b) => ({ REPORTS_BUCKET: b, GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: 'previews@example.iam.gserviceaccount.com', private_key: privateKey }), CF_ACCOUNT_ID: 'd'.repeat(32), CLOUDFLARE_STREAM_TOKEN: 'a-stream-token' });
+    // A card's record, kept the way Notion keeps it: whatever is
+    // written last is what it says.
+    const card = (start = NONE) => {
+      const c = { now: { ...start }, saves: [] };
+      c.save = async (next) => { await null; c.saves.push(next.status); c.now = { ...next }; return true; };
+      c.reread = async () => { await null; return { ...c.now }; };
+      return c;
+    };
+    const look = (b, c, stored, opts = {}) => advancePreview(env(b), { owner: 'sean-comma', itemId: ITEM, title: 'Flyer', link: LINK, stored }, c.save, { now, reread: c.reread, ...opts });
+
+    // ── two looks at a new card in the same moment ──
+    let b = bucket(); let c = card();
+    let both = await Promise.all([look(b, c, { ...NONE }), look(b, c, { ...NONE })]);
+    is('race: two looks at a new card in the same moment make one preview, and the other is told it is being made',
+       [both.map((r) => r.outcome).sort(), versions(b).length, built(b).length, c.saves], [['busy', 'ready'], 1, 2, ['Ready']]);
+    is('race: the one that stood down asked Drive for nothing', [world.drive, world.renditions], [1, 2]);
+    is('race: the record is the winner’s, and its files are there', [c.now.status, b.files.has(c.now.imageKey), b.files.has(c.now.thumbKey)], ['Ready', true, true]);
+    is('race: the claim is let go when the step ends', b.files.has(KEY), false);
+    const lost = both.find((r) => r.outcome === 'busy');
+    // Which it saw depends on how close the two were: the claim still held, or the card already made.
+    is('race: standing down says nothing worth logging, and answers with the card as it found it', [lost.note, [null, 'Ready'].includes(lost.stored.status)], [undefined, true]);
+
+    // ── a look that read the card before the other finished, and got here after ──
+    world.drive = 0;
+    const late = await look(b, c, { ...NONE });
+    is('late: a look holding an old reading of the card finds it already made, and makes nothing',
+       [late.outcome, late.stored.status, late.stored.imageKey === c.now.imageKey, versions(b).length, world.drive, c.saves], ['busy', 'Ready', true, 1, 0, ['Ready']]);
+    is('late: and it lets its claim go too', b.files.has(KEY), false);
+
+    // ── five at once ──
+    b = bucket(); c = card();
+    const five = await Promise.all([1, 2, 3, 4, 5].map(() => look(b, c, { ...NONE })));
+    is('race: of five at once, one makes it', [five.filter((r) => r.outcome === 'ready').length, five.filter((r) => r.outcome === 'busy').length, versions(b).length], [1, 4, 1]);
+
+    // ── someone else holds the claim ──
+    b = bucket(); c = card();
+    await b.put(KEY, claimBody({ token: 'f'.repeat(16), at: now - 60_000 }));
+    world.drive = 0;
+    const held = await look(b, c, { ...NONE });
+    is('held: while another look holds the claim this one waits, and leaves their claim where it is',
+       [held.outcome, world.drive, built(b), parseClaim(await (await b.get(KEY)).json()).token], ['busy', 0, [], 'f'.repeat(16)]);
+    // ... and it was never let go
+    await b.put(KEY, claimBody({ token: 'f'.repeat(16), at: now - UPLOAD_STALE_MS - 1000 }));
+    const took = await look(b, c, { ...NONE });
+    is('stale: a claim left by a step that died is taken over, the preview is made, and the claim is cleared',
+       [took.outcome, versions(b).length, b.files.has(KEY)], ['ready', 1, false]);
+    b = bucket(); c = card();
+    await b.put(KEY, claimBody({ token: 'f'.repeat(16), at: now - UPLOAD_STALE_MS - 1000 }));
+    both = await Promise.all([look(b, c, { ...NONE }), look(b, c, { ...NONE })]);
+    is('stale: two looks finding the same dead claim do not both take it', [both.map((r) => r.outcome).sort(), versions(b).length], [['busy', 'ready'], 1]);
+
+    // ── R2 not doing what it is asked must never stop a preview ──
+    b = bucket(); c = card(); b.broken = 'refuses'; said.length = 0;
+    const open = await look(b, c, { ...NONE });
+    is('open: a claim refused with nothing there does not stop the preview being made, and is logged',
+       [open.outcome, versions(b).length, said.some((l) => /going ahead without one/.test(l))], ['ready', 1, true]);
+    b = bucket(); c = card(); b.broken = 'throws'; said.length = 0;
+    const thrown = await look(b, c, { ...NONE });
+    is('open: nor does R2 failing to answer about the claim', [thrown.outcome, versions(b).length, said.some((l) => /could not take a claim/.test(l))], ['ready', 1, true]);
+
+    // ── the card could not be read again ──
+    b = bucket(); c = card(); c.reread = async () => null; world.drive = 0;
+    const blind = await look(b, c, { ...NONE });
+    is('reread: when the card cannot be read again nothing is made, nothing is recorded, and the claim is let go',
+       [blind.outcome, world.drive, built(b), c.saves, b.files.has(KEY)], ['try_later', 0, [], [], false]);
+
+    // ── looks that have nothing to make cost nothing ──
+    b = bucket(); c = card();
+    const done = { status: 'Ready', imageKey: previewKey('sean-comma', ITEM, V, 'image'), thumbKey: null, videoKey: null, source: FILE, detail: 'Ready · image, 0.3 MB' };
+    const idle = await look(b, c, done);
+    is('cheap: a look at a preview that is ready takes no claim', [idle.outcome, b.puts], ['ready', []]);
+    const converting = { status: 'Converting', imageKey: null, thumbKey: null, videoKey: null, source: FILE, detail: jobDetail({ version: V, started: now - 30_000, job: JOB }) };
+    world.state = 'inprogress'; world.jobGone = false;
+    const waiting = await look(b, c, converting);
+    is('cheap: nor does a look at a conversion that is still running', [waiting.outcome, b.puts], ['converting', []]);
+
+    // ── a finished conversion, looked at twice ──
+    world.state = 'ready'; world.jobGone = false; world.downloads = 0; world.deleted = 0;
+    b = bucket(); c = card(converting);
+    both = await Promise.all([look(b, c, { ...converting }), look(b, c, { ...converting })]);
+    is('video: a finished conversion is brought home once, by one look',
+       [both.map((r) => r.outcome).sort(), world.downloads, world.deleted, c.saves, c.now.videoKey], [['busy', 'ready'], 1, 1, ['Ready'], previewKey('sean-comma', ITEM, V, 'video')]);
+    // The converter's copy is gone now. A look still holding "Converting" asks after it.
+    const stale = await look(b, c, { ...converting });
+    is('video: a look that finds the converter’s copy gone does not record a failure over the preview another look just finished',
+       [stale.outcome, stale.stored.status, c.now.status, c.saves], ['busy', 'Ready', 'Ready', ['Ready']]);
+    is('video: and nothing of the finished preview is deleted', [b.dels.filter((k) => k !== KEY), b.files.has(c.now.videoKey)], [[], true]);
+    // The same, with nobody else involved: then it is a failure, and is recorded as one.
+    b = bucket(); c = card(converting);
+    const gone = await look(b, c, { ...converting });
+    is('video: when the copy is gone and nobody finished it, that is still a failure and is still recorded', [gone.outcome, c.now.status], ['failed', 'Failed']);
+
+    // ── a record with its own way of refusing a late write ──
+    b = bucket(); c = card();
+    const plain = await advancePreview(env(b), { owner: 'sean-comma', itemId: ITEM, title: 'Flyer', link: LINK, stored: { ...NONE } }, c.save, { now });
+    is('slides: with no way to read the record again there is no claim, and the step runs as it always did',
+       [plain.outcome, b.puts.includes(KEY), versions(b).length], ['ready', false, 1]);
+  } finally { globalThis.fetch = realFetch; console.error = errors; }
+
+  // ── who turns it on ──
+  const single = fs.readFileSync(new URL('../functions/portal/[slug]/preview/[[path]].ts', import.meta.url), 'utf8');
+  const hqRoute = fs.readFileSync(new URL('../functions/portal/hq/previews/index.ts', import.meta.url), 'utf8');
+  const slidesSrc = fs.readFileSync(new URL('../src/server/slides.ts', import.meta.url), 'utf8');
+  is('routes: both places a card’s preview is recorded in Notion read the card again under the claim, and slides do not',
+     [/reread: async/.test(single), /reread: async/.test(hqRoute), /reread/.test(slidesSrc)], [true, true, false]);
+  is('routes: a page told "another look is making it" keeps asking', /out\.outcome === 'busy' && preview\?\.state === 'pending'/.test(single), true);
+  is('routes: standing down is never a failure to tell us about', [/outcome === 'busy'[^\n]*notifyAdmins/.test(single), single.includes("out.outcome === 'failed' && stored.status !== 'Failed'")], [false, true]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

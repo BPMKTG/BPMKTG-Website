@@ -16,6 +16,10 @@
                       a poster, the converter's copy is deleted, and
                       it is recorded as Ready.
 
+   One maker at a time. A step that is about to make or record
+   something takes the item's claim first (see claimKey), so two
+   looks at the same card a moment apart make one preview, not two.
+
    One step per call, because a conversion takes a minute or two and a
    request should not sit open for it, and because a Pages Function
    has no clock of its own: there is no job runner here. Whoever looks
@@ -36,7 +40,8 @@
 
 import {
   CONVERT_TIMEOUT_MS, IMAGE_PX, MAX_VIDEO_BYTES, PREVIEW_FIELDS, THUMB_PX, UPLOAD_CHUNK,
-  failureDetail, fileKind, jobDetail, parseJob, planPreview, previewKey, probeMp4, readyDetail,
+  claimBody, claimIsStale, claimKey, failureDetail, fileKind, jobDetail, parseClaim, parseJob, planPreview,
+  previewKey, probeMp4, readyDetail,
   type PreviewJob, type StoredPreview,
 } from '../data/preview';
 import { imageSize } from '../data/slides';
@@ -75,7 +80,10 @@ export type PreviewOutcome =
   | 'not_configured'
   /** Drive or the converter did not answer. Nothing was recorded, so
    *  the next look tries again. */
-  | 'try_later';
+  | 'try_later'
+  /** Another look is making this one, or has just made it. This look
+   *  did nothing; `stored` is the record as it now stands. */
+  | 'busy';
 
 export interface PreviewResult { outcome: PreviewOutcome; stored: StoredPreview; note?: string }
 
@@ -270,11 +278,100 @@ async function converterToken(c: StreamConfig, job: string): Promise<string | nu
   return token || null;
 }
 
+/* ── the claim ────────────────────────────────────────────────── */
+
+interface Claim { key: string; token: string }
+
+/** `claim` is null when there was nowhere to put one, and the step
+ *  goes ahead without, as it did before there were claims. */
+type Taken = { ok: true; claim: Claim | null } | { ok: false };
+
+/**
+ * Take an item's claim, or find it taken.
+ *
+ * R2 is asked to store the file only if there is none, which it
+ * decides for everyone at once: of any number asking in the same
+ * moment, one is told yes. A claim that was never let go (its step
+ * was cut off) is taken over once it is old, and only by one taker,
+ * by writing over exactly the file that was read.
+ *
+ * It never stands in the way of a preview being made at all. If R2
+ * cannot be asked, or answers in a way that makes no sense (refused,
+ * with nothing there), the step goes ahead unclaimed and says so in
+ * the log: a preview made twice is better than one never made.
+ */
+async function takeClaim(bucket: R2Bucket, owner: string, itemId: string, now: number): Promise<Taken> {
+  const key = claimKey(owner, itemId);
+  if (!key) return { ok: true, claim: null };
+  const token = newVersion();
+  const body = claimBody({ token, at: now });
+  const meta = { httpMetadata: { contentType: 'application/json' } };
+  // Ours only if it is ours when read back: the last word on who
+  // holds it is the file, not what the write said.
+  const confirm = async (): Promise<Taken> => {
+    const there = await bucket.get(key);
+    const held = there ? parseClaim(await there.json().catch(() => null)) : null;
+    return held?.token === token ? { ok: true, claim: { key, token } } : { ok: false };
+  };
+  try {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const made = await bucket.put(key, body, { ...meta, onlyIf: new Headers({ 'If-None-Match': '*' }) });
+      if (made) return await confirm();
+      const there = await bucket.get(key);
+      // Let go between the two. Ask once more.
+      if (!there) continue;
+      const held = parseClaim(await there.json().catch(() => null));
+      if (!claimIsStale(held, now)) return { ok: false };
+      const took = await bucket.put(key, body, { ...meta, onlyIf: { etagMatches: there.etag } });
+      return took ? await confirm() : { ok: false };
+    }
+    console.error('preview: a claim was refused twice with nothing there, going ahead without one', key);
+    return { ok: true, claim: null };
+  } catch (err) {
+    console.error('preview: could not take a claim, going ahead without one', key, err);
+    return { ok: true, claim: null };
+  }
+}
+
+/** Let a claim go, if it is still ours. One that was taken over
+ *  because this step ran long belongs to whoever took it. */
+async function releaseClaim(bucket: R2Bucket, claim: Claim): Promise<void> {
+  try {
+    const there = await bucket.get(claim.key);
+    const held = there ? parseClaim(await there.json().catch(() => null)) : null;
+    if (held?.token === claim.token) await bucket.delete(claim.key);
+  } catch (err) {
+    console.error('preview: could not let a claim go', claim.key, err);
+  }
+}
+
 /* ── the one step ─────────────────────────────────────────────── */
 
 const same = (a: StoredPreview, b: StoredPreview): boolean =>
   a.status === b.status && a.imageKey === b.imageKey && a.thumbKey === b.thumbKey
   && a.videoKey === b.videoKey && a.source === b.source && a.detail === b.detail;
+
+export interface AdvanceOptions {
+  force?: boolean;
+  verify?: boolean;
+  now?: number;
+  /**
+   * The record as it stands this moment, read again from where it is
+   * kept; null when it could not be read.
+   *
+   * Give this when the record is kept somewhere that writes whatever
+   * it is handed (a card's six fields in Notion). It turns the claim
+   * on: before the step makes or records anything it takes the
+   * item's claim and reads the record again, and if another look has
+   * moved it on since `subject.stored` was read, this one stands
+   * down. Leave it out when the record has its own way of refusing a
+   * late write (a slide in its manifest).
+   */
+  reread?: () => Promise<StoredPreview | null>;
+}
+
+/** Null to go ahead; otherwise the answer to give instead. */
+type Hold = () => Promise<PreviewResult | null>;
 
 /**
  * Move one preview on by one step. See the top of the file.
@@ -286,10 +383,40 @@ const same = (a: StoredPreview, b: StoredPreview): boolean =>
  * another.
  */
 export async function advancePreview(
-  env: PreviewEnv, subject: PreviewSubject, save: Save,
-  opts: { force?: boolean; verify?: boolean; now?: number } = {},
+  env: PreviewEnv, subject: PreviewSubject, save: Save, opts: AdvanceOptions = {},
 ): Promise<PreviewResult> {
   const now = opts.now ?? Date.now();
+  const bucket = env.REPORTS_BUCKET;
+  const { reread } = opts;
+  const mine: { claim: Claim | null } = { claim: null };
+  let held = false;
+
+  // Asked for only by a step that is about to make or record
+  // something, so a look that finds nothing to do, or a conversion
+  // still running, costs nothing more than it did.
+  const hold: Hold = async () => {
+    if (held || !reread || !bucket) return null;
+    const taken = await takeClaim(bucket, subject.owner, subject.itemId, now);
+    if (!taken.ok) return { outcome: 'busy', stored: subject.stored };
+    mine.claim = taken.claim;
+    held = true;
+    // The claim says nobody else is at work now. It does not say
+    // nobody finished a moment ago, after this look read the record.
+    const standing = await reread();
+    if (!standing) return { outcome: 'try_later', stored: subject.stored, note: 'The preview record could not be read again.' };
+    return same(standing, subject.stored) ? null : { outcome: 'busy', stored: standing };
+  };
+
+  try {
+    return await takeStep(env, subject, save, opts, now, hold);
+  } finally {
+    if (mine.claim && bucket) await releaseClaim(bucket, mine.claim);
+  }
+}
+
+async function takeStep(
+  env: PreviewEnv, subject: PreviewSubject, save: Save, opts: AdvanceOptions, now: number, hold: Hold,
+): Promise<PreviewResult> {
   const { stored } = subject;
   const bucket = env.REPORTS_BUCKET;
   const finish = async (next: StoredPreview, outcome: PreviewOutcome, note?: string): Promise<PreviewResult> => {
@@ -298,6 +425,8 @@ export async function advancePreview(
     return ok ? { outcome, stored: next, note } : { outcome: 'try_later', stored, note: 'The preview could not be recorded.' };
   };
   const fail = async (fileId: string, why: string): Promise<PreviewResult> => {
+    const lost = await hold();
+    if (lost) return lost;
     const next: StoredPreview = {
       status: 'Failed', imageKey: null, thumbKey: null, videoKey: null, source: fileId, detail: failureDetail(why),
     };
@@ -329,6 +458,8 @@ export async function advancePreview(
     if (info.status !== 200 || !info.result) return { outcome: 'try_later', stored, note: `The converter answered ${info.status}.` };
     const state = String(info.result?.status?.state ?? '');
     if (state === 'error') {
+      const lost = await hold();
+      if (lost) return lost;
       await streamJson(c, `/${job.job}`, { method: 'DELETE' });
       const reason = String(info.result?.status?.errorReasonText ?? info.result?.status?.errorReasonCode ?? 'It could not read the file.');
       return fail(step.fileId, `The converter could not convert this video. ${reason}`);
@@ -343,12 +474,20 @@ export async function advancePreview(
     }
     const mp4 = dl.result?.default;
     if (String(mp4?.status ?? '') === 'error') {
+      const lost = await hold();
+      if (lost) return lost;
       await streamJson(c, `/${job.job}`, { method: 'DELETE' });
       return fail(step.fileId, 'The converter could not make an MP4 of this video.');
     }
     if (String(mp4?.status ?? '') !== 'ready' || typeof mp4?.url !== 'string') {
       return { outcome: 'converting', stored, note: 'Making the MP4.' };
     }
+
+    // The MP4 is ready to bring home: one look does that. A second
+    // that got here at the same moment would find the converter's
+    // copy deleted under it and record a failure over a good preview.
+    const lost = await hold();
+    if (lost) return lost;
 
     const token = await converterToken(c, job.job);
     if (!token) return { outcome: 'try_later', stored, note: 'The converter would not sign a download.' };
@@ -402,6 +541,10 @@ export async function advancePreview(
     console.error('preview: Google refused the key', err);
     return { outcome: 'not_configured', stored, note: 'Google refused the service account key.' };
   }
+
+  // From here on something is made. One look makes it.
+  const lost = await hold();
+  if (lost) return lost;
 
   const meta = await driveMeta(google, step.fileId);
   if (!meta.ok) {

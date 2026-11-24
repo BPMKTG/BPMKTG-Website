@@ -183,6 +183,49 @@ export function previewUrl(owner: string, itemId: string, version: string, varia
   return `/portal/${owner}/preview/${hex(itemId)}/${version}/${variant}`;
 }
 
+/* ── one maker at a time ──────────────────────────────────────── */
+
+/**
+ * Where an item's claim is kept while its preview is being made.
+ *
+ * A card's preview is recorded in Notion, and Notion will write
+ * whatever it is handed: two looks at the same new card, a moment
+ * apart, would each read "nothing made yet" and each make it. So
+ * whoever is about to make one first puts a small file here, and R2
+ * stores it only if there is not one already. The second look finds
+ * it taken and waits.
+ *
+ * Under the item, beside its builds, and never a file a page can ask
+ * for: the address that serves previews wants a version and a
+ * variant, and this has neither.
+ */
+export function claimKey(owner: string, itemId: string): string | null {
+  const item = hex(itemId);
+  if (!isOwner(owner) || !/^[0-9a-f]{32}$/.test(item)) return null;
+  return `previews/${owner}/${item}/building.json`;
+}
+
+export interface PreviewClaim { token: string; at: number }
+
+export function claimBody(claim: PreviewClaim): string {
+  return JSON.stringify({ token: claim.token, at: claim.at });
+}
+
+/** A claim read back, or null when the file is not one. */
+export function parseClaim(raw: unknown): PreviewClaim | null {
+  const c = raw as { token?: unknown; at?: unknown } | null;
+  if (!c || typeof c !== 'object' || !isPreviewVersion(c.token)) return null;
+  return typeof c.at === 'number' && Number.isFinite(c.at) ? { token: c.token, at: c.at } : null;
+}
+
+/** A claim is let go when the step ends. One still here after this
+ *  long was left by a step that died, and is anyone's to take. The
+ *  same patience an upload with no converter job is given, since an
+ *  upload is the longest thing a claim is held through. */
+export function claimIsStale(claim: PreviewClaim | null, now: number): boolean {
+  return !claim || now - claim.at > UPLOAD_STALE_MS;
+}
+
 /* ── what to do next ──────────────────────────────────────────── */
 
 /** How long an upload may sit with no converter job before it is

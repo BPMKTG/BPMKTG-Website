@@ -25,7 +25,7 @@ export {
 // Previews: our own copy of a Drive file. The rules, and the two
 // small adapters that read and write a card's preview fields.
 export * from '../src/data/preview';
-export { storedPreviewProperties } from '../src/server/preview';
+export { advancePreview, storedPreviewProperties } from '../src/server/preview';
 // The installed app: what a notification says and when one is owed,
 // and the signing and encryption behind sending it.
 export * from '../src/data/push';

@@ -634,6 +634,21 @@ serves one, to that client's session or to an admin, with byte ranges
 the slug the session is bound to, so there is no address for another
 client's file.
 
+**One maker at a time.** Notion writes whatever it is handed, so two
+looks at the same new card a moment apart (HQ open, the client opening
+it) would each read "nothing made yet" and each make it: two sets of
+files, and for a video two copies in Stream. So a step that is about
+to make or record something first takes the item's claim, a small file
+at `previews/<slug>/<item>/building.json` that R2 stores only if there
+is not one already, and then reads the card again. A look that finds
+the claim taken, or the card already moved on, does nothing and the
+page asks again. The claim is deleted when the step ends; one left by
+a step that was cut off is taken over after six minutes. If R2 cannot
+be asked about the claim, the step goes ahead without one and logs
+`going ahead without one`: a preview made twice is better than one
+never made. A slide does not use the claim. Its record is in its
+manifest, which refuses a late write itself.
+
 **When it fails.** The client sees "Preview unavailable · open
 original". HQ → Today lists it under **Previews to fix** with the
 reason (most often: the file is not shared with the service account)
