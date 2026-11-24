@@ -29,6 +29,7 @@ import {
   MAX_SLIDES, frameRatio, isSlideMedia, showsSlides, type SlideView,
 } from '../data/slides';
 import { el, icon } from './portal-dom';
+import { showWhole } from './portal-picture';
 import { fieldShell, flashTick } from './portal-fields';
 
 /** How often a waiting block asks, and for how long before it stops. */
@@ -185,6 +186,18 @@ function createViewer(
       state === 'pending' ? 'Getting the preview ready…' : 'Preview unavailable · open original'));
   };
 
+  /** A picture that would not come, after several tries. Said, with
+   *  a way to ask again, since it is the connection and not the file. */
+  const again = (cell: HTMLElement, i: number): void => {
+    const p = el('p', 'pt-preview-note pt-preview-note-failed', 'This slide did not load.');
+    const b = el('button', 'pt-slide-again', 'Try again') as HTMLButtonElement;
+    b.type = 'button';
+    b.addEventListener('click', () => { loaded[i] = false; load(i); });
+    const box = el('div', 'pt-slide-missed');
+    box.append(p, b);
+    cell.replaceChildren(box);
+  };
+
   /** Put a slide's picture in its cell. Until this runs a cell is an
    *  empty box, which is what "not loaded yet" is. */
   const load = (i: number): void => {
@@ -200,12 +213,27 @@ function createViewer(
     if (p.kind === 'image') {
       const img = el('img') as HTMLImageElement;
       img.alt = `Slide ${i + 1} of ${slides.length}`;
-      img.decoding = 'async';
       img.draggable = false;
-      img.addEventListener('load', () => { if (i === 0) measure(img.naturalWidth, img.naturalHeight); });
-      img.addEventListener('error', () => { note(cell, 'pending'); broken(s.id); }, { once: true });
-      img.src = previewUrl(slug, c.id, v, 'image');
-      cell.replaceChildren(img);
+      // Fetched whole and then shown, never painted as it arrives: a
+      // download that stops part way must not be left on screen as
+      // half a photo. See portal-picture.ts.
+      cell.dataset.loading = 'true';
+      cell.replaceChildren();
+      void showWhole(img, previewUrl(slug, c.id, v, 'image')).then((how) => {
+        // The list was drawn again while this was on its way.
+        if (cells[i] !== cell) return;
+        delete cell.dataset.loading;
+        if (how === 'shown') {
+          if (i === 0) measure(img.naturalWidth, img.naturalHeight);
+          cell.replaceChildren(img);
+        } else if (how === 'gone') {
+          // The server has no such file: the preview needs making again.
+          note(cell, 'pending');
+          broken(s.id);
+        } else {
+          again(cell, i);
+        }
+      });
       return;
     }
 
@@ -215,19 +243,21 @@ function createViewer(
     play.setAttribute('aria-label', `Play slide ${i + 1}`);
     play.appendChild(icon('play'));
     const kids: HTMLElement[] = [];
+    kids.push(play);
+    cell.replaceChildren(...kids);
     if (p.poster) {
       const img = el('img') as HTMLImageElement;
       img.alt = `Slide ${i + 1} of ${slides.length}, a video`;
-      img.decoding = 'async';
       img.draggable = false;
-      img.addEventListener('load', () => { if (i === 0) measure(img.naturalWidth, img.naturalHeight); });
-      // A poster that will not load is not a video that will not play.
-      img.addEventListener('error', () => img.remove(), { once: true });
-      img.src = previewUrl(slug, c.id, v, 'image');
-      kids.push(img);
+      // Whole or not at all, like a photo. A poster that will not
+      // load is not a video that will not play: the button is there
+      // either way.
+      void showWhole(img, previewUrl(slug, c.id, v, 'image')).then((how) => {
+        if (cells[i] !== cell || how !== 'shown' || !play.isConnected) return;
+        if (i === 0) measure(img.naturalWidth, img.naturalHeight);
+        cell.insertBefore(img, play);
+      });
     }
-    kids.push(play);
-    cell.replaceChildren(...kids);
     play.addEventListener('click', () => {
       const video = el('video') as HTMLVideoElement;
       video.controls = true;

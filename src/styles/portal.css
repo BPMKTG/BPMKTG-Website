@@ -3686,6 +3686,24 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
   -webkit-user-drag: none; user-select: none;
 }
 .pt-slide .pt-preview-note { position: relative; padding: var(--pt-4); }
+/* A picture on its way. It is fetched whole and then shown (see
+   portal-picture.ts), so until then the box says it is coming rather
+   than standing black. */
+.pt-slide[data-loading]::after {
+  content: ''; width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid rgba(203, 213, 225, .3); border-top-color: #cbd5e1;
+  animation: pt-preview-spin .9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) { .pt-slide[data-loading]::after { animation: none; } }
+/* One that would not come: the line, and another go. */
+.pt-slide-missed { display: grid; justify-items: center; gap: 2px; padding: var(--pt-4); }
+.pt-slide-missed .pt-preview-note { padding: 0 0 var(--pt-2); }
+.pt-slide-again {
+  min-height: 44px; padding: 0 18px; border-radius: 999px;
+  border: 1px solid rgba(203, 213, 225, .45); background: transparent;
+  color: #fff; font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer;
+}
+.pt-slide-again:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .pt-slide-play {
   position: relative; z-index: 1; display: grid; place-items: center;
   width: 72px; height: 72px; border-radius: 50%;

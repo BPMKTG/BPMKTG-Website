@@ -28,6 +28,7 @@
 import { editPreview, type PortalContentItem } from '../data/portal-content';
 import { driveFileId, previewUrl, type ItemPreview } from '../data/preview';
 import { el, icon } from './portal-dom';
+import { showWhole } from './portal-picture';
 
 /** How often a waiting box asks, and for how long before it stops
  *  and says so. A conversion is a minute or two. */
@@ -167,10 +168,25 @@ export function previewBox(c: PortalContentItem, slug: string | null): HTMLEleme
     } else {
       const img = el('img') as HTMLImageElement;
       img.alt = c.title;
-      img.decoding = 'async';
-      img.src = previewUrl(slug, c.id, p.v, 'image');
-      img.addEventListener('error', broken, { once: true });
-      stage.replaceChildren(img);
+      // Fetched whole and then shown: see portal-picture.ts.
+      const url = previewUrl(slug, c.id, p.v, 'image');
+      const fetchIt = (): void => {
+        say('pending', 'Loading the preview…');
+        void showWhole(img, url).then((how) => {
+          if (how === 'shown') { box.dataset.state = 'ready'; stage.replaceChildren(img); return; }
+          if (how === 'gone') { broken(); return; }
+          // The connection, not the file. Said, with another go.
+          const note = el('p', 'pt-preview-note pt-preview-note-failed', 'The preview did not load.');
+          const b = el('button', 'pt-slide-again', 'Try again') as HTMLButtonElement;
+          b.type = 'button';
+          b.addEventListener('click', fetchIt);
+          const missed = el('div', 'pt-slide-missed');
+          missed.append(note, b);
+          box.dataset.state = 'failed';
+          stage.replaceChildren(missed);
+        });
+      };
+      fetchIt();
     }
   }
 

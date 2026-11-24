@@ -649,6 +649,22 @@ be asked about the claim, the step goes ahead without one and logs
 never made. A slide does not use the claim. Its record is in its
 manifest, which refuses a late write itself.
 
+**Shown whole or not at all.** A preview picture is not handed to the
+browser as an address to paint as it arrives. On a phone a download
+sometimes stops part way with the connection still open, and the
+browser leaves the top of the photo on screen over a black box, for
+good: it is not an error, so nothing tries again. The page fetches
+the bytes itself (`src/scripts/portal-picture.ts`): a download that
+goes eight seconds without a byte, ends early, or is cut is started
+again, up to three times, and the picture is put on the page only
+once it is complete and decoded. Until then the box shows that it is
+loading. If it never comes the box says "This slide did not load"
+with **Try again**; that is the connection, so it is not reported as
+a preview to fix. This covers a slide's picture, a video's poster and
+a single card's picture. The small thumbnails on cards and in the
+Slides list are still plain images. The service worker has no part
+in it.
+
 **When it fails.** The client sees "Preview unavailable · open
 original". HQ → Today lists it under **Previews to fix** with the
 reason (most often: the file is not shared with the service account)

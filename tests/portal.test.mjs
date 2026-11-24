@@ -6575,5 +6575,97 @@ section('Previews · one maker at a time');
   is('routes: standing down is never a failure to tell us about', [/outcome === 'busy'[^\n]*notifyAdmins/.test(single), single.includes("out.outcome === 'failed' && stored.status !== 'Failed'")], [false, true]);
 }
 
+section('Pictures · shown whole or not at all');
+{
+  const P = await import('../.tmp-portal-lib.mjs');
+  const { wholePicture, PICTURE_TRIES, PICTURE_IDLE_MS } = P;
+  const fs = await import('node:fs');
+  const URLP = '/portal/sean-comma/preview/' + 'ab'.repeat(16) + '/0123456789abcdef/image';
+  const bytes = new Uint8Array(1000).map((_, i) => i % 251);
+  const realFetch = globalThis.fetch;
+  const asked = [];
+  // One answer per call, in order; the last one repeats.
+  let script = [];
+  const body = (how) => new ReadableStream({
+    start(ctl) {
+      if (how === 'whole') { ctl.enqueue(bytes.slice(0, 400)); ctl.enqueue(bytes.slice(400)); ctl.close(); }
+      // a third arrives, and then the stream ends as if that were all
+      if (how === 'short') { ctl.enqueue(bytes.slice(0, 350)); ctl.close(); }
+      // a third arrives, and then the connection drops
+      if (how === 'cut') { ctl.enqueue(bytes.slice(0, 350)); setTimeout(() => ctl.error(new TypeError('network connection was lost')), 5); }
+      // a third arrives, and then nothing: open, and silent
+      if (how === 'stall') ctl.enqueue(bytes.slice(0, 350));
+    },
+  });
+  globalThis.fetch = async (url, init = {}) => {
+    const how = script[Math.min(asked.length, script.length - 1)];
+    asked.push({ url: String(url), cache: init.cache, credentials: init.credentials });
+    if (how === 'down') throw new TypeError('Load failed');
+    if (typeof how === 'number') return new Response('', { status: how });
+    const stream = body(how);
+    // A real fetch drops the body when its signal is aborted.
+    const out = new ReadableStream({
+      start(ctl) {
+        const r = stream.getReader();
+        const pump = () => r.read().then(({ done, value }) => { if (done) ctl.close(); else { ctl.enqueue(value); pump(); } }, (e) => ctl.error(e));
+        pump();
+        init.signal?.addEventListener('abort', () => { try { ctl.error(new DOMException('aborted', 'AbortError')); } catch { /* already over */ } });
+      },
+    });
+    return new Response(out, { status: 200, headers: { 'Content-Type': 'image/jpeg', 'Content-Length': String(bytes.length) } });
+  };
+  const run = async (answers, opts = {}) => { script = answers; asked.length = 0; const got = await wholePicture(URLP, { idleMs: 40, pause: async () => {}, ...opts }); return { got, n: asked.length }; };
+  const same = async (blob) => { const b = new Uint8Array(await blob.arrayBuffer()); return b.length === bytes.length && b.every((x, i) => x === bytes[i]); };
+
+  try {
+    let r = await run(['whole']);
+    is('whole: a download that arrives complete is handed over as it is, in one ask, with the sign-in the page has',
+       [r.got.ok, await same(r.got.blob), r.got.blob.type, r.n, asked[0].credentials, asked[0].cache], [true, true, 'image/jpeg', 1, 'same-origin', 'default']);
+    r = await run(['stall', 'whole']);
+    is('stall: a download that goes quiet part way is given up on and asked for again, and the picture comes whole', [r.got.ok, await same(r.got.blob), r.n], [true, true, 2]);
+    is('stall: the second ask does not take whatever the browser kept of the first', asked[1].cache, 'reload');
+    r = await run(['cut', 'whole']);
+    is('cut: a connection that drops part way is asked for again', [r.got.ok, await same(r.got.blob), r.n], [true, true, 2]);
+    r = await run(['short', 'whole']);
+    is('short: a download that ends early but says nothing is wrong is not taken for the picture', [r.got.ok, await same(r.got.blob), r.n], [true, true, 2]);
+    r = await run(['down', 500, 'whole']);
+    is('down: no answer at all, then a server error, then the picture: it is still shown', [r.got.ok, r.n], [true, 3]);
+    r = await run(['stall']);
+    is('never: after three tries the page is told it could not be loaded, as the connection’s fault and not the file’s', [r.got, r.n, PICTURE_TRIES], [{ ok: false, gone: false }, 3, 3]);
+    r = await run(['short']);
+    is('never: half a picture is never handed over, however many times that is all that comes', [r.got.ok, r.n], [false, 3]);
+    r = await run([404, 'whole']);
+    is('gone: a file the server does not have is not asked for again; the preview needs making, not the download', [r.got, r.n], [{ ok: false, gone: true }, 1]);
+    r = await run([403]);
+    is('gone: nor one this person may not see', [r.got, r.n], [{ ok: false, gone: true }, 1]);
+    is('patience: a download is left alone unless it goes eight seconds without a byte', PICTURE_IDLE_MS, 8000);
+  } finally { globalThis.fetch = realFetch; }
+
+  // ── where a preview picture is put on a page ──
+  const slides = fs.readFileSync(new URL('../src/scripts/portal-slides.ts', import.meta.url), 'utf8');
+  const single = fs.readFileSync(new URL('../src/scripts/portal-preview.ts', import.meta.url), 'utf8');
+  const viewer = slides.slice(slides.indexOf('function createViewer'), slides.indexOf('function update('));
+  const ours = single.slice(single.indexOf('function show('));
+  is('viewer: a slide’s picture and a video’s poster are fetched whole, and never handed to the browser as an address to paint as it arrives',
+     [(viewer.match(/showWhole\(/g) ?? []).length, /img\.src\s*=/.test(viewer)], [2, false]);
+  is('single: the same for a card with one file', [/showWhole\(img, url\)/.test(ours), /img\.src\s*=/.test(ours)], [true, false]);
+  is('viewer: a picture that would not come says so and offers another go, and is not reported as a missing preview',
+     [/This slide did not load\./.test(viewer), /Try again/.test(viewer), /how === 'gone'\) \{[^}]*broken\(s\.id\)/s.test(viewer)], [true, true, true]);
+  // The page asking with fetch, not an <img>, is a different kind of
+  // request to a service worker. It must be left alone just the same.
+  const vm = await import('node:vm');
+  const sw = fs.readFileSync(new URL('../public/portal-sw.js', import.meta.url), 'utf8');
+  const listeners = {};
+  const sandbox = { URL, Response, Promise, console, undefined, caches: { open: async () => ({}) }, fetch: async () => new Response('net'),
+    self: { location: { href: 'https://blueprint-marketing.com/portal-sw.js?v=abc123', origin: 'https://blueprint-marketing.com' }, addEventListener: (type, fn) => { listeners[type] = fn; } } };
+  vm.createContext(sandbox);
+  vm.runInContext(sw, sandbox);
+  const routeFor = vm.runInContext('routeFor', sandbox);
+  const req = (mode) => ({ url: `https://blueprint-marketing.com${URLP}`, method: 'GET', mode, headers: { has: () => false } });
+  const fire = (r) => { let answered = null; listeners.fetch({ request: r, respondWith: (p) => { answered = p; } }); return answered; };
+  is('sw: a preview asked for by the page’s own fetch is not handled either, and respondWith is never called for it',
+     [routeFor(req('same-origin')), routeFor(req('cors')), routeFor(req('no-cors')), fire(req('same-origin')), fire(req('cors'))], [null, null, null, null, null]);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

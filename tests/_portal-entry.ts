@@ -26,6 +26,8 @@ export {
 // small adapters that read and write a card's preview fields.
 export * from '../src/data/preview';
 export { advancePreview, storedPreviewProperties } from '../src/server/preview';
+// A preview picture, fetched whole before it is shown.
+export { wholePicture, PICTURE_TRIES, PICTURE_IDLE_MS } from '../src/scripts/portal-picture';
 // The installed app: what a notification says and when one is owed,
 // and the signing and encryption behind sending it.
 export * from '../src/data/push';
