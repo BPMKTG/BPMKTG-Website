@@ -36,9 +36,10 @@
 
 import {
   CONVERT_TIMEOUT_MS, IMAGE_PX, MAX_VIDEO_BYTES, PREVIEW_FIELDS, THUMB_PX, UPLOAD_CHUNK,
-  failureDetail, fileKind, jobDetail, planPreview, previewKey, probeMp4, readyDetail,
+  failureDetail, fileKind, jobDetail, parseJob, planPreview, previewKey, probeMp4, readyDetail,
   type PreviewJob, type StoredPreview,
 } from '../data/preview';
+import { imageSize } from '../data/slides';
 import { accessToken, googleCredentials, thumbnailAt } from './google-drive';
 
 const DRIVE_FILES = 'https://www.googleapis.com/drive/v3/files';
@@ -424,9 +425,13 @@ export async function advancePreview(
     const bytes = await putFrom(bucket, imageKey, big, big.headers.get('Content-Type') || 'image/jpeg');
     const small = await driveRendition(file.thumbnailLink, THUMB_PX);
     if (small) await putFrom(bucket, thumbKey, small, small.headers.get('Content-Type') || 'image/jpeg');
+    // How big the copy is, read back from its own first bytes, so a
+    // frame can be drawn the right shape before the picture loads.
+    const start = await bucket.get(imageKey, { range: { offset: 0, length: 256 * 1024 } }).catch(() => null);
+    const size = start ? imageSize(new Uint8Array(await start.arrayBuffer())) : null;
     const done = await finish({
       status: 'Ready', imageKey, thumbKey: small ? thumbKey : null, videoKey: null,
-      source: step.fileId, detail: readyDetail('image', bytes),
+      source: step.fileId, detail: readyDetail('image', bytes, null, size),
     }, 'ready');
     if (done.outcome === 'ready') await drop(bucket, old);
     return done;
@@ -466,6 +471,19 @@ export async function advancePreview(
     return { outcome: 'try_later', stored: claimed, note: 'The conversion could not be recorded.' };
   }
   return { outcome: 'converting', stored: next, note: 'Uploaded. Converting.' };
+}
+
+/**
+ * Clear away what one preview has made: its files in R2, and the
+ * converter's copy if a conversion was still running. For a preview
+ * whose subject has gone (a slide taken out of a post), so nothing
+ * is left behind that nobody will ever look at, or pay to keep.
+ */
+export async function discardPreview(env: PreviewEnv, stored: StoredPreview): Promise<void> {
+  if (env.REPORTS_BUCKET) await drop(env.REPORTS_BUCKET, [stored.imageKey, stored.thumbKey, stored.videoKey]);
+  const job = stored.status === 'Converting' ? parseJob(stored.detail) : null;
+  const c = streamConfig(env);
+  if (job?.job && c) await streamJson(c, `/${job.job}`, { method: 'DELETE' });
 }
 
 /** How long a page should wait before asking again. */

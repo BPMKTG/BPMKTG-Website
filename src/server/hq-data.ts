@@ -26,6 +26,8 @@
 import { clientType } from '../data/client-types';
 import { resolveDeliveries, type Delivery } from '../data/deliveries';
 import { itemPreview, type ItemPreview } from '../data/preview';
+import type { SlideView } from '../data/slides';
+import { attachSlides } from './slides';
 import { shapeDelivery, splitPages } from './deliveries';
 import {
   CALENDAR_DB,
@@ -42,6 +44,7 @@ import {
   readSelect,
   readText,
   readUrl,
+  hasSlideList,
   readStoredPreview,
 } from './portal-notion';
 import { AUDITS_DB, shapeAuditRow, type AuditRow } from './audit-data';
@@ -59,7 +62,7 @@ export const HQ_TTL_SECONDS = 90;
 
 /** Bumped whenever the shape below changes, so a deploy cannot serve
  *  a cached payload the new UI does not understand. */
-export const HQ_CACHE_KEY = 'hq:v6';
+export const HQ_CACHE_KEY = 'hq:v7';
 
 /** How far back and forward the calendar is read. Today needs the
  *  overdue tail, the fourteen-day strip needs the near future, and a
@@ -193,6 +196,11 @@ export interface HqContentItem {
   /** Our own copy of the file behind a Drive Edit Link, with the
    *  reason when it failed. Only on a card that has such a link. */
   preview?: ItemPreview;
+  /** It has a slide list, and the slides themselves when it has some.
+   *  See src/data/slides.ts. */
+  multi?: true;
+  slides?: SlideView[];
+  slidesFolder?: string;
 }
 
 /** A snapshot as the report pipeline already shapes it, plus the
@@ -241,6 +249,9 @@ export interface HqPayload {
 
 export interface HqDataEnv {
   NOTION_TOKEN: string;
+  /** Where slide lists are kept. Without it a carousel is sent with
+   *  no slides, and nothing else changes. */
+  REPORTS_BUCKET?: R2Bucket;
   PORTAL_KV?: {
     get: (key: string) => Promise<string | null>;
     put: (key: string, value: string, opts?: { expirationTtl?: number }) => Promise<void>;
@@ -440,6 +451,7 @@ async function readContent(
       postLink: readUrl(p['Post Link']),
       notes: readText(p['Notes']),
       ...previewOf(readUrl(p['Edit Link']), p, String(page.id)),
+      ...(hasSlideList(p) ? { multi: true as const } : {}),
     };
   }) };
 }
@@ -506,6 +518,12 @@ export async function hqBuild(env: HqDataEnv, now = new Date()): Promise<HqBuild
     timed('snapshots', () => readSnapshots(env, token)),
     timed('audits', () => readAudits(token)),
   ]);
+
+  // The slides of each carousel, filed under its client's slug.
+  const bare = (id: string): string => id.replace(/-/g, '').toLowerCase();
+  const slugById = new Map(clients.map((c) => [bare(c.pageId), c.slug]));
+  await timed('slides', () => attachSlides(env.REPORTS_BUCKET, pipeline.content,
+    (c) => (c.clientId ? slugById.get(bare(c.clientId)) || null : null), { admin: true }));
 
   const payload: HqPayload = {
     clients, calendar, content: pipeline.content, contentSchema, snapshots, audits,

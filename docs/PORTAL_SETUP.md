@@ -651,6 +651,92 @@ takes several rounds, which HQ does on its own.
 
 ---
 
+## Slides: a post that is several files
+
+A carousel or a story sequence is up to twenty photos and videos, in
+order. Each slide is one Drive file, and each gets its preview from
+the service above, unchanged: a web copy and a thumbnail for a photo,
+the Stream MP4 and a poster for a video. An item is shown as slides
+when **Media** is Carousel or Story and it has at least one. Anything
+else is its Edit Link, exactly as before.
+
+**Where the list lives.** One JSON file per item in R2, the manifest,
+at `previews/<slug>/<item>/slides.json`: which Drive files, in which
+order, the filename when Drive told us, the folder the list was last
+matched to, and what is recorded about each slide's preview. It is in
+R2 and not in Notion because it is too long for a text field (twenty
+slides of keys), and because it changes every time a conversion moves
+on, which is not an edit of the card.
+
+**Notion holds one field**, `Slides Manifest`, containing that key.
+All it is ever used for is "this item has a list": the address is
+always built from the client's slug and the item's id, and what the
+field says is only compared with that. It is never sent to a client.
+
+**The files** are filed under the item like any preview
+(`previews/<slug>/<item>/<version>/...`, one random version per
+build), so the address a page asks and the route that answers are the
+ones a single preview uses, with the same sign-in. The service worker
+handles none of it.
+
+**The code.** The rules are `src/data/slides.ts` (pure, tested). The
+part that reads Drive and R2 is `src/server/slides.ts`. The page side
+is `src/scripts/portal-slides.ts`: the swipe viewer, the list we
+build a post from, and the mark on a card.
+
+**One route**, `POST /portal/<slug>/slides/<item>`:
+
+| Body | Who | What it does |
+|---|---|---|
+| `{}` | the client, or us | answers with the slides, and moves on the ones not ready |
+| `{ verify: <slide> }` | the client, or us | "that one would not load": its files are checked and rebuilt |
+| `{ add: <link> }` | us | a Drive file link adds one slide. A folder link makes the list every image and video directly in the folder, by filename |
+| `{ remove: <slide> }` | us | takes it out, and clears its files |
+| `{ order: [<slide>, ...] }` | us | the same slides in a new order. Refused if it is not exactly the slides there are |
+| `{ resync: true }` | us | matches the folder again. Slides whose files are still there keep their previews |
+| `{ retry: <slide> }` | us | builds that slide's preview from the start |
+
+A client who sends one of ours gets the usual 404, before anything is
+read. Changing the list is refused unless Media is Carousel or Story.
+
+**Two changes at once both land.** Someone can reorder the list while
+a conversion finishes for one of its slides. Every change reads the
+manifest, makes its change to what it read, and writes only if the
+file is still the one it read (R2's conditional write); if not, it
+reads again. And a preview step only records its result if the slide
+is still as the step found it, so two people looking at once make one
+copy, not two.
+
+**When a slide fails**, the others still show. That slide says
+"Preview unavailable · open original"; HQ → Today lists the item
+under **Previews to fix** with the slide number, and the row in the
+list has its own **Try again**.
+
+**The viewer.** One frame. Swiping is the browser's own sideways
+scrolling with snap points. Dots and an "n / total" counter; arrow
+buttons and the arrow keys on a desktop. A carousel's frame takes its
+first slide's shape and crops the rest to it; a story is 9:16. A
+video shows its poster, plays in place with sound when tapped, and
+pauses when swiped away. The first two slides load up front, the rest
+as they come near.
+
+**Review.** Approve and Request changes act on the whole post.
+Request changes starts the note with "Slide n:" for the slide on
+screen, which the client can change or clear.
+
+**Notifications.** Adding, removing and reordering slides tells a
+client nothing. The slides route sends no client notification at
+all; the only thing a client hears about is the post moving into
+review, from the content route, as before.
+
+**Local testing.** The manifest is in R2, which a local server does
+not share with production, while `Slides Manifest` is in Notion,
+which it does. A list built locally reads in production as "no
+slides" until it is built there. Test on a row with **Hide from
+Client** ticked, and remove the slides before archiving it.
+
+---
+
 ## The installed app
 
 The portal can be put on a home screen. There are two apps, and a

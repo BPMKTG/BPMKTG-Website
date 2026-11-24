@@ -71,3 +71,9 @@ export { publishNumbers } from '../src/server/report-publish';
 // Applying a playbook to a moment: the plan, and the page a row becomes.
 export * from '../src/data/playbook-apply';
 export { copyProperties, readApplyAsk, MASTER_PROP, PENDING_PROP } from '../src/server/playbook-apply';
+// Slides: a post that is several files. The rules, and the part that
+// keeps the list in R2.
+export * from '../src/data/slides';
+export {
+  advanceSlides, attachSlides, changeManifest, dropManifest, readManifest, slidesAnswer,
+} from '../src/server/slides';

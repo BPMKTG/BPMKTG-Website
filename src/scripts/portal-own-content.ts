@@ -44,6 +44,7 @@ import { isPhone, MEDIA_ICON } from './portal-board';
 import { el, fmtDateShort, icon, isNarrow, qq } from './portal-dom';
 import { createEdgeScroll } from './portal-edge';
 import { createHScroll } from './portal-hscroll';
+import { slideBadge } from './portal-slides';
 
 type OwnView = 'ideas' | 'pipeline' | 'posted';
 
@@ -78,6 +79,8 @@ export interface OwnContentHost {
   reviewAct?: (c: PortalContentItem, action: ReviewAction) => void;
   /** HQ: whose card this is, where a board holds more than one client's. */
   clientOf?: (c: PortalContentItem) => string | null;
+  /** The slug of the client a card belongs to. */
+  slugOf?: (c: PortalContentItem) => string | null;
 }
 
 export interface OwnContent {
@@ -269,6 +272,10 @@ export function createOwnContent(host: OwnContentHost): OwnContent {
     // A shoot-code title ("SM L1D1") is how he names things, so it is
     // shown exactly as typed, on one line, and never prettied up.
     open.appendChild(el('span', 'pt-ccard-title', c.title));
+
+    // A post of several files: slide one, a stack mark and the count.
+    const stack = slideBadge(c, host.slugOf?.(c) ?? null);
+    if (stack) { open.classList.add('pt-ccard-hasslides'); open.appendChild(stack); }
 
     const who = host.clientOf?.(c) ?? null;
     if (who) open.appendChild(el('span', 'pt-ccard-who', who));

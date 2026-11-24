@@ -363,8 +363,10 @@ const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(bytes < 1
 
 /** One line for Preview Detail when a build is done, so the row says
  *  what was made without anyone opening R2. */
-export function readyDetail(kind: 'image' | 'video', bytes: number, facts?: Mp4Facts | null): string {
-  if (kind === 'image') return `Ready · image, ${mb(bytes)}`;
+export function readyDetail(
+  kind: 'image' | 'video', bytes: number, facts?: Mp4Facts | null, pixels?: { w: number; h: number } | null,
+): string {
+  if (kind === 'image') return pixels ? `Ready · image, ${pixels.w}×${pixels.h}, ${mb(bytes)}` : `Ready · image, ${mb(bytes)}`;
   const f = facts ?? { faststart: null, codec: null, width: null, height: null };
   const size = f.width && f.height ? `${f.width}×${f.height}` : 'size unknown';
   const start = f.faststart === true ? 'faststart' : f.faststart === false ? 'NOT faststart' : 'faststart unknown';

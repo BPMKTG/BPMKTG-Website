@@ -38,9 +38,11 @@ import {
   cleanBucketName,
 } from '../data/portal-content';
 import { driveFileId } from '../data/preview';
+import { showsSlides } from '../data/slides';
 import { MEDIA_ICON } from './portal-board';
 import { el, icon } from './portal-dom';
 import { previewBox } from './portal-preview';
+import { slidesBlock } from './portal-slides';
 import {
   dateField, fieldShell, flashTick, multiEditor, selectEditor, textField, urlField,
   type Tick,
@@ -67,6 +69,9 @@ export interface DrawerHost {
   /** The brief on the campaign step this card delivers, when it has
    *  one. It is written on the step, so the card borrows it. */
   briefOf?: (c: PortalContentItem) => string | null;
+  /** A card's slides are not what they were: put them on whatever
+   *  the page keeps, and redraw its cards. */
+  slidesChanged?: (c: PortalContentItem) => void;
 }
 
 /** A read-only line: a label and what it says. */
@@ -188,8 +193,15 @@ export function fillContentDrawer(host: DrawerHost, c: PortalContentItem, body: 
   }
 
   /* 2 ── the cut ── */
+  // A post of several files is its slides: one frame to swipe, and
+  // under it, for us, the list it is built from. Anything else is its
+  // Edit Link, exactly as before.
   const ours = !!driveFileId(c.editLink);
-  if (c.editLink) {
+  const slides = slidesBlock(c, host.slugOf?.(c) ?? null, {
+    edit: admin, toast: host.toast, changed: host.slidesChanged,
+  });
+  if (slides) body.appendChild(slides);
+  if (c.editLink && !showsSlides(c)) {
     const frame = previewBox(c, host.slugOf?.(c) ?? null);
     if (frame) body.appendChild(frame);
   }
@@ -198,7 +210,7 @@ export function fillContentDrawer(host: DrawerHost, c: PortalContentItem, body: 
     // makes the box ask for one the moment the link is saved.
     body.appendChild(urlField('Edit link', c.editLink, 'Paste the link to the cut',
       (v, tick) => save({ editLink: v }, { editLink: v, preview: driveFileId(v) ? { state: 'pending' } : undefined }, tick)));
-  } else if (c.editLink && !ours) {
+  } else if (c.editLink && !ours && !showsSlides(c)) {
     const a = el('a', 'pt-btn pt-btn-wide') as HTMLAnchorElement;
     a.href = c.editLink;
     a.target = '_blank';

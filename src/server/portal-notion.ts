@@ -21,6 +21,7 @@
 
 import { clientType, type ClientTypeConfig } from '../data/client-types';
 import { PREVIEW_FIELDS, itemPreview, type ItemPreview, type StoredPreview } from '../data/preview';
+import { SLIDES_FIELD } from '../data/slides';
 import { isValidSlug, normaliseSlug } from './portal-auth';
 import { parseEmailList } from './portal-login';
 import {
@@ -849,7 +850,14 @@ function shapeContent(page: any): PortalContentItem {
     postLink: readUrl(p[CONTENT_FIELDS[17]]),
     media: readSelect(p[CONTENT_FIELDS[18]]),
     ...previewPart(readUrl(p[CONTENT_FIELDS[16]]), p, String(page.id)),
+    ...(hasSlideList(p) ? { multi: true as const } : {}),
   };
+}
+
+/** Does this row say it has a slide list? What the field holds is
+ *  never used as an address: see slidesKey. */
+export function hasSlideList(properties: Record<string, any> | undefined): boolean {
+  return !!(readText((properties ?? {})[SLIDES_FIELD]) ?? '').trim();
 }
 
 /** `{ preview }` for a card whose Edit Link is a Drive file, and

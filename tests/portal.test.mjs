@@ -6196,5 +6196,198 @@ section('Notifications · who is told what, and when');
   } finally { globalThis.fetch = realFetch; console.error = errors; }
 }
 
+section('Slides · a post that is several files');
+{
+  const S = await import('../.tmp-portal-lib.mjs');
+  const {
+    SLIDES_FIELD, MAX_SLIDES, slidesKey, slideSource, addSlide, removeSlide, reorderSlides, setSlidePreview, naturalCompare,
+    matchFolder, parseManifest, blankManifest, slideViews, showsSlides, isSlideMedia, frameRatio, imageSize, detailSize,
+    readyDetail, previewKey, changeManifest, readManifest, advanceSlides, attachSlides, slidesAnswer, jobDetail,
+    CONVERT_TIMEOUT_MS,
+  } = S;
+  const fs = await import('node:fs');
+  const vm = await import('node:vm');
+  const ITEM = 'ab'.repeat(16), OTHER = 'cd'.repeat(16);
+  const F = (n) => `1AbC_file-${String(n).padStart(2, '0')}_xxxxxxxxxxxxxxxx`;
+  const V1 = '0123456789abcdef', V2 = 'fedcba9876543210';
+  const ready = (file, version, kind = 'image', detail = 'Ready · image, 1067×1600, 0.3 MB') => ({
+    status: 'Ready', source: file, detail,
+    imageKey: previewKey('sean-comma', ITEM, version, 'image'), thumbKey: previewKey('sean-comma', ITEM, version, 'thumb'),
+    videoKey: kind === 'video' ? previewKey('sean-comma', ITEM, version, 'video') : null,
+  });
+  let seq = 0;
+  const nextId = () => (seq += 1).toString(16).padStart(8, '0');
+
+  // ── where it is kept ──
+  is('key: the list is one file under the item, beside its previews', slidesKey('sean-comma', `${ITEM.slice(0, 8)}-${ITEM.slice(8, 12)}-${ITEM.slice(12, 16)}-${ITEM.slice(16, 20)}-${ITEM.slice(20)}`), `previews/sean-comma/${ITEM}/slides.json`);
+  is('key: nothing that is not a slug and an item id makes one', ['../x', 'Sean', '', 'a/b'].map((o) => slidesKey(o, ITEM)).concat([slidesKey('sean-comma', 'nope'), slidesKey('sean-comma', `${ITEM}/..`)]), new Array(6).fill(null));
+  is('field: Notion holds one field, and it is not one a client is ever sent', [SLIDES_FIELD, MAX_SLIDES], ['Slides Manifest', 20]);
+
+  // ── a pasted link ──
+  is('link: a Drive file link is a file, in any of the shapes Drive hands out',
+     [`https://drive.google.com/file/d/${F(1)}/view?usp=sharing`, `https://drive.google.com/file/u/0/d/${F(1)}/preview`, `https://drive.google.com/open?id=${F(1)}`].map(slideSource),
+     new Array(3).fill({ kind: 'file', id: F(1) }));
+  is('link: a folder link is a folder',
+     [`https://drive.google.com/drive/folders/${F(2)}`, `https://drive.google.com/drive/u/0/folders/${F(2)}?usp=sharing`, `https://drive.google.com/drive/mobile/folders/${F(2)}/`].map(slideSource),
+     new Array(3).fill({ kind: 'folder', id: F(2) }));
+  is('link: anything else is neither', ['', 'not a link', `http://drive.google.com/file/d/${F(1)}/view`, 'https://www.dropbox.com/s/abc/x.jpg', 'https://drive.google.com/drive/my-drive', `https://evil.example/drive/folders/${F(2)}`].map(slideSource), new Array(6).fill(null));
+
+  // ── changing the list ──
+  let m = blankManifest(ITEM);
+  for (let i = 1; i <= 3; i += 1) m = addSlide(m, F(i), nextId()).manifest;
+  is('add: a slide goes on the end, with no preview yet', [m.slides.map((s) => s.file), m.slides[2].preview.status], [[F(1), F(2), F(3)], null]);
+  is('add: the same file twice is refused, and says which slide it already is', addSlide(m, F(2), nextId()), { ok: false, why: 'duplicate', n: 2 });
+  let fullList = blankManifest(ITEM);
+  for (let i = 1; i <= 20; i += 1) fullList = addSlide(fullList, F(i), nextId()).manifest;
+  is('add: twenty is as many as a post holds', [fullList.slides.length, addSlide(fullList, F(21), nextId())], [20, { ok: false, why: 'full' }]);
+  const [a, b, c] = m.slides.map((s) => s.id);
+  is('order: the same slides in a new order', reorderSlides(m, [c, a, b]).slides.map((s) => s.file), [F(3), F(1), F(2)]);
+  is('order: a list that is not exactly the slides there are is refused, so a stale drag cannot drop one',
+     [reorderSlides(m, [a, b]), reorderSlides(m, [a, b, 'zzzzzzzz']), reorderSlides(m, [a, a, b]), reorderSlides(m, 'abc'), reorderSlides(m, [a, b, c, a])], [null, null, null, null, null]);
+  is('order: the order it is already in changes nothing', reorderSlides(m, [a, b, c]) === m, true);
+  const cut = removeSlide(m, b);
+  is('remove: the slide goes, and is handed back so its files can be cleared', [cut.manifest.slides.map((s) => s.file), cut.removed.file, removeSlide(m, 'ffffffff').removed], [[F(1), F(3)], F(2), null]);
+  is('preview: one slide’s record is replaced, and a slide that has gone says so', [setSlidePreview(m, b, ready(F(2), V1)).slides[1].preview.status, setSlidePreview(m, 'ffffffff', ready(F(2), V1))], ['Ready', null]);
+
+  // ── a folder ──
+  is('folder: filenames sort the way a person orders them',
+     ['10.jpg', '2.jpg', '1.JPG', 'b.mp4', 'A.mov', 'slide 02.png', 'slide 2.png', 'slide 11.png'].sort(naturalCompare),
+     ['1.JPG', '2.jpg', '10.jpg', 'A.mov', 'b.mp4', 'slide 2.png', 'slide 02.png', 'slide 11.png']);
+  const withPreview = setSlidePreview(m, a, ready(F(1), V1));
+  const matched = matchFolder(withPreview, F(90), [{ id: F(5), name: '03 crowd.mp4' }, { id: F(1), name: '02 stage.jpg' }, { id: F(4), name: '01 cover.jpg' }], nextId);
+  is('folder: the list becomes the folder, by filename', [matched.manifest.folder, matched.manifest.slides.map((s) => s.name)], [F(90), ['01 cover.jpg', '02 stage.jpg', '03 crowd.mp4']]);
+  is('folder: a slide whose file is still there keeps its id and its preview; the ones that left are handed back',
+     [matched.manifest.slides[1].id, matched.manifest.slides[1].preview.status, matched.removed.map((s) => s.file), matched.added], [a, 'Ready', [F(2), F(3)], 2]);
+  const big = matchFolder(blankManifest(ITEM), F(90), Array.from({ length: 23 }, (_, i) => ({ id: F(i + 1), name: `${i + 1}.jpg` })), nextId);
+  is('folder: past twenty, the first twenty by filename are taken and the rest are counted', [big.manifest.slides.length, big.manifest.slides[19].name, big.over], [20, '20.jpg', 3]);
+
+  // ── reading a manifest back ──
+  const onDisk = JSON.parse(JSON.stringify({ ...withPreview, slides: [...withPreview.slides, { id: 'nothex!!', file: F(9), preview: {} }] }));
+  onDisk.slides[1].preview = { status: 'Ready', source: F(2), imageKey: `previews/rebelz-cheer/${OTHER}/${V1}/image.jpg`, videoKey: 'reports/sean-comma/2026-11.pdf' };
+  const read = parseManifest(onDisk, ITEM);
+  is('manifest: read back as it was written', [read.slides.length, read.slides[0].preview.imageKey], [3, previewKey('sean-comma', ITEM, V1, 'image')]);
+  is('manifest: a key that is not one of this item’s own preview files is dropped, so a manifest cannot name anyone else’s file',
+     [read.slides[1].preview.imageKey, read.slides[1].preview.videoKey], [null, null]);
+  is('manifest: one written for another item, or not a manifest at all, is not read', [parseManifest(onDisk, OTHER), parseManifest({ v: 2, item: ITEM, slides: [] }, ITEM), parseManifest('x', ITEM), parseManifest(null, ITEM)], [null, null, null, null]);
+
+  // ── what a page is sent ──
+  let shown = setSlidePreview(withPreview, b, ready(F(2), V2, 'video', 'Ready · video, 1080×1920 H.264, faststart, 36 MB'));
+  shown = setSlidePreview(shown, c, { status: 'Failed', source: F(3), detail: 'Failed · Drive will not show us this file.', imageKey: null, thumbKey: null, videoKey: null });
+  shown = { ...shown, slides: shown.slides.map((s, i) => ({ ...s, name: `0${i + 1}.jpg` })) };
+  const asClient = slideViews(shown, ITEM);
+  is('view: a client is sent a state, a kind, a version and a size for each slide, and the link to the original',
+     asClient[0], { id: a, link: `https://drive.google.com/file/d/${F(1)}/view`, preview: { state: 'ready', kind: 'image', v: V1 }, thumb: true, w: 1067, h: 1600 });
+  is('view: a video says it has a poster', asClient[1].preview, { state: 'ready', kind: 'video', v: V2, poster: true });
+  is('view: a client is never sent a key, a filename, or why a slide failed', [/previews\/|\.jpg|Drive will not/.test(JSON.stringify(asClient)), asClient[2].preview], [false, { state: 'failed' }]);
+  const asUs = slideViews(shown, ITEM, { admin: true });
+  is('view: we are sent the filename and the reason', [asUs[0].name, asUs[2].preview.why], ['01.jpg', 'Failed · Drive will not show us this file.']);
+  is('view: a slide with nothing made yet is pending', slideViews(m, ITEM).map((v) => v.preview.state), ['pending', 'pending', 'pending']);
+  is('answer: the folder is for us only', [slidesAnswer(matched.manifest, ITEM).folder, slidesAnswer(matched.manifest, ITEM, { admin: true }).folder], [undefined, `https://drive.google.com/drive/folders/${F(90)}`]);
+  is('shows: only a Carousel or a Story with at least one slide is shown as slides',
+     [showsSlides({ media: 'Carousel', slides: asClient }), showsSlides({ media: 'Story', slides: asClient }), showsSlides({ media: 'Video', slides: asClient }), showsSlides({ media: 'Carousel', slides: [] }), showsSlides({ media: 'Carousel' }), showsSlides({ media: null, slides: asClient })],
+     [true, true, false, false, false, false]);
+  is('shows: Photo, Video and Graphic are single files, as they always were', ['Video', 'Photo', 'Graphic', null, undefined].map(isSlideMedia), [false, false, false, false, false]);
+
+  // ── the frame ──
+  const near = (x, y) => Math.abs(x - y) < 0.001;
+  is('frame: a carousel takes its first slide’s shape; a story is 9:16 whatever is in it',
+     [near(frameRatio('Carousel', { w: 1080, h: 1350 }), 0.8), near(frameRatio('Carousel', { w: 1600, h: 1600 }), 1), near(frameRatio('Story', { w: 1600, h: 1600 }), 9 / 16)], [true, true, true]);
+  is('frame: held between 9:16 and 1.91:1, and 4:5 until the size is known',
+     [near(frameRatio('Carousel', { w: 400, h: 4000 }), 9 / 16), near(frameRatio('Carousel', { w: 4000, h: 400 }), 1.91), near(frameRatio('Carousel', null), 0.8), near(frameRatio('Carousel', {}), 0.8)], [true, true, true, true]);
+  const png = new Uint8Array(24); png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0x04, 0x38, 0, 0, 0x05, 0x46]);
+  const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 4, 1, 2, 0xff, 0xc4, 0, 4, 9, 9, 0xff, 0xc2, 0, 17, 8, 0x06, 0x40, 0x04, 0x2b, 3, 1, 0x11, 0, 2, 0x11, 1, 3, 0x11, 1]);
+  const gif = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x20, 0x03, 0x58, 0x02]);
+  is('size: a picture’s size is read from its first bytes: PNG, JPEG past its other markers, GIF', [imageSize(png), imageSize(jpg), imageSize(gif)], [{ w: 1080, h: 1350 }, { w: 1067, h: 1600 }, { w: 800, h: 600 }]);
+  is('size: anything else has none, and the page measures the picture itself', [imageSize(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])), imageSize(new Uint8Array(0)), imageSize(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 4, 1, 2]))], [null, null, null]);
+  is('size: a Ready line carries it, for an image and for a video, and an old line without one still reads',
+     [detailSize(readyDetail('image', 300000, null, { w: 1067, h: 1600 })), detailSize('Ready · video, 1080×1920 H.264, faststart, 36 MB'), detailSize(readyDetail('image', 300000)), readyDetail('image', 300000)],
+     [{ w: 1067, h: 1600 }, { w: 1080, h: 1920 }, null, 'Ready · image, 0.3 MB']);
+
+  // ── the manifest in R2 ──
+  const bucket = () => {
+    const files = new Map(); let n = 0; const calls = { get: 0, put: 0, del: [] };
+    return {
+      files, calls, between: null,
+      async get(key) { calls.get += 1; const f = files.get(key); if (!f) return null; const got = { etag: f.etag, json: async () => JSON.parse(f.body) }; if (this.between) { const run = this.between; this.between = null; await run(); } return got; },
+      async put(key, body, o = {}) { calls.put += 1; const cur = files.get(key); if (o.onlyIf?.etagMatches && cur?.etag !== o.onlyIf.etagMatches) return null; n += 1; files.set(key, { body: String(body), etag: `e${n}` }); return { etag: `e${n}` }; },
+      async delete(keys) { for (const k of [].concat(keys)) { calls.del.push(k); files.delete(k); } },
+      async head(key) { return files.has(key) ? {} : null; },
+    };
+  };
+  const r2 = bucket();
+  const KEY = slidesKey('sean-comma', ITEM);
+  is('r2: an item with no manifest has no slides', await readManifest(r2, 'sean-comma', ITEM), null);
+  await changeManifest(r2, 'sean-comma', ITEM, (cur) => addSlide(cur, F(1), 'aaaaaaaa').manifest);
+  await changeManifest(r2, 'sean-comma', ITEM, (cur) => addSlide(cur, F(2), 'bbbbbbbb').manifest);
+  is('r2: each change is written to the item’s one file', [[...r2.files.keys()], (await readManifest(r2, 'sean-comma', ITEM)).manifest.slides.map((s) => s.id)], [[KEY], ['aaaaaaaa', 'bbbbbbbb']]);
+  // Someone reorders the list while a finished conversion is being recorded.
+  r2.between = async () => { const cur = (await readManifest(r2, 'sean-comma', ITEM)).manifest; r2.files.set(KEY, { body: JSON.stringify(reorderSlides(cur, ['bbbbbbbb', 'aaaaaaaa'])), etag: 'moved' }); };
+  const both = await changeManifest(r2, 'sean-comma', ITEM, (cur) => setSlidePreview(cur, 'aaaaaaaa', ready(F(1), V1)));
+  const after = (await readManifest(r2, 'sean-comma', ITEM)).manifest;
+  is('r2: a reorder and a finished conversion at the same moment both land, neither overwrites the other',
+     [both.changed, after.slides.map((s) => s.id), after.slides[1].preview.status], [true, ['bbbbbbbb', 'aaaaaaaa'], 'Ready']);
+  const puts = r2.calls.put;
+  is('r2: a change that changes nothing is not written', [(await changeManifest(r2, 'sean-comma', ITEM, () => null)).changed, r2.calls.put - puts], [false, 0]);
+  is('r2: with no bucket there is nowhere to keep slides, and that is said, not thrown', [await changeManifest(undefined, 'sean-comma', ITEM, (cur) => cur), await readManifest(undefined, 'sean-comma', ITEM)], [null, null]);
+
+  // ── moving the previews on ──
+  const env = { REPORTS_BUCKET: r2 };
+  const now = Date.parse('2026-11-23T12:00:00Z');
+  const quiet = await advanceSlides(env, { owner: 'sean-comma', itemId: ITEM, title: 'Show recap' }, { now, builds: 0 });
+  is('advance: a ready slide is left alone', [quiet.changed, quiet.newlyFailed, quiet.manifest.slides[1].preview.status], [false, [], 'Ready']);
+  // slide one has been converting for longer than a conversion is allowed
+  await changeManifest(r2, 'sean-comma', ITEM, (cur) => setSlidePreview(cur, 'bbbbbbbb', { status: 'Converting', source: F(2), imageKey: null, thumbKey: null, videoKey: null,
+    detail: jobDetail({ version: V2, started: now - CONVERT_TIMEOUT_MS - 1000, job: 'f'.repeat(32) }) }));
+  const failedOne = await advanceSlides(env, { owner: 'sean-comma', itemId: ITEM, title: 'Show recap' }, { now, builds: 0 });
+  is('advance: one slide failing is recorded on that slide, counted from one, and the others still show',
+     [failedOne.newlyFailed, failedOne.manifest.slides.map((s) => s.preview.status), slideViews(failedOne.manifest, ITEM).map((v) => v.preview.state)], [[1], ['Failed', 'Ready'], ['failed', 'ready']]);
+  const again = await advanceSlides(env, { owner: 'sean-comma', itemId: ITEM, title: 'Show recap' }, { now, builds: 0 });
+  is('advance: a failure is said once, not every time someone looks', [again.newlyFailed, again.changed], [[], false]);
+  // two looks at once: ours would record a failure, but someone else's look finished the slide first
+  await changeManifest(r2, 'sean-comma', ITEM, (cur) => setSlidePreview(cur, 'bbbbbbbb', { status: 'Converting', source: F(2), imageKey: null, thumbKey: null, videoKey: null,
+    detail: jobDetail({ version: V2, started: now - CONVERT_TIMEOUT_MS - 1000, job: 'f'.repeat(32) }) }));
+  r2.between = async () => { const cur = (await readManifest(r2, 'sean-comma', ITEM)).manifest; r2.files.set(KEY, { body: JSON.stringify(setSlidePreview(cur, 'bbbbbbbb', ready(F(2), V2, 'video'))), etag: 'theirs' }); };
+  r2.calls.del.length = 0;
+  const raced = await advanceSlides(env, { owner: 'sean-comma', itemId: ITEM, title: 'Show recap' }, { now, builds: 0 });
+  is('advance: when two looks take the same step, the one that finished first stands, and the other records nothing over it',
+     [raced.manifest.slides[0].preview.status, raced.manifest.slides[0].preview.videoKey, raced.newlyFailed, (await readManifest(r2, 'sean-comma', ITEM)).manifest.slides[0].preview.status],
+     ['Ready', previewKey('sean-comma', ITEM, V2, 'video'), [], 'Ready']);
+  is('advance: and the loser never deletes a file the winner’s preview is made of', r2.calls.del.filter((k) => k.includes(V2)), []);
+  is('advance: an item with no manifest has nothing to do', await advanceSlides(env, { owner: 'sean-comma', itemId: OTHER, title: 'x' }, { now }), { manifest: null, changed: false, newlyFailed: [] });
+
+  // ── putting slides on the items a page is sent ──
+  const gets = r2.calls.get;
+  const items = [{ id: ITEM, media: 'Carousel', multi: true }, { id: OTHER, media: 'Video' }, { id: 'ef'.repeat(16), media: 'Carousel', multi: true }];
+  await attachSlides(r2, items, () => 'sean-comma');
+  is('attach: only an item that says it has a list is asked about, and one whose list is missing is sent without',
+     [items[0].slides.length, 'slides' in items[1], 'slides' in items[2], r2.calls.get - gets], [2, false, false, 2]);
+  is('attach: what a client’s page is sent has no folder, no filename and no reason', [items[0].slidesFolder, /name|why|previews\//.test(JSON.stringify(items[0].slides))], [undefined, false]);
+  const filed = [{ id: ITEM, multi: true }];
+  await attachSlides(r2, filed, () => 'rebelz-cheer');
+  is('attach: an item is only ever read from under its own client', 'slides' in filed[0], false);
+
+  // ── the code that must not tell a client ──
+  const route = fs.readFileSync(new URL('../functions/portal/[slug]/slides/[id].ts', import.meta.url), 'utf8');
+  is('route: changing the slides never notifies a client, and is refused to a client before anything is read',
+     [/notifyReview|notifyProgress|notifyReport/.test(route), /if \(action && !admin\) return portalNotFound\(\);/.test(route), route.indexOf('if (action && !admin)') < route.indexOf('findClientBySlug(env')], [false, true, true]);
+  is('route: the content route, which does tell a client, knows nothing about slides changing',
+     /slides|Slides/.test(fs.readFileSync(new URL('../functions/portal/[slug]/content/[id].ts', import.meta.url), 'utf8').split('// Notifications')[1]), false);
+
+  // ── the service worker leaves all of it alone ──
+  const src = fs.readFileSync(new URL('../public/portal-sw.js', import.meta.url), 'utf8');
+  const listeners = {};
+  const sandbox = { URL, Response, Promise, console, undefined, caches: { open: async () => ({}) }, fetch: async () => new Response('net'),
+    self: { location: { href: 'https://blueprint-marketing.com/portal-sw.js?v=abc123', origin: 'https://blueprint-marketing.com' }, addEventListener: (type, fn) => { listeners[type] = fn; } } };
+  vm.createContext(sandbox);
+  vm.runInContext(src, sandbox);
+  const routeFor = vm.runInContext('routeFor', sandbox);
+  const req = (path, o = {}) => ({ url: `https://blueprint-marketing.com${path}`, method: o.method ?? 'GET', mode: o.mode ?? 'cors', headers: { has: (h) => !!(o.headers ?? {})[h] } });
+  const fire = (r) => { let answered = null; listeners.fetch({ request: r, respondWith: (p) => { answered = p; } }); return answered; };
+  is('sw: a slide’s files and the slides route are not handled, and respondWith is never called for them',
+     [routeFor(req(`/portal/sean-comma/slides/${ITEM}`, { method: 'POST' })), routeFor(req(`/portal/sean-comma/slides/${ITEM}`)), routeFor(req(`/portal/sean-comma/slides/${ITEM}`, { mode: 'navigate' })),
+      fire(req(`/portal/sean-comma/slides/${ITEM}`, { method: 'POST' })), fire(req(`/portal/sean-comma/preview/${ITEM}/${V1}/image`)), fire(req(`/portal/sean-comma/preview/${ITEM}/${V2}/video`, { headers: { range: 'bytes=0-1' } })), fire(req(`/portal/sean-comma/preview/${ITEM}/${V1}/thumb`))],
+     new Array(7).fill(null));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

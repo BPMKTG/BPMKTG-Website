@@ -43,6 +43,7 @@ import { trimForType } from '../../../src/data/client-types';
 import { shapeDelivery } from '../../../src/server/deliveries';
 import { ownBuckets } from '../../../src/data/portal-content';
 import { resolveDeliveries } from '../../../src/data/deliveries';
+import { attachSlides } from '../../../src/server/slides';
 
 interface Env {
   NOTION_TOKEN: string;
@@ -125,6 +126,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     // screen has to remember not to draw it. An artist's payload comes
     // back from this untouched.
     const content = pipeline.content;
+    // The slides of each carousel and story sequence. In the cached
+    // body, which a client is served, so built as a client sees them:
+    // no filename, no folder, no reason a slide failed.
+    await attachSlides(env.REPORTS_BUCKET, content, () => record.slug);
     // A client whose buckets are their own is shown only theirs, and
     // told they may name a new one. Everyone else gets the shared list
     // exactly as Notion has it.

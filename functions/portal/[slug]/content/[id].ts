@@ -17,6 +17,7 @@ import {
 } from '../../../../src/server/portal-notion';
 import { buildContentProperties, editedBy, stampEdit } from '../../../../src/server/portal-write';
 import { skipStepsOfPiece } from '../../../../src/server/pieces';
+import { attachSlides } from '../../../../src/server/slides';
 import { notifyAdmins, notifyProgress, notifyReview, type PushEnv } from '../../../../src/server/push';
 import {
   beginWrite,
@@ -25,7 +26,7 @@ import {
   type WriteEnv,
 } from '../../../../src/server/portal-write-shared';
 
-type Env = WriteEnv & PushEnv;
+type Env = WriteEnv & PushEnv & { REPORTS_BUCKET?: R2Bucket };
 
 /** A Notion page id, dashed or not. Anything else never reaches the
  *  API: a path segment is not a safe thing to put in a URL. */
@@ -68,11 +69,15 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params,
   // Nothing survived validation. The row is untouched and the client
   // is told nothing changed, rather than being shown a false "Saved".
   if (!Object.keys(properties).length) {
+    await attachSlides(env.REPORTS_BUCKET, [owned.item], () => ctx.slug, { admin: ctx.viewer.role === 'admin' });
     return writeOk({ ok: true, item: owned.item, changed: false });
   }
 
   const item = await updateContentPage(env.NOTION_TOKEN, id, stampEdit(properties, ctx.viewer.role));
   if (!item) return portalNotFound();
+  // The answer replaces the card on the page, so it carries the
+  // card's slides the same as the first load did.
+  await attachSlides(env.REPORTS_BUCKET, [item], () => ctx.slug, { admin: ctx.viewer.role === 'admin' });
 
   // The campaign step this card hangs off follows it across the Posted
   // line, in either direction. Only when the line was actually

@@ -51,6 +51,7 @@ import {
 } from '../data/portal-content';
 import { el, icon } from './portal-dom';
 import { createEdgeScroll } from './portal-edge';
+import { slideBadge } from './portal-slides';
 
 /** Which sprite icon stands for each Media. An unclassified row reads
  *  as a video, which is what nearly all of them are. */
@@ -82,6 +83,9 @@ export interface BoardHost {
   reviewAct?: (c: PortalContentItem, action: ReviewAction) => void;
   /** HQ only: whose card this is. */
   clientOf?: (c: PortalContentItem) => string | null;
+  /** The slug of the client a card belongs to, which is where the
+   *  thumbnail of a post of several slides is asked for. */
+  slugOf?: (c: PortalContentItem) => string | null;
 }
 
 export interface Board {
@@ -144,6 +148,10 @@ export function createBoard(host: BoardHost): Board {
     // A shoot-code title ("SM L1D1") is how he names things, so it is
     // shown exactly as typed and never prettied up.
     open.appendChild(el('span', 'pt-ccard-title', c.title));
+
+    // A post of several files: slide one, a stack mark and the count.
+    const stack = slideBadge(c, host.slugOf?.(c) ?? null);
+    if (stack) { open.classList.add('pt-ccard-hasslides'); open.appendChild(stack); }
 
     const who = opts.inCampaign ? null : host.clientOf?.(c) ?? null;
     if (who) open.appendChild(el('span', 'pt-ccard-who', who));

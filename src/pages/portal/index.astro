@@ -76,6 +76,9 @@ const NAV = [
       <symbol id="pt-i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m9 5 7 7-7 7"/>
       </symbol>
+      <symbol id="pt-i-stack" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 4.5H6.5a2 2 0 0 0-2 2V16"/>
+      </symbol>
       <symbol id="pt-i-chev-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m15 5-7 7 7 7"/>
       </symbol>
@@ -317,6 +320,8 @@ const NAV = [
   import { createDeliveries } from '../../scripts/portal-deliveries';
   import { openApplyFlow } from '../../scripts/portal-apply';
   import { createReviewStrip } from '../../scripts/portal-content-review';
+  import { slideOnScreen } from '../../scripts/portal-slides';
+  import { showsSlides } from '../../data/slides';
   import { createOwnContent, type OwnContent } from '../../scripts/portal-own-content';
   import { createClientPlaybooks, type Answer as PbAnswer } from '../../scripts/portal-playbooks';
   import { clientTypeById, momentLabel } from '../../data/client-types';
@@ -1581,6 +1586,7 @@ const NAV = [
       setStatus: (c, status) => { void setStatus(c, status); },
       toast,
       reviewAct: (c, a) => { void reviewAct(c, a); },
+      slugOf: () => SLUG,
     });
     return BOARD;
   }
@@ -1683,6 +1689,7 @@ const NAV = [
     openCard: openContentDrawer,
     reviewAct: (c, a) => { void reviewAct(c, a); },
     slugOf: () => SLUG,
+    slidesChanged: () => refreshContent(),
   });
 
   /** My Content: the client's own board, the one they had before the
@@ -1703,6 +1710,7 @@ const NAV = [
       now: () => todayStart(),
       redraw: drawContent,
       reviewAct: (c, a) => { void reviewAct(c, a); },
+      slugOf: () => SLUG,
     });
     return CONOWN;
   }
@@ -1999,6 +2007,7 @@ const NAV = [
       toast,
       reviewAct: (card, a) => { void reviewAct(card, a); },
       slugOf: () => SLUG,
+      slidesChanged: () => refreshContent(),
     }, c, body);
 
     /* the one action this card is waiting on */
@@ -2272,19 +2281,28 @@ const NAV = [
    *  goes with the status in one write: the card lands back in Make
    *  carrying the reason. The server stamps who said it and when. */
   function openFeedbackSheet(c: PortalContentItem) {
+    // Read before the sheet opens and covers the frame.
+    const onScreen = showsSlides(c) ? slideOnScreen(c.id) : null;
+    const slideLead = onScreen ? `Slide ${onScreen}: ` : '';
     openSheet('Request changes', (form, close) => {
       const note = el('textarea', 'pt-input pt-textarea') as HTMLTextAreaElement;
       note.rows = 4;
       note.required = true;
       note.maxLength = MAX_TEXT;
       note.placeholder = 'Cut the intro, the text is late, use the second take...';
+      // A post of several slides: the note starts with the slide they
+      // are looking at. It is theirs to change or clear.
+      const lead = slideLead;
+      if (lead) note.value = lead;
       form.appendChild(sheetField('What should change', note));
+      if (lead) requestAnimationFrame(() => { note.focus(); note.setSelectionRange(lead.length, lead.length); });
 
       const go = sheetSubmit(form, 'Send it back');
       form.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const text = note.value.trim();
-        if (!text) { note.focus(); return; }
+        // "Slide 3:" and nothing after it is not a note yet.
+        if (!text || text === slideLead.trim()) { note.focus(); return; }
         go.disabled = true;
         const status = REVIEW_TARGET.changes;
         const ok = await saveCard(c.id, { status, feedbackAdd: text }, { status });

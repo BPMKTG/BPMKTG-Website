@@ -80,6 +80,12 @@ const NAV = [
       <symbol id="pt-i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m9 5 7 7-7 7"/>
       </symbol>
+      <symbol id="pt-i-stack" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 4.5H6.5a2 2 0 0 0-2 2V16"/>
+      </symbol>
+      <symbol id="pt-i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="m10 8.5 6 3.5-6 3.5z"/>
+      </symbol>
       <symbol id="pt-i-chev-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m15 5-7 7 7 7"/>
       </symbol>
@@ -1120,6 +1126,9 @@ const NAV = [
         postLink: c.postLink ?? null,
         media: c.media ?? null,
         ...(c.preview ? { preview: c.preview } : {}),
+        ...(c.multi ? { multi: true as const } : {}),
+        ...(c.slides ? { slides: c.slides } : {}),
+        ...(c.slidesFolder ? { slidesFolder: c.slidesFolder } : {}),
         clientSlug: client.slug,
         clientName: client.artist,
       } as PortalContentItem & { clientSlug: string; clientName: string });
@@ -1710,6 +1719,7 @@ const NAV = [
       setStatus: (c, status) => { void saveCalCard(c.id, { status }, { status }); },
       toast,
       clientOf: (c) => (BOARD_SCOPE ? null : (c as any).clientName ?? null),
+      slugOf: (c) => (c as any).clientSlug ?? null,
     });
     return HQBOARD;
   }
@@ -1868,6 +1878,7 @@ const NAV = [
     if (!own) {
       own = createOwnContent({
         storeKey: `bp.hq.own.v1.${scope}`,
+        slugOf: (c) => (c as any).clientSlug ?? null,
         role: () => 'admin',
         items: () => BOARD_ITEMS.filter((c) => contentSide(c) === 'own'),
         schema: () => ({ bucket: [], format: [], platforms: [], status: [], media: [],
@@ -1998,6 +2009,17 @@ const NAV = [
       toast,
       clientOf: (card) => (card as any).clientName ?? null,
       slugOf: (card) => (card as any).clientSlug ?? null,
+      // The cards are drawn from HQ's own rows each time, so what the
+      // drawer learned about a card's slides is put on its row.
+      slidesChanged: (card) => {
+        const row = ((HQ?.content ?? []) as HqContentItem[]).find((r) => r.id === card.id);
+        if (row) {
+          row.slides = card.slides;
+          row.slidesFolder = card.slidesFolder;
+          if (card.multi) row.multi = true; else delete row.multi;
+        }
+        redrawBoard();
+      },
     }, c, body);
 
     const who = slug ? calClientBySlug().get(slug) : undefined;
@@ -3164,6 +3186,8 @@ const NAV = [
     id: string; title: string; client: string | null; slug: string | null; link: string;
     preview: { state: 'ready' | 'pending' | 'failed'; kind?: 'image' | 'video'; v?: string; poster?: boolean; why?: string };
     note?: string;
+    /** One slide of a post that is several files. */
+    slide?: string;
   }
   let PREVIEWS: { items: PreviewRow[]; waiting: number; setup?: string[] } | null = null;
   let PREVIEW_ASKS = 0;
@@ -3175,12 +3199,14 @@ const NAV = [
       PREVIEWS = { items: (res.json.items ?? []) as PreviewRow[], waiting: Number(res.json.waiting ?? 0), setup: res.json.setup };
     } else if (PREVIEWS) {
       // One item was asked about: put its answer in the list we hold.
-      const one = ((res.json.items ?? []) as PreviewRow[])[0];
-      if (one) PREVIEWS.items = PREVIEWS.items.map((r) => (r.id === one.id ? one : r));
+      const got = (res.json.items ?? []) as PreviewRow[];
+      const same = (a: PreviewRow, b: PreviewRow): boolean => a.id === b.id && (a.slide ?? '') === (b.slide ?? '');
+      PREVIEWS.items = PREVIEWS.items.map((r) => got.find((g) => same(g, r)) ?? r);
     }
     // The cards HQ already holds learn where their preview is now, so
     // a drawer opened after this shows it without a reload.
-    const byId = new Map((PREVIEWS?.items ?? []).map((r) => [r.id, r.preview]));
+    // A slide's row is about one slide, not about the card's own link.
+    const byId = new Map((PREVIEWS?.items ?? []).filter((r) => !r.slide).map((r) => [r.id, r.preview]));
     for (const c of (HQ?.content ?? []) as Array<{ id: string; preview?: unknown }>) {
       const p = byId.get(c.id.replace(/-/g, '').toLowerCase());
       if (p) c.preview = p;
@@ -3214,6 +3240,7 @@ const NAV = [
       for (const r of failed) {
         const li = el('li', 'hq-prev-row');
         li.dataset.previewFailed = r.id;
+        if (r.slide) li.dataset.previewSlide = r.slide;
         const text = el('div', 'hq-prev-text');
         text.appendChild(el('strong', undefined, [r.client, r.title].filter(Boolean).join(' \u00b7 ')));
         text.appendChild(el('span', undefined, (r.preview.why ?? r.note ?? 'The preview could not be made.').replace(/^Failed \u00b7 /, '')));
@@ -3228,7 +3255,7 @@ const NAV = [
         again.addEventListener('click', () => {
           again.disabled = true;
           again.textContent = 'Trying\u2026';
-          void syncPreviews({ id: r.id, retry: true }).then(() => syncPreviews());
+          void syncPreviews({ id: r.id, retry: true, ...(r.slide ? { slide: r.slide } : {}) }).then(() => syncPreviews());
         });
         acts.append(open, again);
         li.append(text, acts);

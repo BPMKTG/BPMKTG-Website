@@ -22,6 +22,8 @@ import {
 } from '../data/portal-content';
 import { MEDIA_ICON } from './portal-board';
 import { previewBox } from './portal-preview';
+import { slidesBlock } from './portal-slides';
+import { showsSlides } from '../data/slides';
 import { el, icon } from './portal-dom';
 
 export interface ReviewHost {
@@ -31,6 +33,8 @@ export interface ReviewHost {
   reviewAct: (c: PortalContentItem, action: ReviewAction) => void;
   /** The slug a card's preview is asked for under. */
   slugOf: (c: PortalContentItem) => string | null;
+  /** A card's slides finished getting ready while it was on screen. */
+  slidesChanged?: (c: PortalContentItem) => void;
 }
 
 export function createReviewStrip(host: ReviewHost): () => HTMLElement | null {
@@ -41,9 +45,12 @@ export function createReviewStrip(host: ReviewHost): () => HTMLElement | null {
     // The cut, in place where it can be. Where it cannot, the link is
     // the honest fallback, and it still comes before the buttons: an
     // approval with nothing to look at is not one.
-    const frame = c.editLink ? previewBox(c, host.slugOf(c)) : null;
+    // A post of several files is shown as its slides, to swipe.
+    const frame = showsSlides(c)
+      ? slidesBlock(c, host.slugOf(c), { changed: host.slidesChanged })
+      : c.editLink ? previewBox(c, host.slugOf(c)) : null;
     if (frame) card.appendChild(frame);
-    else if (c.editLink) {
+    else if (c.editLink && !showsSlides(c)) {
       const a = el('a', 'pt-rcard-link') as HTMLAnchorElement;
       a.href = c.editLink;
       a.target = '_blank';

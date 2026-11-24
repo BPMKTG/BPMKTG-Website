@@ -19,6 +19,7 @@
 
 import { parseNotionDate, type MomentRef } from './portal';
 import type { ItemPreview } from './preview';
+import type { SlideView } from './slides';
 
 /* ── read whitelist ───────────────────────────────────────────── */
 
@@ -508,6 +509,15 @@ export interface PortalContentItem {
    *  when the Edit Link is a Drive file, so a card with no such link
    *  is sent exactly as it always was. */
   preview?: ItemPreview;
+  /** This item has a slide list: it is a carousel or a story sequence
+   *  made of several files. Read from Notion, and all it says is that
+   *  there is a list to ask for. See src/data/slides.ts. */
+  multi?: true;
+  /** The slides, in order. Present only on an item that has some. */
+  slides?: SlideView[];
+  /** The Drive folder the slides were matched to, as a link. For us
+   *  only: it is never put on what a client is sent. */
+  slidesFolder?: string;
 }
 
 /** The option lists, read from the Notion schema rather than hardcoded,

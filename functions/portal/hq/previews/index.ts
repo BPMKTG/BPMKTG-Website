@@ -6,6 +6,8 @@
                              on the ones that are not done
      { id }                  move one item on, and answer for it
      { id, retry: true }     build that one again from the start
+     { id, slide, retry: true }   the same, for one slide of a post
+                             that is several files
 
    Admin only. This is what HQ calls when it opens, and again every
    few seconds while anything is still converting, so it is also the
@@ -18,12 +20,14 @@
    ────────────────────────────────────────────────────────────── */
 
 import { driveFileId, itemPreview, planPreview, type ItemPreview } from '../../../../src/data/preview';
+import { SLIDES_FIELD, isSlideId, slideViews } from '../../../../src/data/slides';
 import { hqJson, type HqEnv } from '../../../../src/server/hq-auth';
 import { dropHq, type HqDataEnv } from '../../../../src/server/hq-data';
 import { dropPortalData, portalNotFound } from '../../../../src/server/portal-auth';
 import {
-  CONTENT_DB, fetchPage, isNotionId, patchPage, queryAll, readRelation, readSelect, readText, readUrl,
+  CONTENT_DB, fetchPage, hasSlideList, isNotionId, patchPage, queryAll, readRelation, readSelect, readText, readUrl,
 } from '../../../../src/server/portal-notion';
+import { advanceSlides, readManifest } from '../../../../src/server/slides';
 import { clientFacts } from '../../../../src/server/pieces';
 import { beginPlaybookWrite } from '../../../../src/server/playbooks';
 import {
@@ -45,6 +49,10 @@ interface Row {
   slug: string | null;
   link: string;
   preview: ItemPreview;
+  /** Set when this row is one slide of a post: which slide, and
+   *  where it sits in the post, counted from one. */
+  slide?: string;
+  n?: number;
   /** What the last step said, when it said something worth reading. */
   note?: string;
 }
@@ -66,7 +74,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     pages = [page];
   } else {
     pages = await queryAll(env.NOTION_TOKEN, CONTENT_DB, {
-      filter: { property: 'Edit Link', url: { is_not_empty: true } },
+      filter: { or: [
+        { property: 'Edit Link', url: { is_not_empty: true } },
+        { property: SLIDES_FIELD, rich_text: { is_not_empty: true } },
+      ] },
     });
   }
 
@@ -82,17 +93,51 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
 
   const now = Date.now();
   let builds = 0, checks = 0, waiting = 0;
+  // One post's slides are moved on per call, with the allowance a
+  // slide list has of its own (a few images, one video). The rest
+  // wait their turn, and the page asks again.
+  let slideTurns = 0;
+  const retrySlide = only && body.retry === true && isSlideId(body.slide) ? body.slide : null;
   const touched = new Set<string>();
   const missing = new Set<string>();
   const rows: Row[] = [];
 
   for (const page of pages) {
     const p = page.properties ?? {};
-    const link = readUrl(p['Edit Link']);
-    if (!link || !driveFileId(link)) continue;
     const cid = readRelation(p['Client'])[0] ?? null;
     const who = cid ? facts.get(cid) ?? null : null;
     const id = hex(String(page.id));
+    const title = (readText(p['Content']) ?? '').trim();
+
+    /* its slides, when it is a post of several files */
+    if (hasSlideList(p) && who?.slug) {
+      let manifest = (await readManifest(env.REPORTS_BUCKET, who.slug, id))?.manifest ?? null;
+      const pending = (): boolean => slideViews(manifest, id).some((v) => v.preview.state === 'pending');
+      let setup = false;
+      if (manifest && (retrySlide || (pending() && slideTurns < 1))) {
+        slideTurns += 1;
+        const out = await advanceSlides(env, { owner: who.slug, itemId: id, title }, { retry: retrySlide, now });
+        if (out.changed) touched.add(who.slug);
+        for (const n of out.newlyFailed) {
+          waitUntil(notifyAdmins(env, 'preview', { client: who.artist, slug: who.slug, item: `${title} (slide ${n})`, id }));
+        }
+        if (out.setup) { missing.add(out.setup); setup = true; }
+        manifest = out.manifest;
+      }
+      for (const [i, v] of slideViews(manifest, id, { admin: true }).entries()) {
+        if (v.preview.state === 'pending' && !setup) waiting += 1;
+        rows.push({
+          id, title: `${title} · slide ${i + 1}`, status: readSelect(p['Status']),
+          clientId: cid, client: who.artist, slug: who.slug, link: v.link, preview: v.preview,
+          slide: v.id, n: i + 1,
+        });
+      }
+    }
+    // A retry of one slide is about that slide and nothing else.
+    if (retrySlide) continue;
+
+    const link = readUrl(p['Edit Link']);
+    if (!link || !driveFileId(link)) continue;
     let stored = readStoredPreview(p);
     let note: string | undefined;
     let outcome: PreviewOutcome | null = null;
@@ -104,7 +149,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       if ((heavy && builds < 1) || (light && checks < CHECKS_PER_CALL)) {
         if (heavy) builds += 1; else checks += 1;
         const out = await advancePreview(env, {
-          owner: who.slug, itemId: id, title: (readText(p['Content']) ?? '').trim(), link, stored,
+          owner: who.slug, itemId: id, title, link, stored,
         }, (next) => patchPage(env.NOTION_TOKEN, page.id, storedPreviewProperties(next), 'preview'), {
           force: !!only && body.retry === true, now,
         });
@@ -112,7 +157,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
         // Newly a failure: it has just landed in "Previews to fix".
         if (out.outcome === 'failed' && stored.status !== 'Failed') {
           waitUntil(notifyAdmins(env, 'preview', {
-            client: who.artist, slug: who.slug, item: (readText(p['Content']) ?? '').trim(), id,
+            client: who.artist, slug: who.slug, item: title, id,
           }));
         }
         if (out.outcome === 'not_configured' && out.note) missing.add(out.note);
@@ -129,7 +174,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     // the one upload a call makes. Not when our own setup is missing.
     if (preview.state === 'pending' && who?.slug && outcome !== 'not_configured' && outcome !== 'try_later') waiting += 1;
     rows.push({
-      id, title: (readText(p['Content']) ?? '').trim(), status: readSelect(p['Status']),
+      id, title, status: readSelect(p['Status']),
       clientId: cid, client: who?.artist ?? null, slug: who?.slug ?? null, link, preview,
       ...(note && preview.state !== 'ready' ? { note } : {}),
     });

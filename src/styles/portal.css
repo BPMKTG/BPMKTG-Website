@@ -3643,6 +3643,154 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 .pt-preview-open svg { width: 14px; height: 14px; flex: none; }
 .pt-rcard .pt-preview-ours { border-bottom: 1px solid var(--pt-line); }
 
+/* ── slides: a post that is several files ─────────────────────── */
+
+/* The viewer. One frame, the shape of the first slide, and a track
+   inside it that scrolls sideways and snaps to each slide. The frame
+   is never taller than the single preview is allowed to be, so a
+   9:16 story is narrower rather than off the bottom of the screen. */
+.pt-slides-block { margin: 0 0 var(--pt-3); }
+.pt-slides-block > .pt-slides { margin: 0 0 var(--pt-3); }
+.pt-slides-block > .pt-slides:last-child { margin-bottom: 0; }
+.pt-slides { --pt-slides-max: min(68vh, 620px); }
+.pt-slides-stage { background: #0b1220; }
+/* The frame's height comes from its shape and from nothing inside it:
+   the track is laid over it rather than in it, so no browser can let
+   the contents push the frame a few pixels taller. */
+.pt-slides-frame {
+  --pt-slides-ratio: .8;
+  position: relative; margin: 0 auto;
+  width: min(100%, calc(var(--pt-slides-max) * var(--pt-slides-ratio)));
+  aspect-ratio: var(--pt-slides-ratio);
+  background: #000; outline-offset: -3px;
+}
+.pt-slides-frame:focus-visible { outline: 3px solid var(--pt-blue); }
+.pt-slides-track {
+  position: absolute; inset: 0; display: flex;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.pt-slides-track::-webkit-scrollbar { display: none; }
+.pt-slide {
+  position: relative; flex: 0 0 100%; width: 100%; height: 100%;
+  scroll-snap-align: start; scroll-snap-stop: always;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+/* Cropped to the frame, the way the feed crops them. Written to
+   outrank .pt-preview's own rules, here and on a review card, which
+   would letterbox the picture and cap its height instead. */
+.pt-preview.pt-slides .pt-slide img, .pt-preview.pt-slides .pt-slide video {
+  position: absolute; inset: 0; width: 100%; height: 100%; max-height: none;
+  object-fit: cover; background: #000;
+  -webkit-user-drag: none; user-select: none;
+}
+.pt-slide .pt-preview-note { position: relative; padding: var(--pt-4); }
+.pt-slide-play {
+  position: relative; z-index: 1; display: grid; place-items: center;
+  width: 72px; height: 72px; border-radius: 50%;
+  background: rgba(11, 18, 32, .55); color: #fff;
+  transition: background var(--pt-t), transform var(--pt-t);
+}
+.pt-slide-play:hover { background: rgba(11, 18, 32, .75); transform: scale(1.04); }
+.pt-slide-play svg { width: 44px; height: 44px; }
+.pt-slides-count {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  padding: 3px 9px; border-radius: var(--pt-r-pill);
+  background: rgba(11, 18, 32, .7); color: #fff;
+  font-size: .74rem; font-weight: 600; letter-spacing: .02em; pointer-events: none;
+}
+/* Arrows are for a mouse. A thumb swipes, and a button over the
+   picture would only be in its way. */
+.pt-slides-arrow {
+  position: absolute; top: 50%; z-index: 2; display: none; place-items: center;
+  width: 36px; height: 36px; margin-top: -18px; border-radius: 50%;
+  background: rgba(255, 255, 255, .92); color: var(--pt-ink);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
+}
+.pt-slides-arrow svg { width: 18px; height: 18px; }
+.pt-slides-prev { left: 8px; }
+.pt-slides-next { right: 8px; }
+.pt-slides-next svg { transform: rotate(180deg); }
+.pt-slides-arrow:hover { background: #fff; }
+@media (hover: hover) and (pointer: fine) {
+  .pt-slides-arrow:not([hidden]) { display: grid; }
+}
+.pt-slides-dots {
+  display: flex; justify-content: center; flex-wrap: wrap; gap: 5px;
+  padding: 10px var(--pt-3) 2px; background: var(--pt-surface);
+}
+.pt-slides-dots[hidden] { display: none; }
+.pt-slides-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pt-line-strong); transition: background var(--pt-t), transform var(--pt-t); }
+.pt-slides-dot-on { background: var(--pt-navy); transform: scale(1.25); }
+.pt-slides .pt-preview-open { border-top: 0; }
+.pt-rcard .pt-slides-block { margin: 0; }
+.pt-rcard .pt-slides { --pt-slides-max: 440px; margin: 0; border: 0; border-radius: 0; border-bottom: 1px solid var(--pt-line); }
+
+/* The mark on a card: slide one, a stack and the count. */
+.pt-ccard-hasslides { display: grid; grid-template-columns: minmax(0, 1fr) 52px; column-gap: 10px; }
+.pt-ccard-hasslides > * { grid-column: 1; min-width: 0; }
+.pt-ccard-hasslides > .pt-ccard-slides { grid-column: 2; grid-row: 1 / span 4; align-self: start; }
+.pt-ccard-slides {
+  position: relative; display: block; width: 52px; height: 52px;
+  border-radius: 7px; overflow: hidden; background: var(--pt-tint);
+}
+.pt-ccard-slides img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pt-ccard-stack {
+  position: absolute; right: 3px; bottom: 3px; display: inline-flex; align-items: center; gap: 2px;
+  padding: 1px 5px 1px 3px; border-radius: var(--pt-r-pill);
+  background: rgba(11, 18, 32, .78); color: #fff; font-size: .66rem; font-weight: 700; line-height: 1.5;
+}
+.pt-ccard-stack svg { width: 11px; height: 11px; flex: none; }
+
+/* The list we build a post from. Ours only. */
+.pt-slides-list { list-style: none; margin: 0 0 var(--pt-2); padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pt-slides-list[hidden] { display: none; }
+.pt-slides-row {
+  display: flex; align-items: center; gap: var(--pt-2);
+  padding: 6px; border: 1px solid var(--pt-line); border-radius: var(--pt-r-sm);
+  background: var(--pt-surface);
+}
+.pt-slides-row-drag { box-shadow: var(--pt-shadow-md); border-color: var(--pt-blue); position: relative; z-index: 1; }
+.pt-slides-grip {
+  flex: none; display: grid; place-items: center; width: 32px; height: 44px;
+  color: var(--pt-muted); cursor: grab; touch-action: none; border-radius: 6px;
+}
+.pt-slides-grip:active { cursor: grabbing; }
+.pt-slides-grip:hover { background: var(--pt-tint-soft); color: var(--pt-ink); }
+.pt-slides-grip svg { width: 16px; height: 16px; }
+.pt-slides-thumb {
+  position: relative; flex: none; display: grid; place-items: center;
+  width: 44px; height: 44px; border-radius: 6px; overflow: hidden; background: var(--pt-tint);
+}
+.pt-slides-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pt-slides-thumb svg { position: relative; width: 20px; height: 20px; color: #fff; filter: drop-shadow(0 0 2px rgba(0, 0, 0, .6)); }
+.pt-slides-what { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pt-slides-what strong { font-size: .84rem; font-weight: 650; color: var(--pt-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-slides-status { font-size: .76rem; line-height: 1.35; color: var(--pt-muted); }
+.pt-slides-status-failed { color: var(--pt-bad); }
+.pt-slides-again { align-self: flex-start; margin-top: 4px; }
+.pt-slides-acts { flex: none; display: flex; align-items: center; gap: 2px; }
+.pt-slides-orig, .pt-slides-remove {
+  display: grid; place-items: center; width: 40px; height: 44px; border-radius: 6px; color: var(--pt-muted);
+}
+.pt-slides-orig:hover { background: var(--pt-tint-soft); color: var(--pt-navy); }
+.pt-slides-remove:hover { background: var(--pt-bad-tint); color: var(--pt-bad); }
+.pt-slides-orig svg, .pt-slides-remove svg { width: 16px; height: 16px; }
+.pt-slides-add { display: flex; gap: var(--pt-2); }
+.pt-slides-add .pt-input { flex: 1; min-width: 0; }
+.pt-slides-hint { margin: 6px 0 0; font-size: .76rem; line-height: 1.4; color: var(--pt-muted); }
+.pt-slides-folder {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--pt-2); flex-wrap: wrap;
+  margin-top: var(--pt-2); padding: 6px 6px 6px var(--pt-3);
+  border: 1px dashed var(--pt-line-strong); border-radius: var(--pt-r-sm);
+}
+.pt-slides-folder[hidden] { display: none; }
+.pt-slides-folder-link { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; font-weight: 600; color: var(--pt-navy); text-decoration: none; }
+.pt-slides-folder-link:hover { text-decoration: underline; }
+.pt-slides-folder-link svg { width: 15px; height: 15px; }
+.pt-slides-block + .pt-field, .pt-slides-block + .pt-preview { margin-top: 0; }
+
 /* ── the installed app ────────────────────────────────────────── */
 
 /* "Put Blueprint on your home screen", once, at the top of the portal. */
