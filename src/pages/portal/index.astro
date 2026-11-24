@@ -176,8 +176,17 @@ const NAV = [
     {/* Only ever shown to us, and only while we are standing in
         somebody else's portal. */}
     <div class="pt-asadmin" data-asadmin hidden>
-      <svg aria-hidden="true"><use href="#pt-i-info" /></svg>
-      <span data-asadmin-text></span>
+      {/* The way back. In the installed HQ app there is no browser
+          back button, so without this the only way out of a client's
+          portal was to close the app and open it again. */}
+      <a class="pt-asadmin-back" href="/portal/hq" data-asadmin-back>
+        <svg aria-hidden="true"><use href="#pt-i-chev-left" /></svg>
+        <span>Back to HQ</span>
+      </a>
+      <span class="pt-asadmin-note">
+        <svg aria-hidden="true"><use href="#pt-i-info" /></svg>
+        <span data-asadmin-text></span>
+      </span>
     </div>
 
     <div class="pt-body">
@@ -556,6 +565,17 @@ const NAV = [
     menu.setAttribute('role', 'menu');
 
     const clients = VIEWER.clients ?? [];
+    if (VIEWER.role === 'admin') {
+      // Back to HQ, from the menu as well as from the band.
+      const hq = el('a', 'pt-menu-item') as HTMLAnchorElement;
+      hq.href = '/portal/hq';
+      hq.setAttribute('role', 'menuitem');
+      hq.dataset.menuHq = '1';
+      hq.appendChild(icon('chev-left'));
+      hq.appendChild(el('span', undefined, 'Blueprint HQ'));
+      menu.appendChild(hq);
+      menu.appendChild(el('div', 'pt-menu-rule'));
+    }
     if (VIEWER.role === 'admin' && clients.length) {
       menu.appendChild(el('div', 'pt-menu-label', 'Switch client'));
       for (const c of clients) {

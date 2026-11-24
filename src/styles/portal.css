@@ -2353,12 +2353,24 @@ button.pt-row:active, a.pt-row:active { background: var(--pt-tint); }
    because forgetting that is how a note meant for us ends up in a
    client's calendar. */
 .pt-asadmin {
-  display: flex; align-items: center; gap: var(--pt-2);
-  padding: 7px var(--pt-5);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--pt-4);
+  padding: 4px var(--pt-5);
   background: var(--pt-navy); color: #fff;
   font-size: .76rem; font-weight: 700; letter-spacing: .04em;
 }
-.pt-asadmin svg { width: 14px; height: 14px; }
+.pt-asadmin svg { width: 14px; height: 14px; flex: none; }
+.pt-asadmin-note { display: flex; align-items: center; gap: var(--pt-2); flex: 1 1 260px; min-width: 0; padding: 3px 0; }
+/* The way back to HQ. A real target, not a line of small type: it is
+   the only way out of a client's portal inside the installed app. */
+.pt-asadmin-back {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  min-height: 36px; padding: 0 12px 0 8px; margin-left: -8px;
+  border-radius: var(--pt-r-pill, 999px);
+  background: rgba(255, 255, 255, .16); color: #fff; text-decoration: none;
+  font-size: .8rem; letter-spacing: .02em; white-space: nowrap;
+}
+.pt-asadmin-back:hover, .pt-asadmin-back:focus-visible { background: rgba(255, 255, 255, .28); }
+@media (max-width: 900px) { .pt-asadmin { padding: 6px var(--pt-4); } .pt-asadmin-back { min-height: 44px; padding: 0 16px 0 10px; } }
 
 /* ── DRAGGING THINGS TO ANOTHER DAY ────────────────────────────────
    Three things can be dragged onto a day: a content card, a step, and
