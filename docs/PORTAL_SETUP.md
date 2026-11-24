@@ -651,6 +651,114 @@ takes several rounds, which HQ does on its own.
 
 ---
 
+## The installed app
+
+The portal can be put on a home screen. There are two apps, and a
+phone that has both holds two icons:
+
+| | Blueprint | Blueprint HQ |
+|---|---|---|
+| For | a client | us |
+| Manifest | `/portal-app.webmanifest` (a static file) | `/portal/hq/app.webmanifest` (admin only) |
+| `id` | `/portal/start` | `/portal/hq` |
+| Opens at | `/portal/start` | `/portal/hq` |
+| Scope | `/portal/` | `/portal/` |
+| Icon | the blue mark on white | the same, with the orange HQ badge |
+
+Both are light: `theme_color` is the top bar (`#ffffff`, see
+`.pt-topbar`), `background_color` is the page (`--pt-bg`, `#f6f9fc`),
+and the iOS status bar style is `default`, which is dark text. The
+icons and the iOS launch screens are in `public/brand/app/` and are
+drawn from the brand SVGs by `node scripts/app-art.mjs`.
+
+**Who can install which.** `PortalLayout` takes `app="hq"` on the HQ
+page only. The HQ manifest is served to a signed-in admin and is a 404
+to everyone else, and the page fetches it with the cookie
+(`crossorigin="use-credentials"`). The client's portal and the sign-in
+screen link the client manifest. HQ's scope is all of `/portal/` so a
+client's portal opened from HQ stays inside the HQ window.
+
+**The start address.** `/portal/start` shows nothing and sends the
+device on: to its last portal, to HQ for one of us, or to
+`/portal/login`. A client's session cookie is tied to their own path
+and is not sent to `/portal/start`, so sign-in also sets `bp_last`,
+which holds the slug they signed in to. **It is a routing hint and
+never a sign-in.** The portal it points at checks the session itself
+and sends anyone without the right one to the sign-in screen. Signing
+out clears it.
+
+**Sign-in inside the app.** A home-screen app on an iPhone does not
+share Safari's sign-in, so everyone signs in once inside the app.
+Every step is under `/portal/`, so the app never leaves its window:
+`/portal/start` → `/portal/login` → the portal. `/portal/hq` shows the
+sign-in screen in place when signed out (it used to be a 404, which
+in the installed HQ app is a dead end), and one of us who signs in
+there lands on HQ. Sessions last thirty days.
+
+**The service worker.** One, `public/portal-sw.js`, for `/portal/`.
+It is served from the site root with
+`Service-Worker-Allowed: /portal/`, because a file under `/portal/`
+would be answered by the portal's own routes.
+
+- Pages (`/portal/start`, `/portal/login`, `/portal/hq`,
+  `/portal/<slug>`, exactly those shapes) are fetched from the network
+  every time, with `/portal-offline` shown when there is none. Pages
+  are never stored.
+- Static files (`/_astro/`, `/brand/`, `/fonts/`) are stored.
+- **Everything else is not handled at all.** Data, previews, files,
+  every POST, anything from another site, and any request with a
+  `Range` header get no `respondWith`, so the browser makes them as if
+  no worker were installed. A video's byte-range requests reach the
+  server untouched.
+- It is registered as `/portal-sw.js?v=<build>`, so each deploy is a
+  new worker. It waits until the app is next opened, or until
+  "Updated, tap to refresh" is tapped.
+
+**The install card.** Once, at the top of the client's portal:
+steps and a picture on an iPhone (Share, then Add to Home Screen), a
+button on Android and desktop once the browser offers to install.
+Dismissible, gone once installed, and never shown to one of us
+looking at a client's portal.
+
+### Notifications
+
+Web Push, with no library: `src/server/push.ts` signs (VAPID) and
+encrypts (RFC 8291) with WebCrypto, and the encryption is checked
+against the RFC's own worked example in the tests. Devices are kept in
+`PORTAL_KV`, a client's under `push:c:<slug>` and ours under `push:a`.
+A device the push service says is gone is forgotten.
+
+| Who | Is told | When |
+|---|---|---|
+| a client | New content needs your review | a card's Status becomes **Ready for Review** from any other status |
+| a client | Your monthly report is ready | a report is published, once per report |
+| us | [Client] approved [item] | the client moves a card from Ready for Review to Approved |
+| us | [Client] requested changes on [item] | the client moves it to Editing |
+| us | [Client] submitted a new idea | the client creates a card |
+| us | Preview failed: [item] | a preview lands in Previews to fix |
+
+- **Only the move fires.** A caption, on-screen text, a date or a
+  note changed on a card already in review tells nobody.
+- **A status changed in Notion itself** never passes through our save,
+  so HQ looks for it when it loads fresh data: a card in review that
+  has not been announced is announced once. The first look after this
+  shipped announced nothing.
+- **Batching.** Cards that reach review within ten minutes of the
+  first become one notification. There is no timer on Pages, so this
+  is done on the device: each further card REPLACES the notification
+  with the running count ("5 posts need your review").
+- **A tap** opens that card (`/portal/<slug>#/content/<id>`), or the
+  review list when there are several, inside the app.
+- **Permission** is asked for only after a tap on "Turn on
+  notifications" (the account menu in a client's portal, the
+  Notifications button in HQ). On an iPhone it is offered only in the
+  installed app, which is the only place an iPhone delivers them.
+- **Each device** chooses which kinds it gets. A client's device can
+  only ever hold a client's kinds, and one of us cannot subscribe from
+  a client's portal.
+
+---
+
 ## Intake forms
 
 `/intake?client=SLUG` is one page and one endpoint, and it holds every
@@ -759,6 +867,8 @@ pieces past Planned as before, and no Done step changed.
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | yes, for previews and report covers | The whole key file of the read-only service account. Reads the Drive files previews are made from. |
 | `CF_ACCOUNT_ID` | yes, for video previews | The Cloudflare account Stream is on. The same variable PDF rendering already uses. |
 | `CLOUDFLARE_STREAM_TOKEN` | yes, for video previews | An API token with Account → Stream → Edit and nothing else. Converts videos. |
+| `VAPID_PUBLIC_KEY` | yes, for notifications | The public half of the push key pair. Handed to browsers when they subscribe. |
+| `VAPID_PRIVATE_KEY` | yes, for notifications | The private half. Signs every notification. Changing the pair signs every device out of notifications. |
 
 There is also one **binding**, which is not a variable: a Workers KV
 namespace bound as `PORTAL_KV`, in **Settings → Functions → KV namespace

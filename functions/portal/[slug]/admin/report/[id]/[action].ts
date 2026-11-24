@@ -33,6 +33,7 @@ import { adminJson, beginAdmin, reason, type AdminEnv } from '../../../../../../
 import { refreshCover } from '../../../../../../src/server/cover';
 import { dropPortalData, portalNotFound } from '../../../../../../src/server/portal-auth';
 import { loadReport } from '../../../../../../src/server/report-data';
+import { notifyReport, type PushEnv } from '../../../../../../src/server/push';
 import { publishNumbers, publishSnapshot, setSnapshotPdf } from '../../../../../../src/server/report-publish';
 import { mintPrintToken, printSecret } from '../../../../../../src/server/print-token';
 import {
@@ -48,7 +49,7 @@ import {
   type ReportMailEnv,
 } from '../../../../../../src/server/report-mail';
 
-interface Env extends AdminEnv, PdfEnv, ReportMailEnv {
+interface Env extends AdminEnv, PdfEnv, ReportMailEnv, Pick<PushEnv, 'VAPID_PUBLIC_KEY' | 'VAPID_PRIVATE_KEY'> {
   /** The Drive service account, for the cover photo. Optional: a
    *  deployment without it falls back to the Hero Photo. */
   GOOGLE_SERVICE_ACCOUNT_JSON?: string;
@@ -80,7 +81,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
   });
 };
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env, params, waitUntil }) => {
   const action = params.action;
   if (action !== 'pdf' && action !== 'publish' && action !== 'numbers') return portalNotFound();
 
@@ -109,6 +110,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     const done = await publishNumbers(env.NOTION_TOKEN, ctx.id, ctx.viewer.role);
     if (!done) return adminJson({ ok: false, error: 'notion_write_failed' }, 502);
     await dropPortalData(ctx.record.slug);
+    waitUntil(notifyReport(env as PushEnv, ctx.record.slug, monthLabel(row.input.snapshot.date) || null, ctx.id));
     return adminJson({ ok: true, numbers: true });
   }
 
@@ -164,6 +166,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       filename: `${ctx.record.slug}-${month ? month.toLowerCase().replace(/\s+/g, '-') : 'report'}.pdf`,
     });
 
+    // The same news, to their phone. Once per report, like the email.
+    waitUntil(notifyReport(env as PushEnv, ctx.record.slug, month ? `${month} is in your Reports tab.` : null, ctx.id));
     return adminJson({ ok: true, key, url, mail, cover });
   } catch (err) {
     console.error('portal: report action failed', action, ctx.id, err);

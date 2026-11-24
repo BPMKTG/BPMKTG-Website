@@ -28,7 +28,7 @@ const NAV = [
 ];
 ---
 
-<PortalLayout title="Blueprint HQ">
+<PortalLayout title="Blueprint HQ" app="hq">
   {/* The same sprite the portal uses, trimmed to what HQ draws. */}
   <svg class="pt-visually-hidden" aria-hidden="true" focusable="false">
     <defs>
@@ -118,6 +118,7 @@ const NAV = [
       </div>
 
       <div class="pt-topbar-spacer"></div>
+      <button class="pt-btn pt-btn-sm hq-notify" type="button" data-notifications>Notifications</button>
       <div class="hq-who" data-who></div>
     </header>
 
@@ -259,6 +260,7 @@ const NAV = [
   import { hasTrimUndo, openMissingPieces, openTrims, undoLastTrim } from '../../scripts/portal-pieces';
   import { createOwnContent, type OwnContent } from '../../scripts/portal-own-content';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
+  import { notificationSheet } from '../../scripts/portal-app';
   import { clear, el, icon, q, qq, show } from '../../scripts/portal-dom';
 
   const VIEWS = ['today', 'clients', 'calendar', 'content', 'playbooks', 'pipeline', 'reports'] as const;
@@ -3799,6 +3801,9 @@ const NAV = [
     show(q('[data-app]'), true);
     // Not awaited: the page is usable while previews are made.
     void syncPreviews();
+    q('[data-notifications]')?.addEventListener('click', () => {
+      notificationSheet({ url: '/portal/hq/push', toast });
+    });
     wireSearch();
     bindSheet();
     q('[data-drawer-close]')?.addEventListener('click', closeCalDrawer);

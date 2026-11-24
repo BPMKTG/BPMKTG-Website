@@ -196,6 +196,7 @@ const NAV = [
       </nav>
 
       <main class="pt-main">
+        <div data-app-card></div>
         <section class="pt-view" data-view="home" aria-label="Home"></section>
         <section class="pt-view" data-view="calendar" aria-label="Calendar" hidden></section>
         <section class="pt-view" data-view="content" aria-label="Content" hidden></section>
@@ -303,6 +304,7 @@ const NAV = [
   import { createBoard, isPhone, type Board } from '../../scripts/portal-board';
   import { createContentView, type ContentView } from '../../scripts/portal-content-view';
   import { createCounter } from '../../scripts/portal-content-counter';
+  import { installCard, notificationSheet } from '../../scripts/portal-app';
   import { createDeliveries } from '../../scripts/portal-deliveries';
   import { openApplyFlow } from '../../scripts/portal-apply';
   import { createReviewStrip } from '../../scripts/portal-content-review';
@@ -485,6 +487,11 @@ const NAV = [
 
     VIEWER = data.viewer ?? { role: 'client' };
     wireIdentityMenu();
+    // The one-time "put this on your home screen" card. Not for one
+    // of us looking at a client's portal: it is their app to install.
+    const card = installCard({ admin: VIEWER.role === 'admin' });
+    const slot = q('[data-app-card]');
+    if (slot) { clear(slot); if (card) slot.appendChild(card); }
     if (VIEWER.role === 'admin') {
       const band = q('[data-asadmin]');
       const text = q('[data-asadmin-text]');
@@ -561,6 +568,22 @@ const NAV = [
         menu.appendChild(a);
       }
       menu.appendChild(el('div', 'pt-menu-rule'));
+    }
+
+    // Their own notifications. One of us sets ours in HQ, and must
+    // not be able to subscribe a phone of ours as this client.
+    if (VIEWER.role !== 'admin') {
+      const bell = el('button', 'pt-menu-item');
+      bell.type = 'button';
+      bell.setAttribute('role', 'menuitem');
+      bell.dataset.notifications = '1';
+      bell.appendChild(icon('info'));
+      bell.appendChild(el('span', undefined, 'Notifications'));
+      bell.addEventListener('click', () => {
+        closeMenu();
+        notificationSheet({ url: `/portal/${encodeURIComponent(SLUG)}/push`, toast });
+      });
+      menu.appendChild(bell);
     }
 
     const out = el('button', 'pt-menu-item');
@@ -643,6 +666,15 @@ const NAV = [
     closeDrawer();
     closeSheet();
     window.scrollTo({ top: 0, behavior: 'auto' });
+    // #/content/<card id> opens that card. A tapped notification lands
+    // here ("New content needs your review" opens the item). An id
+    // that is not one of this client's cards opens nothing, and the
+    // Content tab with its review list is what they see instead.
+    if (view === 'content' && detail) {
+      const want = detail.replace(/-/g, '').toLowerCase();
+      const hit = CON.items.find((c) => c.id.replace(/-/g, '').toLowerCase() === want);
+      if (hit) openContentDrawer(hit);
+    }
   }
 
   /* ── home ──────────────────────────────────────────────────── */

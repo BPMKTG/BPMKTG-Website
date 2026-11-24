@@ -67,3 +67,9 @@ GOOGLE_SERVICE_ACCOUNT_JSON=
 # The account id is CF_ACCOUNT_ID, above: the same one PDF rendering uses.
 # An API token with Account → Stream → Edit, and nothing else.
 CLOUDFLARE_STREAM_TOKEN=
+
+# Notifications (see docs/PORTAL_SETUP.md, "The installed app"). One key
+# pair, made once. This prints a pair, using only Node:
+#   node -e "const c=require('crypto');const j=c.generateKeyPairSync('ec',{namedCurve:'prime256v1'}).privateKey.export({format:'jwk'});const b=s=>Buffer.from(s,'base64url');console.log('VAPID_PUBLIC_KEY='+Buffer.concat([Buffer.from([4]),b(j.x),b(j.y)]).toString('base64url'));console.log('VAPID_PRIVATE_KEY='+j.d)"
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=

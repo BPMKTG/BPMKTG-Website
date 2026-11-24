@@ -250,6 +250,40 @@ export function adminCookie(token: string): string {
   return cookie(ADMIN_COOKIE_NAME, token, '/portal', SESSION_SECONDS);
 }
 
+/* ── the routing hint ─────────────────────────────────────────────
+   The installed app opens at /portal/start, which has to send a
+   client to their own portal. Their session cookie is tied to their
+   own path and is not sent to /portal/start, so sign-in also leaves
+   this: the slug they last signed in to, and nothing else.
+
+   It is NOT a sign-in and is never read as one. It names a place to
+   go. Whether anyone is allowed in is decided there, by the session,
+   exactly as before; with no session, or one for somewhere else, that
+   page sends the device to the sign-in screen. Knowing a slug has
+   never opened anything, which is why this can be this simple. */
+
+export const LAST_COOKIE_NAME = 'bp_last';
+
+export function lastSlugCookie(slug: string): string {
+  return cookie(LAST_COOKIE_NAME, slug, '/portal', 365 * 24 * 60 * 60);
+}
+
+export function clearLastSlugCookie(): string {
+  return cookie(LAST_COOKIE_NAME, '', '/portal', 0);
+}
+
+/** Where /portal/start sends a device: its last portal when the hint
+ *  is a well-formed slug, HQ when one of us is signed in and there is
+ *  no hint, and the sign-in screen otherwise. */
+export function startTarget(hint: string | null, isAdmin: boolean): string {
+  const slug = normaliseSlug(hint);
+  if (slug && isValidSlug(slug) && !RESERVED_SLUGS.includes(slug)) return `/portal/${slug}`;
+  return isAdmin ? '/portal/hq' : '/portal/login';
+}
+
+/** Path segments under /portal/ that are pages of ours, never a client. */
+export const RESERVED_SLUGS: readonly string[] = ['login', 'hq', 'hq-ui', 'start'];
+
 /** Both of the cookies a sign-out has to clear. A client only ever has
  *  the first; clearing one that was never set costs nothing, and
  *  guessing which is set is how a log-out leaves someone logged in. */

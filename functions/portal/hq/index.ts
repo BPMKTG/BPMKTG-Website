@@ -22,10 +22,35 @@ interface Env extends HqEnv {
 }
 
 const SHELL = '/portal/hq-ui/';
+const SIGN_IN = '/portal/login/';
+
+/**
+ * The sign-in screen, in place, for anyone not signed in as one of us.
+ *
+ * It used to be a 404. The installed HQ app opens here with no
+ * session the first time (a home-screen app on an iPhone does not
+ * share Safari's sign-in), and a 404 there is a dead end with no way
+ * to sign in. Showing the sign-in screen gives nothing away: every
+ * other address under /portal/, real or invented, already leads to
+ * this same screen. It is the page /portal/login serves, so it links
+ * the client app's manifest, never HQ's.
+ */
+async function signIn(request: Request, env: Env): Promise<Response> {
+  const res = await env.ASSETS.fetch(new Request(new URL(SIGN_IN, request.url).toString(), { method: 'GET' }));
+  return new Response(res.body, {
+    status: res.ok ? 200 : 404,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Robots-Tag': 'noindex, nofollow, noarchive',
+      'Referrer-Policy': 'no-referrer',
+    },
+  });
+}
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const gate = await beginHq(request, env);
-  if (!gate.ok) return gate.response;
+  if (!gate.ok) return signIn(request, env);
 
   const shellUrl = new URL(SHELL, request.url).toString();
   const res = await env.ASSETS.fetch(new Request(shellUrl, { method: 'GET' }));

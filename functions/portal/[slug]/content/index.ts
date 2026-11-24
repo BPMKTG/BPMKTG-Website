@@ -13,6 +13,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { portalNotFound } from '../../../../src/server/portal-auth';
+import { notifyAdmins, type PushEnv } from '../../../../src/server/push';
 import { createContentPage } from '../../../../src/server/portal-notion';
 import { buildContentProperties, newContentOwner, stampEdit } from '../../../../src/server/portal-write';
 import {
@@ -22,7 +23,7 @@ import {
   type WriteEnv,
 } from '../../../../src/server/portal-write-shared';
 
-export const onRequestPost: PagesFunction<WriteEnv> = async ({ request, env, params }) => {
+export const onRequestPost: PagesFunction<WriteEnv & PushEnv> = async ({ request, env, params, waitUntil }) => {
   const begun = await beginWrite(request, env, params.slug);
   if (!begun.ok) return begun.response;
   const { ctx } = begun;
@@ -74,6 +75,13 @@ export const onRequestPost: PagesFunction<WriteEnv> = async ({ request, env, par
 
   if (!item) return portalNotFound();
   await bustDataCache(ctx.slug, env);
+  // A client added something of their own. We are told; a piece one of
+  // us added from HQ is not news to us.
+  if (ctx.viewer.role === 'client' && !ours) {
+    waitUntil(notifyAdmins(env, 'idea', {
+      client: ctx.record.client.artist, slug: ctx.slug, item: item.title, id: item.id,
+    }));
+  }
   return writeOk({ ok: true, item });
 };
 

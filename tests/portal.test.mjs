@@ -5876,5 +5876,289 @@ section('Previews · our own copy of a Drive file');
      ['Ready · video, 1920×1080 H.264, faststart, 23 MB', 'Ready · image, 0.4 MB', 'Ready · video, 1920×1080 H.264, NOT faststart, 5.0 MB · CHECK: not the web format we expect', 'Failed · Drive will not show us this file.']);
 }
 
+
+section('The installed app · start address, manifests and the service worker');
+{
+  const A = await import('../.tmp-portal-lib.mjs');
+  const { startTarget, RESERVED_SLUGS, lastSlugCookie, clearLastSlugCookie, LAST_COOKIE_NAME, COOKIE_NAME, ADMIN_COOKIE_NAME, HQ_MANIFEST } = A;
+  const fs = await import('node:fs');
+  const vm = await import('node:vm');
+
+  // ── /portal/start ──
+  is('start: a device with the routing hint goes to its own portal', [startTarget('sean-comma', false), startTarget(' Sean-Comma ', false), startTarget('rebelz-cheer', true)],
+     ['/portal/sean-comma', '/portal/sean-comma', '/portal/rebelz-cheer']);
+  is('start: no hint goes to the sign-in screen, or to HQ for one of us', [startTarget(null, false), startTarget('', false), startTarget(null, true)], ['/portal/login', '/portal/login', '/portal/hq']);
+  is('start: a hint that is not a slug is ignored, so it can never send anyone outside /portal/',
+     ['../etc', 'a/b', 'https://evil.example', '//evil.example', 'sean comma', '-leading', '%2e%2e', 'sean-comma/files/x.pdf', 'sean-comma?next=//evil'].map((h) => startTarget(h, false)),
+     new Array(9).fill('/portal/login'));
+  is('start: whatever the hint, the answer is one address under /portal/ and nothing more',
+     ['sean-comma', 'x'.repeat(200), '../..', 'a#b', 'a\\b', '\r\nSet-Cookie: x=1', null].every((h) => /^\/portal\/[a-z0-9-]{1,100}$/.test(startTarget(h, false))), true);
+  is('start: a hint naming one of our own pages is not a client', RESERVED_SLUGS.map((r) => startTarget(r, false)), RESERVED_SLUGS.map(() => '/portal/login'));
+  const hint = lastSlugCookie('sean-comma');
+  is('hint: the cookie holds the slug and nothing else, for /portal only, and script cannot read it',
+     [hint.startsWith(`${LAST_COOKIE_NAME}=sean-comma;`), hint.includes('Path=/portal;'), hint.includes('HttpOnly'), hint.includes('Secure'), hint.includes('SameSite=Lax')], [true, true, true, true, true]);
+  is('hint: it is its own cookie, not either session cookie, so nothing that checks a session can read it as one',
+     [LAST_COOKIE_NAME !== COOKIE_NAME, LAST_COOKIE_NAME !== ADMIN_COOKIE_NAME, /\.[0-9a-f]{16,}/.test(hint)], [true, true, false]);
+  is('hint: signing out clears it', [clearLastSlugCookie().startsWith(`${LAST_COOKIE_NAME}=;`), clearLastSlugCookie().includes('Max-Age=0')], [true, true]);
+
+  // ── the two manifests ──
+  const client = JSON.parse(fs.readFileSync(new URL('../public/portal-app.webmanifest', import.meta.url), 'utf8'));
+  is('manifest: the client app is "Blueprint", opens at /portal/start, covers /portal/, standalone',
+     [client.name, client.short_name, client.start_url, client.scope, client.display], ['Blueprint', 'Blueprint', '/portal/start', '/portal/', 'standalone']);
+  is('manifest: HQ is "Blueprint HQ", opens at /portal/hq, covers /portal/ so a client portal opened from it stays inside',
+     [HQ_MANIFEST.name, HQ_MANIFEST.start_url, HQ_MANIFEST.scope, HQ_MANIFEST.display], ['Blueprint HQ', '/portal/hq', '/portal/', 'standalone']);
+  is('manifest: the two have explicit ids, and they differ, so a phone holds two apps', [typeof client.id, typeof HQ_MANIFEST.id, client.id === HQ_MANIFEST.id, client.id, HQ_MANIFEST.id], ['string', 'string', false, '/portal/start', '/portal/hq']);
+  const css = fs.readFileSync(new URL('../src/styles/portal.css', import.meta.url), 'utf8');
+  const pageBg = /--pt-bg:\s*(#[0-9a-f]{6})/i.exec(css)[1].toLowerCase();
+  const topbar = /\.pt-topbar \{[^}]*background:\s*rgba\(255,\s*255,\s*255,/.test(css);
+  is('manifest: the colours are read off the portal’s own CSS: the page behind (--pt-bg) and the white top bar',
+     [client.background_color, HQ_MANIFEST.background_color, pageBg, topbar, client.theme_color, HQ_MANIFEST.theme_color], ['#f6f9fc', '#f6f9fc', '#f6f9fc', true, '#ffffff', '#ffffff']);
+  const iconOk = (m, who) => ['192x192', '512x512'].every((sz) => m.icons.some((i) => i.sizes === sz && i.purpose === 'any')) && m.icons.some((i) => i.purpose === 'maskable')
+    && m.icons.every((i) => i.src.startsWith(`/brand/app/${who}-`) && fs.existsSync(new URL(`../public${i.src}`, import.meta.url)));
+  is('manifest: each has its own 192, 512 and maskable icons, and every file is there', [iconOk(client, 'client'), iconOk(HQ_MANIFEST, 'hq')], [true, true]);
+  const layout = fs.readFileSync(new URL('../src/layouts/PortalLayout.astro', import.meta.url), 'utf8');
+  const screens = [...layout.matchAll(/\[(\d+), (\d+), (\d)\]/g)].map((m) => [Number(m[1]), Number(m[2]), Number(m[3])]);
+  is('launch screens: every iPhone and iPad size the layout names has an image, for both apps',
+     [screens.length >= 20, screens.every(([w, h, r]) => ['client', 'hq'].every((who) => fs.existsSync(new URL(`../public/brand/app/splash-${who}-${w * r}x${h * r}.png`, import.meta.url))))], [true, true]);
+  is('layout: dark text in the status bar, the HQ manifest is fetched with the cookie, and only the HQ page links it',
+     [/apple-mobile-web-app-status-bar-style" content="default"/.test(layout), /app === 'hq'\s*\? <link rel="manifest" href=\{manifest\} crossorigin="use-credentials"/.test(layout),
+      /<PortalLayout title="Blueprint HQ" app="hq">/.test(fs.readFileSync(new URL('../src/pages/portal/hq-ui.astro', import.meta.url), 'utf8')),
+      /app="hq"/.test(fs.readFileSync(new URL('../src/pages/portal/index.astro', import.meta.url), 'utf8') + fs.readFileSync(new URL('../src/pages/portal/login.astro', import.meta.url), 'utf8'))],
+     [true, true, true, false]);
+
+  // ── the service worker, loaded for real with a stand-in for the browser ──
+  const src = fs.readFileSync(new URL('../public/portal-sw.js', import.meta.url), 'utf8');
+  const listeners = {};
+  const stored = new Map();
+  const sandbox = {
+    URL, Response, Promise, console, undefined,
+    self: { location: { href: 'https://blueprint-marketing.com/portal-sw.js?v=abc123', origin: 'https://blueprint-marketing.com' },
+      addEventListener: (type, fn) => { listeners[type] = fn; }, skipWaiting: () => { sandbox.skipped = true; },
+      registration: { showNotification: (title, o) => { sandbox.shown = { title, ...o }; return Promise.resolve(); } },
+      clients: { matchAll: async () => sandbox.windows ?? [], openWindow: async (u) => { sandbox.opened = u; } } },
+    caches: { open: async () => ({ addAll: async (list) => { sandbox.precached = list; }, match: async (k) => stored.get(typeof k === 'string' ? k : k.url), put: async (k, v) => { stored.set(k.url, v); } }), keys: async () => ['bp-static-old', 'bp-static-abc123', 'someone-elses'], delete: async (n) => { (sandbox.deleted ??= []).push(n); } },
+    fetch: async (req) => { (sandbox.fetched ??= []).push(req.url ?? req); if (sandbox.offline) throw new Error('offline'); return new Response('net', { status: 200 }); },
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(src, sandbox);
+  const routeFor = vm.runInContext('routeFor', sandbox);
+  const req = (path, o = {}) => ({ url: path.startsWith('http') ? path : `https://blueprint-marketing.com${path}`, method: o.method ?? 'GET', mode: o.mode ?? 'cors', headers: { has: (h) => !!(o.headers ?? {})[h] } });
+  const nav = (path) => req(path, { mode: 'navigate' });
+  is('sw: the app’s own pages are fetched from the network, with the offline screen behind them',
+     ['/portal/start', '/portal/login', '/portal/login/', '/portal/hq', '/portal/sean-comma', '/portal/rebelz-cheer/'].map((p) => routeFor(nav(p))), new Array(6).fill('page'));
+  is('sw: built scripts and styles, brand art and fonts are kept',
+     ['/_astro/portal.abc.css', '/_astro/index.astro_x.js', '/brand/logo-header-navy.svg', '/brand/app/client-192.png', '/fonts/roboto-latin-var.woff2', '/favicon.ico'].map((p) => routeFor(req(p))), new Array(6).fill('static'));
+  const V = '0123456789abcdef', I = 'a'.repeat(32);
+  is('sw: previews, files, data and every other request behind sign-in are not handled at all',
+     [`/portal/sean-comma/preview/${I}/${V}/video`, `/portal/sean-comma/preview/${I}/${V}/image`, `/portal/sean-comma/preview/${I}`, '/portal/sean-comma/data', '/portal/hq/data', '/portal/sean-comma/files/reports/sean-comma/2026-11.pdf',
+      '/portal/sean-comma/push', '/portal/hq/push', '/portal/hq/previews', '/portal/sean-comma/playbooks', '/portal/hq/app.webmanifest', '/portal-app.webmanifest', '/api/intake', '/videos/hero-montage.mp4', '/'].map((p) => routeFor(req(p))),
+     new Array(15).fill(null));
+  is('sw: opening a file or a preview as a page of its own is not handled either',
+     [nav('/portal/sean-comma/files/reports/sean-comma/2026-11.pdf'), nav(`/portal/sean-comma/preview/${I}/${V}/video`), nav('/portal/sean-comma/data'), nav('/'), nav('/intake')].map(routeFor), [null, null, null, null, null]);
+  is('sw: any request with a Range header is left alone, whatever it is for',
+     [routeFor(req(`/portal/sean-comma/preview/${I}/${V}/video`, { headers: { range: 'bytes=0-1' } })), routeFor(req('/_astro/x.js', { headers: { range: 'bytes=0-1' } })), routeFor({ ...nav('/portal/hq'), headers: { has: (h) => h === 'range' } })], [null, null, null]);
+  is('sw: nothing but a GET, and nothing from another site (Google Fonts, the converter, Drive)',
+     [routeFor(req('/portal/hq', { method: 'POST', mode: 'navigate' })), routeFor(req('/_astro/x.js', { method: 'POST' })), routeFor(req('https://fonts.googleapis.com/css2?family=Roboto')),
+      routeFor(req('https://customer-x.cloudflarestream.com/abc/downloads/default.mp4')), routeFor(req('https://drive.google.com/file/d/x/preview', { mode: 'navigate' }))], [null, null, null, null, null]);
+  // the fetch listener itself: respondWith is called for exactly those two kinds
+  const fire = (r) => { let answered = null; listeners.fetch({ request: r, respondWith: (p) => { answered = p; } }); return answered; };
+  is('sw: respondWith is never called for a preview, a file or a data request, with or without a Range',
+     [fire(req(`/portal/sean-comma/preview/${I}/${V}/video`)), fire(req(`/portal/sean-comma/preview/${I}/${V}/video`, { headers: { range: 'bytes=0-1' } })), fire(req('/portal/sean-comma/data')), fire(req('/portal/hq/previews', { method: 'POST' }))], [null, null, null, null]);
+  stored.set('/portal-offline', new Response('offline screen'));
+  sandbox.offline = true;
+  const offline = await fire(nav('/portal/sean-comma'));
+  is('sw: a page asked for with no network gets the offline screen', await offline.text(), 'offline screen');
+  sandbox.offline = false;
+  is('sw: and the page itself when the network is there, never a stored copy', await (await fire(nav('/portal/sean-comma'))).text(), 'net');
+  const ev = (o = {}) => { const waits = []; return { ...o, waitUntil: (p) => waits.push(p), done: () => Promise.all(waits) }; };
+  let e = ev(); listeners.install(e); await e.done();
+  is('sw: installing stores the offline screen and its logo, and does not push the old version out', [sandbox.precached, sandbox.skipped ?? false], [['/portal-offline', '/brand/logo-header-navy.svg'], false]);
+  e = ev(); listeners.activate(e); await e.done();
+  is('sw: taking over clears its own older stores and nobody else’s', sandbox.deleted, ['bp-static-old']);
+  listeners.message({ data: { type: 'SKIP_WAITING' } });
+  is('sw: "tap to refresh" is what lets the new version take over at once', sandbox.skipped, true);
+  // notifications
+  e = ev({ data: { json: () => ({ title: '3 posts need your review', body: 'Open Blueprint to go through them.', url: '/portal/sean-comma#/content', tag: 'review' }) } }); listeners.push(e); await e.done();
+  is('sw: a push is shown with its title, body and tag, and remembers where a tap goes', [sandbox.shown.title, sandbox.shown.body, sandbox.shown.tag, sandbox.shown.data.url], ['3 posts need your review', 'Open Blueprint to go through them.', 'review', '/portal/sean-comma#/content']);
+  e = ev({ data: { json: () => ({ title: 'x', url: 'https://evil.example/phish' }) } }); listeners.push(e); await e.done();
+  is('sw: a tap can only ever go somewhere inside the app', sandbox.shown.data.url, '/portal/start');
+  e = ev({ data: { json: () => { throw new Error('not json'); } } }); listeners.push(e); await e.done();
+  is('sw: a push it cannot read still shows something, as the browser requires', sandbox.shown.title, 'Blueprint');
+  const posted = [];
+  sandbox.windows = [{ url: 'https://blueprint-marketing.com/portal/sean-comma#/home', postMessage: (m) => posted.push(m), focus: async () => { sandbox.focused = true; } }];
+  e = ev({ notification: { close: () => { sandbox.closed = true; }, data: { url: '/portal/sean-comma#/content/abc' } } }); listeners.notificationclick(e); await e.done();
+  is('sw: tapping one with the app already open brings it forward and tells it which item to open, without opening a second window',
+     [sandbox.closed, posted, sandbox.focused, sandbox.opened ?? null], [true, [{ type: 'bp-open', url: '/portal/sean-comma#/content/abc' }], true, null]);
+  sandbox.windows = [];
+  e = ev({ notification: { close: () => {}, data: { url: '/portal/sean-comma#/content/abc' } } }); listeners.notificationclick(e); await e.done();
+  is('sw: with the app shut, the tap opens it at that item', sandbox.opened, '/portal/sean-comma#/content/abc');
+  const headers = fs.readFileSync(new URL('../public/_headers', import.meta.url), 'utf8');
+  is('sw: it is served with permission to control /portal/, and never from a stale cache', /\/portal-sw\.js\n\s+Service-Worker-Allowed: \/portal\/\n\s+Cache-Control: no-cache/.test(headers), true);
+}
+
+section('Notifications · who is told what, and when');
+{
+  const P = await import('../.tmp-portal-lib.mjs');
+  const {
+    CLIENT_KINDS, ADMIN_KINDS, PUSH_KIND_LABEL, kindsFor, cleanPrefs, wants, cleanSubscription, withDevice, MAX_DEVICES, cardUrl, addToBatch, reviewMessage, reportMessage, adminMessage,
+    REVIEW_BATCH_MS, REVIEW_STATUS, enteredReview, sweepReview, b64uToBytes, bytesToB64u, encryptPush, pushConfig, vapidAuthorization, notifyReview, notifyReport, notifyAdmins, sweepReviewFor,
+    saveDevice, deviceState, forgetDevice, CONTENT_STATUSES,
+  } = P;
+
+  // ── the trigger ──
+  is('trigger: the review stage is a real status', [REVIEW_STATUS, CONTENT_STATUSES.includes(REVIEW_STATUS)], ['Ready for Review', true]);
+  is('trigger: a card moved INTO review fires, from any other status', ['Editing', 'Footage In', 'Planned', 'Approved', 'Idea', null].map((b) => enteredReview(b, 'Ready for Review')), [true, true, true, true, true, true]);
+  is('trigger: a card already in review that is saved again does not fire. A caption, on-screen text, a date or a note is not a move',
+     enteredReview('Ready for Review', 'Ready for Review'), false);
+  is('trigger: leaving review, or moving between other statuses, does not fire', [enteredReview('Ready for Review', 'Approved'), enteredReview('Ready for Review', 'Editing'), enteredReview('Planned', 'Editing'), enteredReview('Editing', 'Posted'), enteredReview(null, null)], [false, false, false, false, false]);
+
+  // ── batching ──
+  const A = 'a'.repeat(32), B = 'b'.repeat(32), C = 'c'.repeat(32), t0 = Date.parse('2026-11-23T15:00:00Z');
+  const one = addToBatch(null, [A], t0);
+  is('batch: the first card opens a batch', one, { first: t0, ids: [A] });
+  const three = addToBatch(addToBatch(one, [B], t0 + 60_000), [C], t0 + 9 * 60_000);
+  is('batch: cards inside ten minutes of the first join it', three, { first: t0, ids: [A, B, C] });
+  is('batch: the same card saved into review twice is counted once', addToBatch(three, [B], t0 + 9.5 * 60_000).ids.length, 3);
+  is('batch: a card ten minutes or more after the first opens a new one', [addToBatch(three, [B], t0 + REVIEW_BATCH_MS), REVIEW_BATCH_MS], [{ first: t0 + REVIEW_BATCH_MS, ids: [B] }, 600000]);
+  is('batch: ids are compared with or without dashes', addToBatch(one, ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'], t0 + 1000).ids, [A]);
+  is('says: one card names it and opens that card', reviewMessage('sean-comma', one, 'Rooftop Remix second cut / DJ-support clip'),
+     { title: 'New content needs your review', body: 'Rooftop Remix second cut / DJ-support clip', url: `/portal/sean-comma#/content/${A}`, tag: 'review' });
+  is('says: several are counted and open the review list', reviewMessage('sean-comma', three, 'x'),
+     { title: '3 posts need your review', body: 'Open Blueprint to go through them.', url: '/portal/sean-comma#/content', tag: 'review' });
+  is('says: both carry the same tag, which is what makes the later one replace the earlier on the device', reviewMessage('s', one, 'x').tag === reviewMessage('s', three, 'x').tag, true);
+  is('says: the report', reportMessage('sean-comma', 'November 2026 is in your Reports tab.'), { title: 'Your monthly report is ready', body: 'November 2026 is in your Reports tab.', url: '/portal/sean-comma#/reports', tag: 'report' });
+  const about = { client: 'Sean Comma', slug: 'sean-comma', item: 'Rooftop Remix second cut', id: A };
+  is('says: ours, each in the words asked for',
+     [adminMessage('approved', about).title, adminMessage('changes', about).title, adminMessage('idea', about).title, adminMessage('preview', about).title],
+     ['Sean Comma approved Rooftop Remix second cut', 'Sean Comma requested changes on Rooftop Remix second cut', 'Sean Comma submitted a new idea', 'Preview failed: Rooftop Remix second cut']);
+  is('says: a tap on ours opens that card in that client’s portal, and a failed preview opens the list in HQ',
+     [adminMessage('approved', about).url, adminMessage('idea', about).url, adminMessage('preview', about).url, cardUrl('sean-comma', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')],
+     [`/portal/sean-comma#/content/${A}`, `/portal/sean-comma#/content/${A}`, '/portal/hq#/today', `/portal/sean-comma#/content/${A}`]);
+  is('says: every address a tap can open is inside /portal/',
+     [reviewMessage('s', one, 'x'), reviewMessage('s', three, 'x'), reportMessage('s', null), ...ADMIN_KINDS.map((k) => adminMessage(k, about)), adminMessage('approved', { ...about, slug: null })].every((m) => m.url.startsWith('/portal/')), true);
+
+  // ── the sweep, for a status changed in Notion itself ──
+  is('sweep: the very first look announces nothing, and remembers what is already there', sweepReview(null, [A, B]), { announce: [], remember: [A, B] });
+  is('sweep: after that, a card newly in review is announced once', [sweepReview([A, B], [A, B, C]), sweepReview([A, B, C], [A, B, C])], [{ announce: [C], remember: [A, B, C] }, { announce: [], remember: [A, B, C] }]);
+  is('sweep: one that leaves review is forgotten, so it is announced again if it comes back', [sweepReview([A, B], [A]), sweepReview([A], [A, B])], [{ announce: [], remember: [A] }, { announce: [B], remember: [A, B] }]);
+
+  // ── kinds and choices ──
+  is('kinds: a client’s two and our four, and they do not overlap', [CLIENT_KINDS, ADMIN_KINDS, CLIENT_KINDS.some((k) => ADMIN_KINDS.includes(k)), [...CLIENT_KINDS, ...ADMIN_KINDS].every((k) => !!PUSH_KIND_LABEL[k])],
+     [['review', 'report'], ['approved', 'changes', 'idea', 'preview'], false, true]);
+  is('choices: everything is on until it is turned off', cleanPrefs(null, 'client'), { review: true, report: true });
+  is('choices: a client’s device can only ever hold a client’s kinds, whatever it sends', cleanPrefs({ review: false, approved: true, preview: true, admin: true }, 'client'), { review: false, report: true });
+  is('choices: ours hold ours', cleanPrefs({ idea: false, review: true }, 'admin'), { approved: true, changes: true, idea: false, preview: true });
+  is('choices: a kind turned off is not sent, and one never asked about is', [wants({ review: false }, 'review'), wants({ review: false }, 'report'), wants(undefined, 'review')], [false, true, true]);
+
+  // ── a subscription ──
+  const p256 = bytesToB64u(new Uint8Array(65).fill(4)), auth = bytesToB64u(new Uint8Array(16).fill(7));
+  const sub = (endpoint, keys = { p256dh: p256, auth }) => cleanSubscription({ endpoint, keys });
+  is('subscription: a real push address is kept', [sub('https://fcm.googleapis.com/fcm/send/abc')?.endpoint, sub('https://web.push.apple.com/QAbc')?.endpoint, !!sub('https://updates.push.services.mozilla.com/wpush/v2/x'), !!sub('https://wns2-by3p.notify.windows.com/w/?token=x')],
+     ['https://fcm.googleapis.com/fcm/send/abc', 'https://web.push.apple.com/QAbc', true, true]);
+  is('subscription: an address anywhere else is refused, so a page cannot point our server at a host of its choosing',
+     ['https://evil.example/collect', 'https://fcm.googleapis.com.evil.example/x', 'http://fcm.googleapis.com/fcm/send/abc', 'https://localhost/x', 'https://169.254.169.254/latest/meta-data', 'https://user:pw@fcm.googleapis.com/x',
+      'https://fcm.googleapis.com:8443/x', 'https://api.notion.com/v1/pages', 'javascript:alert(1)', '', null].map((u) => sub(u)), new Array(11).fill(null));
+  is('subscription: keys of the wrong size are refused', [sub('https://fcm.googleapis.com/x', { p256dh: 'short', auth }), sub('https://fcm.googleapis.com/x', { p256dh: p256, auth: 'short' }), sub('https://fcm.googleapis.com/x', { p256dh: `${p256}!!`, auth }), cleanSubscription(null), cleanSubscription('x')],
+     [null, null, null, null, null]);
+  const dev = (n) => ({ endpoint: `https://fcm.googleapis.com/fcm/send/${n}`, keys: { p256dh: p256, auth }, prefs: {}, at: 'x' });
+  const many = Array.from({ length: 12 }, (_, i) => dev(i)).reduce((list, d) => withDevice(list, d), []);
+  is('devices: the same device subscribing again replaces itself, and past ten the oldest goes', [withDevice([dev(1)], { ...dev(1), prefs: { review: false } }).length, many.length, many[0].endpoint.endsWith('/2'), MAX_DEVICES], [1, 10, true, 10]);
+
+  // ── the cryptography, against the worked example in RFC 8291 ──
+  const RFC = { auth: 'BTBZMqHH6r4Tts7J_aSIgg', asPub: 'BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8', asPriv: 'yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw',
+    uaPub: 'BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4', uaPriv: 'q1dXpw3UpT5VOmu_cf_v6ih07Aems3njxI-JWgLcM94', salt: 'DGv6ra1nlYgDCS1FRnbzlw',
+    header: 'DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8', cipher: '8pfeW0KbunFT06SuDKoJH9Ql87S1QUrdirN6GcG7sFz1y1sqLgVi1VhjVkHsUoEsbI_0LpXMuGvnzQ' };
+  const pub = b64uToBytes(RFC.asPub);
+  const xy = { kty: 'EC', crv: 'P-256', x: bytesToB64u(pub.slice(1, 33)), y: bytesToB64u(pub.slice(33, 65)), ext: true };
+  const local = { privateKey: await crypto.subtle.importKey('jwk', { ...xy, d: RFC.asPriv }, { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']), publicKey: await crypto.subtle.importKey('jwk', xy, { name: 'ECDH', namedCurve: 'P-256' }, true, []) };
+  const sealed = await encryptPush(new TextEncoder().encode('When I grow up, I want to be a watermelon'), { p256dh: RFC.uaPub, auth: RFC.auth }, { salt: b64uToBytes(RFC.salt), local });
+  is('crypto: the encrypted message matches the worked example in RFC 8291 byte for byte', [bytesToB64u(sealed.slice(0, 86)), bytesToB64u(sealed.slice(86))], [RFC.header, RFC.cipher]);
+  const two = [await encryptPush(new TextEncoder().encode('same'), { p256dh: RFC.uaPub, auth: RFC.auth }), await encryptPush(new TextEncoder().encode('same'), { p256dh: RFC.uaPub, auth: RFC.auth })];
+  is('crypto: in use, the same message is never encrypted the same way twice', [bytesToB64u(two[0]) === bytesToB64u(two[1]), two[0].length === two[1].length], [false, true]);
+  const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const cfg = { publicKey: bytesToB64u(new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey))), privateKey: (await crypto.subtle.exportKey('jwk', kp.privateKey)).d };
+  const header = await vapidAuthorization('https://web.push.apple.com/QAbc', cfg, Date.parse('2026-11-23T00:00:00Z'));
+  const [, token, k] = /^vapid t=([^,]+), k=(.+)$/.exec(header); const [h64, c64, s64] = token.split('.');
+  const claims = JSON.parse(new TextDecoder().decode(b64uToBytes(c64)));
+  is('vapid: the token verifies with the public key, names the push service it is for, and lasts twelve hours',
+     [await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, kp.publicKey, b64uToBytes(s64), new TextEncoder().encode(`${h64}.${c64}`)), JSON.parse(new TextDecoder().decode(b64uToBytes(h64))), claims.aud, claims.exp - Date.parse('2026-11-23T00:00:00Z') / 1000, k === cfg.publicKey],
+     [true, { typ: 'JWT', alg: 'ES256' }, 'https://web.push.apple.com', 43200, true]);
+  is('vapid: no email address is put in it', [/@/.test(JSON.stringify(claims)), /^https:\/\//.test(claims.sub)], [false, true]);
+  is('keys: both must be there and the right shape, or there are no notifications at all',
+     [!!pushConfig({ VAPID_PUBLIC_KEY: cfg.publicKey, VAPID_PRIVATE_KEY: cfg.privateKey }), pushConfig({}), pushConfig({ VAPID_PUBLIC_KEY: cfg.publicKey }), pushConfig({ VAPID_PUBLIC_KEY: 'nope', VAPID_PRIVATE_KEY: cfg.privateKey }),
+      pushConfig({ VAPID_PUBLIC_KEY: cfg.privateKey, VAPID_PRIVATE_KEY: cfg.publicKey })], [true, null, null, null, null]);
+
+  // ── sending, with a stand-in push service and a stand-in KV ──
+  const kvStore = new Map(); const kv = { get: async (k) => kvStore.get(k) ?? null, put: async (k, v) => { kvStore.set(k, v); }, delete: async (k) => { kvStore.delete(k); } };
+  const env = { VAPID_PUBLIC_KEY: cfg.publicKey, VAPID_PRIVATE_KEY: cfg.privateKey, PORTAL_KV: kv };
+  // A real "browser": its own key pair, so what we send can be decrypted the way a phone would.
+  const browser = async () => { const k = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']); const a = crypto.getRandomValues(new Uint8Array(16));
+    return { keys: { p256dh: bytesToB64u(new Uint8Array(await crypto.subtle.exportKey('raw', k.publicKey))), auth: bytesToB64u(a) }, priv: k.privateKey, pubRaw: new Uint8Array(await crypto.subtle.exportKey('raw', k.publicKey)), authRaw: a }; };
+  const hk = async (salt, ikm, info, n) => new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info }, await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']), n * 8));
+  const cat = (...p) => { const o = new Uint8Array(p.reduce((n, x) => n + x.length, 0)); let i = 0; for (const x of p) { o.set(x, i); i += x.length; } return o; };
+  const open = async (b, body) => { const salt = body.slice(0, 16), as = body.slice(21, 86), ct = body.slice(86);
+    const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: await crypto.subtle.importKey('raw', as, { name: 'ECDH', namedCurve: 'P-256' }, false, []) }, b.priv, 256));
+    const ikm = await hk(b.authRaw, shared, cat(new TextEncoder().encode('WebPush: info\0'), b.pubRaw, as), 32);
+    const key = await crypto.subtle.importKey('raw', await hk(salt, ikm, new TextEncoder().encode('Content-Encoding: aes128gcm\0'), 16), 'AES-GCM', false, ['decrypt']);
+    const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: await hk(salt, ikm, new TextEncoder().encode('Content-Encoding: nonce\0'), 12) }, key, ct));
+    return JSON.parse(new TextDecoder().decode(plain.slice(0, -1))); };
+  const phone = await browser(), tablet = await browser(), ours = await browser();
+  const sentTo = []; const realFetch = globalThis.fetch; let gone = new Set();
+  globalThis.fetch = async (url, init) => { const u = String(url); if (gone.has(u)) return new Response('', { status: 410 }); sentTo.push({ url: u, headers: init.headers, body: new Uint8Array(init.body) }); return new Response('', { status: 201 }); };
+  const errors = console.error; console.error = () => {};
+  try {
+    is('store: a client’s device is filed under their slug, with its choices', [await saveDevice(env, 'client', 'sean-comma', { endpoint: 'https://web.push.apple.com/phone', keys: phone.keys }, { report: false }, 'who1'), await deviceState(env, 'client', 'sean-comma', 'https://web.push.apple.com/phone'), await deviceState(env, 'client', 'other-artist', 'https://web.push.apple.com/phone')],
+       [{ review: true, report: false }, { review: true, report: false }, null]);
+    await saveDevice(env, 'client', 'sean-comma', { endpoint: 'https://fcm.googleapis.com/fcm/send/tablet', keys: tablet.keys }, null, 'who1');
+    await saveDevice(env, 'admin', null, { endpoint: 'https://fcm.googleapis.com/fcm/send/ours', keys: ours.keys }, { idea: false }, 'adminwho');
+    const n1 = await notifyReview(env, 'sean-comma', [{ id: A, title: 'Rooftop Remix second cut' }], t0);
+    is('review: one card moved into review reaches both of the client’s devices and none of ours', [n1, sentTo.map((s) => s.url).sort()], [2, ['https://fcm.googleapis.com/fcm/send/tablet', 'https://web.push.apple.com/phone']]);
+    const got = await open(phone, sentTo.find((s) => s.url.endsWith('/phone')).body);
+    is('review: what the phone decrypts is the notification, and only that', got, { title: 'New content needs your review', body: 'Rooftop Remix second cut', url: `/portal/sean-comma#/content/${A}`, tag: 'review' });
+    const hd = sentTo[0].headers;
+    is('review: sent encrypted, signed, with a day to live and a topic so a phone that was off wakes to one', [hd['Content-Encoding'], /^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=/.test(hd.Authorization), hd.TTL, hd.Topic], ['aes128gcm', true, '86400', 'review']);
+    sentTo.length = 0;
+    await notifyReview(env, 'sean-comma', [{ id: B, title: 'Second' }], t0 + 60_000);
+    await notifyReview(env, 'sean-comma', [{ id: C, title: 'Third' }, { id: 'd'.repeat(32), title: 'Fourth' }, { id: 'e'.repeat(32), title: 'Fifth' }], t0 + 120_000);
+    const last = await open(phone, sentTo.filter((s) => s.url.endsWith('/phone')).at(-1).body);
+    is('review: five cards inside ten minutes end as one notification on the device that says five', [last.title, last.tag, last.url], ['5 posts need your review', 'review', '/portal/sean-comma#/content']);
+    sentTo.length = 0;
+    is('review: the same card saved into review again sends nothing', [await notifyReview(env, 'sean-comma', [{ id: B, title: 'Second' }], t0 + 130_000), sentTo.length], [0, 0]);
+    await notifyReview(env, 'sean-comma', [{ id: 'f'.repeat(32), title: 'Much later' }], t0 + 11 * 60_000);
+    is('review: a card more than ten minutes after the first starts over at one', (await open(phone, sentTo.find((s) => s.url.endsWith('/phone')).body)).title, 'New content needs your review');
+    // a kind turned off
+    sentTo.length = 0;
+    is('report: sent to the device that wants it and not to the one that turned it off', [await notifyReport(env, 'sean-comma', 'November 2026 is in your Reports tab.', 'report-1'), sentTo.map((s) => s.url)], [1, ['https://fcm.googleapis.com/fcm/send/tablet']]);
+    sentTo.length = 0;
+    is('report: publishing the same report again says nothing a second time', [await notifyReport(env, 'sean-comma', 'x', 'report-1'), sentTo.length, await notifyReport(env, 'sean-comma', 'x', 'report-2')], [0, 0, 1]);
+    // ours
+    sentTo.length = 0;
+    is('ours: an approval reaches our device and no client’s', [await notifyAdmins(env, 'approved', about), sentTo.map((s) => s.url), (await open(ours, sentTo[0].body)).title], [1, ['https://fcm.googleapis.com/fcm/send/ours'], 'Sean Comma approved Rooftop Remix second cut']);
+    sentTo.length = 0;
+    is('ours: a kind we turned off on that device is not sent', [await notifyAdmins(env, 'idea', about), sentTo.length], [0, 0]);
+    is('ours: a failed preview is', [await notifyAdmins(env, 'preview', about), (await open(ours, sentTo[0].body)).title], [1, 'Preview failed: Rooftop Remix second cut']);
+    // a device that is gone
+    gone = new Set(['https://web.push.apple.com/phone']); sentTo.length = 0;
+    await notifyReview(env, 'sean-comma', [{ id: '9'.repeat(32), title: 'One more' }], t0 + 30 * 60_000);
+    is('gone: a device the push service says no longer exists is forgotten, and the others are kept', [await deviceState(env, 'client', 'sean-comma', 'https://web.push.apple.com/phone'), !!(await deviceState(env, 'client', 'sean-comma', 'https://fcm.googleapis.com/fcm/send/tablet'))], [null, true]);
+    await forgetDevice(env, 'client', 'sean-comma', 'https://fcm.googleapis.com/fcm/send/tablet');
+    is('off: turning notifications off on a device forgets it', await deviceState(env, 'client', 'sean-comma', 'https://fcm.googleapis.com/fcm/send/tablet'), null);
+    // the sweep
+    gone = new Set(); await saveDevice(env, 'client', 'rebelz-cheer', { endpoint: 'https://web.push.apple.com/gym', keys: phone.keys }, null, 'g');
+    sentTo.length = 0;
+    is('sweep: the first look at a client announces nothing', [await sweepReviewFor(env, 'rebelz-cheer', [{ id: A, title: 'Already there' }], t0), sentTo.length], [0, 0]);
+    is('sweep: a card that reached review in Notion itself is announced on the next look, once', [await sweepReviewFor(env, 'rebelz-cheer', [{ id: A, title: 'Already there' }, { id: B, title: 'New in Notion' }], t0 + 1000), await sweepReviewFor(env, 'rebelz-cheer', [{ id: A, title: 'Already there' }, { id: B, title: 'New in Notion' }], t0 + 2000), (await open(phone, sentTo[0].body)).body], [1, 0, 'New in Notion']);
+    sentTo.length = 0;
+    await notifyReview(env, 'rebelz-cheer', [{ id: C, title: 'Moved in HQ' }], t0 + 20 * 60_000);
+    sentTo.length = 0;
+    is('sweep: a card our own save already announced is not announced again by the next look', [await sweepReviewFor(env, 'rebelz-cheer', [{ id: A, title: 'a' }, { id: B, title: 'b' }, { id: C, title: 'Moved in HQ' }], t0 + 21 * 60_000), sentTo.length], [0, 0]);
+    // no keys, no store
+    sentTo.length = 0;
+    is('unset: with no keys or no store, nothing is sent and nothing throws', [await notifyReview({ PORTAL_KV: kv }, 'sean-comma', [{ id: A, title: 'x' }]), await notifyAdmins({ VAPID_PUBLIC_KEY: cfg.publicKey, VAPID_PRIVATE_KEY: cfg.privateKey }, 'approved', about), await notifyReport({}, 's', null, 'r'), sentTo.length], [0, 0, 0, 0]);
+    globalThis.fetch = async () => { throw new Error('the network is down'); };
+    is('down: a push service that cannot be reached does not throw at the save that caused it', await notifyAdmins(env, 'approved', about), 0);
+  } finally { globalThis.fetch = realFetch; console.error = errors; }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

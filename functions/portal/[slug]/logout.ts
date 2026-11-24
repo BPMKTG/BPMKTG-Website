@@ -12,6 +12,7 @@
 
 import {
   clearCookies,
+  clearLastSlugCookie,
   isValidSlug,
   normaliseSlug,
   portalNotFound,
@@ -27,6 +28,9 @@ export const onRequestPost: PagesFunction<unknown> = async ({ params }) => {
     'X-Robots-Tag': 'noindex, nofollow',
   });
   for (const c of clearCookies(slug)) headers.append('Set-Cookie', c);
+  // And the installed app's routing hint, so the next open starts at
+  // the sign-in screen, not at a portal that will only bounce it there.
+  headers.append('Set-Cookie', clearLastSlugCookie());
 
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
 };

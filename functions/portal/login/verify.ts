@@ -18,6 +18,7 @@ import {
   clearClientCookie,
   failureCount,
   isValidSlug,
+  lastSlugCookie,
   mintAdminSession,
   mintClientSession,
   normaliseSlug,
@@ -147,7 +148,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // portal with our permissions. Out it goes.
   return ok(
     { ok: true, slug, role: 'client' },
-    [sessionCookie(slug, await mintClientSession(secret, slug, who)), clearAdminCookie()],
+    // The last cookie is a routing hint for the installed app's start
+    // address. It is not a session and opens nothing: see lastSlugCookie.
+    [sessionCookie(slug, await mintClientSession(secret, slug, who)), clearAdminCookie(), lastSlugCookie(slug)],
   );
 };
 

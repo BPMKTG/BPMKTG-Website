@@ -8,6 +8,8 @@
    indistinguishable from a row that does not exist.
    ────────────────────────────────────────────────────────────── */
 
+import { REVIEW_TARGET } from '../../../../src/data/portal-content';
+import { REVIEW_STATUS, enteredReview } from '../../../../src/data/push';
 import { portalNotFound } from '../../../../src/server/portal-auth';
 import {
   fetchOwnedContent,
@@ -16,6 +18,7 @@ import {
 } from '../../../../src/server/portal-notion';
 import { buildContentProperties, editedBy, stampEdit } from '../../../../src/server/portal-write';
 import { skipStepsOfPiece } from '../../../../src/server/pieces';
+import { notifyAdmins, notifyReview, type PushEnv } from '../../../../src/server/push';
 import {
   beginWrite,
   bustDataCache,
@@ -23,11 +26,13 @@ import {
   type WriteEnv,
 } from '../../../../src/server/portal-write-shared';
 
+type Env = WriteEnv & PushEnv;
+
 /** A Notion page id, dashed or not. Anything else never reaches the
  *  API: a path segment is not a safe thing to put in a URL. */
 const ID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
 
-export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, params }) => {
+export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params, waitUntil }) => {
   const id = String(params.id ?? '');
   if (!ID.test(id)) return portalNotFound();
 
@@ -98,10 +103,27 @@ export const onRequestPatch: PagesFunction<WriteEnv> = async ({ request, env, pa
   }
 
   await bustDataCache(ctx.slug, env);
+
+  // Notifications, after the answer and never instead of it. Each is
+  // about a MOVE, read off the status before and after this save, so
+  // a caption, a date or a note changed on a card says nothing.
+  const before = owned.item.status;
+  if (ctx.viewer.role === 'admin' && enteredReview(before, item.status)) {
+    // Ours to move: the card has just gone to the client for review.
+    waitUntil(notifyReview(env, ctx.slug, [{ id: item.id, title: item.title }]));
+  } else if (ctx.viewer.role === 'client' && before === REVIEW_STATUS && item.status !== before) {
+    // Theirs to answer: the two buttons on a card in review.
+    const kind = item.status === REVIEW_TARGET.approve ? 'approved' : item.status === REVIEW_TARGET.changes ? 'changes' : null;
+    if (kind) {
+      waitUntil(notifyAdmins(env, kind, {
+        client: ctx.record.client.artist, slug: ctx.slug, item: item.title, id: item.id,
+      }));
+    }
+  }
   return writeOk({ ok: true, item, changed: true });
 };
 
-export const onRequest: PagesFunction<WriteEnv> = async ({ request, next }) => {
+export const onRequest: PagesFunction<Env> = async ({ request, next }) => {
   if (request.method === 'PATCH') return next();
   return portalNotFound();
 };

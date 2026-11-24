@@ -29,8 +29,9 @@ import { beginPlaybookWrite } from '../../../../src/server/playbooks';
 import {
   advancePreview, readStoredPreview, storedPreviewProperties, type PreviewEnv, type PreviewOutcome,
 } from '../../../../src/server/preview';
+import { notifyAdmins, type PushEnv } from '../../../../src/server/push';
 
-type Env = HqEnv & HqDataEnv & PreviewEnv;
+type Env = HqEnv & HqDataEnv & PreviewEnv & PushEnv;
 
 /** How many conversions already running are asked after in one call. */
 const CHECKS_PER_CALL = 4;
@@ -50,7 +51,7 @@ interface Row {
 
 const hex = (id: string): string => id.replace(/-/g, '').toLowerCase();
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   const gate = await beginPlaybookWrite(request, env);
   if (!gate.ok) return gate.response;
   const { body } = gate;
@@ -108,6 +109,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           force: !!only && body.retry === true, now,
         });
         if (out.stored !== stored) touched.add(who.slug);
+        // Newly a failure: it has just landed in "Previews to fix".
+        if (out.outcome === 'failed' && stored.status !== 'Failed') {
+          waitUntil(notifyAdmins(env, 'preview', {
+            client: who.artist, slug: who.slug, item: (readText(p['Content']) ?? '').trim(), id,
+          }));
+        }
         if (out.outcome === 'not_configured' && out.note) missing.add(out.note);
         stored = out.stored;
         outcome = out.outcome;

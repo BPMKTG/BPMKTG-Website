@@ -37,8 +37,9 @@ import { bustDataCache, overLimit, type WriteEnv } from '../../../../src/server/
 import {
   advancePreview, readStoredPreview, storedPreviewProperties, type PreviewEnv,
 } from '../../../../src/server/preview';
+import { notifyAdmins, type PushEnv } from '../../../../src/server/push';
 
-type Env = WriteEnv & PreviewEnv;
+type Env = WriteEnv & PreviewEnv & PushEnv;
 
 const ITEM = /^[0-9a-f]{32}$/;
 
@@ -125,7 +126,7 @@ const json = (body: unknown, status = 200): Response => new Response(JSON.string
   headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store, private', 'X-Robots-Tag': 'noindex, nofollow' },
 });
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env, params, waitUntil }) => {
   if (!env.NOTION_TOKEN) return portalNotFound();
   if (!isSameOrigin(request) || !isJsonRequest(request)) return portalNotFound();
   const slug = normaliseSlug(params.slug as string);
@@ -170,6 +171,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
   });
 
   if (out.stored !== stored) await bustDataCache(slug, env);
+  // It has just landed in "Previews to fix". Said once, on the step
+  // that made it a failure, not every time someone looks at it after.
+  if (out.outcome === 'failed' && stored.status !== 'Failed') {
+    waitUntil(notifyAdmins(env, 'preview', {
+      client: record.client.artist, slug, item: (readText(p['Content']) ?? '').trim(), id: item,
+    }));
+  }
   if (out.note && out.outcome !== 'converting') console.log('preview:', slug, item, out.outcome, out.note);
   const preview = itemPreview(link, out.stored, item) ?? null;
   return json({

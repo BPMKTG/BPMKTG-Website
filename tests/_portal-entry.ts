@@ -26,6 +26,14 @@ export {
 // small adapters that read and write a card's preview fields.
 export * from '../src/data/preview';
 export { storedPreviewProperties } from '../src/server/preview';
+// The installed app: what a notification says and when one is owed,
+// and the signing and encryption behind sending it.
+export * from '../src/data/push';
+export {
+  b64uToBytes, bytesToB64u, encryptPush, pushConfig, vapidAuthorization, notifyReview, notifyReport, notifyAdmins,
+  sweepReviewFor, saveDevice, deviceState, forgetDevice,
+} from '../src/server/push';
+export { HQ_MANIFEST } from '../functions/portal/hq/app.webmanifest';
 export * from '../src/data/hq';
 export * from '../src/server/hq-write';
 // The one record of a publish email. Reads a claim out of a KV-shaped

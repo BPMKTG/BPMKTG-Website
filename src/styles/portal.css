@@ -3631,6 +3631,50 @@ body.pt-dragging .pt-chip:hover { filter: none; transform: none; }
 .pt-preview-open svg { width: 14px; height: 14px; flex: none; }
 .pt-rcard .pt-preview-ours { border-bottom: 1px solid var(--pt-line); }
 
+/* ── the installed app ────────────────────────────────────────── */
+
+/* "Put Blueprint on your home screen", once, at the top of the portal. */
+.pt-app-card {
+  position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--pt-3) var(--pt-5);
+  margin: 0 0 var(--pt-4); padding: var(--pt-4) var(--pt-7) var(--pt-4) var(--pt-4);
+  border: 1px solid var(--pt-line); border-radius: var(--pt-r); background: var(--pt-surface);
+}
+.pt-app-card[hidden] { display: none; }
+.pt-app-text { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pt-app-text strong { font-size: .98rem; color: var(--pt-ink); }
+.pt-app-text p { margin: 0; font-size: .88rem; line-height: 1.45; color: var(--pt-ink-2); }
+.pt-app-steps { margin: var(--pt-2) 0 0; padding-left: 1.4em; list-style: decimal; font-size: .88rem; line-height: 1.6; color: var(--pt-ink); }
+.pt-app-steps li { display: list-item; list-style: decimal; }
+.pt-app-pic { flex: 0 1 300px; width: 100%; max-width: 300px; height: auto; }
+.pt-app-x {
+  position: absolute; top: 6px; right: 6px; width: 44px; height: 44px;
+  display: grid; place-items: center; border: 0; background: none; color: var(--pt-muted);
+  border-radius: var(--pt-r-sm); cursor: pointer;
+}
+.pt-app-x:hover { background: var(--pt-line-soft); color: var(--pt-ink); }
+.pt-app-x svg { width: 16px; height: 16px; }
+
+/* "Updated, tap to refresh". Stays until tapped. */
+.pt-app-update {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  z-index: 200; min-height: 44px; padding: 10px 18px;
+  border: 0; border-radius: var(--pt-r-pill, 999px); background: var(--pt-navy, #264fa0); color: #fff;
+  font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer;
+  box-shadow: 0 6px 22px rgba(35, 42, 59, .28);
+}
+.pt-app-update:disabled { opacity: .7; }
+
+/* The notification settings sheet. */
+.pt-app-notify-body { display: flex; flex-direction: column; align-items: flex-start; gap: var(--pt-3); margin-bottom: var(--pt-4); }
+.pt-app-kinds { display: flex; flex-direction: column; width: 100%; }
+.pt-app-kind {
+  display: flex; align-items: center; gap: var(--pt-3); min-height: 44px; padding: 4px 0;
+  font-size: .92rem; color: var(--pt-ink); cursor: pointer;
+}
+.pt-app-kind + .pt-app-kind { border-top: 1px solid var(--pt-line-soft); }
+.pt-app-kind input { width: 18px; height: 18px; flex: none; accent-color: var(--pt-navy); }
+.hq-notify { margin-right: var(--pt-3); flex: none; }
+
 /* HQ: previews that could not be made, and why. */
 .hq-prev-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .hq-prev-row {

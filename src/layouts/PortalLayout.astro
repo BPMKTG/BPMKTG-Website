@@ -14,15 +14,42 @@ import '../styles/portal.css';
 
 interface Props {
   title: string;
+  /** Which installable app this page belongs to. The client's portal
+   *  and the sign-in screen are "Blueprint"; HQ is "Blueprint HQ",
+   *  with its own manifest, name and icon, so the two never mix. */
+  app?: 'client' | 'hq';
 }
-const { title } = Astro.props;
+const { title, app = 'client' } = Astro.props;
+
+// The build this page came from. The service worker is registered
+// under it, so each deploy is a new worker (see public/portal-sw.js).
+const BUILD = (process.env.CF_PAGES_COMMIT_SHA ?? '').slice(0, 12) || `local-${Date.now().toString(36)}`;
+
+const appName = app === 'hq' ? 'Blueprint HQ' : 'Blueprint';
+// HQ's manifest is served to a signed-in admin only, so the browser
+// has to send the cookie when it fetches it.
+const manifest = app === 'hq' ? '/portal/hq/app.webmanifest' : '/portal-app.webmanifest';
+
+// Every iPhone and iPad screen: width and height in points, and the
+// pixel ratio. iOS shows a launch image only when one matches the
+// screen exactly, and shows a blank white screen otherwise. Drawn by
+// scripts/app-art.mjs, which has the same list.
+const SCREENS: Array<[number, number, number]> = [
+  [440, 956, 3], [430, 932, 3], [428, 926, 3], [414, 896, 3], [414, 896, 2], [414, 736, 3], [402, 874, 3],
+  [393, 852, 3], [390, 844, 3], [375, 812, 3], [375, 667, 2], [360, 780, 3], [320, 568, 2],
+  [744, 1133, 2], [768, 1024, 2], [810, 1080, 2], [820, 1180, 2], [834, 1112, 2], [834, 1194, 2],
+  [834, 1210, 2], [1024, 1366, 2], [1032, 1376, 2],
+];
 ---
 <!doctype html>
 <html lang="en" class="pt-html">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f6f9fc" />
+    <!-- The top bar's own colour (.pt-topbar is white), so the phone's
+         status bar and the bar under it read as one surface. The page
+         behind is #f6f9fc, which is the manifest's background_color. -->
+    <meta name="theme-color" content="#ffffff" />
     <!-- Never indexed. noindex rather than a robots.txt Disallow on
          purpose: a disallowed path cannot be crawled, so a search engine
          never sees the noindex and an already-known URL can linger in
@@ -34,12 +61,29 @@ const { title } = Astro.props;
          and the .ico is only reached by what cannot read it. -->
     <link rel="icon" type="image/svg+xml" href="/brand/icon.svg" />
     <link rel="icon" sizes="any" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <!-- Icons only, on purpose. A manifest naming the app, or asking for
-         a display mode, would rename an already-installed shortcut and
-         make the site installable; this one just hands over the tile so
-         the browser stops drawing its own. -->
-    <link rel="manifest" href="/site.webmanifest" />
+    <!-- The installable app. Light, like the portal: a white icon tile
+         with the blue mark, dark text in the status bar, and a launch
+         screen in the page's own colour with the header's wordmark. -->
+    <link rel="apple-touch-icon" href={`/brand/app/${app}-apple-180.png`} />
+    <link rel="apple-touch-icon" sizes="152x152" href={`/brand/app/${app}-apple-152.png`} />
+    <link rel="apple-touch-icon" sizes="167x167" href={`/brand/app/${app}-apple-167.png`} />
+    <link rel="apple-touch-icon" sizes="180x180" href={`/brand/app/${app}-apple-180.png`} />
+    {app === 'hq'
+      ? <link rel="manifest" href={manifest} crossorigin="use-credentials" />
+      : <link rel="manifest" href={manifest} />}
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content={appName} />
+    <meta name="application-name" content={appName} />
+    {SCREENS.map(([w, h, r]) => (
+      <link
+        rel="apple-touch-startup-image"
+        href={`/brand/app/splash-${app}-${w * r}x${h * r}.png`}
+        media={`(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: portrait)`}
+      />
+    ))}
+    <meta name="bp-build" content={BUILD} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -50,5 +94,9 @@ const { title } = Astro.props;
   </head>
   <body class="pt">
     <slot />
+    <script>
+      import { startServiceWorker } from '../scripts/portal-app';
+      startServiceWorker();
+    </script>
   </body>
 </html>

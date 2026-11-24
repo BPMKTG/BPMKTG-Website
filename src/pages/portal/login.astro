@@ -164,7 +164,7 @@ import { DIRECT_EMAIL } from '../../config/cta';
         credentials: 'same-origin',
         body: JSON.stringify({ email, code, want }),
       });
-      const out = await res.json() as { ok?: boolean; slug?: string; message?: string };
+      const out = await res.json() as { ok?: boolean; slug?: string; role?: string; message?: string };
       if (!res.ok || !out.ok || !out.slug) {
         busy(codeStep, false, 'Sign in');
         codeField.value = '';
@@ -175,7 +175,11 @@ import { DIRECT_EMAIL } from '../../config/cta';
       try { sessionStorage.removeItem(WANT); } catch { /* private mode */ }
       // replace, not assign: the back button should not come back here
       // with a code sitting in the field.
-      location.replace(`/portal/${encodeURIComponent(out.slug)}`);
+      // This screen is also what /portal/hq shows to someone signed
+      // out. One of us who signed in there wants HQ, not the first
+      // client's portal; anyone else goes where the server said.
+      const atHq = location.pathname.replace(/\/+$/, '') === '/portal/hq';
+      location.replace(atHq && out.role === 'admin' ? '/portal/hq' : `/portal/${encodeURIComponent(out.slug)}`);
     } catch {
       busy(codeStep, false, 'Sign in');
       fail('We could not reach the server. Check your connection and try again.');
