@@ -313,8 +313,9 @@ export function momentWords(name: string | null | undefined): string {
  *
  * The same words, or one held whole inside the other at a word's
  * edge: "Revival After Dark" is "Revival After Dark (Austin, TX)".
- * A single short word is not enough to go on, so "Revival" alone is
- * not "Rooftop Revival".
+ * Or one is the other's initials: "ITDHHW" is "If The Devil Had His
+ * Way". A single short word is not enough to go on, so "Revival"
+ * alone is not "Rooftop Revival".
  */
 export function sameMomentName(a: string | null | undefined, b: string | null | undefined): boolean {
   const x = momentWords(a);
@@ -322,8 +323,26 @@ export function sameMomentName(a: string | null | undefined, b: string | null | 
   if (!x || !y) return false;
   if (x === y) return true;
   const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  if (isInitialsOf(short, long)) return true;
   if (short.length < 6 || !short.includes(' ')) return false;
   return ` ${long} `.includes(` ${short} `);
+}
+
+/**
+ * Is one name the other's initials? A folder called "ITDHHW" is "If
+ * The Devil Had His Way": it is how a long title gets typed into a
+ * folder name.
+ *
+ * One run of three or more letters, each the first letter of the
+ * title's words in order, from the first word on. Every word counts,
+ * small ones too, because that is how people write them. Any words
+ * the title has after those (a city in brackets) are let be.
+ */
+function isInitialsOf(short: string, long: string): boolean {
+  if (!/^[a-z]{3,12}$/.test(short)) return false;
+  const words = long.split(' ').filter(Boolean);
+  if (words.length < short.length) return false;
+  return words.slice(0, short.length).map((w) => w[0]).join('') === short;
 }
 
 const dayNumber = (iso: string): number => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))) / 86400000;

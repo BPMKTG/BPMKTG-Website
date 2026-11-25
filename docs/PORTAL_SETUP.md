@@ -819,8 +819,9 @@ matched to a Moment in the client's Campaign Calendar:
 
 - by name: the folder's name is the Moment's, or one is held whole in
   the other ("Revival After Dark" is "Revival After Dark (Austin,
-  TX)"). A name is only believed near the Moment's date, and a night
-  that happens every month goes to the nearest one
+  TX)"), or the folder is the Moment's initials ("ITDHHW" is "If The
+  Devil Had His Way"). A name is only believed near the Moment's
+  date, and a night that happens every month goes to the nearest one
 - or by date: a day read off a folder or a camera, within three days
   of exactly one Moment. Never the day a file was uploaded
 - a folder is kept whole: when the files of one name that could be
