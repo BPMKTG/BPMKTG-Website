@@ -28,7 +28,7 @@ export const onRequestPost: PagesFunction<WriteEnv> = async ({ request, env, par
   if (!begun.ok) return begun.response;
   const { ctx } = begun;
   if (await overLimit('mo', ctx.slug, LIMIT, WINDOW_SECONDS)) {
-    return writeOk({ ok: false, error: 'too_fast', message: 'That is a lot of events at once. Give it a while and try again.' });
+    return writeOk({ ok: false, error: 'too_fast', message: 'That is a lot of moments at once. Give it a while and try again.' });
   }
   const out = await createMoment(env.NOTION_TOKEN, {
     pageId: ctx.record.pageId, artist: ctx.record.client.artist, slug: ctx.record.slug, type: ctx.record.type,

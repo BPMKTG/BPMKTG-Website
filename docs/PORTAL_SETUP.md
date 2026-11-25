@@ -247,7 +247,7 @@ the column means.
 
 ### Moving a moment moves its campaign
 
-`PATCH /portal/<slug>/moment/<id>/move` shifts a show or a release and
+`PATCH /portal/<slug>/moment/<id>/move` shifts a moment and
 every Campaign Calendar row pointing at it by the same number of days,
 in one request. Three things worth knowing:
 
@@ -505,7 +505,7 @@ must be on exactly one row.
 ## Applying a playbook to a moment
 
 One sheet, in two places: **HQ → Playbooks → Apply a playbook to a
-moment**, and **Add an event** on a client's own Calendar tab (also
+moment**, and **Add a moment** on a client's own Calendar tab (also
 "Plan this with a playbook" on any moment's card). The plan is
 `src/data/playbook-apply.ts`; the writing is `src/server/playbook-apply.ts`.
 
@@ -574,7 +574,7 @@ of the two gym flows, because the shoot behind it is our work: they owe nothing,
 no month and no tracker until one of us confirms them. A late step is
 Skipped; a client cannot keep one or give a team count.
 
-HQ → Today shows **Client added: confirm**: each event a client
+HQ → Today shows **Client added: confirm**: each moment a client
 created ("Got it") and each pending step (**Confirm** or **Skip**).
 Confirm is what creates the step's post, photo set or footage batch.
 `POST /portal/hq/pending`.
@@ -788,25 +788,51 @@ there and twenty requests to Notion. The tables are made by the app
 the first time it is used, so a new database needs nothing run
 against it.
 
+**The words.** A Moment is a dated thing: a show, a release, a
+holiday. A Playbook is the reusable plan. A Campaign is a playbook
+applied to a moment. The Vault files things under moments, and says
+"moment" for all of them. (In the database the column is still called
+`show`, which is what it was first called.)
+
 **Three sources a client.** Every file has a Kind (Raw or Finished)
 and a Source.
 
 | Source | Where | Kind | What the folders mean |
 |---|---|---|---|
-| Footage Drop | a folder of that name inside the Clients row's **Drive Folder** | Raw | `YYYY-MM-DD Event Name` gives the day and the show. Anything under `_IDS` is Unreleased. |
-| Finished Content | a folder of that name inside the same Drive Folder | Finished, source Blueprint | `YYYY/YYYY-MM/<show or release>/...` gives the month and the show. Older work filed as `YYYY/<show or release>/...` gives the year and the show. Deeper folders are filing: they are shown on the file and not used to name it. |
-| Archive | each link in the Clients row's **Archive Folders** | Raw, source Archive | Folders we do not own and cannot rename. Only a dated folder is trusted. |
+| Footage Drop | a folder of that name inside the Clients row's **Drive Folder** | Raw | `YYYY-MM-DD Moment Name` gives the day and the moment. Anything under `_IDS` is Unreleased. |
+| Finished Content | a folder of that name inside the same Drive Folder | Finished, source Blueprint | `YYYY/YYYY-MM/<moment>/...` gives the month and the moment. Older work filed as `YYYY/<moment>/...` gives the year and the moment. Deeper folders are filing: they are shown on the file and not used to name it. |
+| Archive | each link in the Clients row's **Archive Folders** | Raw, source Archive | Read exactly as Footage Drop is: `YYYY-MM-DD Moment Name`, and `_IDS` is Unreleased. |
 
-A file whose folders fit none of that is never left out. It keeps the
-name of the folder directly under the source as a guess, and is
-listed in HQ under **Needs a show**, one line a guess, to confirm in
-bulk. In Finished Content that is only a file with no folder to name
-it: one lying loose in a year or a month folder, or filed outside
-both.
+A file whose folders fit none of that is never left out. It falls
+back to its own date, keeps the name of the folder directly under the
+source as a suggestion, and is listed in HQ under **Needs a moment**,
+one line a suggestion, to confirm in bulk. In Finished Content that
+is only a file with no folder to name it: one lying loose in a year
+or a month folder, or filed outside both.
 
 The rules for reading folders can change. A sync reads every known
 file's folders again, so a file logged under an older rule is put
-right by the next one. A show set by hand is never reopened.
+right by the next one. A moment set by hand is never reopened.
+
+**Linked to the calendar.** At the end of every sync each file is
+matched to a Moment in the client's Campaign Calendar:
+
+- by name: the folder's name is the Moment's, or one is held whole in
+  the other ("Revival After Dark" is "Revival After Dark (Austin,
+  TX)"). A name is only believed near the Moment's date, and a night
+  that happens every month goes to the nearest one
+- or by date: a day read off a folder or a camera, within three days
+  of exactly one Moment. Never the day a file was uploaded
+- a folder is kept whole: when the files of one name that could be
+  placed all point at one Moment, the rest of that name go with them
+
+A linked file goes by the Moment's own name. A folder with no
+matching Moment keeps its name as plain words and still counts as
+sorted. Only a file with no name at all, and no Moment near its date,
+waits under **Needs a moment**. Links are worked out afresh by every
+sync, so a Moment renamed, moved or removed is followed. Only Moments
+the client can see are linked to. A Moment's drawer in HQ shows its
+Vault files and its gaps strip, from `/portal/<slug>/vault/moment/<id>`.
 
 A file's date is the folder's day where its name has one. A folder
 that only names a month is sharpened to the day the photo was taken
@@ -815,7 +841,7 @@ sharpened the same way, and failing that to the day Drive says the
 file was created, when that day is in the year. A date of the file's
 own that falls outside its folder's year is not believed over the
 folder: work filed under 2023 and uploaded in 2026 is from 2023, and
-shows as "2023". With no folder date it is
+reads as "2023". With no folder date it is
 the day the photo was taken, and failing that the earliest day Drive
 has for the file: Drive records when a video was put there, not when
 it was shot.
@@ -834,24 +860,47 @@ service account's address to copy, and none of its files are logged.
 
 **The sync.** Lists every image and video under all three sources,
 logs the ones it has not seen (matched on the Drive file's id), brings
-the ones it has up to date, makes a thumbnail for each, and brings the
-usage log in line with what is Posted. It fills in type, orientation,
-length, size, date and show. It runs:
+the ones it has up to date, makes a thumbnail for each, links files
+to Moments, and brings the usage log in line with what is Posted. It
+fills in type, orientation, length, size, date and moment. It is
+started:
 
-- once a day, from the scheduled Worker below
-- from **Sync now** in HQ
-- when HQ is opened, for any client not synced in the last half hour
+- once a day, by the scheduled Worker below
+- by **Sync now** in HQ
+- by HQ being opened, for any client not synced in the last half hour
 
-It runs in one pass and writes down where it has got to as it goes. A
-sync that is cut off is picked up by the next one: what it logged
-stays logged, the folders are listed again (seconds), and thumbnails
-carry on from where they stopped. Only one runs for a client at a
-time.
+**It is taken in steps.** One request does a few seconds of the sync,
+writes down exactly where it has got to (Drive's own marker for the
+next page of a folder, which thumbnails are made), and lets go.
+Whoever asks next takes the next step from there: the page that
+pressed Sync now, an open HQ, the daily Worker. So nothing rides on
+one long request. A page that is reloaded or closed in the middle
+costs the step it was on, which is done again, and nothing else. To
+the person watching it is one pass with a progress line: "Syncing…
+1,200 of 2,531 thumbnails".
+
+Only one step is taken for a client at a time. A step says it is
+alive every few seconds. "Syncing" is never remembered, only read: a
+sync is running while it is part way and was heard from in the last
+half minute. One that is part way and silent has died, and is shown
+as **Last sync failed** with the time and **Retry**, which carries on
+from where it stopped. An open HQ carries it on by itself.
+
+**HQ's list does not fail.** `/portal/hq/vault` is asked every few
+seconds by a page watching a sync. Its counts and progress come from
+the Vault's own database. Who the clients are comes from Notion, which
+is given four seconds and remembered for a minute; when it does not
+answer, the last list it gave is used. If the read fails anyway the
+page keeps the last good counts, says they are from a moment ago, and
+asks again. Each of those is written to the log with which part it
+was (`hq vault list: ...`).
 
 A file that is no longer in a folder it was read from is marked
-**Missing** and is never deleted. Missing is only ever said of a file
-whose own source was read to the end that time: a folder that would
-not list, or is no longer shared, says nothing about its files.
+**Missing** and is never deleted. Missing is only said when every
+folder has been read to the end, and only of a file whose own source
+was read: a page that would not list fails the sync and marks
+nothing, and a folder that is no longer shared says nothing about its
+files.
 
 **Unsorted and keepers.** A new Raw file lands in **Unsorted**.
 Starring or rating it makes it a keeper. A Finished file is a keeper
@@ -894,12 +943,12 @@ so it does not count toward what we owe in a month.
 | Browse, search, filter, open | their own files | every client's |
 | Star, tag, write notes | yes | yes |
 | Use in a post | into their own Ideas | yes |
-| Rate, set source, type or show, hold for, mark used, made from | no | yes |
-| Sync, Needs a show, Announce delivery | no | yes |
+| Rate, set source, type or moment, hold for, mark used, made from | no | yes |
+| Sync, Needs a moment, Announce delivery | no | yes |
 
 **Notifications.** A sync that finds new Raw files tells us once:
 "[Client]: 12 new files". A client is told about files only when one
-of us taps **Announce delivery** on a show: "Your [show] media is
+of us taps **Announce delivery** on a moment: "Your [moment] media is
 ready". Never by a sync. Each is its own kind on the notifications
 sheet, so a device can turn it off.
 

@@ -269,7 +269,7 @@ const NAV = [
   import { createOwnContent, type OwnContent } from '../../scripts/portal-own-content';
   import { fillContentDrawer as fillSharedDrawer } from '../../scripts/portal-content-drawer';
   import { notificationSheet } from '../../scripts/portal-app';
-  import { mountVault, mountVaultOverview, syncVaultsOnOpen, type VaultMount } from '../../scripts/portal-vault';
+  import { momentVaultBlock, mountVault, mountVaultOverview, syncVaultsOnOpen, type VaultMount } from '../../scripts/portal-vault';
   import { clear, el, icon, q, qq, show } from '../../scripts/portal-dom';
 
   const VIEWS = ['today', 'clients', 'calendar', 'content', 'vault', 'playbooks', 'pipeline', 'reports'] as const;
@@ -573,7 +573,7 @@ const NAV = [
       line.appendChild(el('span', undefined,
         `${next.title} · ${n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`}`));
     } else {
-      line.appendChild(el('span', 'hq-card-none', 'No show or release booked'));
+      line.appendChild(el('span', 'hq-card-none', 'No moment booked'));
     }
     card.appendChild(line);
 
@@ -1558,6 +1558,12 @@ const NAV = [
       const box = el('div', 'hq-drawer-note');
       box.append(el('h3', undefined, 'Notes'), el('p', undefined, note));
       body.appendChild(box);
+    }
+
+    // A moment's own photos and clips: what the Vault has linked to
+    // it, and its gaps strip.
+    if (who && (it.kind === 'Moment' || it.momentType)) {
+      body.appendChild(momentVaultBlock({ slug: who.slug, momentId: it.id, title: it.title, open: closeCalDrawer }));
     }
 
     if (who) {
@@ -3365,7 +3371,7 @@ const NAV = [
       const who = byId.get(r.clientId ?? '')?.artist ?? 'A client';
       const text = el('div', 'hq-added-text');
       if (r.kind === 'Moment') {
-        text.appendChild(el('strong', undefined, `${who} added an event: ${r.title}`));
+        text.appendChild(el('strong', undefined, `${who} added a moment: ${r.title}`));
         text.appendChild(el('span', undefined, [r.momentType, r.date ? shortDay(r.date) : null, r.venueCity].filter(Boolean).join(' \u00b7 ')));
         li.append(text, button('Got it', () => { void answer(r, 'seen', 'Noted'); }));
       } else {
@@ -3449,11 +3455,11 @@ const NAV = [
     const items = stripItems(HQ?.calendar ?? [], byId);
 
     if (!items.length) {
-      return el('div', 'hq-strip-empty', 'No show or release in the next fortnight.');
+      return el('div', 'hq-strip-empty', 'No moment in the next fortnight.');
     }
 
     const wrap = el('div', 'hq-strip');
-    wrap.setAttribute('aria-label', 'Shows and releases, next fortnight');
+    wrap.setAttribute('aria-label', 'Moments, next fortnight');
     for (const it of items) {
       const a = el('a', `hq-strip-item hq-strip-${it.momentType === 'Show' ? 'show' : 'release'}`);
       a.href = `/portal/${it.clientSlug}#calendar`;

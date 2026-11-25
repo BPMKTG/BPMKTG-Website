@@ -4,7 +4,7 @@
    This file is the rules, and nothing in it talks to Drive, to the
    database, to R2 or to Notion (see src/server/vault*.ts for those).
    It is what the page and the server both read, so the two can never
-   disagree about what a keeper is, or which show a folder means.
+   disagree about what a keeper is, or which moment a folder means.
 
    The words:
 
@@ -13,7 +13,11 @@
      kind       Raw (ours to sort) or Finished (already a keeper)
      keeper     a Finished file, or a Raw one somebody starred or rated
      unsorted   a Raw file nobody has starred or rated yet
-     show       the show or release a file belongs to
+     moment     the dated thing a file belongs to: a show, a release, a
+                holiday. Named by its folder, and linked to the Moment
+                of that name or date in the Campaign Calendar when
+                there is one. (Kept in a field called `show`, which is
+                what it was first called.)
      held       put aside for a post or a campaign that is not out yet
    ────────────────────────────────────────────────────────────── */
 
@@ -99,7 +103,7 @@ export function vaultOrientation(
   return w > h ? 'Horizontal' : 'Vertical';
 }
 
-/* ── folders: the show, the date, unreleased ──────────────────── */
+/* ── folders: the moment, the date, unreleased ────────────────── */
 
 const pad = (n: number): string => String(n).padStart(2, '0');
 
@@ -149,7 +153,7 @@ export interface Placement {
   /** Filled in for a Finished file (Blueprint) and an Archive one
    *  (Archive). A Footage Drop file's source is set by hand. */
   source: VaultSource | null;
-  /** The show, when the folders say it in a way we trust. */
+  /** The moment's name, when the folders say it in a way we trust. */
   show: string | null;
   /** A guess from the folder a file is in, for one of us to confirm. */
   guess: string | null;
@@ -167,14 +171,14 @@ export interface Placement {
  * file is in, the root itself left out. `rootName` is the root's own
  * name, used only as the guess for a file lying loose in an Archive.
  *
- *   Footage Drop       "YYYY-MM-DD Event Name" gives the day and the
- *                      show. Anything under _IDS is unreleased.
- *   Finished Content   YYYY/YYYY-MM/<show or release>/... gives the
- *                      month and the show. Older work filed as
- *                      YYYY/<show or release>/... gives the year and
- *                      the show. Deeper folders are filing.
- *   Archive            folders we do not own and cannot rename, so
- *                      nothing is trusted but a dated folder.
+ *   Footage Drop       "YYYY-MM-DD Moment Name" gives the day and the
+ *                      moment. Anything under _IDS is unreleased.
+ *   Finished Content   YYYY/YYYY-MM/<moment>/... gives the month and
+ *                      the moment. Older work filed as
+ *                      YYYY/<moment>/... gives the year and the
+ *                      moment. Deeper folders are filing.
+ *   Archive            read exactly as Footage Drop is: the same
+ *                      dated folders, the same _IDS.
  *
  * A file whose folders fit none of that is never left out. It keeps
  * a folder's name as a guess, and is listed for one of us to confirm.
@@ -187,7 +191,8 @@ export function placeFile(root: VaultRoot, folders: readonly string[], rootName:
   const names = folders.map((f) => String(f ?? '').trim()).filter(Boolean);
   const kind: VaultKind = root === 'finished' ? 'Finished' : 'Raw';
   const source: VaultSource | null = root === 'finished' ? 'Blueprint' : root === 'archive' ? 'Archive' : null;
-  const unreleased = root === 'drop' && names.some(isIdsFolder);
+  // Raw footage, wherever it is kept, is filed the same way.
+  const unreleased = root !== 'finished' && names.some(isIdsFolder);
   const real = names.filter((n) => !isIdsFolder(n));
   const base = { kind, source, unreleased };
 
@@ -281,6 +286,164 @@ export function fileDate(
   return days.length ? { date: days[0], from: 'file' } : { date: null, from: null };
 }
 
+/* ── linking a file to a Moment ───────────────────────────────── */
+
+/** A Moment in a client's Campaign Calendar, as much as linking needs. */
+export interface VaultMoment {
+  id: string;
+  title: string;
+  /** YYYY-MM-DD, and its last day when it runs for more than one. */
+  date: string | null;
+  dateEnd?: string | null;
+}
+
+/** A folder's day and a Moment's are "the same" within this many days. */
+export const MOMENT_DAYS = 3;
+/** A name that matches is still not believed across more than this. */
+const NAME_DAYS = 31;
+
+/** A name as it is compared: lower case, no accents, no punctuation. */
+export function momentWords(name: string | null | undefined): string {
+  return String(name ?? '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' and ').replace(/['\u2018\u2019]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
+ * Do two names mean the same moment?
+ *
+ * The same words, or one held whole inside the other at a word's
+ * edge: "Revival After Dark" is "Revival After Dark (Austin, TX)".
+ * A single short word is not enough to go on, so "Revival" alone is
+ * not "Rooftop Revival".
+ */
+export function sameMomentName(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = momentWords(a);
+  const y = momentWords(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  if (short.length < 6 || !short.includes(' ')) return false;
+  return ` ${long} `.includes(` ${short} `);
+}
+
+const dayNumber = (iso: string): number => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))) / 86400000;
+
+/** How many days a day is from a moment, which may run several. */
+function daysFrom(day: string, m: VaultMoment): number | null {
+  if (!m.date || m.date.length < 10) return null;
+  const d = dayNumber(day);
+  const start = dayNumber(m.date);
+  const end = m.dateEnd && m.dateEnd.length >= 10 ? Math.max(start, dayNumber(m.dateEnd)) : start;
+  return d < start ? start - d : d > end ? d - end : 0;
+}
+
+/** Is a moment's date inside what a file's date allows? A day allows
+ *  a month either side, a month allows the months beside it, a year
+ *  allows the year. A file with no date allows anything. */
+function dateAllows(fileDate: string | null, m: VaultMoment): boolean {
+  if (!fileDate || !m.date) return true;
+  if (fileDate.length >= 10) { const n = daysFrom(fileDate.slice(0, 10), m); return n === null || n <= NAME_DAYS; }
+  if (fileDate.length === 7) {
+    const months = (iso: string): number => Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7));
+    return Math.abs(months(fileDate) - months(m.date)) <= 1;
+  }
+  return m.date.startsWith(fileDate.slice(0, 4));
+}
+
+/** How many days a moment is from a file's day, for choosing between
+ *  several of the same name. Unknown is far. */
+function farness(fileDate: string | null, m: VaultMoment): number {
+  if (!fileDate || fileDate.length < 10 || !m.date) return 1e6;
+  return daysFrom(fileDate.slice(0, 10), m) ?? 1e6;
+}
+
+export interface MomentLink { id: string; title: string; by: 'name' | 'date' }
+
+/**
+ * The Moment a file belongs to, or null.
+ *
+ * By name first: the file's moment name against each Moment's, among
+ * those whose date the file's own date allows. A night that happens
+ * every month has many Moments of one name, so the nearest in date is
+ * taken; two equally near, or several and no date to choose by, is
+ * no link rather than a guess.
+ *
+ * Then by date: a day read off a folder or a camera, within a few
+ * days of exactly one Moment. A day Drive made up from when a file
+ * was uploaded is not used for this: an upload day near a show is a
+ * coincidence.
+ */
+export function matchMoment(
+  file: { name: string | null; date: string | null; dateFrom: string | null },
+  moments: readonly VaultMoment[],
+): MomentLink | null {
+  if (file.name) {
+    const named = moments.filter((m) => sameMomentName(file.name, m.title) && dateAllows(file.date, m));
+    if (named.length === 1) return { id: named[0].id, title: named[0].title, by: 'name' };
+    // Only a day can choose between two of the same name. A month
+    // or a year that allows both does not say which.
+    if (named.length > 1 && file.date && file.date.length >= 10) {
+      const sorted = [...named].sort((a, b) => farness(file.date, a) - farness(file.date, b));
+      if (farness(file.date, sorted[0]) < farness(file.date, sorted[1])) return { id: sorted[0].id, title: sorted[0].title, by: 'name' };
+    }
+    if (named.length) return null;
+  }
+  if (file.date && file.date.length >= 10 && (file.dateFrom === 'folder' || file.dateFrom === 'taken')) {
+    const near = moments
+      .map((m) => ({ m, n: daysFrom(file.date!.slice(0, 10), m) }))
+      .filter((x): x is { m: VaultMoment; n: number } => x.n !== null && x.n <= MOMENT_DAYS)
+      .sort((a, b) => a.n - b.n);
+    if (near.length === 1 || (near.length > 1 && near[0].n < near[1].n)) return { id: near[0].m.id, title: near[0].m.title, by: 'date' };
+  }
+  return null;
+}
+
+/** One file, as linking reads it. */
+export interface LinkInput {
+  id: string;
+  name: string | null;
+  date: string | null;
+  dateFrom: string | null;
+  /** The name was typed by one of us, so it is matched by that name
+   *  and nothing else. */
+  hand?: boolean;
+}
+
+/**
+ * The Moment each of a client's files belongs to.
+ *
+ * Each file is matched on its own first (see matchMoment). Then a
+ * folder is kept whole: when the files of one name that could be
+ * placed all point at the same Moment, the rest of that name go with
+ * them, as long as their own dates allow it. A shoot's photos carry
+ * the day they were taken and its videos often only the month, and
+ * without this the photos would be filed under the Moment and the
+ * videos beside them under the folder's name.
+ */
+export function matchMoments(rows: readonly LinkInput[], moments: readonly VaultMoment[]): Map<string, MomentLink> {
+  const out = new Map<string, MomentLink>();
+  if (!moments.length) return out;
+  const groups = new Map<string, LinkInput[]>();
+  for (const r of rows) {
+    const link = matchMoment({ name: r.name, date: r.date, dateFrom: r.hand ? null : r.dateFrom }, moments);
+    if (link) out.set(r.id, link);
+    const key = r.hand ? '' : momentWords(r.name);
+    if (!key) continue;
+    const g = groups.get(key);
+    if (g) g.push(r); else groups.set(key, [r]);
+  }
+  for (const group of groups.values()) {
+    const found = group.map((r) => out.get(r.id)).filter((l): l is MomentLink => !!l);
+    if (!found.length || found.length === group.length || found.some((l) => l.id !== found[0].id)) continue;
+    const moment = moments.find((m) => m.id === found[0].id);
+    if (!moment) continue;
+    for (const r of group) {
+      if (!out.has(r.id) && dateAllows(r.date, moment)) out.set(r.id, { id: moment.id, title: moment.title, by: found[0].by });
+    }
+  }
+  return out;
+}
+
 /* ── a file, as a page is sent it ─────────────────────────────── */
 
 /**
@@ -324,7 +487,10 @@ export interface VaultFile {
   added: number;
   /** Ours: what it is held for, in words. */
   holdFor?: string;
-  /** Ours: the show is a guess, or is not known. */
+  /** The Moment in the Campaign Calendar it is linked to, if any.
+   *  Only ever a moment the client can see. */
+  mid?: string | null;
+  /** Ours: the moment is a guess, or is not known. */
   needsShow?: boolean;
   guess?: string | null;
 }
@@ -370,8 +536,8 @@ export interface VaultFilter {
   shelf?: 'keepers' | 'unsorted' | 'needs-show' | 'missing' | 'all';
 }
 
-/** The name given to files with no show, wherever shows are listed. */
-export const NO_SHOW = 'No show yet';
+/** The name given to files with no moment, wherever moments are listed. */
+export const NO_SHOW = 'No moment yet';
 
 const fold = (s: string): string => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
 
@@ -436,7 +602,7 @@ export interface VaultView {
   id: string;
   label: string;
   filter: VaultFilter;
-  /** Drawn as one section per show, each with its gaps strip. */
+  /** Drawn as one section per moment, each with its gaps strip. */
   byShow?: boolean;
   /** Only one of us is offered it. */
   ours?: boolean;
@@ -449,9 +615,9 @@ export const VAULT_VIEWS: readonly VaultView[] = [
   { id: 'vertical', label: 'Vertical video', filter: { shelf: 'keepers', type: 'Video', o: 'Vertical' } },
   { id: 'hero', label: 'Hero shots', filter: { shelf: 'keepers', rating: 'Hero' } },
   { id: 'ids', label: 'Unreleased IDs', filter: { shelf: 'all', un: true } },
-  { id: 'shows', label: 'By show', filter: { shelf: 'keepers' }, byShow: true },
+  { id: 'shows', label: 'By moment', filter: { shelf: 'keepers' }, byShow: true },
   { id: 'finished', label: 'Finished', filter: { shelf: 'keepers', kind: 'Finished' } },
-  { id: 'needs-show', label: 'Needs a show', filter: { shelf: 'needs-show' }, ours: true },
+  { id: 'needs-show', label: 'Needs a moment', filter: { shelf: 'needs-show' }, ours: true },
   { id: 'all', label: 'Everything', filter: { shelf: 'all' } },
 ];
 
@@ -748,8 +914,8 @@ export const newFilesLabel = (n: number): string => `${n} new ${n === 1 ? 'file'
 
 /** Where a client's Vault is. The same address for a client and for
  *  one of us standing in their portal; HQ has its own, below. */
-export const vaultUrl = (slug: string, show?: string | null): string =>
-  `/portal/${slug}#/vault${show ? `/show/${encodeURIComponent(show)}` : ''}`;
+export const vaultUrl = (slug: string, moment?: string | null): string =>
+  `/portal/${slug}#/vault${moment ? `/moment/${encodeURIComponent(moment)}` : ''}`;
 export const hqVaultUrl = (slug?: string | null): string => `/portal/hq#/vault${slug ? `/${slug}` : ''}`;
 
 /** A thumbnail not made yet is asked for here, and made by the asking. */
@@ -773,7 +939,9 @@ export interface VaultSyncStatus {
   /** Nothing has ever been synced. */
   never: boolean;
   running: boolean;
-  phase: 'listing' | 'saving' | 'thumbnails' | 'usage' | 'done' | 'failed' | null;
+  /** Part way, and silent: it was cut off. Told as failed. */
+  stalled: boolean;
+  phase: 'listing' | 'thumbnails' | 'linking' | 'done' | 'failed' | null;
   startedAt: number | null;
   finishedAt: number | null;
   /** The last sync that ran to the end. */
@@ -783,14 +951,29 @@ export interface VaultSyncStatus {
   missing: number;
   thumbs: number;
   thumbsLeft: number;
+  /** Files linked to a Moment in the Campaign Calendar. */
+  linked: number;
   error: string | null;
+  /** When the last sync that did not finish stopped, if the last one
+   *  did not finish. */
+  failedAt: number | null;
   sources: VaultSourceStatus[];
   /** The address to share a folder with. Ours only. */
   email?: string | null;
 }
 
-/** How long a sync may go without saying anything before it is taken
- *  to have died and may be picked up by the next one. */
-export const SYNC_QUIET_MS = 90 * 1000;
+/** "Syncing… 1,200 of 2,531 thumbnails", from a sync's own record. */
+export function syncLineFor(s: Partial<VaultSyncStatus>): string {
+  const n = (v: number | null | undefined): string => (Number(v) || 0).toLocaleString('en-US');
+  if (s.phase === 'listing') return `Syncing… reading Drive, ${n(s.listed)} ${s.listed === 1 ? 'file' : 'files'} so far`;
+  if (s.phase === 'thumbnails') return `Syncing… ${n(s.thumbs)} of ${n((s.thumbs ?? 0) + (s.thumbsLeft ?? 0))} thumbnails`;
+  if (s.phase === 'linking') return 'Syncing… linking files to moments';
+  return 'Syncing…';
+}
+
+/** How long a sync may go without a sign of life before it is taken
+ *  to have died and may be picked up by the next caller. A sync says
+ *  it is alive every few seconds, so this is several of those. */
+export const SYNC_QUIET_MS = 30 * 1000;
 /** A sync on opening HQ is skipped when one finished this recently. */
 export const SYNC_FRESH_MS = 30 * 60 * 1000;

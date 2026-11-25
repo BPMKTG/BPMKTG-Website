@@ -41,7 +41,9 @@ section('Vault · folders: the show, the date, unreleased');
   is('Footage Drop: an ID with no shoot around it is not waiting on a show', [placeFile('drop', ['_IDS']).needsShow, placeFile('drop', ['_IDS']).show], [false, null]);
   is('Footage Drop: a file lying loose, or in a folder with an odd name, is kept and asked about',
      [placeFile('drop', []), placeFile('drop', ['Phone dump', 'Saturday'])].map((p) => [p.needsShow, p.guess, p.show]), [[true, null, null], [true, 'Phone dump', null]]);
-  is('_IDS is only a thing in Footage Drop', [placeFile('finished', ['2026', '2026-11', '_IDS']).unreleased, placeFile('archive', ['_IDS']).unreleased], [false, false]);
+  is('_IDS is a thing where raw footage is kept, Footage Drop and Archive, and not in Finished Content', [placeFile('finished', ['2026', '2026-11', '_IDS']).unreleased, placeFile('archive', ['_IDS']).unreleased, placeFile('archive', ['2025-03-01 Old Rooftop', '_IDS']).unreleased], [false, true, true]);
+  is('Archive is read exactly as Footage Drop is: the dated folder gives the day and the moment',
+     [placeFile('archive', ['2025-03-01 Old Rooftop', 'Cam A'], 'Sean archive'), placeFile('drop', ['2025-03-01 Old Rooftop', 'Cam A'])].map((p) => [p.show, p.date, p.needsShow, p.kind]), [['Old Rooftop', '2025-03-01', false, 'Raw'], ['Old Rooftop', '2025-03-01', false, 'Raw']]);
 
   is('Finished Content: YYYY/YYYY-MM/<show>/... gives the month and the show, and deeper folders are filing',
      placeFile('finished', ['2026', '2026-11', 'Revival After Dark', 'Post Show', 'Photo']),
@@ -75,6 +77,44 @@ section('Vault · folders: the show, the date, unreleased');
   is('date: with no folder date it is the day it was taken, then the earliest day Drive has for the file',
      [fileDate(null, '2026:11:15 22:00:00', '2026-11-20T00:00:00Z', null), fileDate(null, null, '2026-11-20T10:00:00Z', '2026-11-16T03:00:00Z'), fileDate(null, null, null, null)],
      [{ date: '2026-11-15', from: 'taken' }, { date: '2026-11-16', from: 'file' }, { date: null, from: null }]);
+}
+
+section('Vault · linking a file to a Moment');
+{
+  const { matchMoment, sameMomentName, momentWords } = V;
+  const M = [
+    { id: 'rad', title: 'Revival After Dark (Austin, TX)', date: '2026-11-14' },
+    { id: 'rr-oct', title: 'Rooftop Revival', date: '2026-10-17' },
+    { id: 'rr-dec', title: 'Rooftop Revival', date: '2026-12-19' },
+    { id: 'holy', title: 'Revival: Holy Night', date: '2026-12-13' },
+    { id: 'single', title: 'Faith Rave (single)', date: '2026-11-20' },
+    { id: 'undated', title: 'Summer tour', date: null },
+  ];
+  const link = (name, date, dateFrom = 'folder') => { const l = matchMoment({ name, date, dateFrom }, M); return l ? `${l.id} by ${l.by}` : null; };
+  is('names are compared without capitals, accents or punctuation', [momentWords('  Revival:  Holy Night! '), momentWords('Café Días & Co.'), momentWords("Rebelz Media Day 24'")], ['revival holy night', 'cafe dias and co', 'rebelz media day 24']);
+  is('the same name, or one held whole inside the other', [sameMomentName('Revival After Dark', 'Revival After Dark (Austin, TX)'), sameMomentName('revival: holy night', 'Revival Holy Night'), sameMomentName('Rooftop Revival', 'Rooftop Remix')], [true, true, false]);
+  is('a single short word is not enough to go on', [sameMomentName('Revival', 'Rooftop Revival'), sameMomentName('RAD', 'Revival After Dark'), sameMomentName('', 'x')], [false, false, false]);
+  is('by name: a folder’s name is its Moment’s', [link('Revival After Dark', '2026-11-15'), link('Revival: Holy Night', '2026-12'), link('Faith Rave', '2026-11')], ['rad by name', 'holy by name', 'single by name']);
+  is('by name: a night that happens every month goes to the one nearest in date', [link('Rooftop Revival', '2026-10-18'), link('Rooftop Revival', '2026-12'), link('Rooftop Revival', '2026')], ['rr-oct by name', 'rr-dec by name', null]);
+  is('by name: several of one name and nothing to choose by is no link, not a guess', [link('Rooftop Revival', null), link('Rooftop Revival', '2026-11'), matchMoment({ name: 'Rooftop Revival', date: '2026-11-01', dateFrom: 'folder' }, [{ id: 'a', title: 'Rooftop Revival', date: '2026-10-25' }, { id: 'b', title: 'Rooftop Revival', date: '2026-11-08' }])], [null, null, null]);
+  is('by name: a name that matches is not believed across months', [link('Revival After Dark', '2025-11-15'), link('Revival After Dark', '2026-06'), link('Revival After Dark', '2027')], [null, null, null]);
+  is('by name: a file with no date takes the one Moment of its name', link('Summer Tour', null), 'undated by name');
+  is('by date: a day read off a folder or a camera, within a few days of one Moment', [link('Promo shoot', '2026-11-15'), link(null, '2026-11-12', 'taken'), link(null, '2026-11-18')], ['rad by date', 'rad by date', 'single by date']);
+  is('by date: not when two Moments are equally near, and not past a few days', [link(null, '2026-11-17'), link(null, '2026-11-05'), link(null, '2026-11-28')], [null, null, null]);
+  is('by date: never from the day a file was uploaded, a month, or a year', [link(null, '2026-11-14', 'file'), link(null, '2026-11'), link(null, '2026')], [null, null, null]);
+  is('a folder whose own name is no Moment’s is still linked by its day', link('Faith Rave promo shoot', '2026-10-17'), 'rr-oct by date');
+  is('no Moments, no link', matchMoment({ name: 'Revival After Dark', date: '2026-11-15', dateFrom: 'folder' }, []), null);
+
+  // a folder is kept whole
+  const row = (id, name, date, dateFrom = 'folder', hand = false) => ({ id, name, date, dateFrom, hand });
+  const whole = V.matchMoments([
+    row('p1', 'Post Show Pics', '2026-11-15'), row('p2', 'Post Show Pics', '2026-11-16'), row('v1', 'Post Show Pics', '2026-11'), row('v2', 'Post Show Pics', '2026'),
+    row('far', 'Post Show Pics', '2026-06'), row('x1', 'Other folder', '2026-11'), row('h1', 'Post Show Pics', '2026-11', 'folder', true),
+  ], M);
+  is('a shoot’s photos are placed by the day they were taken, and its videos, which only know the month, go with them', ['p1', 'p2', 'v1', 'v2'].map((id) => whole.get(id)?.id), ['rad', 'rad', 'rad', 'rad']);
+  is('but not a file whose own date says otherwise, another folder’s files, or a name typed by hand', ['far', 'x1', 'h1'].map((id) => whole.get(id) ?? null), [null, null, null]);
+  const split = V.matchMoments([row('a', 'Two nights', '2026-11-14'), row('b', 'Two nights', '2026-11-20'), row('c', 'Two nights', '2026-11')], M);
+  is('a folder whose files point at two Moments is not guessed at: the undated one stays as it is', [split.get('a')?.id, split.get('b')?.id, split.get('c') ?? null], ['rad', 'single', null]);
 }
 
 section('Vault · type, orientation, keepers');
@@ -119,7 +159,7 @@ section('Vault · finding things');
   is('the default view is keepers only', [VAULT_VIEWS[0].id, view('keepers')], ['keepers', ['DSC001.jpg', 'hero.jpg', 'used.mp4', 'held.mp4', 'id1.mp4']]);
   is('Unsorted is the Raw files nobody has starred or rated', view('unsorted'), ['C0012.mp4', 'old.jpg']);
   is('Never posted leaves out what is used and what is held', view('never'), ['DSC001.jpg', 'hero.jpg', 'id1.mp4']);
-  is('the saved views asked for are all there', VAULT_VIEWS.map((v) => v.label), ['Keepers', 'Unsorted', 'Never posted', 'Vertical video', 'Hero shots', 'Unreleased IDs', 'By show', 'Finished', 'Needs a show', 'Everything']);
+  is('the saved views asked for are all there', VAULT_VIEWS.map((v) => v.label), ['Keepers', 'Unsorted', 'Never posted', 'Vertical video', 'Hero shots', 'Unreleased IDs', 'By moment', 'Finished', 'Needs a moment', 'Everything']);
   is('Vertical video, Hero shots, Unreleased IDs, Finished', [view('vertical'), view('hero'), view('ids'), view('finished')], [['used.mp4'], ['hero.jpg'], ['id1.mp4'], ['DSC001.jpg', 'hero.jpg', 'used.mp4', 'held.mp4']]);
   is('Needs a show is ours, and By show is drawn a show at a time', [viewById('needs-show').ours, view('needs-show'), viewById('shows').byShow], [true, ['old.jpg'], true]);
   is('a missing file is in no view but the one that asks for it', [view('all').includes('gone.jpg'), names({ shelf: 'missing' })], [false, ['gone.jpg']]);
@@ -177,17 +217,18 @@ section('Vault · how things are said');
   is('and its Media and Source are the pipeline’s own words', [useMedia([file()]), useMedia([file({ type: 'Video' })]), useMedia([file({ type: 'Graphic' })]), useMedia([file(), file()])],
      [{ media: 'Photo', source: 'Show Media' }, { media: 'Video', source: 'Show Media' }, { media: 'Graphic', source: 'Flyer / Graphic' }, { media: 'Carousel', source: 'Show Media' }]);
   is('addresses', [vaultUrl('sean-comma'), vaultUrl('sean-comma', 'Revival: Holy Night'), hqVaultUrl(), hqVaultUrl('sean-comma'), thumbUrl('sean-comma', 'a'.repeat(32))],
-     ['/portal/sean-comma#/vault', '/portal/sean-comma#/vault/show/Revival%3A%20Holy%20Night', '/portal/hq#/vault', '/portal/hq#/vault/sean-comma', `/portal/sean-comma/vault/thumb/${'a'.repeat(32)}`]);
+     ['/portal/sean-comma#/vault', '/portal/sean-comma#/vault/moment/Revival%3A%20Holy%20Night', '/portal/hq#/vault', '/portal/hq#/vault/sean-comma', `/portal/sean-comma/vault/thumb/${'a'.repeat(32)}`]);
   const ours = vaultFilesMessage({ client: 'Sean Comma', slug: 'sean-comma', count: 12 });
   is('HQ is told "[Client]: 12 new files", and a tap opens that client’s Vault in HQ', [ours.title, ours.url, vaultFilesMessage({ client: 'Sean Comma', slug: 'sean-comma', count: 1 }).title, newFilesLabel(12)], ['Sean Comma: 12 new files', '/portal/hq#/vault/sean-comma', 'Sean Comma: 1 new file', '12 new files']);
   const theirs = mediaReadyMessage('sean-comma', 'Revival After Dark');
-  is('a client is told "Your [show] media is ready", and a tap opens their Vault at that show', [theirs.title, theirs.url], ['Your Revival After Dark media is ready', '/portal/sean-comma#/vault/show/Revival%20After%20Dark']);
+  is('a client is told "Your [moment] media is ready", and a tap opens their Vault at that moment', [theirs.title, theirs.url], ['Your Revival After Dark media is ready', '/portal/sean-comma#/vault/moment/Revival%20After%20Dark']);
   is('each is its own kind, so a device can turn it off', [CLIENT_KINDS.includes('media'), ADMIN_KINDS.includes('files'), CLIENT_KINDS.includes('files'), ADMIN_KINDS.includes('media')], [true, true, false, false]);
 }
 
 /* ══ the store ══════════════════════════════════════════════════ */
 
 const SEAN = '3f7c8be8be728123a420fb9aef6bc0e9';
+const row0 = () => ({ client: SEAN, slug: 'sean-comma', name: 'Sean Comma', run: null, phase: null, started_at: null, beat_at: null, finished_at: null, ok_at: null, counts: '{}', sources: '[]', error: null, told_run: null, state: null, holder: null });
 const REBELZ = '41cc8be8be72818d826cd0b2299aedc5';
 
 async function facts(client, driveId, o = {}) {
@@ -285,23 +326,33 @@ section('Vault · the store');
   const t = (await V.tallies(db)).get(SEAN);
   is('HQ’s counts', [t.files, t.keepers, t.unsorted, t.needsShow, t.missing], [3, 2, 1, 0, 0]);
 
-  // one sync at a time
-  const take = (run, now) => V.takeSync(db, { client: SEAN, slug: 'sean-comma', name: 'Sean Comma', run, now, quietMs: 90000, resumeMs: 3600000 });
-  const one = await take('r1', 1000);
-  is('a sync takes the client, and a second in the meantime is refused', [one, await take('r2', 2000)], [{ ok: true, run: 'r1', resumed: false }, { ok: false }]);
-  await V.beatSync(db, SEAN, 'r1', { phase: 'thumbnails', counts: { thumbs: 40 }, now: 3000 });
-  is('while it keeps saying it is alive it is not taken over', await take('r2', 80000), { ok: false });
-  is('one that has gone quiet is picked up, under the same run so what it logged still counts as new', await take('r3', 3000 + 90001), { ok: true, run: 'r1', resumed: true });
-  await V.endSync(db, SEAN, 'r1', { ok: true, counts: { added: 3 }, sources: [], now: 100000 });
-  is('a finished one leaves the client free, and the next is a new run', await take('r4', 100001), { ok: true, run: 'r4', resumed: false });
-  await V.endSync(db, SEAN, 'r4', { ok: false, error: 'Drive answered 500 while listing.', counts: {}, sources: [], now: 100002 });
+  // one step at a time
+  const take = (run, holder, now) => V.takeStep(db, { client: SEAN, slug: 'sean-comma', name: 'Sean Comma', run, holder, now, quietMs: 30000, resumeMs: 3600000 });
+  const brief = (t) => (t.ok ? { ok: true, run: t.row.run, fresh: t.fresh, phase: t.row.phase } : t);
+  is('a step takes the client, and a second asked for in the meantime is refused', [brief(await take('r1', 'h1', 1000)), brief(await take('r2', 'h2', 2000))], [{ ok: true, run: 'r1', fresh: true, phase: 'listing' }, { ok: false }]);
+  ok('a sign of life keeps it', await V.beatSync(db, SEAN, 'r1', 'h1', { phase: 'thumbnails', counts: { thumbs: 40, thumbsLeft: 60 }, state: {}, now: 25000 }));
+  is('while it keeps saying it is alive it is not taken over', brief(await take('r2', 'h2', 50000)), { ok: false });
+  is('running is read off the record: part way, and heard from in the last half minute', (() => { const st = V.syncStatus({ ...row0(), run: 'r1', phase: 'thumbnails', started_at: 1000, beat_at: 25000, counts: '{"thumbs":40,"thumbsLeft":60}' }, { now: 50000, admin: true }); return [st.running, st.stalled, st.phase, st.thumbs, st.thumbsLeft]; })(), [true, false, 'thumbnails', 40, 60]);
+  const dead = V.syncStatus(await V.syncRow(db, SEAN), { now: 25000 + 30001, admin: true });
+  is('a step that has gone quiet has died: it is told as failed, with when it was last heard from, and "Syncing now" is gone', [dead.running, dead.stalled, dead.phase, dead.failedAt, dead.error], [false, true, 'failed', 25000, V.CUT_OFF]);
+  is('and it is picked up under the same run, from the phase it was in, so what it logged still counts as new', brief(await take('r3', 'h3', 25000 + 30001)), { ok: true, run: 'r1', fresh: false, phase: 'thumbnails' });
+  is('the one it was taken from is told so when it next tries to write', await V.beatSync(db, SEAN, 'r1', 'h1', { now: 56000 }), false);
+  await V.releaseStep(db, SEAN, 'r1', 'h3', 57000);
+  is('a step that is let go leaves the next free at once, to carry the same run on', brief(await take('r4', 'h4', 57001)), { ok: true, run: 'r1', fresh: false, phase: 'thumbnails' });
+  await V.endSync(db, SEAN, 'r1', 'h4', { ok: true, counts: { added: 3 }, sources: [], now: 100000 });
+  const fine = V.syncStatus(await V.syncRow(db, SEAN), { now: 100001, admin: true });
+  is('a finished sync is not running, not failed, and has let go', [fine.running, fine.phase, fine.failedAt, (await V.syncRow(db, SEAN)).holder], [false, 'done', null, null]);
+  is('and the next is a new run', brief(await take('r5', 'h5', 100001)), { ok: true, run: 'r5', fresh: true, phase: 'listing' });
+  await V.endSync(db, SEAN, 'r5', 'h5', { ok: false, error: 'Drive answered 500 while listing.', counts: {}, sources: [], now: 100002 });
   const st = V.syncStatus(await V.syncRow(db, SEAN), { now: 100003, admin: true, email: 'vault@example.iam.gserviceaccount.com' });
-  is('a failed sync says why, and keeps the time of the last good one', [st.phase, st.error, st.okAt, st.running], ['failed', 'Drive answered 500 while listing.', 100000, false]);
+  is('a failed sync says why and when, and keeps the time of the last good one', [st.phase, st.error, st.failedAt, st.okAt, st.running], ['failed', 'Drive answered 500 while listing.', 100002, 100000, false]);
+  is('a sync left part way for longer than it can be carried on is started again from the top', await (async () => { const d2 = await V.vaultDb({ VAULT_DB: new FakeD1() }); const t2 = (run, holder, now) => V.takeStep(d2, { client: SEAN, slug: 's', name: 'S', run, holder, now, quietMs: 30000, resumeMs: 3600000 }); await t2('a1', 'x', 1000); await V.beatSync(d2, SEAN, 'a1', 'x', { phase: 'thumbnails', state: { any: 1 }, now: 2000 }); return brief(await t2('a2', 'y', 1000 + 3600001)); })(), { ok: true, run: 'a2', fresh: true, phase: 'listing' });
   is('the address folders are shared with is told to us and not to a client', [st.email, 'email' in V.syncStatus(await V.syncRow(db, SEAN), { now: 100003, admin: false, email: 'vault@example.iam.gserviceaccount.com' })], ['vault@example.iam.gserviceaccount.com', false]);
 
-  await V.insertFiles(db, SEAN, [await facts(SEAN, 'N1'), await facts(SEAN, 'N2'), await facts(SEAN, 'N3', { kind: 'Finished', root: 'finished' })], 'r5', 100010);
-  await take('r5', 100010);
-  is('a run’s new Raw files are claimed for one announcement, and only one', [await V.claimNewRaw(db, SEAN, 'r5'), await V.claimNewRaw(db, SEAN, 'r5')], [2, 0]);
+  await V.insertFiles(db, SEAN, [await facts(SEAN, 'N1'), await facts(SEAN, 'N2'), await facts(SEAN, 'N3', { kind: 'Finished', root: 'finished' })], 'r6', 100010);
+  await take('r6', 'h6', 100010);
+  is('a run’s new Raw files are claimed for one announcement, and only one', [await V.claimNewRaw(db, SEAN, 'r6'), await V.claimNewRaw(db, SEAN, 'r6')], [2, 0]);
+
 }
 
 /* ══ Drive, stood in for ════════════════════════════════════════ */
@@ -316,7 +367,7 @@ const FOLDER = 'application/vnd.google-apps.folder';
  *  what "anyone with the link" is. */
 function drive(nodes) {
   const calls = [];
-  const state = { failList: null, noThumbs: false };
+  const state = { failList: null, noThumbs: false, pageSize: 0, failPage: 0 };
   const node = (id) => nodes[id];
   const visible = (id) => { for (let n = node(id); n; n = node(n.parent)) { if (n.shared || n.linkOnly) return true; } return false; };
   const meta = (id) => {
@@ -335,7 +386,7 @@ function drive(nodes) {
   const fetchFake = async (input, init = {}) => {
     const url = new URL(typeof input === 'string' ? input : input.url);
     const method = (init.method ?? 'GET').toUpperCase();
-    calls.push({ method, host: url.hostname, path: url.pathname, q: url.searchParams.get('q') });
+    calls.push({ method, host: url.hostname, path: url.pathname, q: url.searchParams.get('q'), page: url.searchParams.get('pageToken') });
     if (url.hostname === 'oauth2.googleapis.com') return json({ access_token: 'a-token' });
     if (url.hostname === 'lh3.googleusercontent.com') {
       const size = Number(/=s(\d+)$/.exec(url.pathname)?.[1] ?? 0);
@@ -352,6 +403,13 @@ function drive(nodes) {
       .filter((id) => !onlyFolders || (node(id).mime ?? FOLDER) === FOLDER)
       .filter((id) => { const m = node(id).mime ?? FOLDER; return m === FOLDER || m.endsWith('shortcut') || m.startsWith('image/') || m.startsWith('video/'); })
       .map((id) => ({ ...meta(id), parents: [node(id).parent] }));
+    // Drive answers a long folder a page at a time.
+    if (state.pageSize) {
+      const from = Number(url.searchParams.get('pageToken') ?? 0);
+      if (state.failPage && from >= state.failPage) return json({ error: { code: 500 } }, 500);
+      const to = from + state.pageSize;
+      return json({ files: files.slice(from, to), ...(to < files.length ? { nextPageToken: String(to) } : {}) });
+    }
     return json({ files });
   };
   return { fetch: fetchFake, calls, state, nodes };
@@ -398,10 +456,22 @@ const record = (o = {}) => ({
   ...o,
 });
 
-/** Notion, as much as a sync asks of it: the client's Posted items. */
-const notion = (posted = []) => async (input) => {
+const CALENDAR = 'cb355a1b-fc2b-4550-86f2-f572b4a5040f';
+/** A Moment in the Campaign Calendar, as Notion sends one. */
+const momentPage = (id, title, date, o = {}) => ({
+  id, properties: {
+    Item: { type: 'title', title: [{ plain_text: `Sean Comma · ${title}` }] }, Kind: { type: 'select', select: { name: 'Moment' } },
+    'Moment Type': { type: 'select', select: { name: o.type ?? 'Show' } }, Date: { type: 'date', date: date ? { start: date } : null },
+    'Is Playbook': { type: 'checkbox', checkbox: false }, 'Hide from Client': { type: 'checkbox', checkbox: !!o.hidden },
+    Owner: { type: 'select', select: null }, Type: { type: 'select', select: null }, Moment: { type: 'relation', relation: [] },
+  },
+});
+/** Notion, as much as a sync asks of it: the client's Posted items,
+ *  and the Moments on their calendar. */
+const notion = (posted = [], moments = []) => async (input) => {
   const url = String(typeof input === 'string' ? input : input.url);
-  if (/api\.notion\.com\/v1\/databases\/[\w-]+\/query/.test(url)) return new Response(JSON.stringify({ results: posted, has_more: false }), { status: 200 });
+  const m = /api\.notion\.com\/v1\/databases\/([\w-]+)\/query/.exec(url);
+  if (m) return new Response(JSON.stringify({ results: m[1] === CALENDAR ? moments : posted, has_more: false }), { status: 200 });
   return new Response('{}', { status: 404 });
 };
 
@@ -505,9 +575,48 @@ section('Vault · a sync that is cut off, and one that runs out of room');
   const part = await withFetch(d, notion(), () => V.syncClient(env, rec, { now: 1_000_000, callBudget: 70 }));
   is('out of room part way: every file is logged, some thumbnails are made, and it says there is more', [part.ok, part.more, part.status.added, part.status.thumbs > 0 && part.status.thumbs < 100, part.status.thumbs + part.status.thumbsLeft], [true, true, 100, true, 100]);
   const madeFirst = part.status.thumbs;
-  const rest = await withFetch(d, notion(), () => V.syncClient(env, rec, { now: 1_060_000, thumbsOnly: true }));
-  is('the next call carries on with the thumbnails and does not list the folders again', [rest.ok, rest.more, rest.status.thumbs, rest.status.thumbsLeft, env.REPORTS_BUCKET.files.size, rest.status.listed], [true, false, 100, 0, 100, 100]);
+  const listsBefore = d.calls.filter((c) => c.q).length;
+  const rest = await withFetch(d, notion(), () => V.syncClient(env, rec, { now: 1_000_500 }));
+  is('the next step carries on with the thumbnails and does not list the folders again', [rest.ok, rest.more, rest.status.thumbs, rest.status.thumbsLeft, env.REPORTS_BUCKET.files.size, rest.status.listed, d.calls.filter((c) => c.q).length - listsBefore], [true, false, 100, 0, 100, 100, 0]);
   ok('it made only the ones that were left', rest.status.thumbs - madeFirst === 100 - madeFirst && d.calls.filter((c) => c.host === 'lh3.googleusercontent.com').length === 100);
+
+  // a long folder, read a page at a time, and put down between pages
+  {
+    const paged = drive(nodes);
+    paged.state.pageSize = 30;
+    const envP = { ...env, VAULT_DB: new FakeD1(), REPORTS_BUCKET: new FakeR2() };
+    const dbP = await V.vaultDb(envP);
+    // already in the Vault from before, and not in Drive any more
+    await V.insertFiles(dbP, SEAN, [await facts(SEAN, 'gone-from-drive', { root: 'finished', rootId: 'FINISHED0001', kind: 'Finished' })], 'old-run', 1);
+    const s1 = await withFetch(paged, notion(), () => V.syncClient(envP, rec, { now: 1_000_000, callBudget: 6 }));
+    const mid = await V.listFiles(dbP, SEAN, { admin: true });
+    is('a listing put down part way has logged what it read, says it is part way, and has marked nothing Missing', [s1.ok, s1.more, s1.status.phase, s1.status.running, mid.length > 30 && mid.length < 101, mid.filter((f) => f.missing).length, s1.status.listed === mid.length - 1], [true, true, 'listing', true, true, 0, true]);
+    let last = s1;
+    for (let i = 0; i < 40 && last.ok && last.more; i += 1) last = await withFetch(paged, notion(), () => V.syncClient(envP, rec, { now: 1_000_000 + i, callBudget: 6 }));
+    const pages = paged.calls.filter((c) => c.q && /SHOWFOLDER01/.test(c.q)).map((c) => c.page ?? '0');
+    is('the steps after it carry on from Drive’s own marker: every page is read once, and none twice', [last.ok, last.more, last.status.phase, pages, new Set(pages).size === pages.length], [true, false, 'done', ['0', '30', '60', '90'], true]);
+    const end = await V.listFiles(dbP, SEAN, { admin: true });
+    is('and only when every folder has been read to the end is the file that was not seen marked Missing', [end.length, end.filter((f) => f.missing).map((f) => f.drive), last.status.added, last.status.listed, end.filter((f) => f.t).length], [101, ['gone-from-drive'], 100, 100, 100]);
+
+    // a page that will not list
+    const bad = drive(nodes);
+    bad.state.pageSize = 30;
+    bad.state.failPage = 60;
+    const envB = { ...env, VAULT_DB: new FakeD1(), REPORTS_BUCKET: new FakeR2() };
+    const dbB = await V.vaultDb(envB);
+    await V.insertFiles(dbB, SEAN, [await facts(SEAN, 'not-seen-yet', { root: 'finished', rootId: 'FINISHED0001', kind: 'Finished' })], 'old-run', 1);
+    const failed = await withFetch(bad, notion(), () => V.syncClient(envB, rec, { now: 2_000_000 }));
+    is('a page that will not list fails the sync, and still marks nothing Missing', [failed.ok, failed.status.phase, /Finished Content/.test(failed.note), (await V.listFiles(dbB, SEAN, { admin: true })).filter((f) => f.missing).length], [false, 'failed', true, 0]);
+    bad.state.failPage = 0;
+    const retried = await withFetch(bad, notion(), () => V.syncClient(envB, rec, { now: 2_000_100 }));
+    is('Retry after a failure starts again from the top and finishes', [retried.ok, retried.more, retried.status.phase, retried.status.listed, retried.status.missing], [true, false, 'done', 100, 1]);
+
+    // the statements that change many rows go to those rows
+    const bulk = [...new Set(dbP.ran.filter((q) => /^WITH j AS MATERIALIZED/.test(q)))];
+    const plans = bulk.map((q) => dbP.plan(q, SEAN, '[]', ...new Array((q.match(/\?(\d)/g) ?? []).reduce((m, x) => Math.max(m, Number(x.slice(1))), 2) - 2).fill(1)));
+    ok('a sync’s bulk updates look each row up by its id, and never walk every file the client has', bulk.length >= 2 && plans.every((pl) => /SEARCH vault_files USING INDEX sqlite_autoindex_vault_files_1 \(id=\?\)/.test(pl) && !/SCAN vault_files|vault_files_drive/.test(pl)));
+    ok('and still only ever change the client they were given', bulk.every((q) => /\+vault_files\.client = \?1/.test(q)));
+  }
 
   // a shoot with many folders
   const wide = { ROOTFOLDER01: { name: 'Client', shared: true }, DROPFOLDER01: { name: 'Footage Drop', parent: 'ROOTFOLDER01' } };
@@ -546,6 +655,51 @@ section('Vault · a sync that is cut off, and one that runs out of room');
   const blank = drive({ ...nodes, file00000000: { ...nodes.file00000000, noThumb: true } });
   const quiet = await withFetch(blank, notion(), () => V.syncClient(env4, rec, { now: 1 }));
   is('a file Drive has no thumbnail for is asked about once in a sync, logged all the same, and left for the next', [quiet.ok, quiet.more, quiet.status.thumbs, quiet.status.thumbsLeft, (await V.fileRecord(await V.vaultDb(env4), SEAN, await V.vaultFileId(SEAN, 'file00000000'))).thumbTries], [true, false, 99, 1, 1]);
+}
+
+section('Vault · files linked to Moments by a sync');
+{
+  const d = seanDrive();
+  d.nodes.DATEONLY0001 = { name: '2026-11-13', parent: 'ARCHIVEOK001' };
+  d.nodes.dayphoto0001 = photo('by-day.jpg', 'DATEONLY0001', { image: null });
+  d.nodes.ARCHSHOOT001 = { name: '2025-03-01 Old Rooftop', parent: 'ARCHIVEOK001' };
+  d.nodes.ARCHIDS00001 = { name: '_IDS', parent: 'ARCHSHOOT001' };
+  d.nodes.archid000001 = clip('old ID.mp4', 'ARCHIDS00001');
+  const env = { VAULT_DB: new FakeD1(), REPORTS_BUCKET: new FakeR2(), GOOGLE_SERVICE_ACCOUNT_JSON: KEY, NOTION_TOKEN: 'a-token' };
+  const db = await V.vaultDb(env);
+  const RAD = 'aaaaaaaa-1111-1111-1111-111111111111', HIDDEN = 'bbbbbbbb-2222-2222-2222-222222222222';
+  const moments = [momentPage(RAD, 'Revival After Dark (Austin, TX)', '2026-11-14'), momentPage(HIDDEN, 'Old shows', '2024-06-01', { hidden: true })];
+  const first = await withFetch(d, notion([], moments), () => V.syncClient(env, record(), { now: 1_000_000 }));
+  let files = await V.listFiles(db, SEAN, { admin: true });
+  const f = (name) => files.find((x) => x.name === name);
+  const rad = RAD.replace(/-/g, '');
+  is('a file whose folder is named for a Moment is linked to it, and goes by the Moment’s own name', [f('C0012.mp4').mid, f('C0012.mp4').show, f('DSC06286.jpg').mid, f('DSC06286.jpg').show, f('flyer.png').mid], [rad, 'Revival After Dark (Austin, TX)', rad, 'Revival After Dark (Austin, TX)', rad]);
+  is('a file with no name at all, in a folder that is only a day, is linked by that day, named, and stops waiting on a moment', [f('by-day.jpg').mid, f('by-day.jpg').show, !!f('by-day.jpg').needsShow], [rad, 'Revival After Dark (Austin, TX)', false]);
+  is('a folder with no matching Moment keeps its name as plain words, and counts as sorted', [f('old ID.mp4').show, f('old ID.mp4').mid, !!f('old ID.mp4').needsShow], ['Old Rooftop', null, false]);
+  is('Archive is read as Footage Drop is: the dated folder’s day, and _IDS is Unreleased', [f('old ID.mp4').date, f('old ID.mp4').un, f('old ID.mp4').kind, f('old ID.mp4').source], ['2025-03-01', true, 'Raw', 'Archive']);
+  is('only a file with no name at all waits on a moment, and a Moment we are holding back from the client is never linked to', [files.filter((x) => x.needsShow).map((x) => x.name), f('old.jpg').mid, f('old.jpg').guess], [['old.jpg'], null, 'Old shows']);
+  is('the sync says how many it linked, and HQ’s counts agree', [first.status.linked, (await V.tallies(db)).get(SEAN).linked, (await V.tallies(db)).get(SEAN).needsShow], [5, 5, 1]);
+  is('the files of one Moment, for its drawer', [(await V.filesOfMoment(db, SEAN, rad, { admin: true })).map((x) => x.name).sort(), (await V.filesOfMoment(db, REBELZ, rad, { admin: true })).length, (await V.filesOfMoment(db, SEAN, 'f'.repeat(32), { admin: true })).length], [['C0012.mp4', 'DSC0001.jpg', 'DSC06286.jpg', 'by-day.jpg', 'flyer.png'], 0, 0]);
+  is('a client is sent the link too, since it is only ever to a Moment they can see', (await V.listFiles(db, SEAN, { admin: false })).find((x) => x.name === 'C0012.mp4').mid, rad);
+
+  // by hand
+  await V.editFiles(db, SEAN, [f('flyer.png').id], { show: null }, { now: 5, today: '2026-11-24' });
+  await V.editFiles(db, SEAN, [f('old.jpg').id], { show: 'Revival After Dark' }, { now: 5, today: '2026-11-24' });
+  await withFetch(d, notion([], moments), () => V.syncClient(env, record(), { now: 2_000_000 }));
+  files = await V.listFiles(db, SEAN, { admin: true });
+  is('"No moment", said by hand, is an answer: the file is not linked again', [f('flyer.png').mid, f('flyer.png').show, !!f('flyer.png').needsShow], [null, null, false]);
+  is('a name typed by hand is matched by that name, however far its date', [f('old.jpg').mid, f('old.jpg').show], [null, 'Revival After Dark']);
+
+  // the calendar changes
+  const renamed = [momentPage(RAD, 'RAD: The Afterparty', '2026-11-14')];
+  await withFetch(d, notion([], renamed), () => V.syncClient(env, record(), { now: 3_000_000 }));
+  files = await V.listFiles(db, SEAN, { admin: true });
+  is('a Moment renamed so the folder no longer matches is still found by its day, the files take the new name, and the rest of the folder goes with them', [f('by-day.jpg').show, f('DSC06286.jpg').show, f('C0012.mp4').mid, f('C0012.mp4').show], ['RAD: The Afterparty', 'RAD: The Afterparty', rad, 'RAD: The Afterparty']);
+  const gone = await withFetch(d, notion([], []), () => V.syncClient(env, record(), { now: 4_000_000 }));
+  files = await V.listFiles(db, SEAN, { admin: true });
+  is('a Moment taken off the calendar lets its files go: named ones keep their folder’s name, and a nameless one waits again', [gone.status.linked, f('DSC06286.jpg').show, f('DSC06286.jpg').mid, f('by-day.jpg').show, !!f('by-day.jpg').needsShow], [0, 'Revival After Dark', null, null, true]);
+  const down = await withFetch(d, async () => new Response('nope', { status: 500 }), () => V.syncClient(env, record(), { now: 5_000_000 }));
+  ok('a calendar that cannot be read does not fail the sync', down.ok && down.status.phase === 'done');
 }
 
 section('Vault · the usage log, from the Content Pipeline');
@@ -729,6 +883,19 @@ section('Vault · the routes');
   ok('nothing announced is recorded when nobody was told', /if \(!sent\) \{[\s\S]*?announced: null[\s\S]*?\}\s*const now/.test(src['announce.ts']));
   ok('the thumbnail and every preview are private to the browser that asked', /'Cache-Control': 'private, max-age=600'/.test(src['thumb/[id].ts']));
   ok('a file’s id from the address is checked to be an id before anything else', /if \(!isVaultId\(id\)\) return portalNotFound\(\);\s*const begun/.test(src['open/[id].ts']) && /if \(!isVaultId\(id\) \|\| !env\.REPORTS_BUCKET\) return portalNotFound\(\);\s*const begun/.test(src['thumb/[id].ts']));
+
+  // HQ's list, which a page watching a sync asks every few seconds
+  const list = read('../functions/portal/hq/vault/index.ts');
+  const get = list.slice(list.indexOf('export const onRequestGet'), list.indexOf('export const onRequestPost'));
+  ok('HQ’s list reads its counts and progress from the Vault’s own database, and answers a busy database with words, not a broken page', /\[rows, counts\] = await Promise\.all\(\[allSyncRows\(db\), tallies\(db\)\]\)/.test(get) && /catch \(err\) \{[\s\S]*?hqJson\(\{ ok: false, error: 'busy'/.test(get));
+  ok('who the clients are is never waited on for long and never fails the list: Notion is timed, remembered, and stood in for', /Promise\.race\(\[\s*fetchPortalRecords/.test(list) && /NOTION_WAIT_MS = 4000/.test(list) && /remembered\('last'\)/.test(list) && /from: 'vault'/.test(list) && !/await fetchPortalRecords\(env\.NOTION_TOKEN\)[;,]/.test(get));
+  ok('and whichever part went wrong is written to the log by name', (list.match(/console\.error\('hq vault list: /g) ?? []).length >= 2);
+  const pageSrc = read('../src/scripts/portal-vault.ts');
+  const overview = pageSrc.slice(pageSrc.indexOf('export function mountVaultOverview'), pageSrc.indexOf('const vaultDriver'));
+  ok('the page never swaps its cards for an error: a read that fails keeps what is shown and asks again', !/The Vaults could not be read/.test(pageSrc) && !/could not be read/i.test(overview) && /Could not refresh just now/.test(overview) && /misses \? RETRY_MS : busy \? WATCH_MS : IDLE_MS/.test(overview) && /if \(!clients\) return;/.test(overview));
+  ok('a card’s line comes from the sync’s own record: a progress line while it runs, "Last sync failed" with Retry when it has not finished', /busy \? syncLine\(c\.sync\)/.test(overview) && /failed \? failedLine\(c\.sync\)/.test(overview) && /failed \? 'Retry' : 'Sync now'/.test(overview));
+  is('the progress line, and the failed line with its time', [V.syncLineFor({ phase: 'thumbnails', thumbs: 1200, thumbsLeft: 1331 }), V.syncLineFor({ phase: 'listing', listed: 708 }), V.syncLineFor({ phase: 'linking' })], ['Syncing… 1,200 of 2,531 thumbnails', 'Syncing… reading Drive, 708 files so far', 'Syncing… linking files to moments']);
+  ok('a sync is a run of short requests, so a page reloaded in the middle of one costs a step and no more', /export const STEP_MS = 10 \* 1000;/.test(read('../src/server/vault-sync.ts')) && /const out = await syncClient\(env, record\);/.test(src['sync.ts']) && /async function driveSync/.test(pageSrc));
 
   // the daily sync's door
   const cron = (env, headers = {}) => V.cronPost({ request: new Request('https://blueprint-marketing.com/portal/hq/vault/cron', { method: 'POST', headers }), env });

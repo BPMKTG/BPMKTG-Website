@@ -14,12 +14,12 @@
 
      the grid       thumbnails, from our own preview route
      saved views    Keepers, Unsorted, Never posted, Vertical video,
-                    Hero shots, Unreleased IDs, By show, Finished
-     by show        one section a show, each with its gaps strip
+                    Hero shots, Unreleased IDs, By moment, Finished
+     by moment      one section a moment, each with its gaps strip
      a file         the web-sized picture, or a video's poster and
                     "Play preview"; always "Open original"
      select         many files at once: star, tag, and for us rate,
-                    source, show and hold; "Use in a post"
+                    source, moment and hold; "Use in a post"
 
    Nothing here is built with innerHTML: file names, tags, notes and
    folder names are typed by people.
@@ -30,7 +30,7 @@ import { driveFileLink } from '../data/slides';
 import {
   MAX_EDIT_IDS, MAX_USE_IDS, NO_SHOW, ROOT_LABEL, VAULT_ORIENTATIONS, VAULT_RATINGS, VAULT_SOURCES, VAULT_TYPES,
   VAULT_VIEWS, cleanTag, durationLabel, isKeeper, matchesFilter, newFilesLabel, searchText, showGaps, sizeLabel,
-  sortFiles, thumbUrl, useTitle, vaultDateLabel, viewById,
+  sortFiles, syncLineFor, thumbUrl, useTitle, vaultDateLabel, viewById,
   type Playable, type ShowGaps, type VaultFile, type VaultFilter, type VaultSyncStatus, type VaultUse, type VaultView,
 } from '../data/vault';
 import { clear, el, icon } from './portal-dom';
@@ -83,6 +83,60 @@ function option(value: string, label: string, selected = false): HTMLOptionEleme
   return o;
 }
 
+/* ── a sync, as it is said and as it is driven ────────────────── */
+
+/** "Syncing… 1,200 of 2,531 thumbnails", from a sync's own record. */
+export const syncLine = syncLineFor;
+
+/** "8:42 PM" for today, "Nov 24, 8:42 PM" for another day. */
+function clockLabel(at: number | null | undefined, now = new Date()): string {
+  if (!at) return '';
+  const d = new Date(at);
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return sameDay ? time : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${time}`;
+}
+
+/** "Last sync failed · 8:42 PM". */
+export const failedLine = (s: Partial<VaultSyncStatus>): string =>
+  `Last sync failed${s.failedAt ? ` · ${clockLabel(s.failedAt)}` : ''}`;
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => window.setTimeout(r, ms));
+
+/**
+ * Take one client's sync through to the end, a step at a time.
+ *
+ * Each step is a short request that answers with where the sync has
+ * got to, which is handed to `said` so a progress line can be drawn.
+ * Nothing rides on this page staying open: if it is reloaded or
+ * closed, the step in hand is lost and whoever asks next carries on
+ * from the one before it. When somebody else is already taking the
+ * steps, this only watches.
+ *
+ * Resolves with the last answer: a finished sync, a failure, or null
+ * when the server stopped answering.
+ */
+async function driveSync(slug: string, alive: () => boolean, said: (s: VaultSyncStatus) => void): Promise<Reply | null> {
+  let quiet = 0;
+  for (let step = 0; step < 4000 && alive(); step += 1) {
+    const got = await ask(`/portal/${encodeURIComponent(slug)}/vault/sync`, {});
+    if (!alive()) return null;
+    if (!got.json) {
+      // The connection, or a moment's trouble on the server: a few
+      // more tries before saying so. The sync itself has lost nothing.
+      quiet += 1;
+      if (quiet > 5) return null;
+      await sleep(3000);
+      continue;
+    }
+    quiet = 0;
+    if (got.json.sync) said(got.json.sync as VaultSyncStatus);
+    if (!got.json.ok || !got.json.more) return got;
+    if (got.json.busy) await sleep(2500);
+  }
+  return null;
+}
+
 /* ── sheets: one short question at a time ─────────────────────── */
 
 interface Sheet { body: HTMLElement; close: () => void }
@@ -126,7 +180,7 @@ export interface VaultOptions {
 }
 
 export interface VaultMount {
-  /** What follows "vault/" in the address: "", or "show/<name>". */
+  /** What follows "vault/" in the address: "", or "moment/<name>". */
   route(detail: string): void;
   destroy(): void;
 }
@@ -225,8 +279,10 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
     take(Array.isArray(got.json.files) ? got.json.files : []);
     if (first && wantShow) { applyShow(wantShow); wantShow = null; }
     draw();
-    // One of us opening a Vault that was left part way: carry it on.
-    if (first && admin && !syncing && ((sync.thumbsLeft ?? 0) > 0 || sync.never) && !sync.running) void runSync(!sync.never);
+    // One of us opening a Vault that has never been synced, or one
+    // whose sync is part way (running somewhere, or cut off): take it
+    // on from here. A sync that stopped on an error waits for Retry.
+    if (first && admin && !syncing && (sync.never || sync.running || sync.stalled)) void runSync(true);
   }
 
   /* ── what is being looked at ── */
@@ -289,8 +345,9 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
     title.appendChild(line);
     head.appendChild(title);
     if (admin) {
-      const b = button('pt-btn pt-btn-sm vt-sync', syncing ? 'Syncing…' : 'Sync now', () => { void runSync(false); });
-      b.disabled = syncing;
+      const busy = syncing || !!sync.running;
+      const b = button('pt-btn pt-btn-sm vt-sync', busy ? 'Syncing…' : 'Sync now', () => { void runSync(false); });
+      b.disabled = busy;
       b.dataset.sync = '1';
       head.appendChild(b);
     }
@@ -300,9 +357,16 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
     clear(notices);
     if (!admin) return;
     if (syncing || sync.running) {
-      notices.appendChild(el('p', 'vt-note vt-note-busy', progressLine()));
-    } else if (sync.phase === 'failed' && sync.error) {
-      notices.appendChild(el('p', 'vt-note vt-note-bad', `The last sync did not finish. ${sync.error}`));
+      const p = el('p', 'vt-note vt-note-busy', `${syncLine(sync)}. The grid can be used meanwhile.`);
+      p.dataset.syncLine = '1';
+      notices.appendChild(p);
+    } else if (sync.phase === 'failed') {
+      const p = el('div', 'vt-note vt-note-bad');
+      p.dataset.syncFailed = '1';
+      p.appendChild(el('strong', undefined, failedLine(sync)));
+      if (sync.error) p.appendChild(el('span', undefined, ` ${sync.error}`));
+      p.appendChild(button('pt-btn pt-btn-sm', 'Retry', () => { void runSync(false); }));
+      notices.appendChild(p);
     } else if ((sync.thumbsLeft ?? 0) > 0) {
       notices.appendChild(el('p', 'vt-note', `${plural(sync.thumbsLeft ?? 0, 'thumbnail')} still to make. They are made as the grid is scrolled, and by the next sync.`));
     }
@@ -338,18 +402,6 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
     }
   }
 
-  function progressLine(): string {
-    const s = sync;
-    if (s.phase === 'listing') return `Syncing: reading Drive… ${plural(s.listed ?? 0, 'file')} so far.`;
-    if (s.phase === 'saving') return `Syncing: logging ${plural(s.listed ?? 0, 'file')}.`;
-    if (s.phase === 'thumbnails') {
-      const total = (s.thumbs ?? 0) + (s.thumbsLeft ?? 0);
-      return `Syncing: thumbnails ${(s.thumbs ?? 0).toLocaleString('en-US')} of ${total.toLocaleString('en-US')}. The grid can be used meanwhile.`;
-    }
-    if (s.phase === 'usage') return 'Syncing: bringing the usage log up to date.';
-    return 'Syncing…';
-  }
-
   function drawViews(): void {
     clear(views);
     for (const v of VAULT_VIEWS) {
@@ -377,7 +429,7 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
     clear(tools);
     const search = el('input', 'pt-input vt-search');
     search.type = 'search';
-    search.placeholder = 'Search names, shows, tags, notes';
+    search.placeholder = 'Search names, moments, tags, notes';
     search.setAttribute('aria-label', 'Search the Vault');
     search.value = query;
     search.autocomplete = 'off';
@@ -415,7 +467,7 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
     add('kind', 'Kind', [['Raw', 'Raw'], ['Finished', 'Finished']]);
     add('type', 'Type', VAULT_TYPES.map((t) => [t, t]));
     add('o', 'Orientation', VAULT_ORIENTATIONS.map((t) => [t, t]));
-    add('show', 'Show', [...shows.map((s): [string, string] => [s, s]), [NO_SHOW, NO_SHOW]]);
+    add('show', 'Moment', [...shows.map((s): [string, string] => [s, s]), [NO_SHOW, NO_SHOW]]);
     add('rating', 'Rating', [...VAULT_RATINGS.map((t): [string, string] => [t, t]), ['none', 'Not rated']]);
     add('source', 'Source', [...VAULT_SOURCES.map((t): [string, string] => [t, t]), ['none', 'No source']]);
     if (tags.length) add('tag', 'Tag', tags.map((t) => [t, t]));
@@ -628,7 +680,7 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
       const at = inView.get(key);
       if (at) at.push(f); else inView.set(key, [f]);
     }
-    if (!groups.length) { body.appendChild(emptyBox('photo', 'No shows yet', 'Shows appear here as files are logged.')); return; }
+    if (!groups.length) { body.appendChild(emptyBox('photo', 'No moments yet', 'Moments appear here as files are logged.')); return; }
     for (const g of groups) {
       const mine = inView.get(g.show) ?? [];
       const section = el('section', 'vt-show');
@@ -656,11 +708,11 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
     }
   }
 
-  /* ── needs a show (ours) ── */
+  /* ── needs a moment (ours) ── */
 
   function drawNeedsShow(): void {
     if (!list.length) {
-      body.appendChild(emptyBox('check', 'Every file has a show', 'Files from folders we cannot read a show from are listed here to confirm.'));
+      body.appendChild(emptyBox('check', 'Every file has a moment', 'A file with no folder to name it, and no Moment on the calendar near its date, is listed here.'));
       return;
     }
     // One group a suggestion: a shoot filed under forty subfolders
@@ -678,7 +730,7 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
     for (const s of shows) known.appendChild(option(s, s));
     body.appendChild(known);
     body.appendChild(el('p', 'vt-needs-intro',
-      'These files are in folders that do not name a show. Each group has the folder\'s own name as a suggestion: confirm it, or type the show it belongs to.'));
+      'These files have no moment: their folders do not name one, and no Moment on the calendar is near their date. Where a folder has a name of its own it is offered as a suggestion: confirm it, or type the moment they belong to.'));
     const wrap = el('div', 'vt-needs');
     wrap.dataset.needs = '1';
     for (const [, group] of [...groups].sort((a, b) => b[1].length - a[1].length)) {
@@ -704,16 +756,16 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
       const input = el('input', 'pt-input vt-need-input');
       input.type = 'text';
       input.value = group[0].guess ?? '';
-      input.placeholder = 'Show or release';
+      input.placeholder = 'Moment';
       input.setAttribute('list', known.id);
-      input.setAttribute('aria-label', `Show for the files in ${where}`);
+      input.setAttribute('aria-label', `Moment for the files in ${where}`);
       const go = button('pt-btn pt-btn-sm pt-btn-primary', 'Confirm', () => {
         const name = input.value.trim();
-        if (!name) { toast('Type the show these files belong to.', true); return; }
+        if (!name) { toast('Type the moment these files belong to.', true); return; }
         void save(group.map((f) => f.id), { show: name }, `${plural(group.length, 'file')} set to ${name}`);
       });
-      const none = button('pt-btn pt-btn-sm', 'No show', () => {
-        void save(group.map((f) => f.id), { show: null }, `${plural(group.length, 'file')} marked as having no show`);
+      const none = button('pt-btn pt-btn-sm', 'No moment', () => {
+        void save(group.map((f) => f.id), { show: null }, `${plural(group.length, 'file')} marked as having no moment`);
       });
       const act = el('div', 'vt-need-act');
       act.append(input, go, none);
@@ -788,7 +840,7 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
     if (admin) {
       add('Rate', () => chooseSheet('Rate', [...VAULT_RATINGS, 'Not rated'], (v) => save(picked, { rating: v === 'Not rated' ? null : v }, `${plural(n, 'file')} rated`)));
       add('Source', () => chooseSheet('Source', [...VAULT_SOURCES, 'No source'], (v) => save(picked, { source: v === 'No source' ? null : v }, `Source set on ${plural(n, 'file')}`)));
-      add('Show', () => showSheet(picked));
+      add('Moment', () => showSheet(picked));
       add('Hold for', () => holdSheet(picked));
       add('More', () => moreSheet(picked));
     }
@@ -839,16 +891,16 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
   }
 
   function showSheet(ids: readonly string[]): void {
-    const s = openSheet(`Show for ${plural(ids.length, 'file')}`);
+    const s = openSheet(`Moment for ${plural(ids.length, 'file')}`);
     const shows = [...new Set(files.filter((f) => f.show).map((f) => f.show as string))].sort((a, b) => a.localeCompare(b));
     const list = el('datalist');
     list.id = `vt-showpick-${slug}`;
     for (const name of shows) list.appendChild(option(name, name));
     const input = el('input', 'pt-input');
     input.type = 'text';
-    input.placeholder = 'Show or release';
+    input.placeholder = 'Moment';
     input.setAttribute('list', list.id);
-    input.setAttribute('aria-label', 'Show or release');
+    input.setAttribute('aria-label', 'Moment');
     const go = async (): Promise<void> => {
       const name = input.value.trim();
       if (!name) return;
@@ -856,7 +908,7 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
       await save(ids, { show: name }, `${plural(ids.length, 'file')} set to ${name}`);
     };
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); void go(); } });
-    s.body.append(list, input, button('pt-btn pt-btn-primary vt-sheet-go', 'Set show', () => { void go(); }));
+    s.body.append(list, input, button('pt-btn pt-btn-primary vt-sheet-go', 'Set moment', () => { void go(); }));
     input.focus();
   }
 
@@ -998,7 +1050,7 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
 
   function confirmAnnounce(show: string): void {
     const s = openSheet('Announce delivery');
-    s.body.appendChild(el('p', 'vt-use-line', `This sends the client a notification: "Your ${show} media is ready". It opens their Vault at this show.`));
+    s.body.appendChild(el('p', 'vt-use-line', `This sends the client a notification: "Your ${show} media is ready". It opens their Vault at this moment.`));
     s.body.appendChild(el('p', 'pt-sheet-note', 'It reaches the devices where they have turned notifications on. Nothing else tells a client about files.'));
     const go = button('pt-btn pt-btn-primary vt-sheet-go', 'Send it', () => {
       go.disabled = true;
@@ -1017,35 +1069,32 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
 
   /* ── sync (ours) ── */
 
-  async function runSync(more: boolean): Promise<void> {
+  /**
+   * Run this client's sync from here, or watch it if it is already
+   * running somewhere. `quiet` is for one this page took on by itself:
+   * it finishes without a toast.
+   */
+  async function runSync(quiet: boolean): Promise<void> {
     if (syncing || !admin) return;
     syncing = true;
-    sync = { ...sync, running: true, phase: 'listing' };
+    if (!sync.running) sync = { ...sync, running: true, phase: 'listing', listed: 0, error: null };
     drawHead();
     drawNotices();
-    // The sync answers when it is done. While it runs, its progress
-    // is read from where it writes it down.
-    const watch = window.setInterval(() => {
-      void ask(`${base}/sync`).then((got) => {
-        if (!alive || !syncing || !got.json?.sync) return;
-        sync = { ...got.json.sync, running: true };
-        drawNotices();
-      });
-    }, 2500);
-    let carry = more;
-    let outcome: Reply | null = null;
-    for (let round = 0; round < 12 && alive; round += 1) {
-      outcome = await ask(`${base}/sync`, carry ? { more: true } : {});
-      if (!outcome.json?.ok || !outcome.json.more) break;
-      carry = true;
-    }
-    window.clearInterval(watch);
+    let filesShown = sync.phase !== 'listing';
+    const outcome = await driveSync(slug, () => alive, (said) => {
+      const was = sync.phase;
+      sync = said;
+      drawHead();
+      drawNotices();
+      // The listing is done: every file is logged, so they are
+      // drawn now and their thumbnails fill in behind.
+      if (!filesShown && was === 'listing' && said.phase !== 'listing') { filesShown = true; void load(); }
+    });
     syncing = false;
     if (!alive) return;
-    if (!outcome || !outcome.json) toast('The sync did not answer. It carries on where it stopped the next time it is run.', true);
+    if (!outcome) toast('The sync stopped answering. It carries on from where it is the next time it is asked.', true);
     else if (!outcome.json.ok) toast(outcome.json.message ?? 'The sync did not finish.', true);
-    else if (outcome.json.busy) toast('A sync is already running for this client.');
-    else {
+    else if (!quiet) {
       const s = outcome.json.sync as VaultSyncStatus;
       toast(s.added ? `Synced: ${newFilesLabel(s.added)}` : 'Synced. Nothing new.');
     }
@@ -1301,7 +1350,7 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
         row.append(el('span', 'vt-fact-l', label), el('span', 'vt-fact-v', value));
         facts.appendChild(row);
       };
-      fact('Show', f.show ?? (f.needsShow && f.guess ? `${f.guess} (a guess)` : null));
+      fact('Moment', f.show ? `${f.show}${f.mid ? ' · on the calendar' : ''}` : (f.needsShow && f.guess ? `${f.guess} (a guess)` : null));
       fact('Date', vaultDateLabel(f.date));
       fact('Type', [f.kind, f.type, f.o].filter(Boolean).join(' · '));
       if (f.type === 'Video') fact('Length', durationLabel(f.dur));
@@ -1399,16 +1448,16 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
         pickOne('Type', f.type, VAULT_TYPES, '', 'type');
 
         const showBox = el('div', 'vt-field');
-        showBox.appendChild(el('span', 'pt-field-label', f.needsShow ? 'Show (needs confirming)' : 'Show'));
+        showBox.appendChild(el('span', 'pt-field-label', f.needsShow ? 'Moment (needs confirming)' : 'Moment'));
         const row = el('div', 'vt-row');
         const input = el('input', 'pt-input');
         input.type = 'text';
         input.value = f.show ?? f.guess ?? '';
-        input.placeholder = 'Show or release';
-        input.setAttribute('aria-label', 'Show or release');
+        input.placeholder = 'Moment';
+        input.setAttribute('aria-label', 'Moment');
         row.append(input, button('pt-btn pt-btn-sm', f.needsShow ? 'Confirm' : 'Save', () => {
           const name = input.value.trim();
-          void save([f.id], { show: name || null }, name ? `Show set to ${name}` : 'Marked as having no show').then(() => drawSide(byId.get(f.id) ?? f));
+          void save([f.id], { show: name || null }, name ? `Moment set to ${name}` : 'Marked as having no moment').then(() => drawSide(byId.get(f.id) ?? f));
         }));
         showBox.appendChild(row);
         ours.appendChild(showBox);
@@ -1467,7 +1516,9 @@ export function mountVault(root: HTMLElement, o: VaultOptions): VaultMount {
 
   return {
     route(detail: string): void {
-      const m = /^show\/(.+)$/.exec(detail);
+      // "show/" is what the address was first called; a notification
+      // sent before the change still opens.
+      const m = /^(?:moment|show)\/(.+)$/.exec(detail);
       if (!m) return;
       let show = m[1];
       try { show = decodeURIComponent(m[1]); } catch { /* as typed */ }
@@ -1492,38 +1543,110 @@ interface OverviewClient {
   slug: string;
   name: string;
   hasFolders: boolean;
-  tally: { files: number; keepers: number; unsorted: number; needsShow: number; missing: number };
+  tally: { files: number; keepers: number; unsorted: number; needsShow: number; missing: number; linked?: number };
   sync: VaultSyncStatus;
 }
+
+/** How often the list is read again: while a sync is going, after a
+ *  read that failed, and when nothing is happening. */
+const WATCH_MS = 3000;
+const RETRY_MS = 4000;
+const IDLE_MS = 45000;
 
 /**
  * HQ's list: each client's Vault in one card, with what is waiting
  * in it and where its sync is. `open` shows one client's Vault.
+ *
+ * The list is read again every few seconds while any sync is going,
+ * so a card's progress line moves and "Syncing" clears by itself when
+ * the sync finishes or fails. A read that does not come back never
+ * takes the page away: the cards stay as they last were, a line says
+ * the numbers are from a moment ago, and it is asked again.
  */
 export function mountVaultOverview(root: HTMLElement, o: { toast: Toast; open: (slug: string) => void }): { destroy(): void } {
   let alive = true;
+  let clients: OverviewClient[] | null = null;
+  let note: { text: string; warn: boolean } | null = null;
+  let goodAt = 0;
+  let misses = 0;
+  let timer = 0;
+  /** Clients whose sync this page is taking the steps of. */
+  const driving = new Set<string>();
+
   clear(root);
   root.classList.add('vt');
   const head = el('div', 'vt-head');
   const title = el('div', 'vt-title');
   title.append(el('h1', undefined, 'Content Vault'), el('p', 'vt-sub', 'Every photo and clip each client owns.'));
   head.appendChild(title);
+  const said = el('div', 'vt-notices');
   const body = el('div', 'vt-clients');
-  root.append(head, body);
+  root.append(head, said, body);
   body.appendChild(el('p', 'vt-note', 'Reading every Vault…'));
 
-  async function load(): Promise<void> {
+  const going = (c: OverviewClient): boolean => driving.has(c.slug) || c.sync.running;
+
+  async function refresh(): Promise<void> {
+    window.clearTimeout(timer);
     const got = await ask('/portal/hq/vault');
     if (!alive) return;
-    clear(body);
-    if (got.status !== 200 || !got.json?.ok) { body.appendChild(el('p', 'vt-note vt-note-bad', 'The Vaults could not be read. Reload to try again.')); return; }
-    if (!got.json.configured) {
-      body.appendChild(el('p', 'vt-note vt-note-warn', got.json.note ?? 'The Vault is not set up on this site yet.'));
-      return;
+    if (got.status === 200 && got.json?.ok) {
+      misses = 0;
+      goodAt = Date.now();
+      if (!got.json.configured) {
+        clients = [];
+        note = { text: got.json.note ?? 'The Vault is not set up on this site yet.', warn: true };
+      } else {
+        clients = (got.json.clients ?? []) as OverviewClient[];
+        note = got.json.listFrom
+          ? { text: 'Notion did not answer just now, so the list of clients is the last one it gave. The counts and progress are current.', warn: false }
+          : null;
+        // A sync that was cut off with nobody taking its steps: HQ
+        // is open, so it is carried on from here.
+        if (clients.some((c) => c.sync.stalled && !driving.has(c.slug))) void driveVaults();
+      }
+    } else {
+      // Not a reason to take the page away. What is on it stays, and
+      // it is asked again.
+      misses += 1;
+      note = clients
+        ? { text: `Could not refresh just now. These numbers are from ${clockLabel(goodAt)}. Trying again.`, warn: false }
+        : { text: misses > 2 ? 'The Vaults are not answering yet. Still trying.' : 'Reading every Vault…', warn: false };
     }
-    const clients = (got.json.clients ?? []) as OverviewClient[];
-    if (!clients.length) { body.appendChild(el('p', 'vt-note', 'No client has a portal turned on.')); return; }
+    draw();
+    const busy = !!clients?.some(going) || vaultDriver.busy;
+    timer = window.setTimeout(() => { void refresh(); }, misses ? RETRY_MS : busy ? WATCH_MS : IDLE_MS);
+  }
+
+  function draw(): void {
+    clear(said);
+    if (note) {
+      const p = el('p', `vt-note${note.warn ? ' vt-note-warn' : ''}`, note.text);
+      p.dataset.listNote = '1';
+      said.appendChild(p);
+    }
+    if (!clients) return;
+    clear(body);
+    if (!clients.length && !note) body.appendChild(el('p', 'vt-note', 'No client has a portal turned on.'));
     for (const c of clients) body.appendChild(card(c));
+  }
+
+  /** Take one client's sync through from this page. */
+  async function run(c: OverviewClient): Promise<void> {
+    if (driving.has(c.slug)) return;
+    driving.add(c.slug);
+    c.sync = { ...c.sync, running: true, phase: c.sync.running ? c.sync.phase : 'listing', error: null };
+    draw();
+    const out = await driveSync(c.slug, () => alive, (s) => {
+      const mine = clients?.find((x) => x.slug === c.slug);
+      if (mine) { mine.sync = s; draw(); }
+    });
+    driving.delete(c.slug);
+    if (!alive) return;
+    if (!out) o.toast(`${c.name}: the sync stopped answering. It carries on from where it is.`, true);
+    else if (!out.json.ok) o.toast(`${c.name}: ${out.json.message ?? 'the sync did not finish.'}`, true);
+    else o.toast(out.json.sync?.added ? `${c.name}: ${newFilesLabel(out.json.sync.added)}` : `${c.name}: synced, nothing new.`);
+    void refresh();
   }
 
   function card(c: OverviewClient): HTMLElement {
@@ -1532,11 +1655,16 @@ export function mountVaultOverview(root: HTMLElement, o: { toast: Toast; open: (
     const top = el('div', 'vt-client-top');
     top.appendChild(el('h2', undefined, c.name));
     const bad = c.sync.sources.filter((s) => s.state === 'not_shared').length;
+    const busy = going(c);
+    const failed = !busy && c.sync.phase === 'failed';
     const line = !c.hasFolders ? 'No Drive Folder or Archive folder on their Clients row yet.'
-      : c.sync.running ? 'Syncing now.'
-      : c.sync.phase === 'failed' ? `The last sync did not finish. ${c.sync.error ?? ''}`.trim()
+      : busy ? syncLine(c.sync)
+      : failed ? failedLine(c.sync)
       : c.sync.okAt ? `Synced ${ago(c.sync.okAt)}.` : 'Not synced yet.';
-    top.appendChild(el('p', `vt-client-line${c.sync.phase === 'failed' ? ' vt-client-bad' : ''}`, line));
+    const p = el('p', `vt-client-line${failed ? ' vt-client-bad' : busy ? ' vt-client-busy' : ''}`, line);
+    p.dataset.state = busy ? 'syncing' : failed ? 'failed' : 'idle';
+    top.appendChild(p);
+    if (failed && c.sync.error) top.appendChild(el('p', 'vt-client-why', c.sync.error));
     box.appendChild(top);
     const stats = el('div', 'vt-client-stats');
     const stat = (n: number, label: string, flag = false): void => {
@@ -1547,51 +1675,118 @@ export function mountVaultOverview(root: HTMLElement, o: { toast: Toast; open: (
     stat(c.tally.files, 'files');
     stat(c.tally.keepers, 'keepers');
     stat(c.tally.unsorted, 'unsorted', true);
-    stat(c.tally.needsShow, 'need a show', true);
+    stat(c.tally.needsShow, 'need a moment', true);
     if (c.tally.missing) stat(c.tally.missing, 'missing', true);
     box.appendChild(stats);
     if (bad) box.appendChild(el('p', 'vt-note vt-note-warn', `${plural(bad, 'folder')} not shared with the Vault yet. Open the Vault for the address to share with.`));
     const acts = el('div', 'vt-client-acts');
     acts.appendChild(button('pt-btn pt-btn-sm pt-btn-primary', 'Open', () => o.open(c.slug)));
     if (c.hasFolders) {
-      const b = button('pt-btn pt-btn-sm', 'Sync now', () => {
-        b.disabled = true;
-        b.textContent = 'Syncing…';
-        void (async () => {
-          let out: Reply | null = null;
-          let body2: Record<string, unknown> = {};
-          for (let round = 0; round < 12 && alive; round += 1) {
-            out = await ask(`/portal/${encodeURIComponent(c.slug)}/vault/sync`, body2);
-            if (!out.json?.ok || !out.json.more) break;
-            body2 = { more: true };
-          }
-          if (!alive) return;
-          if (!out?.json?.ok) o.toast(out?.json?.message ?? 'The sync did not finish.', true);
-          else if (out.json.busy) o.toast('A sync is already running for this client.');
-          else o.toast(out.json.sync?.added ? `${c.name}: ${newFilesLabel(out.json.sync.added)}` : `${c.name}: nothing new.`);
-          void load();
-        })();
-      });
+      const b = button('pt-btn pt-btn-sm', busy ? 'Syncing…' : failed ? 'Retry' : 'Sync now', () => { void run(c); });
+      b.disabled = busy;
+      b.dataset.syncNow = c.slug;
       acts.appendChild(b);
     }
     box.appendChild(acts);
     return box;
   }
 
-  void load();
-  return { destroy(): void { alive = false; root.classList.remove('vt'); clear(root); } };
+  void refresh();
+  return { destroy(): void { alive = false; window.clearTimeout(timer); root.classList.remove('vt'); clear(root); } };
 }
 
+/** The one loop that takes steps for whichever Vault is due, while
+ *  HQ is open. One at a time for the whole page, however many things
+ *  ask for it. */
+const vaultDriver = { busy: false };
+
 /**
- * "HQ was opened": bring every Vault that is due up to date, one
- * client a call, quietly. Nothing is shown; a failure is in the
- * server's log and on that client's card.
+ * "HQ is open": bring every Vault that is due up to date, and carry
+ * on any sync that was left part way, a step at a time, quietly.
+ * Nothing is shown by this; the cards show it. A failure is on that
+ * client's card and in the server's log.
  */
-export async function syncVaultsOnOpen(): Promise<void> {
-  for (let round = 0; round < 40; round += 1) {
-    const got = await ask('/portal/hq/vault', { auto: true });
-    if (got.status !== 200 || !got.json?.ok || !got.json.more) return;
+export async function driveVaults(): Promise<void> {
+  if (vaultDriver.busy) return;
+  vaultDriver.busy = true;
+  try {
+    let quiet = 0;
+    for (let step = 0; step < 6000; step += 1) {
+      const got = await ask('/portal/hq/vault', { auto: true });
+      if (!got.json) {
+        quiet += 1;
+        if (quiet > 5) return;
+        await sleep(4000);
+        continue;
+      }
+      quiet = 0;
+      if (!got.json.ok || !got.json.more) return;
+      await sleep(200);
+    }
+  } finally {
+    vaultDriver.busy = false;
   }
+}
+
+/** What HQ calls when it opens. */
+export const syncVaultsOnOpen = driveVaults;
+
+/* ── one Moment's files, for its drawer in HQ ─────────────────── */
+
+/**
+ * The Vault files linked to one Moment: its gaps strip, a strip of
+ * thumbnails, and a way into the Vault at that moment. Drawn into a
+ * Moment's drawer in HQ. Says so plainly when there are none.
+ */
+export function momentVaultBlock(o: { slug: string; momentId: string; title: string; open: () => void }): HTMLElement {
+  const box = el('div', 'vt-moment');
+  box.dataset.momentVault = o.momentId.replace(/-/g, '').toLowerCase();
+  box.appendChild(el('h3', 'vt-moment-h', 'In the Vault'));
+  const body = el('div', 'vt-moment-body');
+  body.appendChild(el('p', 'vt-moment-note', 'Reading the Vault…'));
+  box.appendChild(body);
+  void ask(`/portal/${encodeURIComponent(o.slug)}/vault/moment/${o.momentId.replace(/-/g, '').toLowerCase()}`).then((got) => {
+    clear(body);
+    if (got.status !== 200 || !got.json?.ok) {
+      body.appendChild(el('p', 'vt-moment-note', got.status === 503 ? 'The Vault is not set up on this site yet.' : 'The Vault could not be read just now.'));
+      return;
+    }
+    const files = sortFiles((got.json.files ?? []) as VaultFile[]);
+    if (!files.length) {
+      body.appendChild(el('p', 'vt-moment-note', 'No files are linked to this moment yet. A file is linked when its folder is named for the moment, or dated within a few days of it.'));
+      return;
+    }
+    const g = showGaps(files)[0];
+    const strip = el('div', 'vt-gaps');
+    const gap = (n: number, label: string): void => {
+      const b = el('div', `vt-gap${n ? '' : ' vt-gap-empty'}`);
+      b.append(el('span', 'vt-gap-n', String(n)), el('span', 'vt-gap-label', label));
+      strip.appendChild(b);
+    };
+    gap(g?.photos ?? 0, 'Photos');
+    gap(g?.vertical ?? 0, 'Vertical video');
+    gap(g?.horizontal ?? 0, 'Horizontal video');
+    body.appendChild(strip);
+    const unsorted = files.filter((f) => !isKeeper(f)).length;
+    body.appendChild(el('p', 'vt-moment-note', `${plural(files.length, 'file')}${unsorted ? `, ${unsorted.toLocaleString('en-US')} still unsorted` : ''}.`));
+    const grid = el('div', 'vt-moment-thumbs');
+    for (const f of files.slice(0, 8)) {
+      const t = el('span', 'vt-moment-thumb');
+      const img = el('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      img.addEventListener('error', () => img.remove(), { once: true });
+      img.src = f.t ? previewUrl(o.slug, f.id, f.t, 'thumb') : thumbUrl(o.slug, f.id);
+      t.appendChild(img);
+      grid.appendChild(t);
+    }
+    body.appendChild(grid);
+    const a = el('a', 'pt-btn pt-btn-sm', 'Open in the Vault');
+    a.href = `#/vault/${o.slug}/moment/${encodeURIComponent(o.title)}`;
+    a.addEventListener('click', o.open);
+    body.appendChild(a);
+  });
+  return box;
 }
 
 /** Is a file one that would be shown as a keeper? For the shells. */

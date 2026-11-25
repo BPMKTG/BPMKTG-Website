@@ -187,7 +187,7 @@ export function createCalendar(H: CalendarHost) {
     H.layerLabel?.(l) ?? LAYER_LABEL.get(l) ?? l;
 
   const LAYER_LABEL = new Map<Layer, string>([
-    ['moments',   'Shows & releases'],
+    ['moments',   'Moments'],
     ['postsOurs',   'Blueprint posts'],
     ['postsTheirs', 'You post'],
     ['postsPlan',   'On the plan'],
@@ -483,7 +483,7 @@ export function createCalendar(H: CalendarHost) {
           : 'Nothing on the calendar yet'),
         el('p', undefined, calFiltering()
           ? 'Turn a layer back on, or clear a filter, to see the rest of your calendar.'
-          : (H.words?.()?.calendarEmpty ?? 'Shows, releases and content steps appear here as we plan them.')),
+          : (H.words?.()?.calendarEmpty ?? 'Moments and content steps appear here as we plan them.')),
       );
       root.appendChild(e);
       return;
@@ -769,7 +769,7 @@ export function createCalendar(H: CalendarHost) {
     panel.appendChild(el('p', undefined,
       'A post that has already gone out steps back and wears a tick.'));
     panel.appendChild(el('p', undefined, words?.dragMoment
-      ?? ('Drag anything you own to another day. Drag a show or a release and '
+      ?? ('Drag anything you own to another day. Drag a moment and '
       + 'its whole campaign follows, once you have said yes.')));
     d.appendChild(panel);
     return d;

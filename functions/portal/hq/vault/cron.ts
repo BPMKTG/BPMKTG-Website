@@ -3,8 +3,8 @@
 
    A Pages site has no clock of its own, so a small scheduled Worker
    (workers/vault-sync) calls this once a day, and keeps calling
-   until the answer says there is no more to do. Each call syncs one
-   client.
+   until the answer says there is no more to do. Each call takes
+   steps of one client's sync for most of a minute.
 
    There is no cookie here, because there is no person. The Worker
    sends a secret both sides were given by hand (VAULT_CRON_SECRET),
@@ -23,6 +23,8 @@ type Env = VaultEnv & { VAULT_CRON_SECRET?: string };
  *  than this old, which on a daily clock is all of them, while a
  *  second call a moment later does not do the same client twice. */
 const CRON_FRESH_MS = 60 * 60 * 1000;
+/** How long one call from the Worker works before it answers. */
+const CRON_CALL_MS = 40 * 1000;
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const secret = (env.VAULT_CRON_SECRET ?? '').trim();
@@ -31,7 +33,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const sent = /^Bearer\s+(.+)$/i.exec(request.headers.get('Authorization') ?? '')?.[1]?.trim() ?? '';
   if (!sent || !(await timingSafeEqual(sent, secret))) return portalNotFound();
 
-  const out = await syncNext(env, { freshMs: CRON_FRESH_MS });
+  // Nobody is watching this one, so it keeps taking steps for the
+  // client it picked for most of a minute before it answers.
+  const out = await syncNext(env, { freshMs: CRON_FRESH_MS, budgetMs: CRON_CALL_MS });
   if (out.synced) console.log('vault: daily sync', out.synced, out.ok ? 'ok' : `failed: ${out.note ?? ''}`);
   return new Response(JSON.stringify({ ok: true, synced: out.synced, synced_ok: out.ok, more: out.more }), {
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },

@@ -36,7 +36,7 @@ export const PUSH_KIND_LABEL: Record<PushKind, string> = {
   review: 'New content needs your review',
   progress: 'Your content moves forward (editing, scheduled, posted, delivered)',
   report: 'Your monthly report is ready',
-  media: 'Photos and video from a show are ready',
+  media: 'Photos and video from a moment are ready',
   approved: 'A client approved something',
   changes: 'A client requested changes',
   footage: 'A client filmed something or sent footage',
@@ -206,18 +206,19 @@ export function reportMessage(slug: string, label: string | null): PushMessage {
 /* ── the Content Vault ────────────────────────────────────────── */
 
 /**
- * "Your Revival After Dark media is ready", to the client.
+ * "Your Revival After Dark media is ready", to the client: the
+ * moment's own name, whatever kind of moment it is.
  *
- * Sent when one of us taps "Announce delivery" on a show and at no
+ * Sent when one of us taps "Announce delivery" on a moment and at no
  * other time: a sync finding files says nothing to a client, because
  * files landing is us still working, not a delivery.
  */
-export function mediaReadyMessage(slug: string, show: string): PushMessage {
-  const name = short(show, 60);
+export function mediaReadyMessage(slug: string, moment: string): PushMessage {
+  const name = short(moment, 60);
   return {
     title: `Your ${name} media is ready`,
     body: 'Open Blueprint to see it in your Vault.',
-    url: `/portal/${slug}#/vault/show/${encodeURIComponent(show)}`,
+    url: `/portal/${slug}#/vault/moment/${encodeURIComponent(moment)}`,
     tag: 'media',
   };
 }

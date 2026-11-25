@@ -16,13 +16,16 @@ class Statement {
   async run() { return this.runNow(); }
   runNow() {
     this.db.statements += 1;
+    this.db.ran.push(this.sql);
     const out = this.db.raw.prepare(this.sql).run(...this.values);
     return { results: [], meta: { changes: Number(out.changes) } };
   }
 }
 
 export class FakeD1 {
-  constructor(path = ':memory:') { this.raw = new DatabaseSync(path); this.statements = 0; }
+  constructor(path = ':memory:') { this.raw = new DatabaseSync(path); this.statements = 0; this.ran = []; }
+  /** How SQLite would go about a statement that was run. */
+  plan(sql, ...values) { return this.raw.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...values).map((r) => r.detail).join(' | '); }
   prepare(sql) { return new Statement(this, sql); }
   async batch(list) {
     // D1 runs a batch as one transaction: all of it or none, with

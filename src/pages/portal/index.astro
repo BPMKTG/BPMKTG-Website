@@ -1294,7 +1294,7 @@ const NAV = [
       const b = el('button', 'pt-btn pt-btn-primary');
       b.type = 'button';
       b.dataset.addEvent = '1';
-      b.append(icon('plus'), el('span', undefined, 'Add an event'));
+      b.append(icon('plus'), el('span', undefined, 'Add a moment'));
       b.addEventListener('click', () => planEvent({ newMoment: true }));
       return b;
     },
@@ -1445,8 +1445,8 @@ const NAV = [
         VIEWER.role === 'admin'
           ? 'Added from the client\u2019s portal and not confirmed yet. Confirm or skip it in HQ, on Today.'
           : it.owner === 'Client'
-            ? 'This one needs us to shoot it. You added it by planning this event, and we confirm the shoot before it goes on our plan.'
-            : 'This one is waiting on us. You added it by planning this event, and we confirm it before it goes on our plan.'));
+            ? 'This one needs us to shoot it. You added it by planning this moment, and we confirm the shoot before it goes on our plan.'
+            : 'This one is waiting on us. You added it by planning this moment, and we confirm it before it goes on our plan.'));
     }
 
     // A moment can be planned with one of this client's playbooks.

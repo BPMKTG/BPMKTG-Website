@@ -395,11 +395,11 @@ export async function notifyVaultFiles(env: PushEnv, o: { client: string; slug: 
   }
 }
 
-/** "Your [show] media is ready", to the client. Only ever called by
+/** "Your [moment] media is ready", to the client. Only ever called by
  *  the route behind "Announce delivery". */
-export async function notifyMediaReady(env: PushEnv, slug: string, show: string): Promise<number> {
+export async function notifyMediaReady(env: PushEnv, slug: string, moment: string): Promise<number> {
   try {
-    return await deliver(env, clientKey(slug), 'media', mediaReadyMessage(slug, show), 'media');
+    return await deliver(env, clientKey(slug), 'media', mediaReadyMessage(slug, moment), 'media');
   } catch (err) {
     console.error('push: media notification failed', slug, err);
     return 0;

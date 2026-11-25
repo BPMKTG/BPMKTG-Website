@@ -2,9 +2,10 @@
    /portal/<slug>/vault/sync   bring one client's Vault up to date.
 
      GET    where the sync is, for a page that is watching one run
-     POST   "Sync now". Runs the sync and answers when it is done.
-            { more: true } carries on with thumbnails after a sync
-            that ran out of room for them
+     POST   "Sync now". Takes one step of the sync (a few seconds)
+            and answers with where it has got to. `more` says to ask
+            again; a sync left part way is carried on by whoever asks
+            next
 
    Ours only: a client asking gets the portal's 404. Drive is read
    and nothing in it is changed (see src/server/vault-drive.ts).
@@ -33,11 +34,9 @@ export const onRequestPost: PagesFunction<VaultRouteEnv> = async ({ request, env
   const record = await vaultRecord(env, ctx);
   if (!record) return portalNotFound();
 
-  const before = syncStatus(await syncRow(ctx.db, ctx.client), { now: Date.now(), admin: true });
-  // Only thumbnails are left from a sync that finished a moment ago:
-  // the folders are not listed a second time for them.
-  const thumbsOnly = ctx.body.more === true && before.thumbsLeft > 0 && !!before.okAt && Date.now() - before.okAt < 15 * 60 * 1000;
-  const out = await syncClient(env, record, { thumbsOnly });
+  // One step. The page asks again while the answer says there is
+  // more, so no request is long and a reload loses almost nothing.
+  const out = await syncClient(env, record);
   if (!out.ok) {
     return out.why === 'not_configured'
       ? vaultRefuse('not_configured', out.note, 503)

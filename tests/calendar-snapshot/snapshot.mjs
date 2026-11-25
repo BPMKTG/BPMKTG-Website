@@ -197,7 +197,7 @@ for (const [engine, ename] of [[chromium, 'chromium'], [webkit, 'webkit']]) {
   // once. An "allOff" state that quietly left one on reported an
   // empty calendar as full for a whole release.
   await visit('layer.allOff', async () => {
-    await page.locator('.pt-layer', { hasText: 'Shows & releases' }).first().click();
+    await page.locator('.pt-layer', { hasText: 'Moments' }).first().click();
     const left = await page.locator('.pt-layer.pt-layer-on').count();
     if (left) throw new Error(`layer.allOff left ${left} layer(s) on`);
   });

@@ -1,7 +1,7 @@
 /* ──────────────────────────────────────────────────────────────
    POST /portal/<slug>/vault/announce   "Announce delivery".
 
-     { show: "Revival After Dark" }
+     { show: "Revival After Dark" }     the moment's name
 
    Tells the client "Your Revival After Dark media is ready", on the
    devices where they have turned notifications on. Ours only, and
@@ -9,7 +9,7 @@
    Vault says anything to a client. A sync that finds two hundred
    files tells us, not them.
 
-   A show with no files in the Vault is not announced. If none of the
+   A moment with no files in the Vault is not announced. If none of the
    client's devices could be told, the answer says so and nothing is
    recorded as announced.
    ────────────────────────────────────────────────────────────── */
@@ -34,7 +34,7 @@ export const onRequestPost: PagesFunction<VaultRouteEnv> = async ({ request, env
   if (!record) return portalNotFound();
   if (!record.portalEnabled) return vaultRefuse('portal_off', 'This client\'s portal is off, so there is nobody to tell.');
   const files = await showFileCount(ctx.db, ctx.client, show);
-  if (!files) return vaultRefuse('empty', 'That show has no files in the Vault.');
+  if (!files) return vaultRefuse('empty', 'That moment has no files in the Vault.');
 
   const sent = await notifyMediaReady(env, ctx.slug, show);
   if (!sent) {

@@ -69,7 +69,7 @@ export function createDeliveries(host: DeliveriesHost): (view: ContentViewApi) =
         o.value = m.id;
         moment.appendChild(o);
       }
-      form.appendChild(sheetField('Which competition or event', moment));
+      form.appendChild(sheetField('Which moment', moment));
 
       const title = el('input', 'pt-input') as HTMLInputElement;
       title.required = true;

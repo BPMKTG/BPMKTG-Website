@@ -84,7 +84,7 @@ export function openApplyFlow(host: ApplyHost, preset: ApplyPreset = {}) {
   const clients = host.clients();
   if (!clients.length) { host.toast('There is no client to plan for yet.', true); return; }
 
-  openSheet(admin ? 'Apply a playbook to a moment' : 'Add an event', (form, close) => {
+  openSheet(admin ? 'Apply a playbook to a moment' : 'Add a moment', (form, close) => {
     const sheet = form.closest('[data-sheet]') as HTMLElement | null;
     if (sheet) sheet.dataset.wide = '1';
     form.dataset.applyFlow = '1';
@@ -118,7 +118,7 @@ export function openApplyFlow(host: ApplyHost, preset: ApplyPreset = {}) {
     /* ── which moment ── */
     const pick = el('select', 'pt-select pt-select-wide') as HTMLSelectElement;
     pick.dataset.applyMoment = '1';
-    form.appendChild(sheetField(admin ? 'Moment' : 'Which event', pick));
+    form.appendChild(sheetField(admin ? 'Moment' : 'Which moment', pick));
 
     const fresh = el('div', 'pt-apply-new');
     fresh.dataset.applyNew = '1';
@@ -135,7 +135,7 @@ export function openApplyFlow(host: ApplyHost, preset: ApplyPreset = {}) {
     notes.rows = 2;
     notes.maxLength = 1000;
     const row1 = el('div', 'pt-apply-row');
-    row1.append(sheetField('Event name', event), sheetField('Venue / city', city));
+    row1.append(sheetField('Moment name', event), sheetField('Venue / city', city));
     const row2 = el('div', 'pt-apply-row');
     row2.append(sheetField('Type', kind), sheetField('Date', start), sheetField('Last day, if more than one', end));
     const add = el('button', 'pt-btn pt-btn-primary', 'Create the moment') as HTMLButtonElement;

@@ -445,6 +445,25 @@ html.vt-locked, html.vt-locked body { overflow: hidden; }
 .vt-stat-flag .vt-stat-n, .vt-stat-flag .vt-stat-l { color: var(--pt-orange-ink); }
 .vt-client-acts { display: flex; gap: 6px; margin-top: auto; }
 
+.vt-client-busy { color: var(--pt-navy); font-weight: 600; }
+.vt-client-why { margin-top: 2px; font-size: .74rem; color: var(--pt-muted); line-height: 1.45; }
+.vt-note-bad strong { font-weight: 700; }
+.vt-note-bad .pt-btn { color: var(--pt-ink-2); }
+
+/* ── a Moment's files, in its drawer in HQ ─────────────────── */
+
+.vt-moment { margin-top: var(--pt-5); padding-top: var(--pt-4); border-top: 1px solid var(--pt-line-soft); }
+.vt-moment-h {
+  margin-bottom: var(--pt-3);
+  font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--pt-muted);
+}
+.vt-moment-body { display: flex; flex-direction: column; align-items: flex-start; gap: var(--pt-3); }
+.vt-moment-body .vt-gaps { width: 100%; }
+.vt-moment-note { font-size: .8rem; line-height: 1.5; color: var(--pt-muted); }
+.vt-moment-thumbs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; width: 100%; }
+.vt-moment-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--pt-tint-slate); }
+.vt-moment-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+
 /* The tab bar holds seven. With the Vault it is eight, so in HQ it
    scrolls sideways under a thumb rather than squeezing every label. */
 @media (max-width: 900px) {

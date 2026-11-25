@@ -142,14 +142,14 @@ export const ARTIST: ClientTypeConfig = {
     'Client film session',
   ],
   labels: {
-    momentsLayer: 'Shows & releases',
-    calendarEmpty: 'Shows, releases and content steps appear here as we plan them.',
+    momentsLayer: 'Moments',
+    calendarEmpty: 'Moments and content steps appear here as we plan them.',
     keyDates: 'Shows and releases',
     legendShow: 'A show',
     legendRelease: 'A release',
-    dragMoment: 'Drag anything you own to another day. Drag a show or a release and '
+    dragMoment: 'Drag anything you own to another day. Drag a moment and '
       + 'its whole campaign follows, once you have said yes.',
-    playbooksIntro: 'How we plan a release or a show, step by step: what happens, how far ahead, and whether it is yours or ours. '
+    playbooksIntro: 'How we plan a moment, step by step: what happens, how far ahead, and whether it is yours or ours. '
       + 'Anything we have agreed to do differently for you is already in here.',
     eventExample: 'Hometown show',
     cityExample: 'Austin, TX',
@@ -197,14 +197,14 @@ export const CHEER_GYM: ClientTypeConfig = {
     'Blueprint task',
   ],
   labels: {
-    momentsLayer: 'Competitions & events',
-    calendarEmpty: 'Competitions, events and content steps appear here as we plan them.',
+    momentsLayer: 'Moments',
+    calendarEmpty: 'Moments and content steps appear here as we plan them.',
     keyDates: 'Competitions',
     legendShow: 'A competition or showcase',
     legendRelease: '',
-    dragMoment: 'Drag anything you own to another day. Drag a competition and '
+    dragMoment: 'Drag anything you own to another day. Drag a moment and '
       + 'its whole campaign follows, once you have said yes.',
-    playbooksIntro: 'How we plan a competition or an event, step by step: what happens, how far ahead, and whether it is yours or ours. '
+    playbooksIntro: 'How we plan a moment, step by step: what happens, how far ahead, and whether it is yours or ours. '
       + 'Anything we have agreed to do differently for you is already in here.',
     eventExample: 'Cheer America',
     cityExample: 'Round Rock, TX',

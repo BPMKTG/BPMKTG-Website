@@ -437,7 +437,7 @@ export function createContentView(host: ContentViewHost): ContentView {
       return isFiltering(S.f)
         ? host.empty('Nothing matches that', 'Try a different filter to see the rest of the campaigns.')
         : host.empty('No campaign content yet',
-                     'When a show or a release has posts planned around it, they line up here by campaign.');
+                     'When a moment has posts planned around it, they line up here by campaign.');
     }
     const wrap = el('div', 'pt-lanes');
     for (const l of lanes) wrap.appendChild(laneEl(l));

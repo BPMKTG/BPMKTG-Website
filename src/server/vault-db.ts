@@ -54,7 +54,7 @@ export const VAULT_DB_BINDING = 'VAULT_DB';
 
 /* ── the tables ───────────────────────────────────────────────── */
 
-export const SCHEMA_VERSION = '1';
+export const SCHEMA_VERSION = '2';
 
 export const SCHEMA: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS vault_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
@@ -105,7 +105,13 @@ export const SCHEMA: readonly string[] = [
      pv_detail TEXT,
      first_run TEXT,
      created_at INTEGER NOT NULL,
-     updated_at INTEGER NOT NULL
+     updated_at INTEGER NOT NULL,
+     seen_run TEXT,
+     thumb_link TEXT,
+     thumb_link_at INTEGER,
+     thumb_run TEXT,
+     moment_id TEXT,
+     moment_title TEXT
    )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS vault_files_drive ON vault_files (client, drive_id)`,
   `CREATE TABLE IF NOT EXISTS vault_uses (
@@ -149,8 +155,31 @@ export const SCHEMA: readonly string[] = [
      counts TEXT NOT NULL DEFAULT '{}',
      sources TEXT NOT NULL DEFAULT '[]',
      error TEXT,
-     told_run TEXT
+     told_run TEXT,
+     state TEXT,
+     holder TEXT
    )`,
+];
+
+/**
+ * Columns added since the first version, for a database that was made
+ * before them. Each is run on its own and one that is already there
+ * is passed over, so this can be run any number of times, and can be
+ * cut off part way and run again.
+ */
+export const ADDED_COLUMNS: ReadonlyArray<[table: string, column: string, type: string]> = [
+  ['vault_files', 'seen_run', 'TEXT'],
+  ['vault_files', 'thumb_link', 'TEXT'],
+  ['vault_files', 'thumb_link_at', 'INTEGER'],
+  ['vault_files', 'thumb_run', 'TEXT'],
+  ['vault_files', 'moment_id', 'TEXT'],
+  ['vault_files', 'moment_title', 'TEXT'],
+  ['vault_sync', 'state', 'TEXT'],
+  ['vault_sync', 'holder', 'TEXT'],
+];
+
+export const INDEXES: readonly string[] = [
+  `CREATE INDEX IF NOT EXISTS vault_files_moment ON vault_files (client, moment_id)`,
 ];
 
 /** Databases this isolate has already checked. A check is one small
@@ -172,8 +201,15 @@ export async function vaultDb(env: VaultDbEnv): Promise<D1Like | null> {
     version = row?.value ?? null;
   } catch { /* no such table: a new database */ }
   if (version !== SCHEMA_VERSION) {
+    await db.batch(SCHEMA.map((sql) => db.prepare(sql)));
+    for (const [table, column, type] of ADDED_COLUMNS) {
+      try { await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run(); } catch (err) {
+        // Already there: a new database has it from the start.
+        if (!/duplicate column/i.test(String((err as Error)?.message ?? err))) throw err;
+      }
+    }
     await db.batch([
-      ...SCHEMA.map((sql) => db.prepare(sql)),
+      ...INDEXES.map((sql) => db.prepare(sql)),
       db.prepare(`INSERT INTO vault_meta (key, value) VALUES ('schema', ?1) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).bind(SCHEMA_VERSION),
     ]);
   }
@@ -264,6 +300,7 @@ export interface IndexRow {
   thumb_key: string | null;
   width: number | null;
   duration_ms: number | null;
+  seen_run: string | null;
 }
 
 /** Rows are read this many at a time, so no one answer from the
@@ -289,7 +326,7 @@ async function readAll<T extends { id: string }>(db: D1Like, sql: string, client
 export async function loadIndex(db: D1Like, client: string): Promise<Map<string, IndexRow>> {
   const rows = await readAll<IndexRow>(db,
     `SELECT id, drive_id, name, path, root, root_id, size, drive_modified, show_by, show, show_guess, needs_show, date,
-            missing, thumb_key, width, duration_ms
+            missing, thumb_key, width, duration_ms, seen_run
        FROM vault_files WHERE client = ?1`, client);
   return new Map(rows.map((r) => [r.id, r]));
 }
@@ -310,13 +347,13 @@ export async function insertFiles(db: D1Like, client: string, rows: readonly Fil
          id, client, drive_id, name, mime, type, kind, root, root_id, parent_id, path,
          show, show_guess, show_by, needs_show, date, date_from, taken,
          width, height, orientation, duration_ms, size, unreleased, source, drive_modified,
-         first_run, created_at, updated_at)
+         first_run, seen_run, created_at, updated_at)
        SELECT ${J('id')}, ?1, ${J('driveId')}, ${J('name')}, ${J('mime')}, ${J('type')}, ${J('kind')}, ${J('root')},
               ${J('rootId')}, ${J('parentId')}, ${J('path')},
               ${J('show')}, ${J('guess')}, CASE WHEN ${J('show')} IS NULL THEN NULL ELSE 'folder' END, ${J('needsShow')},
               ${J('date')}, ${J('dateFrom')}, ${J('taken')},
               ${J('width')}, ${J('height')}, ${J('orientation')}, ${J('durationMs')}, ${J('size')}, ${J('unreleased')},
-              ${J('source')}, ${J('modified')}, ?3, ?4, ?4
+              ${J('source')}, ${J('modified')}, ?3, ?3, ?4, ?4
          FROM json_each(?2) AS j
         WHERE true
        ON CONFLICT DO NOTHING`,
@@ -329,6 +366,27 @@ export async function insertFiles(db: D1Like, client: string, rows: readonly Fil
 const flat = (f: FileFacts): Record<string, unknown> => ({
   ...f, needsShow: f.needsShow ? 1 : 0, unreleased: f.unreleased ? 1 : 0,
 });
+
+/**
+ * A statement that changes many rows at once, each to its own values.
+ *
+ * The rows are handed over as one JSON text (?2). They are read out
+ * of it once and set aside, and each is then looked up by its id.
+ * Written the plain way (join the files to the list), SQLite walks
+ * every file the client has and reads the whole list again for each:
+ * a few hundred thousand steps to change two hundred rows, while the
+ * database answers nobody else. This way it is two hundred lookups.
+ *
+ * The client (?1) is still part of the match, so a row is never
+ * changed for a client it does not belong to. The plus sign only
+ * tells SQLite not to go looking by client first.
+ */
+const bulk = (columns: string, set: string): string =>
+  `WITH j AS MATERIALIZED (SELECT ${columns} FROM json_each(?2))
+   UPDATE vault_files SET ${set}
+     FROM j WHERE vault_files.id = j.id AND +vault_files.client = ?1`;
+
+const jcols = (...names: string[]): string => names.map((n) => `json_extract(value, '$.${n}') AS ${n}`).join(', ');
 
 /** The facts a refresh reads out of each row it is handed. */
 const REFRESH_COLUMNS = [
@@ -349,8 +407,7 @@ const REFRESH_COLUMNS = [
  */
 export async function refreshFiles(db: D1Like, client: string, rows: readonly FileFacts[], now: number): Promise<void> {
   for (const part of chunks(rows)) {
-    await db.prepare(
-      `UPDATE vault_files SET
+    await db.prepare(bulk(REFRESH_COLUMNS, `
          name = j.name, mime = j.mime, root = j.root, root_id = j.rootId, parent_id = j.parentId, path = j.path,
          kind = j.kind, unreleased = j.unreleased, size = j.size, drive_modified = j.modified,
          width = COALESCE(j.width, vault_files.width), height = COALESCE(j.height, vault_files.height),
@@ -369,9 +426,7 @@ export async function refreshFiles(db: D1Like, client: string, rows: readonly Fi
          web_key = CASE WHEN vault_files.size IS NOT j.size THEN NULL ELSE vault_files.web_key END,
          pv_status = CASE WHEN vault_files.size IS NOT j.size THEN NULL ELSE vault_files.pv_status END,
          pv_source = CASE WHEN vault_files.size IS NOT j.size THEN NULL ELSE vault_files.pv_source END,
-         missing = 0, missing_at = NULL, updated_at = ?3
-       FROM (SELECT ${REFRESH_COLUMNS} FROM json_each(?2)) AS j
-      WHERE vault_files.client = ?1 AND vault_files.id = j.id`,
+         missing = 0, missing_at = NULL, updated_at = ?3`),
     ).bind(client, JSON.stringify(part.map(flat)), now).run();
   }
 }
@@ -391,7 +446,7 @@ export async function markMissing(db: D1Like, client: string, ids: readonly stri
 interface FileRow {
   id: string; drive_id: string; name: string; type: string; kind: string; root: string; orientation: string | null;
   width: number | null; height: number | null; duration_ms: number | null; size: number | null;
-  show: string | null; show_guess: string | null; needs_show: number; date: string | null; path: string;
+  show: string | null; show_guess: string | null; moment_id: string | null; moment_title: string | null; needs_show: number; date: string | null; path: string;
   unreleased: number; missing: number; starred: number; rating: string | null; source: string | null;
   tags: string; notes: string; hold_id: string | null; hold_title: string | null; thumb_key: string | null;
   created_at: number; uses: number;
@@ -417,7 +472,10 @@ function shapeFile(r: FileRow, admin: boolean): VaultFile {
     h: r.height ?? null,
     dur: r.duration_ms ? Math.round(r.duration_ms / 1000) : null,
     size: r.size ?? null,
-    show: r.show ?? null,
+    // A file linked to a Moment goes by the Moment's own name. One
+    // that is not goes by its folder's.
+    show: r.moment_title ?? r.show ?? null,
+    mid: r.moment_id ?? null,
     date: r.date ?? null,
     path: r.path,
     un: !!r.unreleased,
@@ -437,13 +495,16 @@ function shapeFile(r: FileRow, admin: boolean): VaultFile {
   // client is told a file is held, and not for what.
   if (admin) {
     if (r.hold_id) f.holdFor = r.hold_title ?? 'Something we could not name';
-    if (r.needs_show) { f.needsShow = true; f.guess = r.show_guess ?? null; }
+    // Waiting on a moment: its folders gave it no name, and no Moment
+    // has claimed it by its date either.
+    if (r.needs_show && !r.moment_id) { f.needsShow = true; f.guess = r.show_guess ?? null; }
   }
   return f;
 }
 
 const FILE_COLUMNS = `f.id, f.drive_id, f.name, f.type, f.kind, f.root, f.orientation, f.width, f.height, f.duration_ms,
-  f.size, f.show, f.show_guess, f.needs_show, f.date, f.path, f.unreleased, f.missing, f.starred, f.rating, f.source,
+  f.size, f.show, f.show_guess, f.needs_show, f.moment_id, f.moment_title, f.date, f.path, f.unreleased, f.missing,
+  f.starred, f.rating, f.source,
   f.tags, f.notes, f.hold_id, f.hold_title, f.thumb_key, f.created_at,
   (SELECT COUNT(*) FROM vault_uses u WHERE u.file_id = f.id AND u.client = f.client) AS uses`;
 
@@ -535,35 +596,92 @@ export async function saveDuration(db: D1Like, client: string, id: string, ms: n
  *  it does not have. Opening the file still asks. */
 export const MAX_THUMB_TRIES = 6;
 
-export async function filesNeedingThumbs(db: D1Like, client: string, limit: number): Promise<Array<{ id: string; driveId: string }>> {
-  const got = await db.prepare(
-    `SELECT id, drive_id FROM vault_files
-      WHERE client = ?1 AND thumb_key IS NULL AND missing = 0 AND thumb_tries < ?2
-      ORDER BY created_at DESC, name LIMIT ?3`,
-  ).bind(client, MAX_THUMB_TRIES, limit).all<{ id: string; drive_id: string }>();
-  return (got.results ?? []).map((r) => ({ id: r.id, driveId: r.drive_id }));
+export interface ThumbWanted {
+  id: string;
+  driveId: string;
+  /** Drive's address for its own drawing of the file, as the listing
+   *  gave it, and when. Good for a few hours. Never sent to a page. */
+  link: string | null;
+  linkAt: number | null;
 }
 
-export async function countNeedingThumbs(db: D1Like, client: string): Promise<number> {
+/**
+ * Files with no thumbnail that this run has not yet asked Drive
+ * about. A file Drive has drawn nothing for is asked about once in a
+ * sync, not until its tries run out.
+ */
+export async function filesNeedingThumbs(db: D1Like, client: string, run: string, limit: number): Promise<ThumbWanted[]> {
+  const got = await db.prepare(
+    `SELECT id, drive_id, thumb_link, thumb_link_at FROM vault_files
+      WHERE client = ?1 AND thumb_key IS NULL AND missing = 0 AND thumb_tries < ?2
+        AND (thumb_run IS NULL OR thumb_run <> ?3)
+      ORDER BY created_at DESC, name LIMIT ?4`,
+  ).bind(client, MAX_THUMB_TRIES, run, limit).all<{ id: string; drive_id: string; thumb_link: string | null; thumb_link_at: number | null }>();
+  return (got.results ?? []).map((r) => ({ id: r.id, driveId: r.drive_id, link: r.thumb_link ?? null, linkAt: r.thumb_link_at ?? null }));
+}
+
+/** How many files still have no thumbnail. With `run`, how many of
+ *  those this run has yet to ask about. */
+export async function countNeedingThumbs(db: D1Like, client: string, run?: string): Promise<number> {
   const r = await db.prepare(
-    `SELECT COUNT(*) AS n FROM vault_files WHERE client = ?1 AND thumb_key IS NULL AND missing = 0 AND thumb_tries < ?2`,
-  ).bind(client, MAX_THUMB_TRIES).first<{ n: number }>();
+    `SELECT COUNT(*) AS n FROM vault_files WHERE client = ?1 AND thumb_key IS NULL AND missing = 0 AND thumb_tries < ?2
+        AND (?3 IS NULL OR thumb_run IS NULL OR thumb_run <> ?3)`,
+  ).bind(client, MAX_THUMB_TRIES, run ?? null).first<{ n: number }>();
   return Number(r?.n) || 0;
 }
 
 /** Record a batch of thumbnails: the key of each that was made, and
  *  one more try against each that was not. */
-export async function saveThumbs(db: D1Like, client: string, rows: ReadonlyArray<{ id: string; key: string | null }>, now: number): Promise<void> {
+export async function saveThumbs(
+  db: D1Like, client: string, rows: ReadonlyArray<{ id: string; key: string | null }>, now: number, run: string | null = null,
+): Promise<void> {
   for (const part of chunks(rows)) {
-    await db.prepare(
-      `UPDATE vault_files SET
+    await db.prepare(bulk(jcols('id', 'key'), `
          thumb_key = COALESCE(j.key, vault_files.thumb_key),
          thumb_tries = CASE WHEN j.key IS NULL THEN vault_files.thumb_tries + 1 ELSE 0 END,
-         updated_at = ?3
-       FROM (SELECT json_extract(value, '$.id') AS id, json_extract(value, '$.key') AS key FROM json_each(?2)) AS j
-      WHERE vault_files.client = ?1 AND vault_files.id = j.id`,
-    ).bind(client, JSON.stringify(part), now).run();
+         thumb_run = COALESCE(?4, vault_files.thumb_run),
+         thumb_link = CASE WHEN j.key IS NULL THEN vault_files.thumb_link ELSE NULL END,
+         updated_at = ?3`),
+    ).bind(client, JSON.stringify(part), now, run).run();
   }
+}
+
+/**
+ * Say that this run saw these files in Drive, and keep the address
+ * Drive gave for each one's thumbnail while it is good.
+ */
+export async function markSeen(
+  db: D1Like, client: string, rows: ReadonlyArray<{ id: string; link: string | null }>, run: string, now: number,
+): Promise<void> {
+  for (const part of chunks(rows)) {
+    await db.prepare(bulk(jcols('id', 'link'), `seen_run = ?3,
+         thumb_link = CASE WHEN vault_files.thumb_key IS NULL THEN j.link ELSE NULL END,
+         thumb_link_at = CASE WHEN vault_files.thumb_key IS NULL AND j.link IS NOT NULL THEN ?4 ELSE NULL END`),
+    ).bind(client, JSON.stringify(part), run, now).run();
+  }
+}
+
+/**
+ * Mark as Missing every file under these roots that this run did not
+ * see. Only ever called for roots that were read to the end. Returns
+ * how many of the client's files are missing now.
+ */
+export async function markUnseenMissing(db: D1Like, client: string, rootIds: readonly string[], run: string, now: number): Promise<number> {
+  if (rootIds.length) {
+    await db.prepare(
+      `UPDATE vault_files SET missing = 1, missing_at = ?4, updated_at = ?4
+        WHERE client = ?1 AND missing = 0 AND (seen_run IS NULL OR seen_run <> ?3)
+          AND root_id IN (SELECT value FROM json_each(?2))`,
+    ).bind(client, JSON.stringify(rootIds), run, now).run();
+  }
+  const r = await db.prepare(`SELECT COUNT(*) AS n FROM vault_files WHERE client = ?1 AND missing = 1`).bind(client).first<{ n: number }>();
+  return Number(r?.n) || 0;
+}
+
+/** How many files this run saw. */
+export async function countSeen(db: D1Like, client: string, run: string): Promise<number> {
+  const r = await db.prepare(`SELECT COUNT(*) AS n FROM vault_files WHERE client = ?1 AND seen_run = ?2`).bind(client, run).first<{ n: number }>();
+  return Number(r?.n) || 0;
 }
 
 /* ── edits ────────────────────────────────────────────────────── */
@@ -595,7 +713,9 @@ export async function editFiles(
   if (edit.rating !== undefined) set('rating = ?4', edit.rating);
   if (edit.source !== undefined) set('source = ?4', edit.source);
   if (edit.type !== undefined) set('type = ?4', edit.type);
-  if (edit.show !== undefined) set(`show = ?4, needs_show = 0, show_by = 'hand'`, edit.show);
+  // A name set by hand lets go of any Moment the file was linked to.
+  // The next sync links it again, by the name it now has.
+  if (edit.show !== undefined) set(`show = ?4, needs_show = 0, show_by = 'hand', moment_id = NULL, moment_title = NULL`, edit.show);
   if (edit.confirmShow) {
     stmts.push(db.prepare(
       `UPDATE vault_files SET show = show_guess, needs_show = 0, show_by = 'hand', updated_at = ?3
@@ -628,11 +748,7 @@ export async function editFiles(
       id: r.id, tags: JSON.stringify(mergeTags(parseTags(r.tags), edit.tagsAdd ?? [], edit.tagsRemove ?? [])),
     }));
     for (const part of chunks(next)) {
-      stmts.push(db.prepare(
-        `UPDATE vault_files SET tags = j.tags, updated_at = ?3
-           FROM (SELECT json_extract(value, '$.id') AS id, json_extract(value, '$.tags') AS tags FROM json_each(?2)) AS j
-          WHERE vault_files.client = ?1 AND vault_files.id = j.id`,
-      ).bind(client, JSON.stringify(part), o.now));
+      stmts.push(db.prepare(bulk(jcols('id', 'tags'), `tags = j.tags, updated_at = ?3`)).bind(client, JSON.stringify(part), o.now));
     }
   }
 
@@ -731,7 +847,7 @@ export async function fileIdsByDrive(db: D1Like, client: string): Promise<Map<st
   return new Map((got.results ?? []).map((r) => [r.drive_id, r.id]));
 }
 
-/* ── shows ────────────────────────────────────────────────────── */
+/* ── moments announced ────────────────────────────────────────────────────── */
 
 export async function announcedShows(db: D1Like, client: string): Promise<Record<string, number>> {
   const got = await db.prepare(`SELECT show, announced_at FROM vault_shows WHERE client = ?1 AND announced_at IS NOT NULL`)
@@ -746,11 +862,56 @@ export async function markAnnounced(db: D1Like, client: string, show: string, no
   ).bind(client, show, now).run();
 }
 
-/** How many files that are there to be seen a show has. */
+/** How many files that are there to be seen a moment has, by the
+ *  name a page shows it under. */
 export async function showFileCount(db: D1Like, client: string, show: string): Promise<number> {
-  const r = await db.prepare(`SELECT COUNT(*) AS n FROM vault_files WHERE client = ?1 AND show = ?2 AND missing = 0`)
-    .bind(client, show).first<{ n: number }>();
+  const r = await db.prepare(
+    `SELECT COUNT(*) AS n FROM vault_files WHERE client = ?1 AND COALESCE(moment_title, show) = ?2 AND missing = 0`,
+  ).bind(client, show).first<{ n: number }>();
   return Number(r?.n) || 0;
+}
+
+/** The files linked to one Moment in the Campaign Calendar. */
+export async function filesOfMoment(db: D1Like, client: string, momentId: string, opts: { admin: boolean }): Promise<VaultFile[]> {
+  const got = await db.prepare(
+    `SELECT ${FILE_COLUMNS} FROM vault_files f WHERE f.client = ?1 AND f.moment_id = ?2 AND f.missing = 0 LIMIT 5000`,
+  ).bind(client, momentId).all<FileRow>();
+  return (got.results ?? []).map((r) => shapeFile(r, opts.admin));
+}
+
+/* ── linking to Moments ───────────────────────────────────────── */
+
+/** What linking reads of each file. */
+export interface LinkRow {
+  id: string;
+  show: string | null;
+  show_by: string | null;
+  needs_show: number;
+  date: string | null;
+  date_from: string | null;
+  moment_id: string | null;
+  moment_title: string | null;
+}
+
+export async function linkRows(db: D1Like, client: string): Promise<LinkRow[]> {
+  return readAll<LinkRow>(db,
+    `SELECT id, show, show_by, needs_show, date, date_from, moment_id, moment_title
+       FROM vault_files WHERE client = ?1 AND missing = 0`, client);
+}
+
+/**
+ * Record which Moment each of these files belongs to, or that it
+ * belongs to none. Nothing else about a file is changed: whether its
+ * folders gave it a name is the folders' to say, and a file is only
+ * "waiting on a moment" while it has neither a name nor a link.
+ */
+export async function saveLinks(
+  db: D1Like, client: string, rows: ReadonlyArray<{ id: string; moment: string | null; title: string | null }>, now: number,
+): Promise<void> {
+  for (const part of chunks(rows)) {
+    await db.prepare(bulk(jcols('id', 'moment', 'title'), `moment_id = j.moment, moment_title = j.title, updated_at = ?3`))
+      .bind(client, JSON.stringify(part), now).run();
+  }
 }
 
 /* ── the sync's own record ────────────────────────────────────── */
@@ -769,6 +930,11 @@ export interface SyncRow {
   sources: string;
   error: string | null;
   told_run: string | null;
+  /** Where a sync that is part way has got to, for whoever carries
+   *  it on. */
+  state: string | null;
+  /** Who is taking a step right now. Null between steps. */
+  holder: string | null;
 }
 
 export async function syncRow(db: D1Like, client: string): Promise<SyncRow | null> {
@@ -779,54 +945,80 @@ export async function allSyncRows(db: D1Like): Promise<SyncRow[]> {
   return (await db.prepare(`SELECT * FROM vault_sync`).all<SyncRow>()).results ?? [];
 }
 
+/** The phases in which a sync is part way through. */
+export const LIVE_PHASES: readonly string[] = ['listing', 'thumbnails', 'linking'];
+const LIVE = `phase IN ('listing', 'thumbnails', 'linking') AND run IS NOT NULL AND started_at > ?5`;
+
 /**
- * Take a client's sync, or find it taken.
+ * Take the next step of a client's sync, or find someone else taking
+ * it.
  *
- * One statement, so of two syncs started in the same moment the
- * database lets one in. A sync that has said nothing for `quietMs`
- * was cut off, and is anyone's to pick up: the run's name is kept
- * when it is picked up soon, so the files it logged still count as
- * this run's new ones.
+ * A sync is a run of short steps, each taken by whoever asks next: a
+ * page that is open, HQ being opened, the daily Worker. One statement
+ * decides who has the step, so of two asking in the same moment the
+ * database lets one in. A step whose taker has shown no sign of life
+ * for `quietMs` was cut off, and the step is anyone's.
+ *
+ * If the last run is part way through (and not too old to carry on)
+ * this step carries it on, under the same name, from where its state
+ * says it stopped. Otherwise it starts a new run.
  */
-export async function takeSync(
-  db: D1Like, o: { client: string; slug: string; name: string; run: string; now: number; quietMs: number; resumeMs: number },
-): Promise<{ ok: true; run: string; resumed: boolean } | { ok: false }> {
+export async function takeStep(
+  db: D1Like, o: { client: string; slug: string; name: string; run: string; holder: string; now: number; quietMs: number; resumeMs: number },
+): Promise<{ ok: true; row: SyncRow; fresh: boolean } | { ok: false }> {
   await db.prepare(`INSERT INTO vault_sync (client, slug, name) VALUES (?1, ?2, ?3) ON CONFLICT (client) DO NOTHING`)
     .bind(o.client, o.slug, o.name).run();
   const res = await db.prepare(
     `UPDATE vault_sync SET
-       run = CASE WHEN phase IS NOT NULL AND phase NOT IN ('done', 'failed') AND run IS NOT NULL AND started_at > ?5 THEN run ELSE ?2 END,
-       started_at = CASE WHEN phase IS NOT NULL AND phase NOT IN ('done', 'failed') AND run IS NOT NULL AND started_at > ?5 THEN started_at ELSE ?3 END,
-       phase = 'listing', beat_at = ?3, error = NULL, slug = ?6, name = ?7
-     WHERE client = ?1 AND (phase IS NULL OR phase IN ('done', 'failed') OR beat_at IS NULL OR beat_at < ?4)`,
-  ).bind(o.client, o.run, o.now, o.now - o.quietMs, o.now - o.resumeMs, o.slug, o.name).run();
+       run = CASE WHEN ${LIVE} THEN run ELSE ?2 END,
+       started_at = CASE WHEN ${LIVE} THEN started_at ELSE ?3 END,
+       state = CASE WHEN ${LIVE} THEN state ELSE NULL END,
+       counts = CASE WHEN ${LIVE} THEN counts ELSE '{}' END,
+       phase = CASE WHEN ${LIVE} THEN phase ELSE 'listing' END,
+       holder = ?8, beat_at = ?3, error = NULL, slug = ?6, name = ?7
+     WHERE client = ?1 AND (holder IS NULL OR beat_at IS NULL OR beat_at < ?4)`,
+  ).bind(o.client, o.run, o.now, o.now - o.quietMs, o.now - o.resumeMs, o.slug, o.name, o.holder).run();
   if (!(res.meta?.changes ?? 0)) return { ok: false };
   const row = await syncRow(db, o.client);
-  return { ok: true, run: row?.run ?? o.run, resumed: !!row?.run && row.run !== o.run };
+  if (!row || row.holder !== o.holder) return { ok: false };
+  return { ok: true, row, fresh: row.run === o.run };
 }
 
-/** Say where a sync has got to. Also its sign of life. */
+/**
+ * Say where a step has got to. Also its sign of life. False when the
+ * step is no longer this taker's, which is its cue to stop.
+ */
 export async function beatSync(
-  db: D1Like, client: string, run: string, o: { phase: string; counts?: unknown; sources?: unknown; now: number },
+  db: D1Like, client: string, run: string, holder: string,
+  o: { phase?: string; counts?: unknown; sources?: unknown; state?: unknown; now: number },
 ): Promise<boolean> {
   const res = await db.prepare(
-    `UPDATE vault_sync SET phase = ?3, beat_at = ?4,
-       counts = COALESCE(?5, counts), sources = COALESCE(?6, sources)
-     WHERE client = ?1 AND run = ?2`,
-  ).bind(client, run, o.phase, o.now, o.counts === undefined ? null : JSON.stringify(o.counts),
-    o.sources === undefined ? null : JSON.stringify(o.sources)).run();
+    `UPDATE vault_sync SET beat_at = ?4, phase = COALESCE(?5, phase),
+       counts = COALESCE(?6, counts), sources = COALESCE(?7, sources), state = COALESCE(?8, state)
+     WHERE client = ?1 AND run = ?2 AND holder = ?3`,
+  ).bind(client, run, holder, o.now, o.phase ?? null,
+    o.counts === undefined ? null : JSON.stringify(o.counts),
+    o.sources === undefined ? null : JSON.stringify(o.sources),
+    o.state === undefined ? null : JSON.stringify(o.state)).run();
   return (res.meta?.changes ?? 0) > 0;
 }
 
+/** Let a step go, so the next can be taken at once. */
+export async function releaseStep(db: D1Like, client: string, run: string, holder: string, now: number): Promise<void> {
+  await db.prepare(`UPDATE vault_sync SET holder = NULL, beat_at = ?4 WHERE client = ?1 AND run = ?2 AND holder = ?3`)
+    .bind(client, run, holder, now).run();
+}
+
 export async function endSync(
-  db: D1Like, client: string, run: string, o: { ok: boolean; error?: string | null; counts: unknown; sources: unknown; now: number },
+  db: D1Like, client: string, run: string, holder: string,
+  o: { ok: boolean; error?: string | null; counts: unknown; sources: unknown; now: number },
 ): Promise<void> {
   await db.prepare(
-    `UPDATE vault_sync SET phase = ?3, beat_at = ?4, finished_at = ?4,
-       ok_at = CASE WHEN ?3 = 'done' THEN ?4 ELSE ok_at END,
-       counts = ?5, sources = ?6, error = ?7
-     WHERE client = ?1 AND run = ?2`,
-  ).bind(client, run, o.ok ? 'done' : 'failed', o.now, JSON.stringify(o.counts), JSON.stringify(o.sources), o.error ?? null).run();
+    `UPDATE vault_sync SET phase = ?4, beat_at = ?5, finished_at = ?5, holder = NULL, state = NULL,
+       ok_at = CASE WHEN ?4 = 'done' THEN ?5 ELSE ok_at END,
+       counts = ?6, sources = ?7, error = ?8
+     WHERE client = ?1 AND run = ?2 AND holder = ?3`,
+  ).bind(client, run, holder, o.ok ? 'done' : 'failed', o.now, JSON.stringify(o.counts), JSON.stringify(o.sources), o.error ?? null).run();
 }
 
 /**
@@ -855,6 +1047,7 @@ export interface ClientTally {
   unsorted: number;
   needsShow: number;
   missing: number;
+  linked: number;
 }
 
 export async function tallies(db: D1Like): Promise<Map<string, ClientTally>> {
@@ -863,12 +1056,13 @@ export async function tallies(db: D1Like): Promise<Map<string, ClientTally>> {
             SUM(CASE WHEN missing = 0 THEN 1 ELSE 0 END) AS files,
             SUM(CASE WHEN missing = 0 AND (kind = 'Finished' OR starred = 1 OR rating IS NOT NULL) THEN 1 ELSE 0 END) AS keepers,
             SUM(CASE WHEN missing = 0 AND kind <> 'Finished' AND starred = 0 AND rating IS NULL THEN 1 ELSE 0 END) AS unsorted,
-            SUM(CASE WHEN missing = 0 AND needs_show = 1 THEN 1 ELSE 0 END) AS needs_show,
-            SUM(missing) AS missing
+            SUM(CASE WHEN missing = 0 AND needs_show = 1 AND moment_id IS NULL THEN 1 ELSE 0 END) AS needs_show,
+            SUM(missing) AS missing,
+            SUM(CASE WHEN missing = 0 AND moment_id IS NOT NULL THEN 1 ELSE 0 END) AS linked
        FROM vault_files GROUP BY client`,
-  ).all<{ client: string; files: number; keepers: number; unsorted: number; needs_show: number; missing: number }>();
+  ).all<{ client: string; files: number; keepers: number; unsorted: number; needs_show: number; missing: number; linked: number }>();
   return new Map((got.results ?? []).map((r) => [r.client, {
     client: r.client, files: Number(r.files) || 0, keepers: Number(r.keepers) || 0, unsorted: Number(r.unsorted) || 0,
-    needsShow: Number(r.needs_show) || 0, missing: Number(r.missing) || 0,
+    needsShow: Number(r.needs_show) || 0, missing: Number(r.missing) || 0, linked: Number(r.linked) || 0,
   }]));
 }

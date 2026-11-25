@@ -180,7 +180,44 @@ export function shapeItem(f: any): DriveItem {
 }
 
 /** How many folders are asked about in one question. */
-const PARENTS_PER_ASK = 20;
+export const PARENTS_PER_ASK = 20;
+
+export type Page =
+  | { ok: true; items: DriveItem[]; shortcuts: number; next: string | null }
+  | { ok: false; note: string };
+
+/**
+ * One page of what is directly inside these folders: folders, images
+ * and videos. `next` is where the page after it starts, or null at
+ * the end; it is good for hours, so a listing can be put down between
+ * pages and picked up again.
+ */
+export async function listPage(token: string, parents: readonly string[], pageToken: string | null, meter?: Meter): Promise<Page> {
+  // Each id is checked to be letters, digits, dashes and underscores
+  // before it is put between the quotes.
+  const within = parents.filter((p) => ID.test(p)).map((p) => `'${p}' in parents`).join(' or ');
+  if (!within) return { ok: true, items: [], shortcuts: 0, next: null };
+  const q = `(${within}) and trashed = false and (mimeType = '${FOLDER_MIME}' or mimeType = '${SHORTCUT_MIME}'`
+    + ` or mimeType contains 'image/' or mimeType contains 'video/')`;
+  const params = new URLSearchParams({
+    q, fields: `nextPageToken,files(${ITEM_FIELDS})`, pageSize: '1000',
+    supportsAllDrives: 'true', includeItemsFromAllDrives: 'true', ...(pageToken ? { pageToken } : {}),
+  });
+  let got = await ask(token, `${DRIVE_FILES}?${params}`, meter);
+  // Told to slow down, or a passing fault: once more, a little later.
+  if (isRateLimit(got.status, got.json) || got.status === 0 || got.status >= 500) {
+    await new Promise((r) => setTimeout(r, 1200));
+    got = await ask(token, `${DRIVE_FILES}?${params}`, meter);
+  }
+  if (got.status !== 200 || !got.json) return { ok: false, note: `Drive answered ${got.status || 'nothing'} while listing.` };
+  const items: DriveItem[] = [];
+  let shortcuts = 0;
+  for (const f of Array.isArray(got.json.files) ? got.json.files : []) {
+    if (f?.mimeType === SHORTCUT_MIME) { shortcuts += 1; continue; }
+    items.push(shapeItem(f));
+  }
+  return { ok: true, items, shortcuts, next: typeof got.json.nextPageToken === 'string' ? got.json.nextPageToken : null };
+}
 
 type Kids = { ok: true; items: DriveItem[]; shortcuts: number } | { ok: false; note: string };
 
@@ -189,30 +226,13 @@ type Kids = { ok: true; items: DriveItem[]; shortcuts: number } | { ok: false; n
 async function childrenOf(token: string, parents: readonly string[], meter?: Meter): Promise<Kids> {
   const items: DriveItem[] = [];
   let shortcuts = 0;
-  let pageToken = '';
-  // Each id is checked to be letters, digits, dashes and underscores
-  // before it is put between the quotes.
-  const within = parents.filter((p) => ID.test(p)).map((p) => `'${p}' in parents`).join(' or ');
-  if (!within) return { ok: true, items, shortcuts };
-  const q = `(${within}) and trashed = false and (mimeType = '${FOLDER_MIME}' or mimeType = '${SHORTCUT_MIME}'`
-    + ` or mimeType contains 'image/' or mimeType contains 'video/')`;
+  let pageToken: string | null = null;
   for (let page = 0; page < 200; page += 1) {
-    const params = new URLSearchParams({
-      q, fields: `nextPageToken,files(${ITEM_FIELDS})`, pageSize: '1000',
-      supportsAllDrives: 'true', includeItemsFromAllDrives: 'true', ...(pageToken ? { pageToken } : {}),
-    });
-    let got = await ask(token, `${DRIVE_FILES}?${params}`, meter);
-    // Told to slow down, or a passing fault: once more, a little later.
-    if (isRateLimit(got.status, got.json) || got.status === 0 || got.status >= 500) {
-      await new Promise((r) => setTimeout(r, 1200));
-      got = await ask(token, `${DRIVE_FILES}?${params}`, meter);
-    }
-    if (got.status !== 200 || !got.json) return { ok: false, note: `Drive answered ${got.status || 'nothing'} while listing.` };
-    for (const f of Array.isArray(got.json.files) ? got.json.files : []) {
-      if (f?.mimeType === SHORTCUT_MIME) { shortcuts += 1; continue; }
-      items.push(shapeItem(f));
-    }
-    pageToken = typeof got.json.nextPageToken === 'string' ? got.json.nextPageToken : '';
+    const got = await listPage(token, parents, pageToken, meter);
+    if (!got.ok) return got;
+    items.push(...got.items);
+    shortcuts += got.shortcuts;
+    pageToken = got.next;
     if (!pageToken) return { ok: true, items, shortcuts };
   }
   return { ok: false, note: 'A folder has more pages than we will read.' };

@@ -1207,17 +1207,16 @@ export function isFilmSession(row: ClashRow): boolean {
 export function dayClash(rows: ClashRow[]): string | null {
   const shows = new Set<string>();
   const films = new Set<string>();
-  // Whether one of the dates has a word of its own ("Competition"),
-  // in which case "a show or release" would be wrong about it.
-  let named = false;
+  // Whatever kind of moment it is (a show, a release, a competition),
+  // it is said as a moment.
   for (const r of rows) {
     const who = r.clientSlug ?? '';
-    if (isShowOrRelease(r)) { shows.add(who); if (momentLabel(r.momentType)) named = true; }
+    if (isShowOrRelease(r)) shows.add(who);
     else if (isFilmSession(r)) films.add(who);
   }
   const parts: string[] = [];
   if (shows.size > 1) {
-    parts.push(`${shows.size} clients have a ${named ? 'show, release or competition' : 'show or release'}`);
+    parts.push(`${shows.size} clients have a moment`);
   }
   if (films.size > 1) parts.push(`${films.size} clients are filming`);
   if (!parts.length) return null;

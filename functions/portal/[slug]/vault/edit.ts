@@ -10,7 +10,7 @@
      { ids: [...], rating: "Hero" }        or null to clear
      { ids: [...], source: "Phone" }
      { ids: [...], type: "Graphic" }
-     { ids: [...], show: "Revival After Dark" }
+     { ids: [...], show: "Revival After Dark" }   the moment's name
      { ids: [...], confirmShow: true }     take each file's guess
      { ids: [...], hold: { kind, id } }    or null to let go
      { ids: [...], used: true }

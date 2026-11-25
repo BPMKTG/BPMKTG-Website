@@ -3781,13 +3781,13 @@ is('clash: one client with two shows is still not ours',
    dayClash([clashShow('sean-comma'), clashShow('sean-comma')]), null);
 is('clash: two clients with a show the same night',
    dayClash([clashShow('sean-comma'), clashShow('mara-vale')]),
-   '2 clients have a show or release on this day');
+   '2 clients have a moment on this day');
 is('clash: a release counts as a night out too',
    dayClash([clashShow('sean-comma'), clashShow('mara-vale', 'Release')]),
-   '2 clients have a show or release on this day');
+   '2 clients have a moment on this day');
 is('clash: and so does a single drop, which is what Notion calls one',
    dayClash([clashShow('sean-comma', 'Single Drop'), clashShow('mara-vale', 'Release')]),
-   '2 clients have a show or release on this day');
+   '2 clients have a moment on this day');
 is('clash: two clients filming',
    dayClash([clashFilm('sean-comma'), clashFilm('mara-vale')]),
    '2 clients are filming on this day');
@@ -3798,10 +3798,10 @@ is('clash: one client filming is just a shoot',
    dayClash([clashFilm('sean-comma')]), null);
 is('clash: both at once says both',
    dayClash([clashShow('a'), clashShow('b'), clashFilm('c'), clashFilm('d')]),
-   '2 clients have a show or release, and 2 clients are filming on this day');
+   '2 clients have a moment, and 2 clients are filming on this day');
 is('clash: three clients with a show says three',
    dayClash([clashShow('a'), clashShow('b'), clashShow('c')]),
-   '3 clients have a show or release on this day');
+   '3 clients have a moment on this day');
 /* A film step is marked by the clapperboard as well as by Flow, and
    both have to count or the Film days layer and the clash marker
    would disagree about what a shoot is. */
@@ -5361,9 +5361,9 @@ section('Client types · moments');
      [isShowOrRelease({ momentType: 'Competition' }), isShowOrRelease({ momentType: 'Showcase' }), isShowOrRelease({ momentType: 'Camp' }), isShowOrRelease({ momentType: 'Show' }), isShowOrRelease({ momentType: 'Festival' })],
      [true, true, false, true, false]);
   is('clash: two artists the same night reads as it did',
-     dayClash([{ momentType: 'Show', clientSlug: 'a' }, { momentType: 'Release', clientSlug: 'b' }]), '2 clients have a show or release on this day');
-  is('clash: a competition and a show the same night is named for what it is',
-     dayClash([{ momentType: 'Show', clientSlug: 'a' }, { momentType: 'Competition', clientSlug: 'gym' }]), '2 clients have a show, release or competition on this day');
+     dayClash([{ momentType: 'Show', clientSlug: 'a' }, { momentType: 'Release', clientSlug: 'b' }]), '2 clients have a moment on this day');
+  is('clash: a competition and a show the same night are both moments',
+     dayClash([{ momentType: 'Show', clientSlug: 'a' }, { momentType: 'Competition', clientSlug: 'gym' }]), '2 clients have a moment on this day');
 }
 
 section('Client types · the two flows a gym has');

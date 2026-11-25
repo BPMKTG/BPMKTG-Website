@@ -1151,7 +1151,7 @@ export function createClientPlaybooks(host: ClientPlaybooksHost): { draw: (root:
     // What a playbook is for depends on what kind of client this is.
     // Absent means an artist's words, which are these.
     root.appendChild(el('p', 'pt-sub pt-pb-intro', host.intro?.()
-      ?? ('How we plan a release or a show, step by step: what happens, how far ahead, and whether it is yours or ours. '
+      ?? ('How we plan a moment, step by step: what happens, how far ahead, and whether it is yours or ours. '
       + 'Anything we have agreed to do differently for you is already in here.')));
 
     if (!playbooks) {
