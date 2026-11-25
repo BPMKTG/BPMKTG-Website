@@ -794,17 +794,28 @@ and a Source.
 | Source | Where | Kind | What the folders mean |
 |---|---|---|---|
 | Footage Drop | a folder of that name inside the Clients row's **Drive Folder** | Raw | `YYYY-MM-DD Event Name` gives the day and the show. Anything under `_IDS` is Unreleased. |
-| Finished Content | a folder of that name inside the same Drive Folder | Finished, source Blueprint | `YYYY/YYYY-MM/<show or release>/...` gives the month and the show. Deeper folders are filing: they are shown on the file and not used to name it. |
+| Finished Content | a folder of that name inside the same Drive Folder | Finished, source Blueprint | `YYYY/YYYY-MM/<show or release>/...` gives the month and the show. Older work filed as `YYYY/<show or release>/...` gives the year and the show. Deeper folders are filing: they are shown on the file and not used to name it. |
 | Archive | each link in the Clients row's **Archive Folders** | Raw, source Archive | Folders we do not own and cannot rename. Only a dated folder is trusted. |
 
 A file whose folders fit none of that is never left out. It keeps the
-name of the folder directly under the source (or under the year, in
-Finished Content) as a guess, and is listed in HQ under **Needs a
-show**, one line a guess, to confirm in bulk.
+name of the folder directly under the source as a guess, and is
+listed in HQ under **Needs a show**, one line a guess, to confirm in
+bulk. In Finished Content that is only a file with no folder to name
+it: one lying loose in a year or a month folder, or filed outside
+both.
+
+The rules for reading folders can change. A sync reads every known
+file's folders again, so a file logged under an older rule is put
+right by the next one. A show set by hand is never reopened.
 
 A file's date is the folder's day where its name has one. A folder
-that only names a month or a year is sharpened to the day the photo
-was taken when that day falls inside it. With no folder date it is
+that only names a month is sharpened to the day the photo was taken
+when that day falls inside it. A folder that only names a year is
+sharpened the same way, and failing that to the day Drive says the
+file was created, when that day is in the year. A date of the file's
+own that falls outside its folder's year is not believed over the
+folder: work filed under 2023 and uploaded in 2026 is from 2023, and
+shows as "2023". With no folder date it is
 the day the photo was taken, and failing that the earliest day Drive
 has for the file: Drive records when a video was put there, not when
 it was shot.

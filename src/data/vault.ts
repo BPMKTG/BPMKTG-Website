@@ -170,7 +170,9 @@ export interface Placement {
  *   Footage Drop       "YYYY-MM-DD Event Name" gives the day and the
  *                      show. Anything under _IDS is unreleased.
  *   Finished Content   YYYY/YYYY-MM/<show or release>/... gives the
- *                      month and the show. Deeper folders are filing.
+ *                      month and the show. Older work filed as
+ *                      YYYY/<show or release>/... gives the year and
+ *                      the show. Deeper folders are filing.
  *   Archive            folders we do not own and cannot rename, so
  *                      nothing is trusted but a dated folder.
  *
@@ -211,12 +213,16 @@ export function placeFile(root: VaultRoot, folders: readonly string[], rootName:
         ? { ...base, show, guess: null, needsShow: false, date: month }
         : { ...base, show: null, guess: null, needsShow: true, date: month };
     }
-    // A year and no month, which is how older work is filed: the
-    // folder under the year is very likely the show, and the year is
-    // at least the year.
+    // A year and no month, which is how older work is filed:
+    // YYYY/<show>/... The folder under the year is the show, and the
+    // year is the year. A file lying loose in a year folder has no
+    // folder to name it, so it is asked about.
     const year = real.findIndex((n) => yearFolder(n));
     if (year >= 0) {
-      return { ...base, show: null, guess: real[year + 1] ?? null, needsShow: true, date: yearFolder(real[year]) };
+      const show = real[year + 1] ?? null;
+      return show
+        ? { ...base, show, guess: null, needsShow: false, date: yearFolder(real[year]) }
+        : { ...base, show: null, guess: null, needsShow: true, date: yearFolder(real[year]) };
     }
   }
 
@@ -246,9 +252,14 @@ export type DateFrom = 'folder' | 'taken' | 'file';
 /**
  * A file's date, and where it came from.
  *
- * The folder's day wins. A folder that only names a month or a year
- * is sharpened to the day the photo was taken when that day is in
- * it, and left as the month or the year when it is not. With no folder
+ * The folder's day wins. A folder that only names a month is
+ * sharpened to the day the photo was taken when that day is in the
+ * month. A folder that only names a year is sharpened the same way,
+ * and failing that to the day Drive says the file was created (then
+ * the day it was last changed), when that day is in the year. A
+ * file's own date that falls outside its folder's month or year is
+ * not believed over the folder: work filed under 2023 and uploaded
+ * in 2026 is from 2023. With no folder
  * date it is the day the photo was taken, and failing that the
  * earliest day Drive has for the file: Drive records when a video
  * was put there, not when it was shot.
@@ -259,6 +270,10 @@ export function fileDate(
   const shot = exifDay(taken);
   if (folderDate) {
     if (folderDate.length < 10 && shot && shot.startsWith(folderDate)) return { date: shot, from: 'folder' };
+    if (folderDate.length === 4) {
+      const day = [isoDay(created), isoDay(modified)].find((d) => !!d && d.startsWith(folderDate));
+      if (day) return { date: day, from: 'folder' };
+    }
     return { date: folderDate, from: 'folder' };
   }
   if (shot) return { date: shot, from: 'taken' };

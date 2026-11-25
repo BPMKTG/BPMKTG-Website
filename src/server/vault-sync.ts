@@ -410,7 +410,12 @@ export async function syncClient(env: VaultEnv, record: ClientRecord, opts: Sync
       for (const f of seen.values()) {
         const row = index.get(f.id);
         if (!row) { added.push(f); continue; }
-        if (row.missing || row.name !== f.name || row.path !== f.path || row.root !== f.root || row.root_id !== f.rootId
+        // What the folders are read as now, against what was read
+        // before: the rules for reading them can change under a file
+        // that has not moved. A show set by hand is not reopened.
+        const reread = row.show_by !== 'hand' && ((row.show ?? null) !== f.show || (row.show_guess ?? null) !== f.guess
+          || !!row.needs_show !== f.needsShow || (row.date ?? null) !== f.date);
+        if (row.missing || reread || row.name !== f.name || row.path !== f.path || row.root !== f.root || row.root_id !== f.rootId
           || (row.size ?? null) !== (f.size ?? null) || (row.drive_modified ?? null) !== (f.modified ?? null)
           || (!row.width && f.width) || (!row.duration_ms && f.durationMs)) changed.push(f);
       }

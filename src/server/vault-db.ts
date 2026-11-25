@@ -256,6 +256,10 @@ export interface IndexRow {
   size: number | null;
   drive_modified: string | null;
   show_by: string | null;
+  show: string | null;
+  show_guess: string | null;
+  needs_show: number;
+  date: string | null;
   missing: number;
   thumb_key: string | null;
   width: number | null;
@@ -284,7 +288,8 @@ async function readAll<T extends { id: string }>(db: D1Like, sql: string, client
 
 export async function loadIndex(db: D1Like, client: string): Promise<Map<string, IndexRow>> {
   const rows = await readAll<IndexRow>(db,
-    `SELECT id, drive_id, name, path, root, root_id, size, drive_modified, show_by, missing, thumb_key, width, duration_ms
+    `SELECT id, drive_id, name, path, root, root_id, size, drive_modified, show_by, show, show_guess, needs_show, date,
+            missing, thumb_key, width, duration_ms
        FROM vault_files WHERE client = ?1`, client);
   return new Map(rows.map((r) => [r.id, r]));
 }

@@ -48,9 +48,13 @@ section('Vault · folders: the show, the date, unreleased');
      { kind: 'Finished', source: 'Blueprint', unreleased: false, show: 'Revival After Dark', guess: null, needsShow: false, date: '2026-11' });
   is('Finished Content: without the year folder it reads the same', placeFile('finished', ['2026-11', 'Revival After Dark', 'Photo']).show, 'Revival After Dark');
   is('Finished Content: a file loose in a month folder has the month and no show', [placeFile('finished', ['2026', '2026-11']).date, placeFile('finished', ['2026', '2026-11']).needsShow, placeFile('finished', ['2026', '2026-11']).guess], ['2026-11', true, null]);
-  is('Finished Content: a year and no month keeps the year and guesses the folder under it',
+  is('Finished Content: older work filed YYYY/<show>/... takes the year from the first folder and the show from the second',
      placeFile('finished', ['2023', 'Rebelz Showoffs 2023', 'Rebellion']),
-     { kind: 'Finished', source: 'Blueprint', unreleased: false, show: null, guess: 'Rebelz Showoffs 2023', needsShow: true, date: '2023' });
+     { kind: 'Finished', source: 'Blueprint', unreleased: false, show: 'Rebelz Showoffs 2023', guess: null, needsShow: false, date: '2023' });
+  is('Finished Content: however deep the filing under it goes', placeFile('finished', ['2025', 'Season 15 Cheer Pics', 'Lady Legacy', 'Addison Smith']).show, 'Season 15 Cheer Pics');
+  is('Finished Content: a file loose in a year folder has no folder to name it, so it is asked about', [placeFile('finished', ['2023']).needsShow, placeFile('finished', ['2023']).guess, placeFile('finished', ['2023']).date], [true, null, '2023']);
+  is('Finished Content: a month folder still wins over a year alone', [placeFile('finished', ['2026', '2026-11', 'Revival After Dark']).date, placeFile('finished', ['2026', '2026-11', 'Revival After Dark']).show], ['2026-11', 'Revival After Dark']);
+  is('the year shape is Finished Content’s: an Archive folder named for a year is still only a guess', [placeFile('archive', ['2023', 'Old shows']).needsShow, placeFile('archive', ['2023', 'Old shows']).guess], [true, 'Old shows']);
   is('Finished Content: a show folder that carries its own day gives the day', placeFile('finished', ['2026', '2026-11', '2026-11-15 Revival After Dark']), { kind: 'Finished', source: 'Blueprint', unreleased: false, show: 'Revival After Dark', guess: null, needsShow: false, date: '2026-11-15' });
 
   is('Archive: nothing is trusted but a dated folder, and the rest is a guess from the top folder',
@@ -63,7 +67,11 @@ section('Vault · folders: the show, the date, unreleased');
   is('date: a month is sharpened to the day it was taken when that day is in the month, and left alone when it is not',
      [fileDate('2026-11', '2026:11:15 22:00:00', null, null), fileDate('2026-11', '2026:10:31 22:00:00', null, null), fileDate('2026-11', null, '2026-11-20T00:00:00Z', null)],
      [{ date: '2026-11-15', from: 'folder' }, { date: '2026-11', from: 'folder' }, { date: '2026-11', from: 'folder' }]);
-  is('date: the same for a year', [fileDate('2023', '2023:05:04 10:00:00', null, null), fileDate('2023', '2026:01:01 10:00:00', null, null)], [{ date: '2023-05-04', from: 'folder' }, { date: '2023', from: 'folder' }]);
+  is('date: a year is sharpened by the day it was taken, then by the day Drive says it was created, then last changed',
+     [fileDate('2023', '2023:05:04 10:00:00', '2023-06-01T00:00:00Z', null), fileDate('2023', null, '2023-06-01T10:00:00Z', '2023-05-30T10:00:00Z'), fileDate('2023', null, '2026-03-01T10:00:00Z', '2023-05-30T10:00:00Z')],
+     [{ date: '2023-05-04', from: 'folder' }, { date: '2023-06-01', from: 'folder' }, { date: '2023-05-30', from: 'folder' }]);
+  is('date: a file’s own date outside its folder’s year is not believed over the folder', [fileDate('2023', '2026:01:01 10:00:00', '2026-03-01T10:00:00Z', '2026-03-01T10:00:00Z'), fileDate('2023', null, null, null)], [{ date: '2023', from: 'folder' }, { date: '2023', from: 'folder' }]);
+  is('date: a month is not sharpened by an upload day', fileDate('2026-11', null, '2026-11-20T00:00:00Z', '2026-11-20T00:00:00Z'), { date: '2026-11', from: 'folder' });
   is('date: with no folder date it is the day it was taken, then the earliest day Drive has for the file',
      [fileDate(null, '2026:11:15 22:00:00', '2026-11-20T00:00:00Z', null), fileDate(null, null, '2026-11-20T10:00:00Z', '2026-11-16T03:00:00Z'), fileDate(null, null, null, null)],
      [{ date: '2026-11-15', from: 'taken' }, { date: '2026-11-16', from: 'file' }, { date: null, from: null }]);
@@ -457,6 +465,15 @@ section('Vault · the sync');
   d.nodes.rawphoto0001.trashed = false;
   await withFetch(d, notion(), () => V.syncClient(env, record(), { now: 4_000_000 }));
   is('a file that comes back is found again', (await V.listFiles(db, SEAN, { admin: true })).find((f) => f.name === 'DSC0001.jpg').missing, false);
+
+  // the rules changing under a file that has not moved
+  await db.prepare(`UPDATE vault_files SET show = NULL, show_guess = 'Revival After Dark', needs_show = 1, show_by = NULL WHERE name = 'DSC06286.jpg'`).run();
+  await db.prepare(`UPDATE vault_files SET show = 'Typed by hand', show_by = 'hand' WHERE name = 'flyer.png'`).run();
+  const reread = await withFetch(d, notion(), () => V.syncClient(env, record(), { now: 4_500_000 }));
+  const fixed = await V.listFiles(db, SEAN, { admin: true });
+  is('a file logged under an older reading of its folders is read again by the next sync, and one whose show was set by hand is left alone',
+     [fixed.find((f) => f.name === 'DSC06286.jpg').show, !!fixed.find((f) => f.name === 'DSC06286.jpg').needsShow, fixed.find((f) => f.name === 'flyer.png').show, reread.status.added],
+     ['Revival After Dark', false, 'Typed by hand', 0]);
 
   // a folder that will not list is never read as an empty folder
   d.state.failList = ['CAMBFOLDER01'];
